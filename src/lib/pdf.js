@@ -20,7 +20,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
 
   var logoBase64 = null;
   try {
-    var logoUrl = "/logo.jpg";
+    var logoUrl = "/Logo.jpg";
     var resp = await fetch(logoUrl);
     var blob = await resp.blob();
     logoBase64 = await new Promise(function(res) {
