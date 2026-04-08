@@ -32,7 +32,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
     // Watermark - logo grande centralizada e transparente
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({ opacity: 0.05 }));
-    doc.addImage(logoBase64, "JPEG", pageW / 2 - 35, pageH / 2 - 62, 70, 125);
+    doc.addImage(logoBase64, "JPEG", pageW / 2 - 70, pageH / 2 - 125, 140, 250);
     doc.restoreGraphicsState();
 
     // Header logo - proporcional (a logo original eh mais larga que alta)
