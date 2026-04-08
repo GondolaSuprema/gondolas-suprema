@@ -1,0 +1,842 @@
+import { useState, useEffect } from "react";
+import { sharePDFWhatsApp } from "../lib/pdf";
+
+const COLORS = {
+  bg: "#0A0E18",
+  surface: "#111728",
+  card: "#151B2D",
+  border: "#1D2540",
+  accent: "#F5A623",
+  accentHover: "#FFBD4A",
+  text: "#E8ECF4",
+  textMuted: "#7A849B",
+  textDim: "#4A526A",
+  success: "#34D399",
+  danger: "#F87171",
+  white: "#FFFFFF",
+  orange: "#F5A623",
+};
+
+const CATEGORIES = [
+  { key: "all", label: "Todos" },
+  { key: "gondola-fit40-parede", label: "Fit 40 Parede" },
+  { key: "gondola-fit40-centro", label: "Fit 40 Centro" },
+  { key: "gondola-fit60-parede", label: "Fit 60 Parede" },
+  { key: "gondola-fit60-centro", label: "Fit 60 Centro" },
+  { key: "farmacia", label: "Farmácia" },
+  { key: "mpp-slim", label: "MPP Slim" },
+  { key: "mpp", label: "MPP" },
+  { key: "pp", label: "PP" },
+  { key: "aramados", label: "Aramados" },
+  { key: "balcoes", label: "Balcões" },
+  { key: "checkout", label: "CheckOut" },
+  { key: "estantes", label: "Estantes" },
+  { key: "arquivos", label: "Arquivos" },
+  { key: "acessorios-fit40", label: "Acess. Fit 40" },
+  { key: "acessorios-fit60", label: "Acess. Fit 60" },
+  { key: "acessorios-farmacia", label: "Acess. Farmácia" },
+];
+
+const PRODUCTS = [
+  // ── FIT 40 PAREDE ──
+  { id: 1, name: "Gôndola Inicial de Parede", category: "gondola-fit40-parede", icon: "🏪", price: 0, specs: { larguraBandeja: "0,90m", larguraTotal: "0,96m", profBase: "0,40m", profBandeja: "0,30m | 0,40m", capacidade: "40kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  { id: 2, name: "Gôndola Continuação de Parede", category: "gondola-fit40-parede", icon: "🏪", price: 0, specs: { larguraBandeja: "0,90m", larguraTotal: "0,93m", profBase: "0,40m", profBandeja: "0,30m | 0,40m", capacidade: "40kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  { id: 3, name: "Gôndola de Canto", category: "gondola-fit40-parede", icon: "📐", price: 0, specs: { larguraBandeja: "0,69m", larguraTotal: "0,69m", profBase: "0,40m", profBandeja: "0,30m | 0,40m", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  // ── FIT 40 CENTRO ──
+  { id: 4, name: "Gôndola Inicial de Centro", category: "gondola-fit40-centro", icon: "🏬", price: 0, specs: { larguraBandeja: "0,90m", larguraTotal: "0,96m", profBase: "0,40m", profBandeja: "0,30m | 0,40m", capacidade: "40kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  { id: 5, name: "Gôndola Continuação de Centro", category: "gondola-fit40-centro", icon: "🏬", price: 0, specs: { larguraBandeja: "0,90m", larguraTotal: "0,96m", profBase: "0,40m", profBandeja: "0,30m | 0,40m", capacidade: "40kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  { id: 6, name: "Gôndola de Ponta", category: "gondola-fit40-centro", icon: "▶️", price: 0, specs: { larguraBandeja: "0,78m", larguraTotal: "0,84m | 0,96m", profBase: "0,40m", profBandeja: "0,30m | 0,40m", capacidade: "40kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  { id: 7, name: "Gôndola de Ponta Podium", category: "gondola-fit40-centro", icon: "🏆", price: 0, specs: { larguraBandeja: "0,78m", larguraTotal: "0,84m", profBase: "0,50m", profBandeja: "0,30m", capacidade: "40kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  // ── FIT 60 PAREDE ──
+  { id: 8, name: "Gôndola Inicial de Parede", category: "gondola-fit60-parede", icon: "🏪", price: 0, specs: { larguraBandeja: "0,90m", larguraTotalInicial: "0,96m", larguraTotalCont: "0,93m", profBase: "0,40m | 0,50m", profBandeja: "0,30m | 0,35m | 0,40m", capacidade: "60kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  { id: 9, name: "Gôndola Continuação de Parede", category: "gondola-fit60-parede", icon: "🏪", price: 0, specs: { larguraBandeja: "0,90m", larguraTotalInicial: "0,96m", larguraTotalCont: "0,93m", profBase: "0,40m | 0,50m", profBandeja: "0,30m | 0,35m | 0,40m", capacidade: "60kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  { id: 10, name: "Gôndola de Canto", category: "gondola-fit60-parede", icon: "📐", price: 0, specs: { larguraBandeja: "0,69m", larguraTotal: "0,69m", profBase: "0,40m | 0,50m", profBandeja: "0,30m | 0,35m | 0,40m", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  // ── FIT 60 CENTRO ──
+  { id: 11, name: "Gôndola Inicial de Centro", category: "gondola-fit60-centro", icon: "🏬", price: 0, specs: { larguraBandeja: "0,90m", larguraTotalInicial: "0,96m", larguraTotalCont: "0,93m", profBase: "0,40m | 0,50m", profBandeja: "0,30m | 0,35m | 0,40m", capacidade: "60kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  { id: 12, name: "Gôndola Continuação de Centro", category: "gondola-fit60-centro", icon: "🏬", price: 0, specs: { larguraBandeja: "0,90m", larguraTotalInicial: "0,96m", larguraTotalCont: "0,93m", profBase: "0,40m | 0,50m", profBandeja: "0,30m | 0,35m | 0,40m", capacidade: "60kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  { id: 13, name: "Gôndola de Ponta Podium", category: "gondola-fit60-centro", icon: "🏆", price: 0, specs: { larguraBandeja: "0,78m | 0,98m", larguraTotal: "0,84m | 1,04m", profBase: "0,50m | 0,60m", profBandeja: "0,30m | 0,35m | 0,40m", capacidade: "60kg/bandeja", cores: "Branca e Preta" },
+    options: [{ label: "1,37m", price: 0 }, { label: "1,70m", price: 0 }, { label: "2,02m", price: 0 }] },
+  // ── FARMÁCIA ──
+  { id: 14, name: "Gôndola Inicial de Parede", category: "farmacia", icon: "💊", price: 0, specs: { altura: "2,02m", larguraBandeja: "0,90m", larguraTotalInicial: "0,96m", larguraTotalCont: "0,93m", profBase: "0,30m", profBandeja: "0,25m", capacidade: "40kg/bandeja", cores: "Branca e Preta" }, options: [] },
+  { id: 15, name: "Gôndola Continuação de Parede", category: "farmacia", icon: "💊", price: 0, specs: { altura: "2,02m", larguraBandeja: "0,90m", larguraTotalInicial: "0,96m", larguraTotalCont: "0,93m", profBase: "0,30m", profBandeja: "0,25m", capacidade: "40kg/bandeja", cores: "Branca e Preta" }, options: [] },
+  { id: 16, name: "Gôndola Inicial de Parede Iluminada", category: "farmacia", icon: "💡", price: 0, specs: { altura: "2,20m", cores: "Branca e Preta" }, options: [] },
+  { id: 17, name: "Gôndola Continuação de Parede Iluminada", category: "farmacia", icon: "💡", price: 0, specs: { altura: "2,20m", cores: "Branca e Preta" }, options: [] },
+  { id: 18, name: "Gôndola Inicial de Centro", category: "farmacia", icon: "💊", price: 0, specs: { altura: "1,40m", cores: "Branca e Preta" }, options: [] },
+  { id: 19, name: "Gôndola Continuação de Centro", category: "farmacia", icon: "💊", price: 0, specs: { altura: "1,40m", cores: "Branca e Preta" }, options: [] },
+  { id: 20, name: "Gôndola de Canto", category: "farmacia", icon: "📐", price: 0, specs: { altura: "2,20m", cores: "Branca e Preta" }, options: [] },
+  { id: 21, name: "Gôndola de Canto Iluminada", category: "farmacia", icon: "💡", price: 0, specs: { altura: "2,20m", cores: "Branca e Preta" }, options: [] },
+  { id: 22, name: "Ponta de Gôndola c/ Podium", category: "farmacia", icon: "🏆", price: 0, specs: { altura: "1,40m", cores: "Branca e Preta" }, options: [] },
+  { id: 23, name: "Ponta de Gôndola s/ Podium", category: "farmacia", icon: "▶️", price: 0, specs: { altura: "1,40m", cores: "Branca e Preta" }, options: [] },
+  // ── MPP SLIM ──
+  { id: 24, name: "Par de Longarina 1200mm", category: "mpp-slim", icon: "🔩", price: 0, specs: { capacidade: "250kg/nível", largura: "1200mm" }, options: [] },
+  { id: 25, name: "Par de Longarina 1800mm", category: "mpp-slim", icon: "🔩", price: 0, specs: { capacidade: "250kg/nível", largura: "1800mm" }, options: [] },
+  { id: 26, name: "Montante 600x2000", category: "mpp-slim", icon: "📏", price: 0, specs: { dimensao: "600x2000mm" }, options: [] },
+  { id: 27, name: "Plano Metálico 1200x600", category: "mpp-slim", icon: "🗄️", price: 0, specs: { dimensao: "1200x600mm", tipo: "Metálico" }, options: [] },
+  { id: 28, name: "Plano Metálico 1800x600", category: "mpp-slim", icon: "🗄️", price: 0, specs: { dimensao: "1800x600mm", tipo: "Metálico" }, options: [] },
+  { id: 29, name: "Plano MDF 1200x600", category: "mpp-slim", icon: "🪵", price: 0, specs: { dimensao: "1200x600mm", tipo: "MDF" }, options: [] },
+  { id: 30, name: "Plano MDF 1800x600", category: "mpp-slim", icon: "🪵", price: 0, specs: { dimensao: "1800x600mm", tipo: "MDF" }, options: [] },
+  // ── MPP ──
+  { id: 31, name: "Par de Longarina 1200mm", category: "mpp", icon: "🔩", price: 0, specs: { capacidade: "500kg/nível", largura: "1200mm" }, options: [] },
+  { id: 32, name: "Par de Longarina 1800mm", category: "mpp", icon: "🔩", price: 0, specs: { capacidade: "500kg/nível", largura: "1800mm" }, options: [] },
+  { id: 33, name: "Montante 600x2000", category: "mpp", icon: "📏", price: 0, specs: { dimensao: "600x2000mm" }, options: [] },
+  { id: 34, name: "Montante 800x2000", category: "mpp", icon: "📏", price: 0, specs: { dimensao: "800x2000mm" }, options: [] },
+  { id: 35, name: "Montante 800x3000", category: "mpp", icon: "📏", price: 0, specs: { dimensao: "800x3000mm" }, options: [] },
+  { id: 36, name: "Transversina 600mm", category: "mpp", icon: "➖", price: 0, specs: { dimensao: "600mm" }, options: [] },
+  { id: 37, name: "Transversina 800mm", category: "mpp", icon: "➖", price: 0, specs: { dimensao: "800mm" }, options: [] },
+  { id: 38, name: "Plano Metálico 1200x600", category: "mpp", icon: "🗄️", price: 0, specs: { dimensao: "1200x600mm" }, options: [] },
+  { id: 39, name: "Plano Metálico 1200x800", category: "mpp", icon: "🗄️", price: 0, specs: { dimensao: "1200x800mm" }, options: [] },
+  { id: 40, name: "Plano Metálico 1800x600", category: "mpp", icon: "🗄️", price: 0, specs: { dimensao: "1800x600mm" }, options: [] },
+  { id: 41, name: "Plano Metálico 1800x800", category: "mpp", icon: "🗄️", price: 0, specs: { dimensao: "1800x800mm" }, options: [] },
+  { id: 42, name: "Plano MDF 1200x600", category: "mpp", icon: "🪵", price: 0, specs: { dimensao: "1200x600mm" }, options: [] },
+  { id: 43, name: "Plano MDF 1200x800", category: "mpp", icon: "🪵", price: 0, specs: { dimensao: "1200x800mm" }, options: [] },
+  { id: 44, name: "Plano MDF 1800x600", category: "mpp", icon: "🪵", price: 0, specs: { dimensao: "1800x600mm" }, options: [] },
+  { id: 45, name: "Plano MDF 1800x800", category: "mpp", icon: "🪵", price: 0, specs: { dimensao: "1800x800mm" }, options: [] },
+  // ── PP (Porta Palete) ──
+  { id: 46, name: "Par de Longarina 2300mm p/1000kg", category: "pp", icon: "🏗️", price: 0, specs: { capacidade: "1000kg/nível", largura: "2300mm" }, options: [] },
+  { id: 47, name: "Par de Longarina 2300mm p/1800kg", category: "pp", icon: "🏗️", price: 0, specs: { capacidade: "1800kg/nível", largura: "2300mm" }, options: [] },
+  { id: 48, name: "Par de Longarina 2300mm p/2200kg", category: "pp", icon: "🏗️", price: 0, specs: { capacidade: "2200kg/nível", largura: "2300mm" }, options: [] },
+  { id: 49, name: "Par de Longarina 2300mm p/2400kg", category: "pp", icon: "🏗️", price: 0, specs: { capacidade: "2400kg/nível", largura: "2300mm" }, options: [] },
+  { id: 50, name: "Montante 1000x2000mm", category: "pp", icon: "📏", price: 0, specs: { dimensao: "1000x2000mm" }, options: [] },
+  { id: 51, name: "Montante 1000x3000mm", category: "pp", icon: "📏", price: 0, specs: { dimensao: "1000x3000mm" }, options: [] },
+  { id: 52, name: "Montante 1000x4000mm", category: "pp", icon: "📏", price: 0, specs: { dimensao: "1000x4000mm" }, options: [] },
+  { id: 53, name: "Montante 1000x5000mm", category: "pp", icon: "📏", price: 0, specs: { dimensao: "1000x5000mm" }, options: [] },
+  { id: 54, name: "Transversina p/ 200kg", category: "pp", icon: "➖", price: 0, specs: { capacidade: "200kg" }, options: [] },
+  { id: 55, name: "Protetor de Canto 350mm", category: "pp", icon: "🛡️", price: 0, specs: { tipo: "Canto 350mm" }, options: [] },
+  { id: 56, name: "Caneleira 720mm", category: "pp", icon: "🛡️", price: 0, specs: { tipo: "Caneleira 720mm" }, options: [] },
+  { id: 57, name: "GuardRail Simples", category: "pp", icon: "🛡️", price: 0, specs: { tipo: "Simples" }, options: [] },
+  { id: 58, name: "GuardRail Duplo", category: "pp", icon: "🛡️", price: 0, specs: { tipo: "Duplo" }, options: [] },
+  // ── ARAMADOS ──
+  { id: 59, name: "Banca de Ofertas", category: "aramados", icon: "🛒", price: 0, specs: {}, options: [] },
+  { id: 60, name: "Cesto", category: "aramados", icon: "🧺", price: 0, specs: {}, options: [] },
+  { id: 61, name: "Cesto p/ Mercado", category: "aramados", icon: "🛒", price: 0, specs: {}, options: [] },
+  { id: 62, name: "Cesto Empilhável Pequeno", category: "aramados", icon: "📦", price: 0, specs: {}, options: [] },
+  { id: 63, name: "Cesto Empilhável Grande", category: "aramados", icon: "📦", price: 0, specs: {}, options: [] },
+  { id: 64, name: "Check Stand", category: "aramados", icon: "🏪", price: 0, specs: {}, options: [] },
+  { id: 65, name: "Araras", category: "aramados", icon: "👕", price: 0, specs: {}, options: [] },
+  { id: 66, name: "Expositor de Revistas", category: "aramados", icon: "📰", price: 0, specs: {}, options: [] },
+  { id: 67, name: "Expositor com Ganchos", category: "aramados", icon: "🪝", price: 0, specs: {}, options: [] },
+  { id: 68, name: "Expositor de Tecidos", category: "aramados", icon: "🧵", price: 0, specs: {}, options: [] },
+  { id: 69, name: "Expositor de Salgadinhos", category: "aramados", icon: "🍿", price: 0, specs: {}, options: [] },
+  // ── BALCÕES ──
+  { id: 70, name: "Balcão Caixa em Aço", category: "balcoes", icon: "🏧", price: 0, specs: { material: "Aço" }, options: [] },
+  { id: 71, name: "Balcão de Atendimento em Aço", category: "balcoes", icon: "🏧", price: 0, specs: { material: "Aço" }, options: [] },
+  { id: 72, name: "Balcão Fechado em Aço", category: "balcoes", icon: "🏧", price: 0, specs: { material: "Aço" }, options: [] },
+  { id: 73, name: "Balcão de Atendimento em MDF", category: "balcoes", icon: "🪵", price: 0, specs: { material: "MDF" }, options: [] },
+  { id: 74, name: "Balcão em L em MDF", category: "balcoes", icon: "🪵", price: 0, specs: { material: "MDF" }, options: [] },
+  { id: 75, name: "Balcão em MDF e Vidros", category: "balcoes", icon: "🪟", price: 0, specs: { material: "MDF + Vidro" }, options: [] },
+  // ── CHECKOUT ──
+  { id: 76, name: "CheckOut 1,50m", category: "checkout", icon: "💳", price: 0, specs: { tamanho: "1,50m", cores: "Preto e Branco", obs: "Recorte para balança" }, options: [] },
+  { id: 77, name: "CheckOut 2,00m", category: "checkout", icon: "💳", price: 0, specs: { tamanho: "2,00m", cores: "Preto e Branco", obs: "Recorte para balança" }, options: [] },
+  { id: 78, name: "CheckOut Imp 1500x1050mm", category: "checkout", icon: "💳", price: 0, specs: { tamanho: "1500x1050mm", cores: "Preto e Branco" }, options: [] },
+  { id: 79, name: "CheckOut Express", category: "checkout", icon: "⚡", price: 0, specs: { cores: "Preto e Branco" }, options: [] },
+  { id: 80, name: "Stand Attractive", category: "checkout", icon: "🏪", price: 0, specs: { cores: "Preto e Branco" }, options: [] },
+  // ── ESTANTES ──
+  { id: 81, name: "Estante Pesada 40cm", category: "estantes", icon: "🗄️", price: 0, specs: { profundidade: "40cm", tipo: "Pesada" }, options: [] },
+  { id: 82, name: "Estante Pesada 50cm", category: "estantes", icon: "🗄️", price: 0, specs: { profundidade: "50cm", tipo: "Pesada" }, options: [] },
+  { id: 83, name: "Estante Pesada 60cm", category: "estantes", icon: "🗄️", price: 0, specs: { profundidade: "60cm", tipo: "Pesada" }, options: [] },
+  { id: 84, name: "Estante Leve - Prateleira Fácil 30cm", category: "estantes", icon: "📚", price: 0, specs: { profundidade: "30cm", tipo: "Leve" }, options: [] },
+  { id: 85, name: "Estante Leve - Prateleira Fácil 40cm", category: "estantes", icon: "📚", price: 0, specs: { profundidade: "40cm", tipo: "Leve" }, options: [] },
+  { id: 86, name: "Bandeja Leve 920x300", category: "estantes", icon: "➖", price: 0, specs: { dimensao: "920x300mm" }, options: [] },
+  { id: 87, name: "Bandeja Leve 920x400", category: "estantes", icon: "➖", price: 0, specs: { dimensao: "920x400mm" }, options: [] },
+  { id: 88, name: "Bandeja Pesada 920x400", category: "estantes", icon: "➖", price: 0, specs: { dimensao: "920x400mm" }, options: [] },
+  { id: 89, name: "Bandeja Pesada Dupla 920x400", category: "estantes", icon: "➖", price: 0, specs: { dimensao: "920x400mm" }, options: [] },
+  { id: 90, name: "Bandeja Pesada Dupla 920x600", category: "estantes", icon: "➖", price: 0, specs: { dimensao: "920x600mm" }, options: [] },
+  // ── ARQUIVOS ──
+  { id: 91, name: "Arquivo 02 Gavetas Longo", category: "arquivos", icon: "🗃️", price: 0, specs: {}, options: [] },
+  { id: 92, name: "Arquivo 02 Gavetas Curto", category: "arquivos", icon: "🗃️", price: 0, specs: {}, options: [] },
+  { id: 93, name: "Arquivo 04 Gavetas Longo", category: "arquivos", icon: "🗃️", price: 0, specs: {}, options: [] },
+  { id: 94, name: "Arquivo 04 Gavetas Curto", category: "arquivos", icon: "🗃️", price: 0, specs: {}, options: [] },
+  { id: 95, name: "Arquivo c/ Carrilhão 04 Gavetas", category: "arquivos", icon: "🗃️", price: 0, specs: {}, options: [] },
+  { id: 96, name: "Armário PA 120 (1,98x1,20x0,40)", category: "arquivos", icon: "🚪", price: 0, specs: { dimensao: "1,98x1,20x0,40m" }, options: [] },
+  { id: 97, name: "Armário PA 90 (1,98x0,90x0,40)", category: "arquivos", icon: "🚪", price: 0, specs: { dimensao: "1,98x0,90x0,40m" }, options: [] },
+  { id: 98, name: "Armário PA 17 (1,70x0,71x0,33)", category: "arquivos", icon: "🚪", price: 0, specs: { dimensao: "1,70x0,71x0,33m" }, options: [] },
+  { id: 99, name: "Armário PA 15 (1,50x0,71x0,33)", category: "arquivos", icon: "🚪", price: 0, specs: { dimensao: "1,50x0,71x0,33m" }, options: [] },
+  { id: 100, name: "Armário PA 50 (0,71x0,71x0,33)", category: "arquivos", icon: "🚪", price: 0, specs: { dimensao: "0,71x0,71x0,33m" }, options: [] },
+  { id: 101, name: "Roupeiro 01PG", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "1 Grande" }, options: [] },
+  { id: 102, name: "Roupeiro 02PG", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "2 Grandes" }, options: [] },
+  { id: 103, name: "Roupeiro 04PG", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "4 Grandes" }, options: [] },
+  { id: 104, name: "Roupeiro 04PP", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "4 Pequenas" }, options: [] },
+  { id: 105, name: "Roupeiro 06PG", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "6 Grandes" }, options: [] },
+  { id: 106, name: "Roupeiro 08PG", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "8 Grandes" }, options: [] },
+  { id: 107, name: "Roupeiro 08PP", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "8 Pequenas" }, options: [] },
+  { id: 108, name: "Roupeiro 12PP", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "12 Pequenas" }, options: [] },
+  { id: 109, name: "Roupeiro 16PP", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "16 Pequenas" }, options: [] },
+  { id: 110, name: "Roupeiro 20PP", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "20 Pequenas" }, options: [] },
+  { id: 111, name: "Roupeiro Insalubre 02PG", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "2 Grandes", tipo: "Insalubre" }, options: [] },
+  { id: 112, name: "Roupeiro Insalubre 04PG", category: "arquivos", icon: "🔒", price: 0, specs: { portas: "4 Grandes", tipo: "Insalubre" }, options: [] },
+  // ── ACESSÓRIOS FIT 40 ──
+  { id: 113, name: "Pé p/ Centro", category: "acessorios-fit40", icon: "🦶", price: 0, specs: {}, options: [] },
+  { id: 114, name: "SLG", category: "acessorios-fit40", icon: "🔧", price: 0, specs: {}, options: [] },
+  { id: 115, name: "Coluna Base 40cm", category: "acessorios-fit40", icon: "📏", price: 0, specs: {}, options: [] },
+  { id: 116, name: "Bandeja", category: "acessorios-fit40", icon: "📋", price: 0, specs: {}, options: [] },
+  { id: 117, name: "Bandeja p/ Ponta", category: "acessorios-fit40", icon: "📋", price: 0, specs: {}, options: [] },
+  { id: 118, name: "Painel", category: "acessorios-fit40", icon: "🖼️", price: 0, specs: {}, options: [] },
+  { id: 119, name: "Podium", category: "acessorios-fit40", icon: "🏆", price: 0, specs: {}, options: [] },
+  { id: 120, name: "Gancho Simples 25cm", category: "acessorios-fit40", icon: "🪝", price: 0, specs: {}, options: [] },
+  { id: 121, name: "Aparador U p/ Ponta", category: "acessorios-fit40", icon: "🔧", price: 0, specs: {}, options: [] },
+  { id: 122, name: "Cesto 2 Divisórias", category: "acessorios-fit40", icon: "🧺", price: 0, specs: {}, options: [] },
+  { id: 123, name: "Divisórias", category: "acessorios-fit40", icon: "📐", price: 0, specs: {}, options: [] },
+  { id: 124, name: "Gancho Duplo 25cm", category: "acessorios-fit40", icon: "🪝", price: 0, specs: {}, options: [] },
+  { id: 125, name: "Arco Vassoureiro", category: "acessorios-fit40", icon: "🧹", price: 0, specs: {}, options: [] },
+  { id: 126, name: "Gancho Vassoureiro", category: "acessorios-fit40", icon: "🧹", price: 0, specs: {}, options: [] },
+  { id: 127, name: "Régua p/ Gôndola", category: "acessorios-fit40", icon: "📏", price: 0, specs: {}, options: [] },
+  // ── ACESSÓRIOS FIT 60 ──
+  { id: 128, name: "Coluna T 50cm", category: "acessorios-fit60", icon: "📏", price: 0, specs: {}, options: [] },
+  { id: 129, name: "SLG", category: "acessorios-fit60", icon: "🔧", price: 0, specs: {}, options: [] },
+  { id: 130, name: "Coluna 50cm", category: "acessorios-fit60", icon: "📏", price: 0, specs: {}, options: [] },
+  { id: 131, name: "Bandeja", category: "acessorios-fit60", icon: "📋", price: 0, specs: {}, options: [] },
+  { id: 132, name: "Quadro Coluna Ponta", category: "acessorios-fit60", icon: "🖼️", price: 0, specs: {}, options: [] },
+  { id: 133, name: "Painel Chapa Un", category: "acessorios-fit60", icon: "🖼️", price: 0, specs: {}, options: [] },
+  { id: 134, name: "Podium p/ Ponta", category: "acessorios-fit60", icon: "🏆", price: 0, specs: {}, options: [] },
+  { id: 135, name: "Bandeja p/ Canto", category: "acessorios-fit60", icon: "📋", price: 0, specs: {}, options: [] },
+  { id: 136, name: "Cesto c/ 2 Divisórias", category: "acessorios-fit60", icon: "🧺", price: 0, specs: {}, options: [] },
+  { id: 137, name: "Divisória", category: "acessorios-fit60", icon: "📐", price: 0, specs: {}, options: [] },
+  { id: 138, name: "Aparador", category: "acessorios-fit60", icon: "🔧", price: 0, specs: {}, options: [] },
+  { id: 139, name: "Régua", category: "acessorios-fit60", icon: "📏", price: 0, specs: {}, options: [] },
+  { id: 140, name: "Gancho Simples", category: "acessorios-fit60", icon: "🪝", price: 0, specs: {}, options: [] },
+  { id: 141, name: "Gancho Duplo 40cm", category: "acessorios-fit60", icon: "🪝", price: 0, specs: {}, options: [] },
+  { id: 142, name: "Gancho Vassoureiro", category: "acessorios-fit60", icon: "🧹", price: 0, specs: {}, options: [] },
+  // ── ACESSÓRIOS FARMÁCIA ──
+  { id: 143, name: "Podium Farmácia", category: "acessorios-farmacia", icon: "🏆", price: 0, specs: {}, options: [] },
+  { id: 144, name: "SLG 25", category: "acessorios-farmacia", icon: "🔧", price: 0, specs: {}, options: [] },
+  { id: 145, name: "Bandeja Avulsa", category: "acessorios-farmacia", icon: "📋", price: 0, specs: {}, options: [] },
+  { id: 146, name: "Painel Un", category: "acessorios-farmacia", icon: "🖼️", price: 0, specs: {}, options: [] },
+  { id: 147, name: "Testeira (Chapéu)", category: "acessorios-farmacia", icon: "🎩", price: 0, specs: {}, options: [] },
+  { id: 148, name: "Testeira Iluminada", category: "acessorios-farmacia", icon: "💡", price: 0, specs: {}, options: [] },
+];
+
+const fmt = (v) => v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const genId = () => Math.random().toString(36).substr(2, 9);
+const catLabel = (key) => CATEGORIES.find(c => c.key === key)?.label || key;
+
+const LOGO_B64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCABkAGQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD02iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAOnWikYAqQeh4NZ+n3RV2tJ2+eNioY9/T9KynVUJJS6lRg5JtdDRooorUkKKKKACjPOO9Q3VzHawtJIcBRTLESNH58/wDrJecf3R2FZ+1TnyIrl0uWaKKK0JCiiigAooooARhkVzesR3Mdz9qt2PHDptyGHrXS1BcxB4mwQGxwSM4/Csq1KNWPLJFwm4O6Oci8UwWpEd06rx0LZH4Z5ra0/W9P1EH7NOCVGSDxj8elcvqMeqW0pa3s4bkf3vLAasHUNU1VCBPYXLj/AJ5FXCf+O9a4qNPFU9Iq682jaboy3dn8z09b21ZmVJ42KfeCnOKpXGuWsTFQ65HXnJ/L/GvMLvxDdtEkCIIo1+/FFGUC/wCfpVvSLuGaRQbS3lkJGFlMjk/h0rWpDGSW1vS3+ZEXQW7OvF1/amoIzHFrEcgZzub+p9q6dPuDgj2NZemWkgZZZgilRhVQYVB7CtarwtGVOL5t2KrNStYKKKK6jIKKKKACiiigCG7u7eygM11KscYIGT6noKjtNQs74SfZp1fy/vjBBX6g1n+JXEa6WWIC/wBoRZJOMdaxdQ1K7gbXmb7OLiO1iImhzwpYgA5JHAzVJXJbsdTZ3dlqEbPaSJKqNtJA6Gpmt4mGCgrjbu4n0f8AtaG1vJHEdgkyuWDFW3beD9Kmv7u80ltSjivriXbpn2hTK+4q+7GR6UcvYOY1J9E0afUPJkiT7SU83aBzjOM/nV2Kw07TIHlWKOKONS7NjAAHU1y0huNMvb2VL6a4mXRnmWSR9xU7h0ome6tkubZ9QnuorjR5Z2Er7sMMcj06mnZ9xXO2hkSWFJYjlHUMp9QeRT64nUNRu20+G3sRMjWenR3EkiXHl9V44wd2NtGoaneqy3jXkzW8NtBJKtvMqtEWGSWUj5s0uUfMdtRSAhgCOh5pakoKKKKACiiigCC7tIL2AwXUSyxt1VhkGqbabY2GnTx2tlAqSD5kC4D/AFrTqK5h8+Ex72TJBDKeRg5pSvytIatfUybGx0mOye3FpaBZ8+asK/K23nBq3IunzXDeZCGeaNYmYrxtPIUn8elB0pDlvNfzGLFn4ycgA+3QCmxaaRcuzPiIMjIg/wBkYBJrC9Yu0CtaWuj2MUq2mn7Fmyr7IvvqP/ZeaSO00Sw8+CCwCiZSkmyL747r/wDWq8dMiBgKMymFNikdcVItjGrblJzvZ+fVhg017bq+wvcKF3p+jXs8AubJJGMYWMmPgL2HtU9xoOl3NzHcTWUTyRgKpK9AOg/CnJpUSTpIHb5Npx67Rgc1oVpTdT7ZMlHoFFFFWIKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBaKKKAP/2Q==";
+
+const COMPANY = {
+  razao: "Gôndolas Suprema",
+  cnpj: "46.996.687/0001-68",
+  endereco: "R. José Cosme Pamplona, 1700 — Palhoça/SC",
+  telefone: "(48) 98874-1847",
+  site: "www.gondolasuprema.com",
+};
+
+const pdfStyles = `@page{size:A4;margin:20mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Helvetica,Arial,sans-serif;padding:36px;color:#1a1a1a;max-width:800px;margin:auto;position:relative}.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.06;z-index:0;pointer-events:none;width:400px;height:auto}.content{position:relative;z-index:1}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F5A623;padding-bottom:18px;margin-bottom:24px}.logo-area{display:flex;align-items:center;gap:12px}.logo-area img{height:60px}.logo-text{font-size:10px;color:#666;line-height:1.5;margin-top:4px}.info{text-align:right;font-size:11px;color:#666;line-height:1.6}table{width:100%;border-collapse:collapse;margin:12px 0}th{background:#f5f5f5;text-align:left;padding:8px 10px;font-size:11px;border-bottom:2px solid #ddd;color:#555;text-transform:uppercase;letter-spacing:.5px}td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px}.tr td{font-weight:700;font-size:14px;border-top:2px solid #333;border-bottom:none;padding-top:12px}.n{background:#fafafa;padding:14px;border-radius:6px;margin:16px 0;font-size:12px;color:#555}.ft{margin-top:32px;padding-top:12px;border-top:1px solid #eee;font-size:10px;color:#999;text-align:center}@media print{body{padding:0}.watermark{position:fixed;opacity:0.06}}`;
+
+function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, notes }) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orçamento Gôndolas Suprema</title><style>${pdfStyles}</style></head><body>
+<img class="watermark" src="${LOGO_B64}" alt=""/>
+<div class="content">
+<div class="hdr">
+  <div><div class="logo-area"><img src="${LOGO_B64}" alt="Logo"/></div>
+  <div class="logo-text">${COMPANY.razao}<br>CNPJ: ${COMPANY.cnpj}<br>${COMPANY.endereco}<br>Tel: ${COMPANY.telefone}<br>${COMPANY.site}</div></div>
+  <div class="info"><strong style="font-size:16px;color:#333">ORÇAMENTO</strong>${orderNum ? `<br><span style="color:#F5A623;font-weight:700">#${orderNum}</span>` : ""}<br>Data: ${date}${clientCompany ? `<br><br><strong>Empresa:</strong> ${clientCompany}` : ""}${clientCnpj ? `<br><strong>CNPJ:</strong> ${clientCnpj}` : ""}${clientName ? `<br><strong>Responsável:</strong> ${clientName}` : ""}${clientPhone ? `<br><strong>Tel:</strong> ${clientPhone}` : ""}${clientEmail ? `<br><strong>E-mail:</strong> ${clientEmail}` : ""}${clientEndereco ? `<br><strong>End:</strong> ${clientEndereco}` : ""}</div>
+</div>
+<table><thead><tr><th>Produto</th><th>Categoria</th><th>Qtd</th><th>Opcionais</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>
+${items.map(i => `<tr><td><strong>${i.name}</strong></td><td>${i.cat || ""}</td><td>${i.qty}</td><td>${i.opts?.length ? i.opts.join(", ") : "—"}</td><td style="text-align:right">${fmt(i.total)}</td></tr>`).join("")}
+<tr class="tr"><td colspan="4">TOTAL GERAL</td><td style="text-align:right;color:#F5A623">${total === 0 ? "Sob consulta" : fmt(total)}</td></tr>
+</tbody></table>
+${notes ? `<div class="n"><strong>Observações:</strong><br>${notes}</div>` : ""}
+<div class="ft">Orçamento válido por 15 dias • ${COMPANY.razao} • CNPJ: ${COMPANY.cnpj} • ${COMPANY.endereco} • ${COMPANY.telefone}</div>
+</div>
+</body></html>`;
+}
+
+// ─── NAV ───
+function Nav({ page, setPage, user, onLogout, cartCount }) {
+  return (
+    <nav style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, position: "sticky", top: 0, zIndex: 100 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        <div onClick={() => setPage("client")} style={{ cursor: "pointer", fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800 }}>
+          <span style={{ color: "#888" }}>Gôndolas</span><span style={{ color: COLORS.orange }}> Suprema</span>
+        </div>
+        {user && (
+          <div style={{ display: "flex", gap: 2 }}>
+            {[
+              { k: "client", l: "Cliente" },
+              { k: "catalog", l: "Produtos" },
+              { k: "orders", l: "Orçamentos" },
+            ].map(i => (
+              <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {user ? (
+          <>
+            <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Olá, <strong style={{ color: COLORS.text }}>{user.name}</strong></span>
+            <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Sair</button>
+          </>
+        ) : (
+          <button onClick={() => setPage("login")} style={{ background: COLORS.orange, border: "none", color: "#000", padding: "7px 18px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Entrar</button>
+        )}
+      </div>
+    </nav>
+  );
+}
+
+// ─── CLIENT ───
+function ClientPage({ clientData, setClientData, setPage }) {
+  const [form, setForm] = useState(clientData);
+  const inp = { width: "100%", padding: "12px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+  const labelStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
+
+  const handleSave = () => {
+    setClientData(form);
+    localStorage.setItem("gs_client_data", JSON.stringify(form));
+    setPage("catalog");
+  };
+
+  return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "36px 20px" }}>
+      <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <div style={{ fontSize: 48, marginBottom: 8 }}>🏢</div>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 26, margin: "0 0 6px" }}>Dados do Cliente</h1>
+        <p style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", margin: 0 }}>Preencha os dados para gerar o orçamento</p>
+      </div>
+
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={labelStyle}>Nome da Empresa *</label>
+            <input placeholder="Ex: Supermercado Bom Preço" value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} style={inp} />
+          </div>
+          <div>
+            <label style={labelStyle}>CNPJ</label>
+            <input placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} style={inp} />
+          </div>
+          <div>
+            <label style={labelStyle}>Responsável</label>
+            <input placeholder="Nome do responsável" value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} style={inp} />
+          </div>
+          <div>
+            <label style={labelStyle}>Telefone</label>
+            <input placeholder="(00) 00000-0000" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} style={inp} />
+          </div>
+          <div>
+            <label style={labelStyle}>E-mail</label>
+            <input placeholder="email@empresa.com" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={inp} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Endereço</label>
+              <input placeholder="Rua, número" value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })} style={inp} />
+            </div>
+            <div>
+              <label style={labelStyle}>Bairro</label>
+              <input placeholder="Bairro" value={form.bairro} onChange={e => setForm({ ...form, bairro: e.target.value })} style={inp} />
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Cidade</label>
+              <input placeholder="Cidade" value={form.cidade} onChange={e => setForm({ ...form, cidade: e.target.value })} style={inp} />
+            </div>
+            <div>
+              <label style={labelStyle}>Estado</label>
+              <input placeholder="UF" value={form.estado} onChange={e => setForm({ ...form, estado: e.target.value })} style={inp} maxLength={2} />
+            </div>
+          </div>
+        </div>
+
+        <button onClick={handleSave} style={{
+          width: "100%", background: COLORS.orange, color: "#000", border: "none", padding: "14px",
+          borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 24
+        }}>
+          {form.empresa ? "Salvar e Ir para Produtos →" : "Pular e Ir para Produtos →"}
+        </button>
+      </div>
+
+      {clientData.empresa && (
+        <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16, marginTop: 16 }}>
+          <div style={{ fontSize: 11, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>Dados salvos</div>
+          <div style={{ fontSize: 13, color: COLORS.text, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
+            <strong>{clientData.empresa}</strong>
+            {clientData.cnpj && <span style={{ color: COLORS.textMuted }}> — CNPJ: {clientData.cnpj}</span>}
+            {clientData.responsavel && <><br/>Resp: {clientData.responsavel}</>}
+            {clientData.telefone && <span style={{ color: COLORS.textMuted }}> • Tel: {clientData.telefone}</span>}
+            {clientData.cidade && <><br/>{clientData.endereco && `${clientData.endereco}, `}{clientData.bairro && `${clientData.bairro} — `}{clientData.cidade}{clientData.estado && `/${clientData.estado}`}</>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── LOGIN ───
+function Login({ onLogin, setPage }) {
+  const [reg, setReg] = useState(false);
+  const [f, setF] = useState({ name: "", email: "", password: "", company: "", phone: "" });
+  const [err, setErr] = useState("");
+  const go = () => {
+    setErr("");
+    if (!f.email || !f.password) return setErr("Preencha todos os campos.");
+    if (reg && (!f.name || !f.company)) return setErr("Preencha todos os campos.");
+    const users = JSON.parse(localStorage.getItem("gs_users") || "[]");
+    if (reg) {
+      if (users.find(u => u.email === f.email)) return setErr("E-mail já cadastrado.");
+      const u = { ...f, id: genId() };
+      users.push(u);
+      localStorage.setItem("gs_users", JSON.stringify(users));
+      onLogin(u); setPage("client");
+    } else {
+      const u = users.find(u => u.email === f.email && u.password === f.password);
+      if (!u) return setErr("E-mail ou senha incorretos.");
+      onLogin(u); setPage("client");
+    }
+  };
+  const inp = { width: "100%", padding: "11px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 60px)", padding: 20 }}>
+      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 36, width: 380, maxWidth: "100%" }}>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 6px" }}>{reg ? "Criar Conta" : "Entrar"}</h2>
+        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 24px", fontFamily: "'DM Sans', sans-serif" }}>{reg ? "Cadastre-se para fazer orçamentos" : "Acesse sua conta"}</p>
+        {err && <div style={{ background: COLORS.danger + "15", color: COLORS.danger, padding: "8px 12px", borderRadius: 7, fontSize: 12, marginBottom: 14, fontFamily: "'DM Sans', sans-serif" }}>{err}</div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {reg && <><input placeholder="Nome completo" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} style={inp} /><input placeholder="Empresa" value={f.company} onChange={e => setF({ ...f, company: e.target.value })} style={inp} /><input placeholder="Telefone" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} style={inp} /></>}
+          <input placeholder="E-mail" type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} style={inp} />
+          <input placeholder="Senha" type="password" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} style={inp} onKeyDown={e => e.key === "Enter" && go()} />
+          <button onClick={go} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "12px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{reg ? "Cadastrar" : "Entrar"}</button>
+        </div>
+        <p style={{ textAlign: "center", marginTop: 18, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>{reg ? "Já tem conta?" : "Não tem conta?"} <span onClick={() => { setReg(!reg); setErr(""); }} style={{ color: COLORS.orange, cursor: "pointer", fontWeight: 600 }}>{reg ? "Entrar" : "Criar conta"}</span></p>
+      </div>
+    </div>
+  );
+}
+
+// ─── CATALOG ───
+function Catalog({ onAdd }) {
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const filtered = PRODUCTS.filter(p => (filter === "all" || p.category === filter) && p.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 28, margin: "0 0 4px" }}>Produtos</h1>
+      <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 8px", fontFamily: "'DM Sans', sans-serif" }}>Selecione os produtos para adicionar ao orçamento</p>
+      <input placeholder="🔍 Buscar produto..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: "100%", padding: "10px 14px", background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", marginBottom: 16 }} />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20 }}>
+        {CATEGORIES.map(c => (
+          <button key={c.key} onClick={() => setFilter(c.key)} style={{ background: filter === c.key ? COLORS.orange : "transparent", color: filter === c.key ? "#000" : COLORS.textMuted, border: `1px solid ${filter === c.key ? COLORS.orange : COLORS.border}`, padding: "5px 14px", borderRadius: 18, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{c.label}</button>
+        ))}
+      </div>
+      <div style={{ color: COLORS.textDim, fontSize: 12, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" }}>{filtered.length} produto(s) encontrado(s)</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+        {filtered.map(p => (
+          <div key={p.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden", transition: "all .2s" }}>
+            <div style={{ height: 80, background: `linear-gradient(135deg, ${COLORS.orange}08, ${COLORS.orange}15)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38 }}>{p.icon}</div>
+            <div style={{ padding: "14px 16px" }}>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.orange, fontWeight: 700, marginBottom: 4, fontFamily: "'DM Sans', sans-serif" }}>{catLabel(p.category)}</div>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 15, margin: "0 0 6px", lineHeight: 1.3 }}>{p.name}</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", marginBottom: 10 }}>
+                {Object.entries(p.specs).map(([k, v]) => (
+                  <div key={k} style={{ fontSize: 10, fontFamily: "'DM Sans', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ color: COLORS.textDim, textTransform: "capitalize" }}>{k}: </span>
+                    <span style={{ color: COLORS.textMuted }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${COLORS.border}` }}>
+                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange }}>{fmt(p.price)}</span>
+                <button onClick={() => onAdd(p)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "7px 14px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Orçamento</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── QUOTE ───
+function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId }) {
+  const [notes, setNotes] = useState("");
+  const upd = (i, f, v) => { const c = [...items]; c[i] = { ...c[i], [f]: v }; setItems(c); };
+  const togOpt = (i, oi) => { const c = [...items]; c[i] = { ...c[i], selOpts: [oi] }; setItems(c); };
+  const rem = i => setItems(items.filter((_, j) => j !== i));
+  const itemTotal = it => { const ot = it.selOpts.reduce((s, oi) => s + (it.product.options[oi]?.price || 0) * it.qty, 0); return it.product.price * it.qty + ot; };
+  const total = items.reduce((s, i) => s + itemTotal(i), 0);
+
+  const save = () => {
+    if (!user) return;
+    const cd = clientData || {};
+    const newItems = items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemTotal(i) }));
+    const allOrders = JSON.parse(localStorage.getItem("gs_orders_" + user.id) || "[]");
+
+    if (editingOrderId) {
+      // Append to existing order
+      const idx = allOrders.findIndex(o => o.id === editingOrderId);
+      if (idx >= 0) {
+        allOrders[idx].items = [...allOrders[idx].items, ...newItems];
+        allOrders[idx].total = allOrders[idx].items.reduce((s, i) => s + i.total, 0);
+        allOrders[idx].date = new Date().toISOString();
+        if (notes) allOrders[idx].notes = allOrders[idx].notes ? allOrders[idx].notes + "\n" + notes : notes;
+      }
+      localStorage.setItem("gs_orders_" + user.id, JSON.stringify(allOrders));
+      setEditingOrderId(null);
+    } else {
+      // Create new order
+      allOrders.push({ id: genId(), date: new Date().toISOString(), client: { empresa: cd.empresa, cnpj: cd.cnpj, responsavel: cd.responsavel, telefone: cd.telefone, email: cd.email, endereco: cd.endereco, bairro: cd.bairro, cidade: cd.cidade, estado: cd.estado }, items: newItems, total, notes, status: "Pendente" });
+      localStorage.setItem("gs_orders_" + user.id, JSON.stringify(allOrders));
+    }
+    setItems([]); setNotes(""); setPage("orders");
+  };
+
+  const [pdfHtml, setPdfHtml] = useState(null);
+
+  const pdf = () => {
+    const cd = clientData || {};
+    const html = buildPdfPage({
+      date: new Date().toLocaleDateString("pt-BR"),
+      clientName: cd.responsavel || user?.name, clientCompany: cd.empresa || user?.company, clientPhone: cd.telefone || user?.phone,
+      clientCnpj: cd.cnpj, clientEndereco: cd.endereco && cd.cidade ? `${cd.endereco}${cd.bairro ? `, ${cd.bairro}` : ""} — ${cd.cidade}${cd.estado ? `/${cd.estado}` : ""}` : "",
+      clientEmail: cd.email,
+      items: items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemTotal(i) })),
+      total, notes
+    });
+    setPdfHtml(html);
+  };
+
+  const [sharingQuote, setSharingQuote] = useState(false);
+  const handleQuoteWhatsApp = async () => {
+    setSharingQuote(true);
+    const cd = clientData || {};
+    try {
+      await sharePDFWhatsApp({
+        date: new Date().toLocaleDateString("pt-BR"),
+        client: cd,
+        items: items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemTotal(i) })),
+        total, notes
+      });
+    } catch(e) { console.error(e); }
+    setSharingQuote(false);
+  };
+
+  if (pdfHtml) {
+    const bodyMatch = pdfHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    const styleMatch = pdfHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    return (
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+          <button onClick={() => setPdfHtml(null)} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20 }}>Pré-visualização</h2>
+          <button onClick={handleQuoteWhatsApp} disabled={sharingQuote} style={{ background: sharingQuote ? COLORS.textDim : "#25D366", color: "#fff", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: sharingQuote ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            {sharingQuote ? "Gerando PDF..." : "Enviar via WhatsApp"}
+          </button>
+        </div>
+        <div style={{ borderRadius: 10, overflow: "auto", border: `1px solid ${COLORS.border}`, maxHeight: "70vh" }}>
+          <div style={{ background: "#fff", padding: 36, fontFamily: "Helvetica, Arial, sans-serif", color: "#1a1a1a", width: 794 }}>
+            <style>{styleMatch ? styleMatch[1] : ""}</style>
+            <div dangerouslySetInnerHTML={{ __html: bodyMatch ? bodyMatch[1] : "" }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!items.length) return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 20px", textAlign: "center" }}>
+      <div style={{ fontSize: 52, marginBottom: 12 }}>📋</div>
+      <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 22, margin: "0 0 6px" }}>Orçamento vazio</h2>
+      <p style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", margin: "0 0 20px" }}>Adicione produtos do catálogo</p>
+      <button onClick={() => setPage("catalog")} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "10px 24px", borderRadius: 9, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Ver Catálogo</button>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
+      {editingOrderId && (
+        <div style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}30`, borderRadius: 10, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: "'DM Sans', sans-serif" }}>
+          <span style={{ color: COLORS.orange, fontSize: 13 }}>Adicionando itens ao orçamento <strong>#{editingOrderId.slice(0, 6)}</strong></span>
+          <button onClick={() => { setEditingOrderId(null); setItems([]); setPage("orders"); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+        </div>
+      )}
+      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 20px" }}>{editingOrderId ? "Adicionar Itens" : "Calculadora de Orçamento"}</h1>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              <div>
+                <span style={{ fontSize: 22, marginRight: 8 }}>{it.product.icon}</span>
+                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, color: COLORS.white }}>{it.product.name}</span>
+                <span style={{ color: COLORS.textDim, fontSize: 11, marginLeft: 8, fontFamily: "'DM Sans', sans-serif" }}>{catLabel(it.product.category)}</span>
+              </div>
+              <button onClick={() => rem(i)} style={{ background: COLORS.danger + "15", color: COLORS.danger, border: "none", width: 28, height: 28, borderRadius: 6, cursor: "pointer", fontSize: 14 }}>✕</button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Qtd:</span>
+              <button onClick={() => upd(i, "qty", Math.max(1, it.qty - 1))} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 30, height: 30, borderRadius: "6px 0 0 6px", cursor: "pointer" }}>−</button>
+              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 40, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.white, fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{it.qty}</div>
+              <button onClick={() => upd(i, "qty", it.qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 30, height: 30, borderRadius: "0 6px 6px 0", cursor: "pointer" }}>+</button>
+            </div>
+            {it.product.options.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>Altura:</span>
+                {it.product.options.map((o, oi) => {
+                  const sel = it.selOpts.includes(oi);
+                  return <button key={oi} onClick={() => togOpt(i, oi)} style={{ background: sel ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${sel ? COLORS.orange : COLORS.border}`, color: sel ? COLORS.orange : COLORS.textMuted, padding: "4px 12px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: sel ? 600 : 400 }}>{sel ? "✓ " : ""}{o.label}</button>;
+                })}
+              </div>
+            )}
+            <div style={{ textAlign: "right", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${COLORS.border}` }}>
+              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, color: it.product.price === 0 ? COLORS.textDim : COLORS.orange, fontWeight: 700 }}>{fmt(itemTotal(it))}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => setPage("catalog")} style={{ width: "100%", background: COLORS.card, border: `2px dashed ${COLORS.border}`, color: COLORS.orange, padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 12, transition: "all .2s" }}>+ Adicionar mais produtos</button>
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
+      <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}12, ${COLORS.orange}06)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 12, padding: "18px 22px", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+        <div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: total === 0 ? COLORS.textDim : COLORS.orange }}>{total === 0 ? "Valores sob consulta" : fmt(total)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{items.length} produto(s) · {items.reduce((s, i) => s + i.qty, 0)} un</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={pdf} style={{ background: "transparent", border: `1px solid ${COLORS.orange}`, color: COLORS.orange, padding: "10px 18px", borderRadius: 9, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>📄 PDF</button>
+          {user ? <button onClick={save} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "10px 18px", borderRadius: 9, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{editingOrderId ? "Adicionar ao Orçamento" : "Salvar Orçamento"}</button>
+            : <button onClick={() => setPage("login")} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "10px 18px", borderRadius: 9, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Entrar p/ Salvar</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ORDERS ───
+function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
+  const [orders, setOrders] = useState([]);
+  const [expanded, setExpanded] = useState(null);
+  const [confirmDel, setConfirmDel] = useState(null);
+
+  useEffect(() => {
+    const raw = JSON.parse(localStorage.getItem("gs_orders_" + user.id) || "[]");
+    setOrders([...raw].reverse());
+  }, [user.id]);
+
+  const deleteOrder = (orderId) => {
+    const raw = JSON.parse(localStorage.getItem("gs_orders_" + user.id) || "[]");
+    const updated = raw.filter(o => o.id !== orderId);
+    localStorage.setItem("gs_orders_" + user.id, JSON.stringify(updated));
+    setOrders([...updated].reverse());
+    if (expanded === orderId) setExpanded(null);
+    setConfirmDel(null);
+  };
+
+  const addMoreItems = (orderId) => {
+    setEditingOrderId(orderId);
+    setCart([]);
+    setPage("catalog");
+  };
+
+  const buildPdfHtml = (order) => {
+    const cd = clientData || {};
+    return buildPdfPage({
+      orderNum: order.id.slice(0, 6).toUpperCase(),
+      date: new Date(order.date).toLocaleDateString("pt-BR"),
+      clientName: cd.responsavel || user.name, clientCompany: cd.empresa || user.company, clientPhone: cd.telefone || user.phone || "",
+      clientCnpj: cd.cnpj, clientEndereco: cd.endereco && cd.cidade ? `${cd.endereco}${cd.bairro ? `, ${cd.bairro}` : ""} — ${cd.cidade}${cd.estado ? `/${cd.estado}` : ""}` : "",
+      clientEmail: cd.email,
+      items: order.items, total: order.total, notes: order.notes
+    });
+  };
+
+  const [pdfHtml, setPdfHtml] = useState(null);
+  const [pdfTitle, setPdfTitle] = useState("");
+  const [pdfOrder, setPdfOrder] = useState(null);
+
+  const showPdf = (order) => {
+    setPdfHtml(buildPdfHtml(order));
+    setPdfTitle(order.id.slice(0, 6));
+    setPdfOrder(order);
+  };
+
+  const [sharingOrder, setSharingOrder] = useState(false);
+  const handleWhatsApp = async (order) => {
+    setSharingOrder(true);
+    const cd = clientData || {};
+    const o = order || pdfOrder;
+    if (!o) { setSharingOrder(false); return; }
+    try {
+      await sharePDFWhatsApp({
+        orderNum: o.id.slice(0, 6).toUpperCase(),
+        date: new Date(o.date).toLocaleDateString("pt-BR"),
+        client: cd,
+        items: o.items, total: o.total, notes: o.notes
+      });
+    } catch(e) { console.error(e); }
+    setSharingOrder(false);
+  };
+
+  const sc = { Pendente: "#F59E0B", Aprovado: "#34D399", Recusado: "#F87171" };
+
+  // PDF viewer
+  if (pdfHtml) {
+    const bodyMatch = pdfHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    const styleMatch = pdfHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+
+    return (
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+          <button onClick={() => { setPdfHtml(null); setPdfOrder(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20 }}>Orçamento #{pdfTitle}</h2>
+          <button onClick={() => handleWhatsApp()} disabled={sharingOrder} style={{ background: sharingOrder ? COLORS.textDim : "#25D366", color: "#fff", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: sharingOrder ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            {sharingOrder ? "Gerando PDF..." : "Enviar via WhatsApp"}
+          </button>
+        </div>
+        <div style={{ borderRadius: 10, overflow: "auto", border: `1px solid ${COLORS.border}`, maxHeight: "70vh" }}>
+          <div style={{ background: "#fff", padding: 36, fontFamily: "Helvetica, Arial, sans-serif", color: "#1a1a1a", width: 794 }}>
+            <style>{styleMatch ? styleMatch[1] : ""}</style>
+            <div dangerouslySetInnerHTML={{ __html: bodyMatch ? bodyMatch[1] : "" }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!orders.length) return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 20px", textAlign: "center" }}>
+      <div style={{ fontSize: 52, marginBottom: 12 }}>📂</div>
+      <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 22 }}>Nenhum orçamento salvo</h2>
+      <p style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", margin: "8px 0 20px" }}>Seus orçamentos finalizados aparecerão aqui</p>
+      <button onClick={() => setPage("catalog")} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "10px 24px", borderRadius: 9, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Criar Orçamento</button>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 20px" }}>Orçamentos</h1>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {orders.map(o => {
+          const isOpen = expanded === o.id;
+          const isConfirming = confirmDel === o.id;
+          return (
+            <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${isOpen ? COLORS.orange + "40" : COLORS.border}`, borderRadius: 12, overflow: "hidden", transition: "all .2s" }}>
+              {/* Header */}
+              <div onClick={() => setExpanded(isOpen ? null : o.id)} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ color: COLORS.textDim, fontSize: 18, transition: "transform .2s", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
+                  <div>
+                    <span style={{ fontSize: 10, color: COLORS.textDim, letterSpacing: 1, textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>#{o.id.slice(0, 6)}</span>
+                    <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
+                      {new Date(o.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+                      <span style={{ marginLeft: 8, color: COLORS.textDim }}>{o.items.length} {o.items.length === 1 ? "item" : "itens"}</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ background: (sc[o.status] || "#888") + "20", color: sc[o.status] || "#888", padding: "3px 10px", borderRadius: 16, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status}</span>
+                  <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: o.total === 0 ? COLORS.textDim : COLORS.orange }}>{o.total === 0 ? "Sob consulta" : fmt(o.total)}</span>
+                </div>
+              </div>
+
+              {/* Expanded */}
+              {isOpen && (
+                <div style={{ padding: "0 18px 18px", borderTop: `1px solid ${COLORS.border}` }}>
+                  <div style={{ marginTop: 14 }}>
+                    {o.items.map((it, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: COLORS.bg, borderRadius: 8, marginBottom: 6 }}>
+                        <div>
+                          <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.name}</div>
+                          <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
+                            <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{it.cat}</span>
+                            <span style={{ color: COLORS.textDim, fontSize: 11 }}>×{it.qty}</span>
+                            {it.opts?.length > 0 && <span style={{ color: COLORS.orange, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Altura: {it.opts.join(", ")}</span>}
+                          </div>
+                        </div>
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: it.total === 0 ? COLORS.textDim : COLORS.textMuted }}>{fmt(it.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {o.notes && (
+                    <div style={{ padding: "8px 12px", background: COLORS.orange + "08", borderRadius: 8, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif", marginBottom: 12 }}>💬 {o.notes}</div>
+                  )}
+
+                  <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}10, ${COLORS.orange}05)`, border: `1px solid ${COLORS.orange}25`, borderRadius: 10, padding: "14px 16px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Total do orçamento</div>
+                      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: o.total === 0 ? COLORS.textDim : COLORS.orange }}>{o.total === 0 ? "Valores sob consulta" : fmt(o.total)}</div>
+                    </div>
+                    <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "right" }}>
+                      {o.items.length} produto(s)<br/>{o.items.reduce((s, it) => s + it.qty, 0)} unidade(s)
+                    </div>
+                  </div>
+
+                  {/* Delete confirmation */}
+                  {isConfirming && (
+                    <div style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, borderRadius: 10, padding: "14px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                      <span style={{ color: COLORS.danger, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Excluir este orçamento?</span>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDel(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteOrder(o.id); }} style={{ background: COLORS.danger, border: "none", color: "#fff", padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Sim, excluir</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button onClick={(e) => { e.stopPropagation(); showPdf(o); }} style={{ background: "#25D366", border: "none", color: "#fff", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 120 }}>📤 Compartilhar</button>
+                    <button onClick={(e) => { e.stopPropagation(); addMoreItems(o.id); }} style={{ background: COLORS.orange + "15", border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 120 }}>+ Adicionar Itens</button>
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDel(o.id); }} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 50 }}>🗑️ Excluir</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── APP ───
+export default function App() {
+  const [page, setPage] = useState("client");
+  const [user, setUser] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [clientData, setClientData] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "" });
+  const [editingOrderId, setEditingOrderId] = useState(null);
+
+  useEffect(() => {
+    const s = localStorage.getItem("gs_cur");
+    if (s) setUser(JSON.parse(s));
+    const cd = localStorage.getItem("gs_client_data");
+    if (cd) setClientData(JSON.parse(cd));
+  }, []);
+
+  const login = u => { setUser(u); localStorage.setItem("gs_cur", JSON.stringify(u)); };
+  const logout = () => { setUser(null); localStorage.removeItem("gs_cur"); setPage("client"); };
+  const addToQuote = p => {
+    const ex = cart.findIndex(i => i.product.id === p.id);
+    if (ex >= 0) { const c = [...cart]; c[ex] = { ...c[ex], qty: c[ex].qty + 1 }; setCart(c); }
+    else setCart([...cart, { product: p, qty: 1, selOpts: [] }]);
+    setPage("quote");
+  };
+
+  return (
+    <div style={{ background: COLORS.bg, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet" />
+      <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
+      {page === "login" && <Login onLogin={login} setPage={setPage} />}
+      {page === "client" && user && <ClientPage clientData={clientData} setClientData={setClientData} setPage={setPage} />}
+      {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
+      {page === "catalog" && <Catalog onAdd={addToQuote} />}
+      {page === "quote" && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} />}
+      {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} />}
+      {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
+    </div>
+  );
+}
