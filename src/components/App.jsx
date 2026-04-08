@@ -322,10 +322,11 @@ function Catalog({ onAdd }) {
 // ─── QUOTE ───
 function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId }) {
   const [notes, setNotes] = useState("");
+  const [markup, setMarkup] = useState(0);
   const upd = (i, f, v) => { const c = [...items]; c[i] = { ...c[i], [f]: v }; setItems(c); };
   const togOpt = (i, oi) => { const c = [...items]; c[i] = { ...c[i], selOpts: [oi] }; setItems(c); };
   const rem = i => setItems(items.filter((_, j) => j !== i));
-  const itemTotal = it => { const ot = it.selOpts.reduce((s, oi) => s + (it.product.options[oi]?.price || 0) * it.qty, 0); return it.product.price * it.qty + ot; };
+  const itemTotal = it => { const base = it.product.price * it.qty; return base + (base * markup / 100); };
   const total = items.reduce((s, i) => s + itemTotal(i), 0);
 
   const save = () => {
@@ -457,7 +458,12 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
         ))}
       </div>
       <button onClick={() => setPage("catalog")} style={{ width: "100%", background: COLORS.card, border: `2px dashed ${COLORS.border}`, color: COLORS.orange, padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 12, transition: "all .2s" }}>+ Adicionar mais produtos</button>
-      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
+      <div style={{ background: COLORS.card, border: "1px solid " + COLORS.border, borderRadius: 10, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Margem de lucro (%):</span>
+        <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: "1px solid " + COLORS.border, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? "Valores com " + markup + "% de acréscimo" : "Sem acréscimo"}</span>
+    
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..."<textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
       <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}12, ${COLORS.orange}06)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 12, padding: "18px 22px", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div>
           <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total</div>
