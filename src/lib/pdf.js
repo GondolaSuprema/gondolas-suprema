@@ -32,21 +32,21 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
     // Watermark - logo grande centralizada e transparente
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({ opacity: 0.05 }));
-    doc.addImage(logoBase64, "JPEG", pageW / 2 - 60, pageH / 2 - 30, 120, 60);
+    doc.addImage(logoBase64, "JPEG", pageW / 2 - 35, pageH / 2 - 62, 70, 125);
     doc.restoreGraphicsState();
 
     // Header logo - proporcional (a logo original eh mais larga que alta)
-    doc.addImage(logoBase64, "JPEG", margin, 10, 40, 20);
+    doc.addImage(logoBase64, "JPEG", margin, 5, 22, 39);
   } catch (e) {}
 
   // Company info abaixo da logo
   doc.setFontSize(8);
   doc.setTextColor(100);
-  doc.text(COMPANY.razao, margin, 35);
-  doc.text("CNPJ: " + COMPANY.cnpj, margin, 39);
-  doc.text(COMPANY.endereco, margin, 43);
-  doc.text("Tel: " + COMPANY.telefone, margin, 47);
-  doc.text(COMPANY.site, margin, 51);
+  doc.text(COMPANY.razao, margin + 25, 15);
+  doc.text("CNPJ: " + COMPANY.cnpj, margin + 25, 19);
+  doc.text(COMPANY.endereco, margin + 25, 23);
+  doc.text("Tel: " + COMPANY.telefone, margin + 25, 27);
+  doc.text(COMPANY.site, margin + 25, 31);
 
   // Order info - right side
   doc.setFontSize(16);
