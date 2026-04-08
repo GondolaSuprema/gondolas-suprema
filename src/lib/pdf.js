@@ -15,32 +15,40 @@ const fmt = (v) =>
 export async function generatePDF({ orderNum, date, client, items, total, notes }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
   const margin = 15;
 
+  var logoBase64 = null;
   try {
-    const logoUrl = "/logo.jpg";
-    const resp = await fetch(logoUrl);
-    const blob = await resp.blob();
-    const base64 = await new Promise((res) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result);
+    var logoUrl = "/logo.jpg";
+    var resp = await fetch(logoUrl);
+    var blob = await resp.blob();
+    logoBase64 = await new Promise(function(res) {
+      var r = new FileReader();
+      r.onload = function() { res(r.result); };
       r.readAsDataURL(blob);
     });
+
+    // Watermark - logo grande centralizada e transparente
     doc.saveGraphicsState();
-    doc.setGState(new doc.GState({ opacity: 0.06 }));
-    doc.addImage(base64, "JPEG", pageW / 2 - 50, 120, 100, 50);
+    doc.setGState(new doc.GState({ opacity: 0.05 }));
+    doc.addImage(logoBase64, "JPEG", pageW / 2 - 60, pageH / 2 - 30, 120, 60);
     doc.restoreGraphicsState();
-    doc.addImage(base64, "JPEG", margin, 12, 30, 15);
+
+    // Header logo - proporcional (a logo original eh mais larga que alta)
+    doc.addImage(logoBase64, "JPEG", margin, 10, 40, 20);
   } catch (e) {}
 
+  // Company info abaixo da logo
   doc.setFontSize(8);
   doc.setTextColor(100);
-  doc.text(COMPANY.razao, margin, 32);
-  doc.text("CNPJ: " + COMPANY.cnpj, margin, 36);
-  doc.text(COMPANY.endereco, margin, 40);
-  doc.text("Tel: " + COMPANY.telefone, margin, 44);
-  doc.text(COMPANY.site, margin, 48);
+  doc.text(COMPANY.razao, margin, 35);
+  doc.text("CNPJ: " + COMPANY.cnpj, margin, 39);
+  doc.text(COMPANY.endereco, margin, 43);
+  doc.text("Tel: " + COMPANY.telefone, margin, 47);
+  doc.text(COMPANY.site, margin, 51);
 
+  // Order info - right side
   doc.setFontSize(16);
   doc.setTextColor(30);
   doc.setFont(undefined, "bold");
@@ -69,10 +77,12 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
     doc.text("End: " + addr, pageW - margin, cy, { align: "right" }); cy += 4.5;
   }
 
+  // Orange line
   doc.setDrawColor(245, 166, 35);
   doc.setLineWidth(0.8);
-  doc.line(margin, 52, pageW - margin, 52);
+  doc.line(margin, 55, pageW - margin, 55);
 
+  // Table
   var tableData = items.map(function(it) {
     return [
       it.name || "",
@@ -84,7 +94,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
   });
 
   doc.autoTable({
-    startY: 56,
+    startY: 59,
     head: [["Produto", "Categoria", "Qtd", "Opcionais", "Subtotal"]],
     body: tableData,
     theme: "grid",
@@ -106,6 +116,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
     margin: { left: margin, right: margin },
   });
 
+  // Total row
   var finalY = doc.lastAutoTable.finalY + 4;
   doc.setDrawColor(30);
   doc.setLineWidth(0.5);
@@ -118,6 +129,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
   doc.setTextColor(245, 166, 35);
   doc.text(total === 0 ? "Sob consulta" : fmt(total), pageW - margin, finalY + 7, { align: "right" });
 
+  // Notes
   var notesY = finalY + 16;
   if (notes) {
     doc.setFillColor(250, 250, 250);
@@ -130,6 +142,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
     doc.text(notes, margin + 4, notesY + 10, { maxWidth: pageW - margin * 2 - 8 });
   }
 
+  // Footer
   var footerY = 282;
   doc.setDrawColor(220);
   doc.setLineWidth(0.3);
