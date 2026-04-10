@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
 import { sharePDFWhatsApp } from "../lib/pdf";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  "https://euclqngycuqoftaryiyz.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1Y2xxbmd5Y3Vxb2Z0YXJ5aXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQ5MDgsImV4cCI6MjA5MTQyMDkwOH0.08BINQpxsB_IvHFrT7XiEstFcCUfOfXKYTQEe40rMi4"
+);
 
 const COLORS = {
   bg: "#0A0E18",
@@ -402,27 +408,53 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
   const totalComissao = items.reduce((s, i) => s + itemComissao(i), 0);
   const totalFinal = subtotalProdutos + totalComissao + frete;
 
-  const save = () => {
-    if (!user) return;
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (!user || saving) return;
+    setSaving(true);
     const cd = clientData || {};
     const newItems = items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemFinal(i) }));
-    const allOrders = JSON.parse(localStorage.getItem("gs_orders_" + user.id) || "[]");
 
-    if (editingOrderId) {
-      const idx = allOrders.findIndex(o => o.id === editingOrderId);
-      if (idx >= 0) {
-        allOrders[idx].items = [...allOrders[idx].items, ...newItems];
-        allOrders[idx].total = allOrders[idx].items.reduce((s, i) => s + i.total, 0) + frete;
-        allOrders[idx].frete = (allOrders[idx].frete || 0) + frete;
-        allOrders[idx].date = new Date().toISOString();
-        if (notes) allOrders[idx].notes = allOrders[idx].notes ? allOrders[idx].notes + "\n" + notes : notes;
+    try {
+      if (editingOrderId) {
+        // Fetch existing order, append items
+        const { data: existing } = await supabase.from("orcamentos").select("*").eq("id", editingOrderId).single();
+        if (existing) {
+          const updatedItems = [...(existing.items || []), ...newItems];
+          const updatedTotal = updatedItems.reduce((s, i) => s + i.total, 0) + frete;
+          await supabase.from("orcamentos").update({
+            items: updatedItems,
+            total: updatedTotal,
+            frete: (existing.frete || 0) + frete,
+            data: new Date().toISOString(),
+            notes: notes ? (existing.notes ? existing.notes + "\n" + notes : notes) : existing.notes,
+          }).eq("id", editingOrderId);
+        }
+        setEditingOrderId(null);
+      } else {
+        await supabase.from("orcamentos").insert({
+          id: genId(),
+          vendedor_id: user.id,
+          vendedor_nome: user.name,
+          data: new Date().toISOString(),
+          cliente_empresa: cd.empresa,
+          cliente_cnpj: cd.cnpj,
+          cliente_responsavel: cd.responsavel,
+          cliente_telefone: cd.telefone,
+          cliente_email: cd.email,
+          cliente_endereco: cd.endereco,
+          cliente_bairro: cd.bairro,
+          cliente_cidade: cd.cidade,
+          cliente_estado: cd.estado,
+          items: newItems,
+          total: totalFinal,
+          frete,
+          notes,
+          status: "Pendente",
+        });
       }
-      localStorage.setItem("gs_orders_" + user.id, JSON.stringify(allOrders));
-      setEditingOrderId(null);
-    } else {
-      allOrders.push({ id: genId(), date: new Date().toISOString(), client: { empresa: cd.empresa, cnpj: cd.cnpj, responsavel: cd.responsavel, telefone: cd.telefone, email: cd.email, endereco: cd.endereco, bairro: cd.bairro, cidade: cd.cidade, estado: cd.estado }, items: newItems, total: totalFinal, frete, notes, status: "Pendente" });
-      localStorage.setItem("gs_orders_" + user.id, JSON.stringify(allOrders));
-    }
+    } catch (e) { console.error("Erro ao salvar:", e); }
+    setSaving(false);
     setItems([]); setPage("orders");
   };
 
@@ -505,7 +537,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
       </div>
 
       {/* Botão salvar */}
-      <button onClick={save} style={{ width: "100%", background: COLORS.orange, color: "#000", border: "none", padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 16 }}>{editingOrderId ? "Adicionar ao Orçamento" : "Salvar Orçamento"}</button>
+      <button onClick={save} disabled={saving} style={{ width: "100%", background: saving ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: saving ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 16 }}>{saving ? "Salvando..." : editingOrderId ? "Adicionar ao Orçamento" : "Salvar Orçamento"}</button>
     </div>
   );
 }
@@ -517,15 +549,21 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   const [confirmDel, setConfirmDel] = useState(null);
 
   useEffect(() => {
-    const raw = JSON.parse(localStorage.getItem("gs_orders_" + user.id) || "[]");
-    setOrders([...raw].reverse());
+    const loadOrders = async () => {
+      const { data } = await supabase.from("orcamentos").select("*").eq("vendedor_id", user.id).order("data", { ascending: false });
+      if (data) {
+        setOrders(data.map(o => ({
+          id: o.id, date: o.data, total: o.total, frete: o.frete, notes: o.notes, status: o.status, items: o.items,
+          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado }
+        })));
+      }
+    };
+    loadOrders();
   }, [user.id]);
 
-  const deleteOrder = (orderId) => {
-    const raw = JSON.parse(localStorage.getItem("gs_orders_" + user.id) || "[]");
-    const updated = raw.filter(o => o.id !== orderId);
-    localStorage.setItem("gs_orders_" + user.id, JSON.stringify(updated));
-    setOrders([...updated].reverse());
+  const deleteOrder = async (orderId) => {
+    await supabase.from("orcamentos").delete().eq("id", orderId);
+    setOrders(orders.filter(o => o.id !== orderId));
     if (expanded === orderId) setExpanded(null);
     setConfirmDel(null);
   };
@@ -706,14 +744,17 @@ function AdminPage() {
   const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
-    // Collect orders from all vendedores
-    const orders = [];
-    VENDEDORES.filter(v => !v.isAdmin).forEach(v => {
-      const vo = JSON.parse(localStorage.getItem("gs_orders_" + v.id) || "[]");
-      vo.forEach(o => orders.push({ ...o, vendedor: v.name, vendedorId: v.id }));
-    });
-    orders.sort((a, b) => new Date(b.date) - new Date(a.date));
-    setAllOrders(orders);
+    const loadAll = async () => {
+      const { data } = await supabase.from("orcamentos").select("*").order("data", { ascending: false });
+      if (data) {
+        setAllOrders(data.map(o => ({
+          id: o.id, date: o.data, total: o.total, frete: o.frete, notes: o.notes, status: o.status, items: o.items,
+          vendedor: o.vendedor_nome, vendedorId: o.vendedor_id,
+          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado }
+        })));
+      }
+    };
+    loadAll();
   }, []);
 
   const vendedores = [...new Set(allOrders.map(o => o.vendedor))];
