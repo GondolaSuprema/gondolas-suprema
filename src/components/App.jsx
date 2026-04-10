@@ -125,6 +125,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
             {[
               { k: "client", l: "Cliente" },
               { k: "catalog", l: "Produtos" },
+              { k: "resumo", l: "Resumo" },
               { k: "orders", l: "Orçamentos" },
             ].map(i => (
               <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
@@ -322,90 +323,11 @@ function Catalog({ onAdd }) {
 // ─── QUOTE ───
 function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId }) {
   const [notes, setNotes] = useState("");
-  const [markup, setMarkup] = useState(0);
   const upd = (i, f, v) => { const c = [...items]; c[i] = { ...c[i], [f]: v }; setItems(c); };
   const togOpt = (i, oi) => { const c = [...items]; c[i] = { ...c[i], selOpts: [oi] }; setItems(c); };
   const rem = i => setItems(items.filter((_, j) => j !== i));
-  const itemTotal = it => { const base = it.product.price * it.qty; return base + (base * markup / 100); };
+  const itemTotal = it => it.product.price * it.qty;
   const total = items.reduce((s, i) => s + itemTotal(i), 0);
-
-  const save = () => {
-    if (!user) return;
-    const cd = clientData || {};
-    const newItems = items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemTotal(i) }));
-    const allOrders = JSON.parse(localStorage.getItem("gs_orders_" + user.id) || "[]");
-
-    if (editingOrderId) {
-      // Append to existing order
-      const idx = allOrders.findIndex(o => o.id === editingOrderId);
-      if (idx >= 0) {
-        allOrders[idx].items = [...allOrders[idx].items, ...newItems];
-        allOrders[idx].total = allOrders[idx].items.reduce((s, i) => s + i.total, 0);
-        allOrders[idx].date = new Date().toISOString();
-        if (notes) allOrders[idx].notes = allOrders[idx].notes ? allOrders[idx].notes + "\n" + notes : notes;
-      }
-      localStorage.setItem("gs_orders_" + user.id, JSON.stringify(allOrders));
-      setEditingOrderId(null);
-    } else {
-      // Create new order
-      allOrders.push({ id: genId(), date: new Date().toISOString(), client: { empresa: cd.empresa, cnpj: cd.cnpj, responsavel: cd.responsavel, telefone: cd.telefone, email: cd.email, endereco: cd.endereco, bairro: cd.bairro, cidade: cd.cidade, estado: cd.estado }, items: newItems, total, notes, status: "Pendente" });
-      localStorage.setItem("gs_orders_" + user.id, JSON.stringify(allOrders));
-    }
-    setItems([]); setNotes(""); setPage("orders");
-  };
-
-  const [pdfHtml, setPdfHtml] = useState(null);
-
-  const pdf = () => {
-    const cd = clientData || {};
-    const html = buildPdfPage({
-      date: new Date().toLocaleDateString("pt-BR"),
-      clientName: cd.responsavel || user?.name, clientCompany: cd.empresa || user?.company, clientPhone: cd.telefone || user?.phone,
-      clientCnpj: cd.cnpj, clientEndereco: cd.endereco && cd.cidade ? `${cd.endereco}${cd.bairro ? `, ${cd.bairro}` : ""} — ${cd.cidade}${cd.estado ? `/${cd.estado}` : ""}` : "",
-      clientEmail: cd.email,
-      items: items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemTotal(i) })),
-      total, notes
-    });
-    setPdfHtml(html);
-  };
-
-  const [sharingQuote, setSharingQuote] = useState(false);
-  const handleQuoteWhatsApp = async () => {
-    setSharingQuote(true);
-    const cd = clientData || {};
-    try {
-      await sharePDFWhatsApp({
-        date: new Date().toLocaleDateString("pt-BR"),
-        client: cd,
-        items: items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemTotal(i) })),
-        total, notes
-      });
-    } catch(e) { console.error(e); }
-    setSharingQuote(false);
-  };
-
-  if (pdfHtml) {
-    const bodyMatch = pdfHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-    const styleMatch = pdfHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-    return (
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-          <button onClick={() => setPdfHtml(null)} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20 }}>Pré-visualização</h2>
-          <button onClick={handleQuoteWhatsApp} disabled={sharingQuote} style={{ background: sharingQuote ? COLORS.textDim : "#25D366", color: "#fff", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: sharingQuote ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            {sharingQuote ? "Gerando PDF..." : "Enviar via WhatsApp"}
-          </button>
-        </div>
-        <div style={{ borderRadius: 10, overflow: "auto", border: `1px solid ${COLORS.border}`, maxHeight: "70vh" }}>
-          <div style={{ background: "#fff", padding: 36, fontFamily: "Helvetica, Arial, sans-serif", color: "#1a1a1a", width: 794 }}>
-            <style>{styleMatch ? styleMatch[1] : ""}</style>
-            <div dangerouslySetInnerHTML={{ __html: bodyMatch ? bodyMatch[1] : "" }} />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!items.length) return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 20px", textAlign: "center" }}>
@@ -458,24 +380,137 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
         ))}
       </div>
       <button onClick={() => setPage("catalog")} style={{ width: "100%", background: COLORS.card, border: `2px dashed ${COLORS.border}`, color: COLORS.orange, padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 12, transition: "all .2s" }}>+ Adicionar mais produtos</button>
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Margem de lucro (%):</span>
-        <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
-        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? "Valores com " + markup + "% de acréscimo" : "Sem acréscimo"}</span>
-      </div>
       <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
       <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}12, ${COLORS.orange}06)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 12, padding: "18px 22px", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Subtotal produtos</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: total === 0 ? COLORS.textDim : COLORS.orange }}>{total === 0 ? "Valores sob consulta" : fmt(total)}</div>
           <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{items.length} produto(s) · {items.reduce((s, i) => s + i.qty, 0)} un</div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={pdf} style={{ background: "transparent", border: `1px solid ${COLORS.orange}`, color: COLORS.orange, padding: "10px 18px", borderRadius: 9, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>📄 PDF</button>
-          {user ? <button onClick={save} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "10px 18px", borderRadius: 9, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{editingOrderId ? "Adicionar ao Orçamento" : "Salvar Orçamento"}</button>
-            : <button onClick={() => setPage("login")} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "10px 18px", borderRadius: 9, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Entrar p/ Salvar</button>}
+        <button onClick={() => setPage("resumo")} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "12px 24px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Ver Resumo →</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── RESUMO ───
+function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, setItems }) {
+  const [markup, setMarkup] = useState(0);
+  const [frete, setFrete] = useState(0);
+  const [notes, setNotes] = useState("");
+
+  const itemBase = it => it.product.price * it.qty;
+  const itemComissao = it => itemBase(it) * markup / 100;
+  const itemFinal = it => itemBase(it) + itemComissao(it);
+
+  const subtotalProdutos = items.reduce((s, i) => s + itemBase(i), 0);
+  const totalComissao = items.reduce((s, i) => s + itemComissao(i), 0);
+  const totalFinal = subtotalProdutos + totalComissao + frete;
+
+  const save = () => {
+    if (!user) return;
+    const cd = clientData || {};
+    const newItems = items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemFinal(i) }));
+    const allOrders = JSON.parse(localStorage.getItem("gs_orders_" + user.id) || "[]");
+
+    if (editingOrderId) {
+      const idx = allOrders.findIndex(o => o.id === editingOrderId);
+      if (idx >= 0) {
+        allOrders[idx].items = [...allOrders[idx].items, ...newItems];
+        allOrders[idx].total = allOrders[idx].items.reduce((s, i) => s + i.total, 0) + frete;
+        allOrders[idx].frete = (allOrders[idx].frete || 0) + frete;
+        allOrders[idx].date = new Date().toISOString();
+        if (notes) allOrders[idx].notes = allOrders[idx].notes ? allOrders[idx].notes + "\n" + notes : notes;
+      }
+      localStorage.setItem("gs_orders_" + user.id, JSON.stringify(allOrders));
+      setEditingOrderId(null);
+    } else {
+      allOrders.push({ id: genId(), date: new Date().toISOString(), client: { empresa: cd.empresa, cnpj: cd.cnpj, responsavel: cd.responsavel, telefone: cd.telefone, email: cd.email, endereco: cd.endereco, bairro: cd.bairro, cidade: cd.cidade, estado: cd.estado }, items: newItems, total: totalFinal, frete, notes, status: "Pendente" });
+      localStorage.setItem("gs_orders_" + user.id, JSON.stringify(allOrders));
+    }
+    setItems([]); setPage("orders");
+  };
+
+  if (!items.length) return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 20px", textAlign: "center" }}>
+      <div style={{ fontSize: 52, marginBottom: 12 }}>📋</div>
+      <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 22, margin: "0 0 6px" }}>Nenhum produto no orçamento</h2>
+      <p style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", margin: "0 0 20px" }}>Adicione produtos antes de ver o resumo</p>
+      <button onClick={() => setPage("catalog")} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "10px 24px", borderRadius: 9, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Ir para Produtos</button>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 6px" }}>Resumo do Orçamento</h1>
+      <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Confira os produtos, adicione margem e frete</p>
+
+      {/* Lista de produtos */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between" }}>
+          <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Produtos ({items.length})</span>
+          <button onClick={() => setPage("catalog")} style={{ background: "transparent", border: "none", color: COLORS.orange, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>+ Adicionar</button>
+        </div>
+        {items.map((it, i) => (
+          <div key={i} style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.product.name}</div>
+              <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{catLabel(it.product.category)} · Qtd: {it.qty}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{fmt(itemBase(it))}</div>
+              {markup > 0 && <div style={{ color: COLORS.success, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>+{fmt(itemComissao(it))}</div>}
+            </div>
+          </div>
+        ))}
+        <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", background: COLORS.bg }}>
+          <span style={{ color: COLORS.textMuted, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Subtotal produtos</span>
+          <span style={{ color: COLORS.text, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{fmt(subtotalProdutos)}</span>
         </div>
       </div>
+
+      {/* Comissão */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
+        <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+        <div style={{ marginLeft: "auto", textAlign: "right" }}>
+          <div style={{ color: COLORS.success, fontSize: 16, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalComissao)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre produtos" : "Sem comissão"}</div>
+        </div>
+      </div>
+
+      {/* Frete */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
+        <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{frete > 0 ? "Frete incluso no total" : "Sem frete"}</span>
+      </div>
+
+      {/* Observações */}
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
+
+      {/* Total final */}
+      <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}15, ${COLORS.orange}05)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 12, padding: "20px 22px", marginTop: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Produtos</span>
+          <span style={{ color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{fmt(subtotalProdutos)}</span>
+        </div>
+        {markup > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Comissão ({markup}%)</span>
+          <span style={{ color: COLORS.success, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ {fmt(totalComissao)}</span>
+        </div>}
+        {frete > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Frete</span>
+          <span style={{ color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ {fmt(frete)}</span>
+        </div>}
+        <div style={{ borderTop: `1px solid ${COLORS.orange}30`, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: COLORS.white, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>TOTAL FINAL</span>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 800, color: COLORS.orange }}>{fmt(totalFinal)}</span>
+        </div>
+      </div>
+
+      {/* Botão salvar */}
+      <button onClick={save} style={{ width: "100%", background: COLORS.orange, color: "#000", border: "none", padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 16 }}>{editingOrderId ? "Adicionar ao Orçamento" : "Salvar Orçamento"}</button>
     </div>
   );
 }
@@ -701,6 +736,7 @@ export default function App() {
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "catalog" && <Catalog onAdd={addToQuote} />}
       {page === "quote" && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} />}
+      {page === "resumo" && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
     </div>
