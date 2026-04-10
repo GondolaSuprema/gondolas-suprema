@@ -236,41 +236,34 @@ function ClientPage({ clientData, setClientData, setPage }) {
 }
 
 // ─── LOGIN ───
+const VENDEDORES = [
+  { id: "v1", name: "Alessandro Thonsen", email: "ale.thonsen@gmail.com", password: "Xandyth@8118" },
+  { id: "v2", name: "Adelmo Martinello", email: "adelmo_ade@yahoo.com.br", password: "Adelmo@321" },
+  { id: "v3", name: "Willian Zanella", email: "comercial@gondolasuprema.com", password: "Zanella@321" },
+];
+
 function Login({ onLogin, setPage }) {
-  const [reg, setReg] = useState(false);
-  const [f, setF] = useState({ name: "", email: "", password: "", company: "", phone: "" });
+  const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
   const go = () => {
     setErr("");
     if (!f.email || !f.password) return setErr("Preencha todos os campos.");
-    if (reg && (!f.name || !f.company)) return setErr("Preencha todos os campos.");
-    const users = JSON.parse(localStorage.getItem("gs_users") || "[]");
-    if (reg) {
-      if (users.find(u => u.email === f.email)) return setErr("E-mail já cadastrado.");
-      const u = { ...f, id: genId() };
-      users.push(u);
-      localStorage.setItem("gs_users", JSON.stringify(users));
-      onLogin(u); setPage("client");
-    } else {
-      const u = users.find(u => u.email === f.email && u.password === f.password);
-      if (!u) return setErr("E-mail ou senha incorretos.");
-      onLogin(u); setPage("client");
-    }
+    const u = VENDEDORES.find(u => u.email.toLowerCase() === f.email.toLowerCase() && u.password === f.password);
+    if (!u) return setErr("E-mail ou senha incorretos.");
+    onLogin(u); setPage("client");
   };
   const inp = { width: "100%", padding: "11px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 60px)", padding: 20 }}>
       <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 36, width: 380, maxWidth: "100%" }}>
-        <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 6px" }}>{reg ? "Criar Conta" : "Entrar"}</h2>
-        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 24px", fontFamily: "'DM Sans', sans-serif" }}>{reg ? "Cadastre-se para fazer orçamentos" : "Acesse sua conta"}</p>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 6px" }}>Entrar</h2>
+        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 24px", fontFamily: "'DM Sans', sans-serif" }}>Acesse com suas credenciais</p>
         {err && <div style={{ background: COLORS.danger + "15", color: COLORS.danger, padding: "8px 12px", borderRadius: 7, fontSize: 12, marginBottom: 14, fontFamily: "'DM Sans', sans-serif" }}>{err}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {reg && <><input placeholder="Nome completo" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} style={inp} /><input placeholder="Empresa" value={f.company} onChange={e => setF({ ...f, company: e.target.value })} style={inp} /><input placeholder="Telefone" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} style={inp} /></>}
           <input placeholder="E-mail" type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} style={inp} />
           <input placeholder="Senha" type="password" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} style={inp} onKeyDown={e => e.key === "Enter" && go()} />
-          <button onClick={go} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "12px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{reg ? "Cadastrar" : "Entrar"}</button>
+          <button onClick={go} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "12px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>Entrar</button>
         </div>
-        <p style={{ textAlign: "center", marginTop: 18, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>{reg ? "Já tem conta?" : "Não tem conta?"} <span onClick={() => { setReg(!reg); setErr(""); }} style={{ color: COLORS.orange, cursor: "pointer", fontWeight: 600 }}>{reg ? "Entrar" : "Criar conta"}</span></p>
       </div>
     </div>
   );
@@ -705,7 +698,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
 
 // ─── APP ───
 export default function App() {
-  const [page, setPage] = useState("client");
+  const [page, setPage] = useState("login");
   const [user, setUser] = useState(null);
   const [cart, setCart] = useState([]);
   const [clientData, setClientData] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "" });
@@ -713,7 +706,17 @@ export default function App() {
 
   useEffect(() => {
     const s = localStorage.getItem("gs_cur");
-    if (s) setUser(JSON.parse(s));
+    if (s) {
+      const saved = JSON.parse(s);
+      // Verify saved user is still a valid vendedor
+      const valid = VENDEDORES.find(v => v.id === saved.id);
+      if (valid) {
+        setUser(valid);
+        setPage("client");
+      } else {
+        localStorage.removeItem("gs_cur");
+      }
+    }
     const cd = localStorage.getItem("gs_client_data");
     if (cd) setClientData(JSON.parse(cd));
   }, []);
