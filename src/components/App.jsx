@@ -127,6 +127,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
               { k: "catalog", l: "Produtos" },
               { k: "resumo", l: "Resumo" },
               { k: "orders", l: "Orçamentos" },
+              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }] : []),
             ].map(i => (
               <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
             ))}
@@ -240,6 +241,7 @@ const VENDEDORES = [
   { id: "v1", name: "Alessandro Thonsen", email: "ale.thonsen@gmail.com", password: "Xandyth@8118" },
   { id: "v2", name: "Adelmo Martinello", email: "adelmo_ade@yahoo.com.br", password: "Adelmo@321" },
   { id: "v3", name: "Willian Zanella", email: "comercial@gondolasuprema.com", password: "Zanella@321" },
+  { id: "adm", name: "Administrador", email: "xandyth@hotmail.com", password: "Xandyth@8118", isAdmin: true },
 ];
 
 function Login({ onLogin, setPage }) {
@@ -696,6 +698,124 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   );
 }
 
+// ─── ADMIN ───
+function AdminPage() {
+  const [allOrders, setAllOrders] = useState([]);
+  const [filterVendedor, setFilterVendedor] = useState("all");
+  const [filterCidade, setFilterCidade] = useState("all");
+  const [expanded, setExpanded] = useState(null);
+
+  useEffect(() => {
+    // Collect orders from all vendedores
+    const orders = [];
+    VENDEDORES.filter(v => !v.isAdmin).forEach(v => {
+      const vo = JSON.parse(localStorage.getItem("gs_orders_" + v.id) || "[]");
+      vo.forEach(o => orders.push({ ...o, vendedor: v.name, vendedorId: v.id }));
+    });
+    orders.sort((a, b) => new Date(b.date) - new Date(a.date));
+    setAllOrders(orders);
+  }, []);
+
+  const vendedores = [...new Set(allOrders.map(o => o.vendedor))];
+  const cidades = [...new Set(allOrders.map(o => o.client?.cidade).filter(Boolean))];
+
+  const filtered = allOrders.filter(o => {
+    if (filterVendedor !== "all" && o.vendedor !== filterVendedor) return false;
+    if (filterCidade !== "all" && o.client?.cidade !== filterCidade) return false;
+    return true;
+  });
+
+  const totalGeral = filtered.reduce((s, o) => s + (o.total || 0), 0);
+  const sc = { Pendente: "#F59E0B", Aprovado: "#34D399", Recusado: "#F87171" };
+  const sel = { padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" };
+
+  return (
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Painel Administrativo</h1>
+      <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Todos os orçamentos de todos os vendedores</p>
+
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total Orçamentos</div>
+          <div style={{ color: COLORS.white, fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{filtered.length}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Valor Total</div>
+          <div style={{ color: COLORS.orange, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalGeral)}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Vendedores Ativos</div>
+          <div style={{ color: COLORS.white, fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{vendedores.length}</div>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16, marginBottom: 16, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Filtros:</span>
+        <select value={filterVendedor} onChange={e => setFilterVendedor(e.target.value)} style={sel}>
+          <option value="all">Todos os vendedores</option>
+          {vendedores.map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
+        <select value={filterCidade} onChange={e => setFilterCidade(e.target.value)} style={sel}>
+          <option value="all">Todas as cidades</option>
+          {cidades.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        {(filterVendedor !== "all" || filterCidade !== "all") && (
+          <button onClick={() => { setFilterVendedor("all"); setFilterCidade("all"); }} style={{ background: "transparent", border: `1px solid ${COLORS.danger}`, color: COLORS.danger, padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Limpar filtros</button>
+        )}
+      </div>
+
+      {/* Lista */}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "40px 20px" }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>📂</div>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Nenhum orçamento encontrado</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {filtered.map(o => (
+            <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden" }}>
+              <div onClick={() => setExpanded(expanded === o.id ? null : o.id)} style={{ padding: "14px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                <div>
+                  <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>#{o.id.slice(0, 6).toUpperCase()} · {new Date(o.date).toLocaleDateString("pt-BR")} · {o.items?.length || 0} itens</div>
+                  <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{o.client?.empresa || "Sem empresa"}</div>
+                  <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Vendedor: <strong style={{ color: COLORS.accent }}>{o.vendedor}</strong>{o.client?.cidade ? " · " + o.client.cidade + (o.client.estado ? "/" + o.client.estado : "") : ""}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ background: sc[o.status] || sc.Pendente, color: "#000", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status || "Pendente"}</span>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: COLORS.orange, marginTop: 4 }}>{fmt(o.total || 0)}</div>
+                </div>
+              </div>
+              {expanded === o.id && (
+                <div style={{ borderTop: `1px solid ${COLORS.border}`, padding: "12px 16px" }}>
+                  {o.client?.responsavel && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>Responsável: <strong style={{ color: COLORS.text }}>{o.client.responsavel}</strong></div>}
+                  {o.client?.telefone && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>Tel: {o.client.telefone}</div>}
+                  {o.client?.email && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>E-mail: {o.client.email}</div>}
+                  {o.client?.endereco && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>End: {o.client.endereco}{o.client.bairro ? ", " + o.client.bairro : ""} — {o.client.cidade}{o.client.estado ? "/" + o.client.estado : ""}</div>}
+                  {o.frete > 0 && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>Frete: {fmt(o.frete)}</div>}
+                  {o.notes && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8, fontStyle: "italic" }}>Obs: {o.notes}</div>}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {(o.items || []).map((it, j) => (
+                      <div key={j} style={{ background: COLORS.bg, borderRadius: 6, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.name}</div>
+                          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{it.cat} · Qtd: {it.qty}</div>
+                        </div>
+                        <span style={{ color: COLORS.orange, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{fmt(it.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── APP ───
 export default function App() {
   const [page, setPage] = useState("login");
@@ -742,6 +862,8 @@ export default function App() {
       {page === "resumo" && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
+      {page === "adm" && user?.isAdmin && <AdminPage />}
+      {page === "adm" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
     </div>
   );
 }
