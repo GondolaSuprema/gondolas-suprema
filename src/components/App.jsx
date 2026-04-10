@@ -244,10 +244,9 @@ function ClientPage({ clientData, setClientData, setPage }) {
 
 // ─── LOGIN ───
 const VENDEDORES = [
-  { id: "v1", name: "Alessandro Thonsen", email: "ale.thonsen@gmail.com", password: "Xandyth@8118" },
+  { id: "v1", name: "Alessandro Thonsen", email: "ale.thonsen@gmail.com", password: "Xandyth@8118", isAdmin: true },
   { id: "v2", name: "Adelmo Martinello", email: "adelmo_ade@yahoo.com.br", password: "Adelmo@321" },
   { id: "v3", name: "Willian Zanella", email: "comercial@gondolasuprema.com", password: "Zanella@321" },
-  { id: "adm", name: "Administrador", email: "xandyth@hotmail.com", password: "Xandyth@8118", isAdmin: true },
 ];
 
 function Login({ onLogin, setPage }) {
