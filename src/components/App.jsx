@@ -484,7 +484,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           total: totalFinal,
           frete,
           notes,
-          status: "Pendente",
+          status: "Aguardando Retorno",
         });
       }
     } catch (e) { console.error("Erro ao salvar:", e); }
@@ -647,7 +647,13 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
     setSharingOrder(false);
   };
 
-  const sc = { Pendente: "#F59E0B", Aprovado: "#34D399", Recusado: "#F87171" };
+  const sc = { "Aguardando Retorno": "#3B82F6", "Desistiu": "#F87171", "Sem Retorno": "#8B5CF6", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
+  const statusOptions = ["Aguardando Retorno", "Desistiu", "Sem Retorno", "Fechou Concorrência", "Concluído"];
+
+  const updateStatus = async (orderId, newStatus) => {
+    await supabase.from("orcamentos").update({ status: newStatus }).eq("id", orderId);
+    setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+  };
 
   // PDF viewer
   if (pdfHtml) {
@@ -706,7 +712,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ background: (sc[o.status] || "#888") + "20", color: sc[o.status] || "#888", padding: "3px 10px", borderRadius: 16, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status}</span>
+                  <select value={o.status || "Aguardando Retorno"} onClick={e => e.stopPropagation()} onChange={e => updateStatus(o.id, e.target.value)} style={{ background: (sc[o.status] || "#888") + "20", color: sc[o.status] || "#888", border: `1px solid ${(sc[o.status] || "#888")}40`, padding: "4px 8px", borderRadius: 16, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none", appearance: "auto" }}>
+                    {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
                   <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: o.total === 0 ? COLORS.textDim : COLORS.orange }}>{o.total === 0 ? "Sob consulta" : fmt(o.total)}</span>
                 </div>
               </div>
@@ -807,7 +815,7 @@ function AdminPage() {
   });
 
   const totalGeral = filtered.reduce((s, o) => s + (o.total || 0), 0);
-  const sc = { Pendente: "#F59E0B", Aprovado: "#34D399", Recusado: "#F87171" };
+  const sc = { "Aguardando Retorno": "#3B82F6", "Desistiu": "#F87171", "Sem Retorno": "#8B5CF6", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
   const sel = { padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" };
 
   return (
@@ -869,7 +877,7 @@ function AdminPage() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ background: sc[o.status] || sc.Pendente, color: "#000", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status || "Pendente"}</span>
+                    <span style={{ background: sc[o.status] || sc["Aguardando Retorno"], color: "#000", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status || "Aguardando Retorno"}</span>
                     <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: COLORS.orange, marginTop: 4 }}>{fmt(o.total || 0)}</div>
                   </div>
                   <button onClick={async (e) => { e.stopPropagation(); if (window.confirm("Excluir este orçamento?")) { await supabase.from("orcamentos").delete().eq("id", o.id); setAllOrders(allOrders.filter(x => x.id !== o.id)); }}} style={{ background: COLORS.danger + "15", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "8px", borderRadius: 7, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>🗑️</button>
