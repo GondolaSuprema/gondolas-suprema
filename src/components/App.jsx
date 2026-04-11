@@ -1906,41 +1906,64 @@ function FinanceiroPage() {
                     {items.length === 0 && <div style={{ padding: 14, textAlign: "center", color: COLORS.textDim, fontSize: 10 }}>Nenhuma despesa</div>}
                   </div>
                   {showAddForn === t.key && isGondolas ? (
-                    <div style={{ padding: "12px 14px", borderTop: `1px solid ${COLORS.border}`, background: COLORS.bg + "80" }}>
-                      <div style={{ color: t.color, fontSize: 11, fontWeight: 700, marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>Novo Boleto — Gôndolas Brasil</div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "flex-end" }}>
-                        <div>
-                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Nº Documento</div>
-                          <input placeholder="Ex: NF-1234" value={gondForm.documento} onChange={e => setGondForm({ ...gondForm, documento: e.target.value })} style={{ ...inp, width: 90, padding: "4px 6px", fontSize: 10 }} />
+                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                          <h2 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 18, margin: 0 }}>Novo Boleto — Gôndolas Brasil</h2>
+                          <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
                         </div>
-                        <div>
-                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Dia Venc.</div>
-                          <select value={gondForm.dia} onChange={e => setGondForm({ ...gondForm, dia: e.target.value })} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
-                            <option value="">--</option>
-                            {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
-                          </select>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                          <div>
+                            <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Nº do Documento *</div>
+                            <input placeholder="Ex: NF-1234" value={gondForm.documento} onChange={e => setGondForm({ ...gondForm, documento: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Dia do Vencimento *</div>
+                              <select value={gondForm.dia} onChange={e => setGondForm({ ...gondForm, dia: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                                <option value="">Selecione...</option>
+                                {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Mês 1ª Parcela *</div>
+                              <select value={gondForm.mes} onChange={e => setGondForm({ ...gondForm, mes: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                                <option value="">Selecione...</option>
+                                <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option><option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option><option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Quantidade de Parcelas</div>
+                              <select value={gondForm.qtdParcelas} onChange={e => setGondForm({ ...gondForm, qtdParcelas: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                                {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x{i === 0 ? " (única)" : ""}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Valor da Parcela (R$) *</div>
+                              <input type="number" min="0" step="0.01" placeholder="0,00" value={gondForm.valor} onChange={e => setGondForm({ ...gondForm, valor: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textAlign: "right" }} />
+                            </div>
+                          </div>
+                          {gondForm.qtdParcelas > 1 && gondForm.dia && gondForm.mes && gondForm.valor && (
+                            <div style={{ background: t.color + "10", border: `1px solid ${t.color}25`, borderRadius: 8, padding: "10px 14px" }}>
+                              <div style={{ color: t.color, fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>Parcelas a serem geradas:</div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
+                                {Array.from({ length: Number(gondForm.qtdParcelas) }, (_, i) => {
+                                  let m = Number(gondForm.mes) + i; let a = Number(mesSel.split("-")[0]);
+                                  while (m > 12) { m -= 12; a++; }
+                                  return <div key={i}>{i + 1}/{gondForm.qtdParcelas} — {gondForm.dia}/{String(m).padStart(2, "0")} — R$ {Number(gondForm.valor).toFixed(2)}</div>;
+                                })}
+                              </div>
+                              <div style={{ color: t.color, fontSize: 12, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 6 }}>Total: {fmt(Number(gondForm.valor) * Number(gondForm.qtdParcelas))}</div>
+                            </div>
+                          )}
+                          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                            <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                            <button onClick={adicionarGondolas} disabled={!gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor} style={{ flex: 1, background: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Gerar Parcelas</button>
+                          </div>
                         </div>
-                        <div>
-                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Mês 1ª Parc.</div>
-                          <select value={gondForm.mes} onChange={e => setGondForm({ ...gondForm, mes: e.target.value })} style={{ ...inp, width: 52, padding: "4px 2px", fontSize: 10 }}>
-                            <option value="">--</option>
-                            <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option><option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
-                          </select>
-                        </div>
-                        <div>
-                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Parcelas</div>
-                          <select value={gondForm.qtdParcelas} onChange={e => setGondForm({ ...gondForm, qtdParcelas: e.target.value })} style={{ ...inp, width: 45, padding: "4px 2px", fontSize: 10 }}>
-                            {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Valor Parcela R$</div>
-                          <input type="number" min="0" step="0.01" placeholder="0,00" value={gondForm.valor} onChange={e => setGondForm({ ...gondForm, valor: e.target.value })} style={{ ...inp, width: 85, padding: "4px 6px", fontSize: 10, textAlign: "right", color: COLORS.orange, fontWeight: 700 }} />
-                        </div>
-                        <button onClick={adicionarGondolas} disabled={!gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor} style={{ background: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? COLORS.textDim : t.color, border: "none", color: "#fff", padding: "4px 10px", borderRadius: 4, fontWeight: 700, fontSize: 9, cursor: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? "not-allowed" : "pointer" }}>Gerar</button>
-                        <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 11 }}>✕</button>
                       </div>
-                      {gondForm.qtdParcelas > 1 && gondForm.dia && gondForm.mes && <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 6, fontFamily: "'DM Sans', sans-serif" }}>Serão geradas {gondForm.qtdParcelas} parcelas a partir de {gondForm.dia}/{gondForm.mes}</div>}
                     </div>
                   ) : showAddForn === t.key && !isGondolas ? (
                     <div style={{ padding: "8px 10px", borderTop: `1px solid ${COLORS.border}`, background: COLORS.bg + "80" }}>
