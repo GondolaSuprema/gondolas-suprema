@@ -137,8 +137,8 @@ export async function POST(request) {
         status: data.status,
         numero: data.numero,
         chave: data.chave_nfe,
-        url_danfe: data.caminho_danfe,
-        url_xml: data.caminho_xml_nota_fiscal,
+        url_danfe: data.caminho_danfe ? "https://homologacao.focusnfe.com.br" + data.caminho_danfe : null,
+        url_xml: data.caminho_xml_nota_fiscal ? "https://homologacao.focusnfe.com.br" + data.caminho_xml_nota_fiscal : null,
         ref: ref,
       });
     } else if (data.status === "processando_autorizacao") {
@@ -162,8 +162,8 @@ export async function POST(request) {
         status: checkData.status,
         numero: checkData.numero,
         chave: checkData.chave_nfe,
-        url_danfe: checkData.caminho_danfe,
-        url_xml: checkData.caminho_xml_nota_fiscal,
+        url_danfe: checkData.caminho_danfe ? "https://homologacao.focusnfe.com.br" + checkData.caminho_danfe : null,
+        url_xml: checkData.caminho_xml_nota_fiscal ? "https://homologacao.focusnfe.com.br" + checkData.caminho_xml_nota_fiscal : null,
         mensagem: checkData.mensagem_sefaz,
         ref: ref,
       });
