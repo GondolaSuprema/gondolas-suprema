@@ -584,6 +584,40 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   const [orders, setOrders] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editItems, setEditItems] = useState([]);
+  const [editFrete, setEditFrete] = useState(0);
+  const [editMarkup, setEditMarkup] = useState(0);
+  const [editNotes, setEditNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = (o) => {
+    setEditingId(o.id);
+    setEditItems([...(o.items || [])]);
+    setEditFrete(o.frete || 0);
+    setEditNotes(o.notes || "");
+    setEditMarkup(0);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditItems([]);
+    setEditFrete(0);
+    setEditMarkup(0);
+    setEditNotes("");
+  };
+
+  const saveEdit = async (orderId) => {
+    setSaving(true);
+    const subtotal = editItems.reduce((s, it) => s + (it.total || 0), 0);
+    const comissao = subtotal * editMarkup / 100;
+    const newItems = editMarkup > 0 ? editItems.map(it => ({ ...it, total: it.total + (it.total * editMarkup / 100) })) : editItems;
+    const newTotal = newItems.reduce((s, it) => s + (it.total || 0), 0) + editFrete;
+    await supabase.from("orcamentos").update({ items: newItems, total: newTotal, frete: editFrete, notes: editNotes }).eq("id", orderId);
+    setOrders(orders.map(o => o.id === orderId ? { ...o, items: newItems, total: newTotal, frete: editFrete, notes: editNotes } : o));
+    setSaving(false);
+    cancelEdit();
+  };
 
   useEffect(() => {
     const loadOrders = async () => {
@@ -723,7 +757,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
               </div>
 
               {/* Expanded */}
-              {isOpen && (
+              {isOpen && editingId !== o.id && (
                 <div style={{ padding: "0 18px 18px", borderTop: `1px solid ${COLORS.border}` }}>
                   <div style={{ marginTop: 14 }}>
                     {o.items.map((it, i) => (
@@ -733,7 +767,6 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                           <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
                             <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{it.cat}</span>
                             <span style={{ color: COLORS.textDim, fontSize: 11 }}>×{it.qty}</span>
-                            {it.opts?.length > 0 && <span style={{ color: COLORS.orange, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Altura: {it.opts.join(", ")}</span>}
                           </div>
                         </div>
                         <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: it.total === 0 ? COLORS.textDim : COLORS.textMuted }}>{fmt(it.total)}</span>
@@ -741,21 +774,19 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                     ))}
                   </div>
 
-                  {o.notes && (
-                    <div style={{ padding: "8px 12px", background: COLORS.orange + "08", borderRadius: 8, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif", marginBottom: 12 }}>💬 {o.notes}</div>
-                  )}
+                  {o.frete > 0 && <div style={{ padding: "6px 12px", fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>Frete: {fmt(o.frete)}</div>}
+                  {o.notes && <div style={{ padding: "8px 12px", background: COLORS.orange + "08", borderRadius: 8, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif", marginBottom: 12 }}>💬 {o.notes}</div>}
 
                   <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}10, ${COLORS.orange}05)`, border: `1px solid ${COLORS.orange}25`, borderRadius: 10, padding: "14px 16px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
                       <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Total do orçamento</div>
-                      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: o.total === 0 ? COLORS.textDim : COLORS.orange }}>{o.total === 0 ? "Valores sob consulta" : fmt(o.total)}</div>
+                      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: COLORS.orange }}>{fmt(o.total)}</div>
                     </div>
                     <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "right" }}>
                       {o.items.length} produto(s)<br/>{o.items.reduce((s, it) => s + it.qty, 0)} unidade(s)
                     </div>
                   </div>
 
-                  {/* Delete confirmation */}
                   {isConfirming && (
                     <div style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, borderRadius: 10, padding: "14px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                       <span style={{ color: COLORS.danger, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Excluir este orçamento?</span>
@@ -766,12 +797,81 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                     </div>
                   )}
 
-                  {/* Actions */}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button onClick={(e) => { e.stopPropagation(); showPdf(o); }} style={{ background: "#25D366", border: "none", color: "#fff", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 120 }}>📤 Compartilhar</button>
-                    <button onClick={(e) => { e.stopPropagation(); addMoreItems(o.id); }} style={{ background: COLORS.orange + "15", border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 120 }}>+ Adicionar Itens</button>
-                    <button onClick={(e) => { e.stopPropagation(); setConfirmDel(o.id); }} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 50 }}>🗑️ Excluir</button>
+                    <button onClick={(e) => { e.stopPropagation(); showPdf(o); }} style={{ background: "#25D366", border: "none", color: "#fff", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 100 }}>📤 Compartilhar</button>
+                    <button onClick={(e) => { e.stopPropagation(); startEdit(o); }} style={{ background: "#3B82F6" + "15", border: `1px solid #3B82F640`, color: "#3B82F6", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 100 }}>✏️ Editar</button>
+                    <button onClick={(e) => { e.stopPropagation(); addMoreItems(o.id); }} style={{ background: COLORS.orange + "15", border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 100 }}>+ Adicionar</button>
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDel(o.id); }} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 50 }}>🗑️</button>
                   </div>
+                </div>
+              )}
+
+              {/* Edit Mode */}
+              {editingId === o.id && (
+                <div style={{ padding: "18px", borderTop: `1px solid #3B82F640`, background: COLORS.bg + "80" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                    <h3 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 16, margin: 0 }}>Editando Orçamento</h3>
+                    <button onClick={cancelEdit} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✕ Cancelar</button>
+                  </div>
+
+                  {/* Edit Items */}
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+                    <div style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Itens ({editItems.length})</span>
+                      <button onClick={() => { addMoreItems(o.id); cancelEdit(); }} style={{ background: "transparent", border: "none", color: COLORS.orange, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>+ Adicionar item</button>
+                    </div>
+                    {editItems.map((it, i) => (
+                      <div key={i} style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.name}</div>
+                          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{it.cat} · Qtd: {it.qty}</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ color: COLORS.text, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{fmt(it.total)}</span>
+                          <button onClick={() => setEditItems(editItems.filter((_, j) => j !== i))} style={{ background: COLORS.danger + "15", border: "none", color: COLORS.danger, padding: "4px 7px", borderRadius: 5, cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Edit Markup */}
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Aplicar margem (%):</span>
+                    <input type="number" min="0" max="500" value={editMarkup || ""} onChange={e => setEditMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 70, padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+                    <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{editMarkup > 0 ? "+" + editMarkup + "% sobre cada item" : "Sem margem extra"}</span>
+                  </div>
+
+                  {/* Edit Frete */}
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
+                    <input type="number" min="0" value={editFrete || ""} onChange={e => setEditFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 100, padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+                  </div>
+
+                  {/* Edit Notes */}
+                  <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Observações..." rows={2} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "10px 14px", fontSize: 12, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginBottom: 14 }} />
+
+                  {/* Edit Total Preview */}
+                  <div style={{ background: `linear-gradient(135deg, #3B82F615, #3B82F605)`, border: "1px solid #3B82F630", borderRadius: 10, padding: "12px 16px", marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Subtotal itens</span>
+                      <span style={{ color: COLORS.text, fontSize: 11 }}>{fmt(editItems.reduce((s, it) => s + (it.total || 0), 0))}</span>
+                    </div>
+                    {editMarkup > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Margem ({editMarkup}%)</span>
+                      <span style={{ color: COLORS.success, fontSize: 11 }}>+{fmt(editItems.reduce((s, it) => s + (it.total || 0), 0) * editMarkup / 100)}</span>
+                    </div>}
+                    {editFrete > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Frete</span>
+                      <span style={{ color: COLORS.text, fontSize: 11 }}>+{fmt(editFrete)}</span>
+                    </div>}
+                    <div style={{ borderTop: "1px solid #3B82F630", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ color: COLORS.white, fontSize: 13, fontWeight: 700 }}>NOVO TOTAL</span>
+                      <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 800, color: "#3B82F6" }}>{fmt((editMarkup > 0 ? editItems.reduce((s, it) => s + (it.total || 0) + (it.total || 0) * editMarkup / 100, 0) : editItems.reduce((s, it) => s + (it.total || 0), 0)) + editFrete)}</span>
+                    </div>
+                  </div>
+
+                  {/* Save Edit */}
+                  <button onClick={() => saveEdit(o.id)} disabled={saving} style={{ width: "100%", background: saving ? COLORS.textDim : "#3B82F6", color: "#fff", border: "none", padding: "12px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: saving ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif" }}>{saving ? "Salvando..." : "Salvar Alterações"}</button>
                 </div>
               )}
             </div>
