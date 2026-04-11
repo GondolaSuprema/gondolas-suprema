@@ -10,7 +10,9 @@ export async function POST(request) {
   };
 
   const token = ambiente === "producao" ? TOKENS.producao : TOKENS.homologacao;
-  const baseUrl = "https://api.focusnfe.com.br/v2/nfe";
+  const baseUrl = ambiente === "producao"
+    ? "https://api.focusnfe.com.br/v2/nfe"
+    : "https://homologacao.focusnfe.com.br/v2/nfe";
   const authHeader = "Basic " + Buffer.from(token + ":").toString("base64");
 
   const cfop = ordem.client?.estado?.toUpperCase() === "SC" ? "5102" : "6102";
@@ -117,7 +119,7 @@ export async function POST(request) {
       return Response.json({
         success: false,
         status: "erro_parse",
-        mensagem: "Resposta da API: " + text.substring(0, 200),
+        mensagem: "Resposta da API: " + text.substring(0, 300),
       });
     }
 
@@ -144,7 +146,7 @@ export async function POST(request) {
         return Response.json({
           success: false,
           status: "erro_parse",
-          mensagem: "Resposta consulta: " + checkText.substring(0, 200),
+          mensagem: "Resposta consulta: " + checkText.substring(0, 300),
         });
       }
       return Response.json({
