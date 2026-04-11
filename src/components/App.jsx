@@ -2441,6 +2441,7 @@ function DrePage() {
 function NFPage() {
   const [notas, setNotas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [consultando, setConsultando] = useState(null);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
@@ -2449,6 +2450,44 @@ function NFPage() {
     const { data } = await supabase.from("notas_fiscais").select("*").order("data_emissao", { ascending: false });
     if (data) setNotas(data);
     setLoading(false);
+  };
+
+  const consultarSefaz = async (nota) => {
+    if (!nota.ref) return;
+    setConsultando(nota.id);
+    try {
+      const res = await fetch("/api/consultar-nfe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ref: nota.ref, ambiente: "producao" }),
+      });
+      const data = await res.json();
+      if (data.success && data.status) {
+        await supabase.from("notas_fiscais").update({ status: data.status }).eq("id", nota.id);
+        setNotas(notas.map(n => n.id === nota.id ? { ...n, status: data.status } : n));
+      }
+    } catch (e) { console.error(e); }
+    setConsultando(null);
+  };
+
+  const consultarTodas = async () => {
+    setLoading(true);
+    for (const n of notasMes) {
+      if (n.ref) {
+        try {
+          const res = await fetch("/api/consultar-nfe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ref: n.ref, ambiente: "producao" }),
+          });
+          const data = await res.json();
+          if (data.success && data.status) {
+            await supabase.from("notas_fiscais").update({ status: data.status }).eq("id", n.id);
+          }
+        } catch (e) { console.error(e); }
+      }
+    }
+    await carregarNotas();
   };
 
   useEffect(() => { carregarNotas(); }, []);
@@ -2483,6 +2522,7 @@ function NFPage() {
             })}
           </select>
           <button onClick={carregarNotas} style={{ background: COLORS.orange + "15", border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Atualizar</button>
+          <button onClick={consultarTodas} style={{ background: "#3B82F615", border: "1px solid #3B82F640", color: "#3B82F6", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Consultar SEFAZ</button>
         </div>
       </div>
 
@@ -2529,6 +2569,7 @@ function NFPage() {
                   <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
                   <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>PDF</th>
                   <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>XML</th>
+                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>SEFAZ</th>
                 </tr>
               </thead>
               <tbody>
@@ -2548,6 +2589,13 @@ function NFPage() {
                     </td>
                     <td style={{ padding: "8px 10px", textAlign: "center" }}>
                       {n.url_xml && n.status === "autorizado" && <a href={n.url_xml} target="_blank" rel="noopener noreferrer" style={{ color: "#3B82F6", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>XML</a>}
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                      {consultando === n.id ? (
+                        <span style={{ color: COLORS.textMuted, fontSize: 8 }}>...</span>
+                      ) : (
+                        <button onClick={() => consultarSefaz(n)} style={{ background: "#3B82F610", border: "1px solid #3B82F630", color: "#3B82F6", padding: "2px 6px", borderRadius: 4, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Consultar</button>
+                      )}
                     </td>
                   </tr>
                 ))}
