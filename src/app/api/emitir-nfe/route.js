@@ -126,7 +126,7 @@ export async function POST(request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Basic " + Buffer.from(token + ":").toString("base64"),
+        Authorization: "Basic " + btoa(token + ":"),
       },
       body: JSON.stringify(nfe),
     });
@@ -148,7 +148,7 @@ export async function POST(request) {
       await new Promise((r) => setTimeout(r, 5000));
       const checkResponse = await fetch(`${baseUrl}/${ref}`, {
         headers: {
-          Authorization: "Basic " + Buffer.from(token + ":").toString("base64"),
+          Authorization: "Basic " + btoa(token + ":"),
         },
       });
       const checkData = await checkResponse.json();
