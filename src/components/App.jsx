@@ -1489,6 +1489,7 @@ const DESPESAS_FIXAS = [
 ];
 
 function FinanceiroPage() {
+  const [subTab, setSubTab] = useState("fixas");
   const [despesas, setDespesas] = useState([]);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
   const [novaDespesa, setNovaDespesa] = useState("");
@@ -1502,13 +1503,10 @@ function FinanceiroPage() {
     if (data && data.length > 0) {
       setDespesas(data);
     } else {
-      // Criar despesas fixas para o mês
       const novas = DESPESAS_FIXAS.map(nome => ({
         id: genId(), nome, vencimento: null, valor: 0, status: "Em Aberto", mes, fixa: true
       }));
-      for (const d of novas) {
-        await supabase.from("despesas").insert(d);
-      }
+      for (const d of novas) { await supabase.from("despesas").insert(d); }
       setDespesas(novas);
     }
     setLoading(false);
@@ -1517,15 +1515,14 @@ function FinanceiroPage() {
   useEffect(() => { carregarDespesas(mesSel); }, [mesSel]);
 
   const atualizarDespesa = async (id, campo, valor) => {
-    const update = {};
-    update[campo] = valor;
+    const update = {}; update[campo] = valor;
     await supabase.from("despesas").update(update).eq("id", id);
     setDespesas(despesas.map(d => d.id === id ? { ...d, [campo]: valor } : d));
   };
 
-  const adicionarDespesa = async () => {
+  const adicionarDespesa = async (fixa) => {
     if (!novaDespesa.trim()) return;
-    const nova = { id: genId(), nome: novaDespesa.trim(), vencimento: null, valor: 0, status: "Em Aberto", mes: mesSel, fixa: false };
+    const nova = { id: genId(), nome: novaDespesa.trim(), vencimento: null, valor: 0, status: "Em Aberto", mes: mesSel, fixa };
     await supabase.from("despesas").insert(nova);
     setDespesas([...despesas, nova]);
     setNovaDespesa("");
@@ -1537,7 +1534,12 @@ function FinanceiroPage() {
   };
 
   const hoje = new Date().toISOString().split("T")[0];
-  const totalMes = despesas.reduce((s, d) => s + (d.valor || 0), 0);
+  const fixas = despesas.filter(d => d.fixa);
+  const variaveis = despesas.filter(d => !d.fixa);
+  const current = subTab === "fixas" ? fixas : variaveis;
+  const totalFixas = fixas.reduce((s, d) => s + (d.valor || 0), 0);
+  const totalVar = variaveis.reduce((s, d) => s + (d.valor || 0), 0);
+  const totalMes = totalFixas + totalVar;
   const totalPago = despesas.filter(d => d.status === "Pago").reduce((s, d) => s + (d.valor || 0), 0);
   const totalAberto = totalMes - totalPago;
 
@@ -1550,6 +1552,78 @@ function FinanceiroPage() {
   };
 
   const inp = { padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+
+  const renderTabela = (items, isFixa) => (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+        <thead>
+          <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+            <th style={{ padding: "6px 8px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Despesa</th>
+            <th style={{ padding: "6px 8px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Venc.</th>
+            <th style={{ padding: "6px 8px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+            <th style={{ padding: "6px 8px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Sit.</th>
+            <th style={{ padding: "6px 8px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
+            <th style={{ padding: "6px 4px", width: 20 }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...items].sort((a, b) => {
+            if (!a.vencimento && !b.vencimento) return 0;
+            if (!a.vencimento) return 1;
+            if (!b.vencimento) return -1;
+            return a.vencimento.localeCompare(b.vencimento);
+          }).map(d => {
+            const sit = getSituacao(d);
+            return (
+              <tr key={d.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                <td style={{ padding: "6px 8px" }}>
+                  <input value={d.nome} onChange={e => atualizarDespesa(d.id, "nome", e.target.value)} style={{ ...inp, width: "100%", padding: "4px 6px", fontSize: 11, fontWeight: 500, color: COLORS.text, border: "1px solid transparent" }} onFocus={e => e.target.style.borderColor = COLORS.border} onBlur={e => e.target.style.borderColor = "transparent"} />
+                </td>
+                <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                  <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
+                    <select value={d.vencimento ? d.vencimento.split("-")[2] : ""} onChange={e => { const m = d.vencimento ? d.vencimento.split("-")[1] : mesSel.split("-")[1]; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + m + "-" + e.target.value); }} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
+                      <option value="">--</option>
+                      {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
+                    </select>
+                    <select value={d.vencimento ? d.vencimento.split("-")[1] : ""} onChange={e => { const dia = d.vencimento ? d.vencimento.split("-")[2] : "01"; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + e.target.value + "-" + dia); }} style={{ ...inp, width: 50, padding: "4px 2px", fontSize: 10 }}>
+                      <option value="">--</option>
+                      <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option><option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
+                    </select>
+                  </div>
+                </td>
+                <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
+                    <span style={{ color: COLORS.textDim, fontSize: 10 }}>R$</span>
+                    <input type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0,00" style={{ ...inp, width: 95, textAlign: "right", color: COLORS.orange, fontWeight: 700, padding: "4px 6px", fontSize: 11 }} />
+                  </div>
+                </td>
+                <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                  <span style={{ background: sit.color + "20", color: sit.color, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{sit.label}</span>
+                </td>
+                <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                  <select value={d.status} onChange={e => atualizarDespesa(d.id, "status", e.target.value)} style={{ background: d.status === "Pago" ? "#10B98120" : "#F59E0B20", color: d.status === "Pago" ? "#10B981" : "#F59E0B", border: `1px solid ${d.status === "Pago" ? "#10B98140" : "#F59E0B40"}`, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                    <option value="Em Aberto">Aberto</option>
+                    <option value="Pago">Pago</option>
+                  </select>
+                </td>
+                <td style={{ padding: "4px 2px", textAlign: "center" }}>
+                  <button onClick={() => excluirDespesa(d.id)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>✕</button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr style={{ background: COLORS.bg }}>
+            <td style={{ padding: "8px", color: COLORS.white, fontWeight: 700, fontSize: 11 }}>SUBTOTAL</td>
+            <td></td>
+            <td style={{ padding: "8px", textAlign: "right", color: COLORS.orange, fontWeight: 800, fontFamily: "'Playfair Display', serif", fontSize: 13 }}>{fmt(items.reduce((s, d) => s + (d.valor || 0), 0))}</td>
+            <td></td><td></td><td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
@@ -1570,8 +1644,12 @@ function FinanceiroPage() {
       {/* Cards resumo */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Total</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Total Geral</div>
           <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalMes)}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Fixas: {fmt(totalFixas)}</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Variáveis: {fmt(totalVar)}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Pago</div>
@@ -1581,96 +1659,30 @@ function FinanceiroPage() {
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Aberto</div>
           <div style={{ color: "#F87171", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalAberto)}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Vencidas</div>
-          <div style={{ color: "#F87171", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{despesas.filter(d => d.status !== "Pago" && d.vencimento && d.vencimento < hoje).length}</div>
-        </div>
       </div>
 
-      {/* Tabela de despesas */}
+      {/* Sub-tabs */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+        <button onClick={() => setSubTab("fixas")} style={{ background: subTab === "fixas" ? COLORS.orange + "20" : COLORS.card, color: subTab === "fixas" ? COLORS.orange : COLORS.textMuted, border: `1px solid ${subTab === "fixas" ? COLORS.orange + "40" : COLORS.border}`, padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Despesas Fixas ({fixas.length})</button>
+        <button onClick={() => setSubTab("variaveis")} style={{ background: subTab === "variaveis" ? "#8B5CF6" + "20" : COLORS.card, color: subTab === "variaveis" ? "#8B5CF6" : COLORS.textMuted, border: `1px solid ${subTab === "variaveis" ? "#8B5CF640" : COLORS.border}`, padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Despesas Variáveis ({variaveis.length})</button>
+      </div>
+
+      {/* Tabela */}
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Despesas — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
+        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: subTab === "fixas" ? COLORS.orange : "#8B5CF6", fontSize: 15, margin: 0 }}>{subTab === "fixas" ? "Despesas Fixas" : "Despesas Variáveis"} — {mesNomes[mesSel.split("-")[1]]}</h2>
         </div>
 
         {loading ? (
           <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando...</div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                  <th style={{ padding: "6px 8px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Despesa</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Venc.</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Sit.</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
-                  <th style={{ padding: "6px 4px", width: 20 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...despesas].sort((a, b) => {
-                  if (!a.vencimento && !b.vencimento) return 0;
-                  if (!a.vencimento) return 1;
-                  if (!b.vencimento) return -1;
-                  return a.vencimento.localeCompare(b.vencimento);
-                }).map(d => {
-                  const sit = getSituacao(d);
-                  return (
-                    <tr key={d.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                      <td style={{ padding: "6px 8px" }}>
-                        <input value={d.nome} onChange={e => atualizarDespesa(d.id, "nome", e.target.value)} style={{ ...inp, width: "100%", padding: "4px 6px", fontSize: 11, fontWeight: 500, color: COLORS.text, border: "1px solid transparent" }} onFocus={e => e.target.style.borderColor = COLORS.border} onBlur={e => e.target.style.borderColor = "transparent"} />
-                      </td>
-                      <td style={{ padding: "4px 4px", textAlign: "center" }}>
-                        <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
-                          <select value={d.vencimento ? d.vencimento.split("-")[2] : ""} onChange={e => { const m = d.vencimento ? d.vencimento.split("-")[1] : mesSel.split("-")[1]; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + m + "-" + e.target.value); }} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
-                            <option value="">--</option>
-                            {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
-                          </select>
-                          <select value={d.vencimento ? d.vencimento.split("-")[1] : ""} onChange={e => { const dia = d.vencimento ? d.vencimento.split("-")[2] : "01"; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + e.target.value + "-" + dia); }} style={{ ...inp, width: 50, padding: "4px 2px", fontSize: 10 }}>
-                            <option value="">--</option>
-                            <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option><option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
-                          </select>
-                        </div>
-                      </td>
-                      <td style={{ padding: "4px 8px", textAlign: "right" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
-                          <span style={{ color: COLORS.textDim, fontSize: 10 }}>R$</span>
-                          <input type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0,00" style={{ ...inp, width: 95, textAlign: "right", color: COLORS.orange, fontWeight: 700, padding: "4px 6px", fontSize: 11 }} />
-                        </div>
-                      </td>
-                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                        <span style={{ background: sit.color + "20", color: sit.color, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{sit.label}</span>
-                      </td>
-                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                        <select value={d.status} onChange={e => atualizarDespesa(d.id, "status", e.target.value)} style={{ background: d.status === "Pago" ? "#10B98120" : "#F59E0B20", color: d.status === "Pago" ? "#10B981" : "#F59E0B", border: `1px solid ${d.status === "Pago" ? "#10B98140" : "#F59E0B40"}`, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
-                          <option value="Em Aberto">Aberto</option>
-                          <option value="Pago">Pago</option>
-                        </select>
-                      </td>
-                      <td style={{ padding: "4px 2px", textAlign: "center" }}>
-                        {!d.fixa && <button onClick={() => excluirDespesa(d.id)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>✕</button>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: COLORS.bg }}>
-                  <td style={{ padding: "8px", color: COLORS.white, fontWeight: 700, fontSize: 11 }}>TOTAL</td>
-                  <td></td>
-                  <td style={{ padding: "8px", textAlign: "right", color: COLORS.orange, fontWeight: 800, fontFamily: "'Playfair Display', serif", fontSize: 13 }}>{fmt(totalMes)}</td>
-                  <td></td><td></td><td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
+        ) : current.length === 0 ? (
+          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 12 }}>Nenhuma despesa {subTab === "fixas" ? "fixa" : "variável"} neste mês</div>
+        ) : renderTabela(current, subTab === "fixas")}
 
         {/* Adicionar despesa */}
-        <div style={{ padding: "12px 18px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 10, alignItems: "center" }}>
-          <input placeholder="Nova despesa..." value={novaDespesa} onChange={e => setNovaDespesa(e.target.value)} onKeyDown={e => e.key === "Enter" && adicionarDespesa()} style={{ ...inp, flex: 1 }} />
-          <button onClick={adicionarDespesa} style={{ background: COLORS.orange, border: "none", color: "#000", padding: "7px 16px", borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Adicionar</button>
+        <div style={{ padding: "10px 18px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 8, alignItems: "center" }}>
+          <input placeholder={subTab === "fixas" ? "Nova despesa fixa..." : "Nova despesa variável..."} value={novaDespesa} onChange={e => setNovaDespesa(e.target.value)} onKeyDown={e => e.key === "Enter" && adicionarDespesa(subTab === "fixas")} style={{ ...inp, flex: 1, fontSize: 11 }} />
+          <button onClick={() => adicionarDespesa(subTab === "fixas")} style={{ background: subTab === "fixas" ? COLORS.orange : "#8B5CF6", border: "none", color: subTab === "fixas" ? "#000" : "#fff", padding: "6px 14px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Adicionar</button>
         </div>
       </div>
     </div>
