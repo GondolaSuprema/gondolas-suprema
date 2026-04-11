@@ -1498,7 +1498,7 @@ function FinanceiroPage() {
   const [fornecedores, setFornecedores] = useState([]);
   const [showAddForn, setShowAddForn] = useState("");
   const [fornForm, setFornForm] = useState({ data: "", pedido: "", parcela: "", valor: "" });
-  const [gondForm, setGondForm] = useState({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" });
+  const [gondForm, setGondForm] = useState({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" });
   const [loading, setLoading] = useState(true);
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
@@ -1603,7 +1603,7 @@ function FinanceiroPage() {
       const mesKey = anoAtual + "-" + mesStr;
       const nova = {
         id: genId(),
-        nome: "forn_gondolas|" + gf.documento + "|" + (i + 1) + "/" + qtd,
+        nome: "forn_gondolas|" + gf.documento + "|" + (i + 1) + "/" + qtd + "|" + (gf.pagador || ""),
         vencimento: venc,
         valor: val,
         status: "Em Aberto",
@@ -1614,7 +1614,7 @@ function FinanceiroPage() {
       await supabase.from("despesas").insert(nova);
     }
     setFornecedores([...fornecedores, ...novas]);
-    setGondForm({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" });
+    setGondForm({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" });
     setShowAddForn("");
   };
 
@@ -1856,7 +1856,7 @@ function FinanceiroPage() {
         ];
         const parseForn = (f) => {
           const parts = f.nome.replace("forn_", "").split("|");
-          return { tipo: parts[0], pedido: parts[1] || "", parcela: parts[2] || "" };
+          return { tipo: parts[0], pedido: parts[1] || "", parcela: parts[2] || "", pagador: parts[3] || "" };
         };
         const totalFornGeral = fornecedores.reduce((s, f) => s + (f.valor || 0), 0);
         const renderFornCard = (t, items, isGondolas) => {
@@ -1910,12 +1910,16 @@ function FinanceiroPage() {
                       <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                           <h2 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 18, margin: 0 }}>Novo Boleto — Gôndolas Brasil</h2>
-                          <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
+                          <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                           <div>
                             <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Nº do Documento *</div>
                             <input placeholder="Ex: NF-1234" value={gondForm.documento} onChange={e => setGondForm({ ...gondForm, documento: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                          </div>
+                          <div>
+                            <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Nome do Pagador</div>
+                            <input placeholder="Ex: Gôndolas Brasil Ltda" value={gondForm.pagador} onChange={e => setGondForm({ ...gondForm, pagador: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
                           </div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                             <div>
@@ -1959,7 +1963,7 @@ function FinanceiroPage() {
                             </div>
                           )}
                           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                            <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                            <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                             <button onClick={adicionarGondolas} disabled={!gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor} style={{ flex: 1, background: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Gerar Parcelas</button>
                           </div>
                         </div>
