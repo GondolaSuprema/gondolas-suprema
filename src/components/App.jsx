@@ -1030,6 +1030,7 @@ function AdminPage() {
   const [confirmEmitir, setConfirmEmitir] = useState(null);
   const [cancelandoNfe, setCancelandoNfe] = useState(null);
   const [cancelJustificativa, setCancelJustificativa] = useState("");
+  const [cancelRef, setCancelRef] = useState("");
 
   const emitirNfe = async (ordem) => {
     setConfirmEmitir(null);
@@ -1207,6 +1208,30 @@ function AdminPage() {
         )}
       </div>
 
+      {/* Modal Cancelar NF-e */}
+      {cancelandoNfe && cancelandoNfe !== "loading" && !nfeResult && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.danger, fontSize: 18, margin: "0 0 12px" }}>Cancelar NF-e</h2>
+            <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 14px" }}>Informe a referência da NF-e e o motivo do cancelamento. O cancelamento só é possível em até 24 horas após a emissão.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Referência da NF-e (ref) *</div>
+                <input value={cancelRef || ""} onChange={e => setCancelRef(e.target.value)} placeholder="Ex: nfe_1775945919881" style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Justificativa (mín. 15 caracteres) *</div>
+                <input value={cancelJustificativa} onChange={e => setCancelJustificativa(e.target.value)} placeholder="Motivo do cancelamento..." style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button onClick={() => { setCancelandoNfe(null); setCancelRef(""); setCancelJustificativa(""); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
+                <button onClick={() => cancelarNfe(cancelRef, cancelJustificativa)} disabled={!cancelRef || cancelJustificativa.length < 15} style={{ flex: 1, background: !cancelRef || cancelJustificativa.length < 15 ? COLORS.textDim : COLORS.danger, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !cancelRef || cancelJustificativa.length < 15 ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar NF-e</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Confirmação Emitir NF */}
       {confirmEmitir && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -1353,11 +1378,14 @@ function AdminPage() {
                             </select>
                           </td>
                           <td style={{ padding: "10px 8px", textAlign: "center" }}>
-                            {emitindoNfe === o.id ? (
-                              <span style={{ color: COLORS.textMuted, fontSize: 9 }}>Emitindo...</span>
-                            ) : (
-                              <button onClick={() => setConfirmEmitir(o)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Emitir NF</button>
-                            )}
+                            <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                              {emitindoNfe === o.id ? (
+                                <span style={{ color: COLORS.textMuted, fontSize: 9 }}>Emitindo...</span>
+                              ) : (
+                                <button onClick={() => setConfirmEmitir(o)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 6px", borderRadius: 6, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Emitir</button>
+                              )}
+                              <button onClick={() => setCancelandoNfe(o.id)} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "3px 6px", borderRadius: 6, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Cancelar</button>
+                            </div>
                           </td>
                         </tr>
                       );
