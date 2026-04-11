@@ -885,6 +885,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
 // ─── ADMIN ───
 function AdminPage() {
   const [allOrders, setAllOrders] = useState([]);
+  const [deletedCount, setDeletedCount] = useState({});
   const [filterVendedor, setFilterVendedor] = useState("all");
   const [filterCidade, setFilterCidade] = useState("all");
   const [filterDataDe, setFilterDataDe] = useState("");
@@ -926,7 +927,7 @@ function AdminPage() {
       <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Painel Administrativo</h1>
       <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Todos os orçamentos de todos os vendedores</p>
 
-      {/* Stats */}
+      {/* Stats Gerais */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total Orçamentos</div>
@@ -937,8 +938,79 @@ function AdminPage() {
           <div style={{ color: COLORS.orange, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalGeral)}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Vendedores Ativos</div>
-          <div style={{ color: COLORS.white, fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{vendedores.length}</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Aguardando Retorno</div>
+          <div style={{ color: "#3B82F6", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{allOrders.filter(o => o.status === "Aguardando Retorno").length}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Concluídos</div>
+          <div style={{ color: "#10B981", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{allOrders.filter(o => o.status === "Concluído").length}</div>
+        </div>
+      </div>
+
+      {/* Relatório por Vendedor */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
+        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}` }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: 0 }}>Relatório por Vendedor</h2>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textMuted, fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Vendedor</th>
+                <th style={{ padding: "10px 14px", textAlign: "center", color: COLORS.textMuted, fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Realizados</th>
+                <th style={{ padding: "10px 14px", textAlign: "center", color: "#3B82F6", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Aguardando</th>
+                <th style={{ padding: "10px 14px", textAlign: "center", color: "#10B981", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Concluídos</th>
+                <th style={{ padding: "10px 14px", textAlign: "center", color: "#F87171", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Desistiu</th>
+                <th style={{ padding: "10px 14px", textAlign: "center", color: "#8B5CF6", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Sem Retorno</th>
+                <th style={{ padding: "10px 14px", textAlign: "center", color: "#34D399", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Fechou Conc.</th>
+                <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Valor Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {VENDEDORES.filter(v => !v.isAdmin).map(v => {
+                const vo = allOrders.filter(o => o.vendedorId === v.id);
+                return (
+                  <tr key={v.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                    <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>{v.name}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 14 }}>{vo.length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#3B82F6", fontWeight: 700 }}>{vo.filter(o => o.status === "Aguardando Retorno").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#10B981", fontWeight: 700 }}>{vo.filter(o => o.status === "Concluído").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#F87171", fontWeight: 700 }}>{vo.filter(o => o.status === "Desistiu").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#8B5CF6", fontWeight: 700 }}>{vo.filter(o => o.status === "Sem Retorno").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#34D399", fontWeight: 700 }}>{vo.filter(o => o.status === "Fechou Concorrência").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(vo.reduce((s, o) => s + (o.total || 0), 0))}</td>
+                  </tr>
+                );
+              })}
+              {/* Admin's own orders if any */}
+              {(() => {
+                const adminOrders = allOrders.filter(o => !VENDEDORES.filter(v => !v.isAdmin).some(v => v.id === o.vendedorId));
+                if (adminOrders.length === 0) return null;
+                return (
+                  <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                    <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>Alessandro Thonsen (ADM)</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 14 }}>{adminOrders.length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#3B82F6", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Aguardando Retorno").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#10B981", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Concluído").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#F87171", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Desistiu").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#8B5CF6", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Sem Retorno").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#34D399", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Fechou Concorrência").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(adminOrders.reduce((s, o) => s + (o.total || 0), 0))}</td>
+                  </tr>
+                );
+              })()}
+              <tr style={{ background: COLORS.bg }}>
+                <td style={{ padding: "12px 14px", color: COLORS.white, fontWeight: 700 }}>TOTAL</td>
+                <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.white, fontWeight: 800, fontSize: 14 }}>{allOrders.length}</td>
+                <td style={{ padding: "12px 14px", textAlign: "center", color: "#3B82F6", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Aguardando Retorno").length}</td>
+                <td style={{ padding: "12px 14px", textAlign: "center", color: "#10B981", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Concluído").length}</td>
+                <td style={{ padding: "12px 14px", textAlign: "center", color: "#F87171", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Desistiu").length}</td>
+                <td style={{ padding: "12px 14px", textAlign: "center", color: "#8B5CF6", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Sem Retorno").length}</td>
+                <td style={{ padding: "12px 14px", textAlign: "center", color: "#34D399", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Fechou Concorrência").length}</td>
+                <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalGeral)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
