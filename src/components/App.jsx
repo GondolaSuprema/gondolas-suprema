@@ -1618,7 +1618,9 @@ function FinanceiroPage() {
                   const sit = getSituacao(d);
                   return (
                     <tr key={d.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                      <td style={{ padding: "6px 8px", color: COLORS.text, fontWeight: 500, fontSize: 11 }}>{d.nome}</td>
+                      <td style={{ padding: "6px 8px" }}>
+                        <input value={d.nome} onChange={e => atualizarDespesa(d.id, "nome", e.target.value)} style={{ ...inp, width: "100%", padding: "4px 6px", fontSize: 11, fontWeight: 500, color: COLORS.text, border: "1px solid transparent" }} onFocus={e => e.target.style.borderColor = COLORS.border} onBlur={e => e.target.style.borderColor = "transparent"} />
+                      </td>
                       <td style={{ padding: "4px 4px", textAlign: "center" }}>
                         <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
                           <select value={d.vencimento ? d.vencimento.split("-")[2] : ""} onChange={e => { const m = d.vencimento ? d.vencimento.split("-")[1] : mesSel.split("-")[1]; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + m + "-" + e.target.value); }} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
