@@ -179,10 +179,22 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
 // ─── CLIENT ───
 function ClientPage({ clientData, setClientData, setPage }) {
   const [form, setForm] = useState(clientData);
+  const [erro, setErro] = useState("");
   const inp = { width: "100%", padding: "12px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+  const inpErr = { ...inp, border: `1px solid ${COLORS.danger}` };
   const labelStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
 
   const handleSave = () => {
+    const faltando = [];
+    if (!form.empresa.trim()) faltando.push("Nome da Empresa");
+    if (!form.cnpj.trim()) faltando.push("CNPJ");
+    if (!form.telefone.trim()) faltando.push("Celular");
+    if (!form.cidade.trim()) faltando.push("Cidade");
+    if (faltando.length > 0) {
+      setErro("Preencha os campos obrigatórios: " + faltando.join(", "));
+      return;
+    }
+    setErro("");
     setClientData(form);
     localStorage.setItem("gs_client_data", JSON.stringify(form));
     setPage("catalog");
@@ -197,22 +209,23 @@ function ClientPage({ clientData, setClientData, setPage }) {
       </div>
 
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24 }}>
+        {erro && <div style={{ background: COLORS.danger + "15", color: COLORS.danger, padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 16, fontFamily: "'DM Sans', sans-serif" }}>{erro}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
             <label style={labelStyle}>Nome da Empresa *</label>
-            <input placeholder="Ex: Supermercado Bom Preço" value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} style={inp} />
+            <input placeholder="Ex: Supermercado Bom Preço" value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} style={!form.empresa.trim() && erro ? inpErr : inp} />
           </div>
           <div>
-            <label style={labelStyle}>CNPJ</label>
-            <input placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} style={inp} />
+            <label style={labelStyle}>CNPJ *</label>
+            <input placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} style={!form.cnpj.trim() && erro ? inpErr : inp} />
           </div>
           <div>
             <label style={labelStyle}>Responsável</label>
             <input placeholder="Nome do responsável" value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} style={inp} />
           </div>
           <div>
-            <label style={labelStyle}>Telefone</label>
-            <input placeholder="(00) 00000-0000" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} style={inp} />
+            <label style={labelStyle}>Celular *</label>
+            <input placeholder="(00) 00000-0000" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} style={!form.telefone.trim() && erro ? inpErr : inp} />
           </div>
           <div>
             <label style={labelStyle}>E-mail</label>
@@ -230,8 +243,8 @@ function ClientPage({ clientData, setClientData, setPage }) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
             <div>
-              <label style={labelStyle}>Cidade</label>
-              <input placeholder="Cidade" value={form.cidade} onChange={e => setForm({ ...form, cidade: e.target.value })} style={inp} />
+              <label style={labelStyle}>Cidade *</label>
+              <input placeholder="Cidade" value={form.cidade} onChange={e => setForm({ ...form, cidade: e.target.value })} style={!form.cidade.trim() && erro ? inpErr : inp} />
             </div>
             <div>
               <label style={labelStyle}>Estado</label>
@@ -244,7 +257,7 @@ function ClientPage({ clientData, setClientData, setPage }) {
           width: "100%", background: COLORS.orange, color: "#000", border: "none", padding: "14px",
           borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 24
         }}>
-          {form.empresa ? "Salvar e Ir para Produtos →" : "Pular e Ir para Produtos →"}
+          {form.empresa ? "Salvar e Ir para Produtos →" : "Preencha os campos obrigatórios"}
         </button>
       </div>
 
