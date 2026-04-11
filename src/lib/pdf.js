@@ -35,11 +35,11 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
     doc.addImage(logoBase64, "JPEG", pageW / 2 - 70, pageH / 2 - 125, 140, 250);
     doc.restoreGraphicsState();
 
-    // Header logo - proporcional (a logo original eh mais larga que alta)
+    // Header logo - proporcional (imagem vertical 1080x1920)
     doc.addImage(logoBase64, "JPEG", margin, 5, 22, 39);
   } catch (e) {}
 
-  // Company info abaixo da logo
+  // Company info ao lado da logo
   doc.setFontSize(8);
   doc.setTextColor(100);
   doc.text(COMPANY.razao, margin + 25, 15);
@@ -80,7 +80,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
   // Orange line
   doc.setDrawColor(245, 166, 35);
   doc.setLineWidth(0.8);
-  doc.line(margin, 55, pageW - margin, 55);
+  doc.line(margin, 60, pageW - margin, 60);
 
   // Table
   var tableData = items.map(function(it) {
@@ -94,7 +94,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
   });
 
   doc.autoTable({
-    startY: 59,
+    startY: 64,
     head: [["Produto", "Categoria", "Qtd", "Opcionais", "Subtotal"]],
     body: tableData,
     theme: "grid",
@@ -162,20 +162,21 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
 export async function sharePDFWhatsApp(params) {
   var doc = await generatePDF(params);
   var blob = doc.output("blob");
-  var file = new File([blob], "orcamento-" + (params.orderNum || "novo") + ".pdf", {
+  var clientName = (params.client && params.client.empresa ? params.client.empresa : params.orderNum || "novo").replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, "-").replace(/-+/g, "-");
+  var file = new File([blob], "orcamento-" + clientName + ".pdf", {
     type: "application/pdf",
   });
 
   if (navigator.share) {
     try {
       await navigator.share({
-        title: "Orcamento " + (params.orderNum ? "#" + params.orderNum : "") + " - Gondolas Suprema",
+        title: "Orcamento " + (params.client && params.client.empresa ? params.client.empresa : "") + " - Gondolas Suprema",
         files: [file],
       });
       return true;
     } catch (e) {}
   }
 
-  doc.save("orcamento-" + (params.orderNum || "novo") + ".pdf");
+  doc.save("orcamento-" + clientName + ".pdf");
   return false;
 }
