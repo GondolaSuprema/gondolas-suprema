@@ -155,6 +155,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
               { k: "catalog", l: "Produtos" },
               { k: "resumo", l: "Resumo" },
               { k: "orders", l: "Orçamentos" },
+              { k: "meta", l: "Meta" },
               ...(user.isAdmin ? [{ k: "adm", l: "ADM" }, { k: "graficos", l: "Gráficos" }] : []),
             ].map(i => (
               <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
@@ -1398,18 +1399,14 @@ function GraficosPage() {
   const activeMes = mesSel || meses[0] || "";
   const cores = { v1: "#F5A623", v2: "#3B82F6", v3: "#10B981" };
 
-  const vendedoresData = VENDEDORES.filter(v => !v.isAdmin).map(v => {
+  const SELLERS = VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
+
+  const vendedoresData = SELLERS.map(v => {
     const vendasMes = allOrders.filter(o => {
       const d = new Date(o.date);
       return o.vendedorId === v.id && (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === activeMes;
     });
     return { ...v, totalMes: vendasMes.reduce((s, o) => s + o.total, 0), qtdVendas: vendasMes.length };
-  });
-
-  // Also include admin's own sales
-  const adminVendas = allOrders.filter(o => {
-    const d = new Date(o.date);
-    return o.vendedorId === "v1" && (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === activeMes;
   });
 
   const totalEquipe = vendedoresData.reduce((s, v) => s + v.totalMes, 0);
@@ -1432,7 +1429,7 @@ function GraficosPage() {
         <div>
           <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Total da Equipe</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 800, color: COLORS.orange }}>{fmt(totalEquipe)}</div>
-          <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Meta equipe: {fmt(META * VENDEDORES.filter(v => !v.isAdmin).length)} · {Math.round(totalEquipe / (META * VENDEDORES.filter(v => !v.isAdmin).length) * 100)}%</div>
+          <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Meta equipe: {fmt(META * SELLERS.length)} · {Math.round(totalEquipe / (META * SELLERS.length) * 100)}%</div>
         </div>
         <div style={{ width: 200 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -1440,8 +1437,16 @@ function GraficosPage() {
             <span style={{ color: COLORS.textDim, fontSize: 10 }}>100%</span>
           </div>
           <div style={{ height: 10, background: COLORS.border, borderRadius: 5, overflow: "hidden" }}>
-            <div style={{ width: Math.min(totalEquipe / (META * VENDEDORES.filter(v => !v.isAdmin).length) * 100, 100) + "%", height: "100%", background: `linear-gradient(90deg, #F87171, #F59E0B, #10B981)`, borderRadius: 5, transition: "width 0.5s" }} />
+            <div style={{ width: Math.min(totalEquipe / (META * SELLERS.length) * 100, 100) + "%", height: "100%", background: `linear-gradient(90deg, #F87171, #F59E0B, #10B981)`, borderRadius: 5, transition: "width 0.5s" }} />
           </div>
+        </div>
+      </div>
+
+      {/* Velocímetro Geral - Gôndolas Suprema */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: "0 0 14px", textAlign: "center" }}>Resultado Geral — Gôndolas Suprema</h2>
+        <div style={{ maxWidth: 320, margin: "0 auto" }}>
+          <GaugeChart name="Gôndolas Suprema" value={totalEquipe} max={META * SELLERS.length} color={COLORS.orange} />
         </div>
       </div>
 
@@ -1472,6 +1477,58 @@ function GraficosPage() {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── META GERAL (todos os vendedores) ───
+function MetaGeralPage() {
+  const [orders, setOrders] = useState([]);
+  const META = 100000;
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("orcamentos").select("vendedor_id,vendedor_nome,total,data").eq("status", "Concluído");
+      if (data) setOrders(data);
+    };
+    load();
+  }, []);
+
+  const now = new Date();
+  const currentMes = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+
+  const SELLERS = VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
+  const mesFiltrado = orders.filter(o => {
+    const d = new Date(o.data);
+    return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === currentMes;
+  });
+  const totalEquipe = mesFiltrado.reduce((s, o) => s + (o.total || 0), 0);
+  const metaTotal = META * SELLERS.length;
+
+  return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "36px 20px", textAlign: "center" }}>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 22, margin: "0 0 4px" }}>Meta Geral — {mesNomes[String(now.getMonth() + 1).padStart(2, "0")]} {now.getFullYear()}</h1>
+      <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 24px", fontFamily: "'DM Sans', sans-serif" }}>Resultado da equipe Gôndolas Suprema</p>
+      <div style={{ maxWidth: 320, margin: "0 auto", marginBottom: 24 }}>
+        <GaugeChart name="Gôndolas Suprema" value={totalEquipe} max={metaTotal} color={COLORS.orange} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+        {SELLERS.map((v, i) => {
+          const vTotal = mesFiltrado.filter(o => o.vendedor_id === v.id).reduce((s, o) => s + (o.total || 0), 0);
+          const cores = ["#F5A623", "#3B82F6", "#10B981"];
+          return (
+            <div key={v.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, textAlign: "center" }}>
+              <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>{v.name.split(" ")[0]}</div>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: cores[i] }}>{fmt(vTotal)}</div>
+              <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{Math.round(vTotal / META * 100)}% da meta</div>
+              <div style={{ marginTop: 6, height: 4, background: COLORS.border, borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ width: Math.min(vTotal / META * 100, 100) + "%", height: "100%", background: cores[i], borderRadius: 2 }} />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1527,6 +1584,8 @@ export default function App() {
       {page === "adm" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user?.isAdmin && <GraficosPage />}
       {page === "graficos" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
+      {page === "meta" && user && <MetaGeralPage />}
+      {page === "meta" && !user && <Login onLogin={login} setPage={setPage} />}
     </div>
   );
 }
