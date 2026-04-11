@@ -1025,6 +1025,28 @@ function AdminPage() {
   const [confirmDel, setConfirmDel] = useState(null);
   const [mesSel, setMesSel] = useState("");
   const [vendaStatus, setVendaStatus] = useState({});
+  const [emitindoNfe, setEmitindoNfe] = useState(null);
+  const [nfeResult, setNfeResult] = useState(null);
+
+  const emitirNfe = async (ordem) => {
+    setEmitindoNfe(ordem.id);
+    setNfeResult(null);
+    try {
+      const res = await fetch("/api/emitir-nfe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ordem, ambiente: "homologacao" }),
+      });
+      const data = await res.json();
+      setNfeResult(data);
+      if (data.success) {
+        updateVendaStatus(ordem.id, "Concluído");
+      }
+    } catch (e) {
+      setNfeResult({ success: false, mensagem: e.message });
+    }
+    setEmitindoNfe(null);
+  };
 
   useEffect(() => {
     const loadAll = async () => {
@@ -1167,6 +1189,42 @@ function AdminPage() {
         )}
       </div>
 
+      {/* Modal Resultado NF-e */}
+      {nfeResult && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: nfeResult.success ? "#10B981" : COLORS.danger, fontSize: 18, margin: "0 0 12px" }}>{nfeResult.success ? "✓ NF-e Emitida com Sucesso!" : "✕ Erro na Emissão"}</h2>
+            {nfeResult.success ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}>
+                  <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Número</div>
+                  <div style={{ color: COLORS.white, fontSize: 14, fontWeight: 700 }}>{nfeResult.numero || "-"}</div>
+                </div>
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}>
+                  <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Chave de Acesso</div>
+                  <div style={{ color: COLORS.text, fontSize: 10, wordBreak: "break-all" }}>{nfeResult.chave || "-"}</div>
+                </div>
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}>
+                  <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Status</div>
+                  <div style={{ color: "#10B981", fontSize: 13, fontWeight: 700 }}>{nfeResult.status}</div>
+                </div>
+                {nfeResult.url_danfe && (
+                  <a href={nfeResult.url_danfe} target="_blank" rel="noopener noreferrer" style={{ background: "#10B981", color: "#fff", padding: "10px", borderRadius: 8, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>📄 Baixar DANFE (PDF)</a>
+                )}
+                {nfeResult.url_xml && (
+                  <a href={nfeResult.url_xml} target="_blank" rel="noopener noreferrer" style={{ background: "#3B82F615", border: "1px solid #3B82F640", color: "#3B82F6", padding: "10px", borderRadius: 8, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>📋 Baixar XML</a>
+                )}
+              </div>
+            ) : (
+              <div style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, borderRadius: 8, padding: "12px 14px" }}>
+                <div style={{ color: COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{nfeResult.mensagem || "Erro desconhecido"}</div>
+              </div>
+            )}
+            <button onClick={() => setNfeResult(null)} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 12 }}>Fechar</button>
+          </div>
+        </div>
+      )}
+
       {/* Relatório Vendas Concluídas por Mês */}
       {(() => {
         const concluidos = allOrders.filter(o => o.status === "Concluído");
@@ -1216,6 +1274,7 @@ function AdminPage() {
                       <th style={{ padding: "10px 12px", textAlign: "right", color: "#10B981", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Lucro/Comissão</th>
                       <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</th>
                       <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
+                      <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>NF-e</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1237,7 +1296,13 @@ function AdminPage() {
                               <option value="Concluído">Concluído</option>
                             </select>
                           </td>
-                        </tr>
+                          <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                            {emitindoNfe === o.id ? (
+                              <span style={{ color: COLORS.textMuted, fontSize: 9 }}>Emitindo...</span>
+                            ) : (
+                              <button onClick={() => emitirNfe(o)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Emitir NF</button>
+                            )}
+                          </td>
                       );
                     })}
                   </tbody>
