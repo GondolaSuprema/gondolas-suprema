@@ -1303,6 +1303,7 @@ function AdminPage() {
                               <button onClick={() => emitirNfe(o)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Emitir NF</button>
                             )}
                           </td>
+                        </tr>
                       );
                     })}
                   </tbody>
