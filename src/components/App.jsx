@@ -483,6 +483,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           items: newItems,
           total: totalFinal,
           frete,
+          comissao: totalComissao,
           notes,
           status: "Aguardando Retorno",
         });
@@ -1029,7 +1030,7 @@ function AdminPage() {
       const { data } = await supabase.from("orcamentos").select("*").order("data", { ascending: false });
       if (data) {
         setAllOrders(data.map(o => ({
-          id: o.id, date: o.data, total: o.total, frete: o.frete, notes: o.notes, status: o.status, items: o.items,
+          id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, status: o.status, items: o.items,
           vendedor: o.vendedor_nome, vendedorId: o.vendedor_id,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado }
         })));
@@ -1211,6 +1212,7 @@ function AdminPage() {
                       <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>CNPJ</th>
                       <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Cidade</th>
                       <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Valor Total</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right", color: "#10B981", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Lucro/Comissão</th>
                       <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</th>
                       <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
                     </tr>
@@ -1224,6 +1226,7 @@ function AdminPage() {
                           <td style={{ padding: "10px 12px", color: COLORS.textMuted }}>{o.client?.cnpj || "-"}</td>
                           <td style={{ padding: "10px 12px", color: COLORS.textMuted }}>{o.client?.cidade || "-"}{o.client?.estado ? "/" + o.client.estado : ""}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(o.total || 0)}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", color: "#10B981", fontWeight: 700 }}>{fmt(o.comissao || 0)}</td>
                           <td style={{ padding: "10px 12px", color: COLORS.accent, fontWeight: 500 }}>{o.vendedor || "-"}</td>
                           <td style={{ padding: "10px 12px", textAlign: "center" }}>
                             <select value={vs} onChange={e => updateVendaStatus(o.id, e.target.value)} style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
