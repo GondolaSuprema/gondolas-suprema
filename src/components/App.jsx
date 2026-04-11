@@ -156,7 +156,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
               { k: "resumo", l: "Resumo" },
               { k: "orders", l: "Orçamentos" },
               { k: "graficos", l: "Gráficos" },
-              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }] : []),
+              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }, { k: "financeiro", l: "Financeiro" }] : []),
             ].map(i => (
               <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
             ))}
@@ -1482,6 +1482,186 @@ function GraficosPage() {
   );
 }
 
+// ─── FINANCEIRO ───
+const DESPESAS_FIXAS = [
+  "Salário João", "Salário João", "S.A", "Internet Fixa", "Seguro HR",
+  "Sistema", "Aluguel Barracão", "Carro HR", "Contabilidade", "INSS", "SIMPLES", "FGTS"
+];
+
+function FinanceiroPage() {
+  const [despesas, setDespesas] = useState([]);
+  const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
+  const [novaDespesa, setNovaDespesa] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+
+  const carregarDespesas = async (mes) => {
+    setLoading(true);
+    const { data } = await supabase.from("despesas").select("*").eq("mes", mes).order("nome");
+    if (data && data.length > 0) {
+      setDespesas(data);
+    } else {
+      // Criar despesas fixas para o mês
+      const novas = DESPESAS_FIXAS.map(nome => ({
+        id: genId(), nome, vencimento: null, valor: 0, status: "Em Aberto", mes, fixa: true
+      }));
+      for (const d of novas) {
+        await supabase.from("despesas").insert(d);
+      }
+      setDespesas(novas);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { carregarDespesas(mesSel); }, [mesSel]);
+
+  const atualizarDespesa = async (id, campo, valor) => {
+    const update = {};
+    update[campo] = valor;
+    await supabase.from("despesas").update(update).eq("id", id);
+    setDespesas(despesas.map(d => d.id === id ? { ...d, [campo]: valor } : d));
+  };
+
+  const adicionarDespesa = async () => {
+    if (!novaDespesa.trim()) return;
+    const nova = { id: genId(), nome: novaDespesa.trim(), vencimento: null, valor: 0, status: "Em Aberto", mes: mesSel, fixa: false };
+    await supabase.from("despesas").insert(nova);
+    setDespesas([...despesas, nova]);
+    setNovaDespesa("");
+  };
+
+  const excluirDespesa = async (id) => {
+    await supabase.from("despesas").delete().eq("id", id);
+    setDespesas(despesas.filter(d => d.id !== id));
+  };
+
+  const hoje = new Date().toISOString().split("T")[0];
+  const totalMes = despesas.reduce((s, d) => s + (d.valor || 0), 0);
+  const totalPago = despesas.filter(d => d.status === "Pago").reduce((s, d) => s + (d.valor || 0), 0);
+  const totalAberto = totalMes - totalPago;
+
+  const getSituacao = (d) => {
+    if (d.status === "Pago") return { label: "Pago", color: "#10B981" };
+    if (!d.vencimento) return { label: "Sem data", color: "#888" };
+    if (d.vencimento < hoje) return { label: "Vencida", color: "#F87171" };
+    if (d.vencimento === hoje) return { label: "Vence hoje", color: "#F59E0B" };
+    return { label: "A vencer", color: "#3B82F6" };
+  };
+
+  const inp = { padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+
+  return (
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Financeiro</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Contas a pagar do mês</p>
+        </div>
+        <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+          {Array.from({ length: 12 }, (_, i) => {
+            const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
+            const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+            return <option key={v} value={v}>{mesNomes[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
+          })}
+        </select>
+      </div>
+
+      {/* Cards resumo */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total do Mês</div>
+          <div style={{ color: COLORS.orange, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalMes)}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Pago</div>
+          <div style={{ color: "#10B981", fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalPago)}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Em Aberto</div>
+          <div style={{ color: "#F87171", fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalAberto)}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Vencidas</div>
+          <div style={{ color: "#F87171", fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{despesas.filter(d => d.status !== "Pago" && d.vencimento && d.vencimento < hoje).length}</div>
+        </div>
+      </div>
+
+      {/* Tabela de despesas */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Despesas — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando...</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                  <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Despesa</th>
+                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vencimento</th>
+                  <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Valor</th>
+                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Situação</th>
+                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
+                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {despesas.map(d => {
+                  const sit = getSituacao(d);
+                  return (
+                    <tr key={d.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                      <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500 }}>
+                        {d.fixa ? d.nome : <span>{d.nome}</span>}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                        <input type="date" value={d.vencimento || ""} onChange={e => atualizarDespesa(d.id, "vencimento", e.target.value)} style={{ ...inp, width: 130, textAlign: "center" }} />
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                        <input type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0,00" style={{ ...inp, width: 100, textAlign: "right", color: COLORS.orange, fontWeight: 700 }} />
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                        <span style={{ background: sit.color + "20", color: sit.color, padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 700 }}>{sit.label}</span>
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                        <select value={d.status} onChange={e => atualizarDespesa(d.id, "status", e.target.value)} style={{ background: d.status === "Pago" ? "#10B98120" : "#F5910B20", color: d.status === "Pago" ? "#10B981" : "#F59E0B", border: `1px solid ${d.status === "Pago" ? "#10B98140" : "#F59E0B40"}`, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                          <option value="Em Aberto">Em Aberto</option>
+                          <option value="Pago">Pago</option>
+                        </select>
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                        {!d.fixa && <button onClick={() => excluirDespesa(d.id)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 14 }}>✕</button>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: COLORS.bg }}>
+                  <td style={{ padding: "12px", color: COLORS.white, fontWeight: 700 }}>TOTAL</td>
+                  <td></td>
+                  <td style={{ padding: "12px", textAlign: "right", color: COLORS.orange, fontWeight: 800, fontFamily: "'Playfair Display', serif", fontSize: 14 }}>{fmt(totalMes)}</td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+
+        {/* Adicionar despesa */}
+        <div style={{ padding: "12px 18px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 10, alignItems: "center" }}>
+          <input placeholder="Nova despesa..." value={novaDespesa} onChange={e => setNovaDespesa(e.target.value)} onKeyDown={e => e.key === "Enter" && adicionarDespesa()} style={{ ...inp, flex: 1 }} />
+          <button onClick={adicionarDespesa} style={{ background: COLORS.orange, border: "none", color: "#000", padding: "7px 16px", borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Adicionar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ───
 export default function App() {
   const [page, setPage] = useState("login");
@@ -1530,6 +1710,8 @@ export default function App() {
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && user?.isAdmin && <AdminPage />}
       {page === "adm" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
+      {page === "financeiro" && user?.isAdmin && <FinanceiroPage />}
+      {page === "financeiro" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
     </div>
