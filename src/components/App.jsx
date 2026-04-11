@@ -1493,6 +1493,8 @@ function FinanceiroPage() {
   const [despesas, setDespesas] = useState([]);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
   const [novaDespesa, setNovaDespesa] = useState("");
+  const [showAddVar, setShowAddVar] = useState(false);
+  const [varForm, setVarForm] = useState({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" });
   const [loading, setLoading] = useState(true);
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
@@ -1521,11 +1523,28 @@ function FinanceiroPage() {
   };
 
   const adicionarDespesa = async (fixa) => {
-    if (!novaDespesa.trim()) return;
-    const nova = { id: genId(), nome: novaDespesa.trim(), vencimento: null, valor: 0, status: "Em Aberto", mes: mesSel, fixa };
+    if (fixa) {
+      if (!novaDespesa.trim()) return;
+      const nova = { id: genId(), nome: novaDespesa.trim(), vencimento: null, valor: 0, status: "Em Aberto", mes: mesSel, fixa: true };
+      await supabase.from("despesas").insert(nova);
+      setDespesas([...despesas, nova]);
+      setNovaDespesa("");
+    }
+  };
+
+  const adicionarVariavel = async () => {
+    const vf = varForm;
+    if (!vf.categoria) return;
+    const nome = vf.categoria === "Pagamento Socios" ? "Pgto Sócio — " + vf.socio : vf.categoria;
+    const y = mesSel.split("-")[0];
+    const m = vf.vencimento_mes || mesSel.split("-")[1];
+    const d = vf.vencimento_dia || "01";
+    const venc = y + "-" + m + "-" + d;
+    const nova = { id: genId(), nome, vencimento: venc, valor: Number(vf.valor) || 0, status: "Em Aberto", mes: mesSel, fixa: false };
     await supabase.from("despesas").insert(nova);
     setDespesas([...despesas, nova]);
-    setNovaDespesa("");
+    setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" });
+    setShowAddVar(false);
   };
 
   const excluirDespesa = async (id) => {
@@ -1680,10 +1699,78 @@ function FinanceiroPage() {
         ) : renderTabela(current, subTab === "fixas")}
 
         {/* Adicionar despesa */}
-        <div style={{ padding: "10px 18px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 8, alignItems: "center" }}>
-          <input placeholder={subTab === "fixas" ? "Nova despesa fixa..." : "Nova despesa variável..."} value={novaDespesa} onChange={e => setNovaDespesa(e.target.value)} onKeyDown={e => e.key === "Enter" && adicionarDespesa(subTab === "fixas")} style={{ ...inp, flex: 1, fontSize: 11 }} />
-          <button onClick={() => adicionarDespesa(subTab === "fixas")} style={{ background: subTab === "fixas" ? COLORS.orange : "#8B5CF6", border: "none", color: subTab === "fixas" ? "#000" : "#fff", padding: "6px 14px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Adicionar</button>
-        </div>
+        {subTab === "fixas" ? (
+          <div style={{ padding: "10px 18px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 8, alignItems: "center" }}>
+            <input placeholder="Nova despesa fixa..." value={novaDespesa} onChange={e => setNovaDespesa(e.target.value)} onKeyDown={e => e.key === "Enter" && adicionarDespesa(true)} style={{ ...inp, flex: 1, fontSize: 11 }} />
+            <button onClick={() => adicionarDespesa(true)} style={{ background: COLORS.orange, border: "none", color: "#000", padding: "6px 14px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Adicionar</button>
+          </div>
+        ) : (
+          <div style={{ borderTop: `1px solid ${COLORS.border}` }}>
+            {!showAddVar ? (
+              <div style={{ padding: "10px 18px", textAlign: "center" }}>
+                <button onClick={() => setShowAddVar(true)} style={{ background: "#8B5CF6", border: "none", color: "#fff", padding: "8px 20px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Adicionar Despesa Variável</button>
+              </div>
+            ) : (
+              <div style={{ padding: "14px 18px", background: COLORS.bg + "80" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ color: "#8B5CF6", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Nova Despesa Variável</span>
+                  <button onClick={() => { setShowAddVar(false); setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 12 }}>✕</button>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+                  {/* Categoria */}
+                  <div style={{ flex: "1 1 140px" }}>
+                    <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Categoria *</div>
+                    <select value={varForm.categoria} onChange={e => setVarForm({ ...varForm, categoria: e.target.value, socio: "" })} style={{ ...inp, width: "100%", fontSize: 11 }}>
+                      <option value="">Selecione...</option>
+                      <option value="Marketing">Marketing</option>
+                      <option value="Gasolina">Gasolina</option>
+                      <option value="Frete">Frete</option>
+                      <option value="Serviços Terceiros">Serviços Terceiros</option>
+                      <option value="Pedágio">Pedágio</option>
+                      <option value="Tarifa Bancária">Tarifa Bancária</option>
+                      <option value="Equipamentos">Equipamentos</option>
+                      <option value="Comissão">Comissão</option>
+                      <option value="Pagamento Socios">Pagamento Sócios</option>
+                    </select>
+                  </div>
+                  {/* Sócio (se pagamento sócios) */}
+                  {varForm.categoria === "Pagamento Socios" && (
+                    <div style={{ flex: "1 1 120px" }}>
+                      <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Sócio *</div>
+                      <select value={varForm.socio} onChange={e => setVarForm({ ...varForm, socio: e.target.value })} style={{ ...inp, width: "100%", fontSize: 11 }}>
+                        <option value="">Selecione...</option>
+                        <option value="Alessandro">Alessandro</option>
+                        <option value="Zanella">Zanella</option>
+                        <option value="Luiz">Luiz</option>
+                      </select>
+                    </div>
+                  )}
+                  {/* Data */}
+                  <div style={{ flex: "0 0 auto" }}>
+                    <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Data</div>
+                    <div style={{ display: "flex", gap: 2 }}>
+                      <select value={varForm.vencimento_dia} onChange={e => setVarForm({ ...varForm, vencimento_dia: e.target.value })} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
+                        <option value="">--</option>
+                        {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
+                      </select>
+                      <select value={varForm.vencimento_mes} onChange={e => setVarForm({ ...varForm, vencimento_mes: e.target.value })} style={{ ...inp, width: 50, padding: "4px 2px", fontSize: 10 }}>
+                        <option value="">--</option>
+                        <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option><option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
+                      </select>
+                    </div>
+                  </div>
+                  {/* Valor */}
+                  <div style={{ flex: "0 0 auto" }}>
+                    <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Valor R$</div>
+                    <input type="number" min="0" step="0.01" value={varForm.valor} onChange={e => setVarForm({ ...varForm, valor: e.target.value })} placeholder="0,00" style={{ ...inp, width: 90, textAlign: "right", color: COLORS.orange, fontWeight: 700, fontSize: 11 }} />
+                  </div>
+                  {/* Botão */}
+                  <button onClick={adicionarVariavel} disabled={!varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio)} style={{ background: !varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) ? COLORS.textDim : "#8B5CF6", border: "none", color: "#fff", padding: "7px 14px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: !varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", alignSelf: "flex-end" }}>Salvar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
