@@ -552,7 +552,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
       const { data } = await supabase.from("orcamentos").select("*").eq("vendedor_id", user.id).order("data", { ascending: false });
       if (data) {
         setOrders(data.map(o => ({
-          id: o.id, date: o.data, total: o.total, frete: o.frete, notes: o.notes, status: o.status, items: o.items,
+          id: o.id, date: o.data, total: o.total, frete: o.frete, notes: o.notes, status: o.status, items: o.items, vendedor: o.vendedor_nome,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado }
         })));
       }
@@ -574,7 +574,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   };
 
   const buildPdfHtml = (order) => {
-    const cd = clientData || {};
+    const cd = order.client || clientData || {};
     return buildPdfPage({
       orderNum: order.id.slice(0, 6).toUpperCase(),
       date: new Date(order.date).toLocaleDateString("pt-BR"),
@@ -598,9 +598,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   const [sharingOrder, setSharingOrder] = useState(false);
   const handleWhatsApp = async (order) => {
     setSharingOrder(true);
-    const cd = clientData || {};
     const o = order || pdfOrder;
     if (!o) { setSharingOrder(false); return; }
+    const cd = o.client || clientData || {};
     try {
       await sharePDFWhatsApp({
         orderNum: o.id.slice(0, 6).toUpperCase(),
@@ -662,9 +662,10 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ color: COLORS.textDim, fontSize: 18, transition: "transform .2s", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
                   <div>
-                    <span style={{ fontSize: 10, color: COLORS.textDim, letterSpacing: 1, textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>#{o.id.slice(0, 6)}</span>
+                    <span style={{ fontSize: 14, color: COLORS.white, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{o.client?.empresa || "Sem empresa"}</span>
                     <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
-                      {new Date(o.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+                      Vendedor: <strong style={{ color: COLORS.accent }}>{o.vendedor || user.name}</strong>
+                      <span style={{ marginLeft: 8, color: COLORS.textDim }}>{new Date(o.date).toLocaleDateString("pt-BR")}</span>
                       <span style={{ marginLeft: 8, color: COLORS.textDim }}>{o.items.length} {o.items.length === 1 ? "item" : "itens"}</span>
                     </div>
                   </div>
