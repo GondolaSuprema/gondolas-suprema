@@ -686,10 +686,25 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
 
   const sc = { "Aguardando Retorno": "#3B82F6", "Desistiu": "#F87171", "Sem Retorno": "#8B5CF6", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
   const statusOptions = ["Aguardando Retorno", "Desistiu", "Sem Retorno", "Fechou Concorrência", "Concluído"];
+  const [concluidoId, setConcluidoId] = useState(null);
+  const [concluidoData, setConcluidoData] = useState({ data_entrega: "", numero_pedido: "", forma_pagamento: "" });
 
   const updateStatus = async (orderId, newStatus) => {
+    if (newStatus === "Concluído") {
+      setConcluidoId(orderId);
+      setConcluidoData({ data_entrega: "", numero_pedido: "", forma_pagamento: "" });
+      return;
+    }
     await supabase.from("orcamentos").update({ status: newStatus }).eq("id", orderId);
     setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+  };
+
+  const saveConcluido = async () => {
+    if (!concluidoId) return;
+    const extra = JSON.stringify(concluidoData);
+    await supabase.from("orcamentos").update({ status: "Concluído", notes: (orders.find(o => o.id === concluidoId)?.notes || "") + "\n📋 CONCLUÍDO — Entrega: " + concluidoData.data_entrega + " | Pedido: " + concluidoData.numero_pedido + " | Pagamento: " + concluidoData.forma_pagamento }).eq("id", concluidoId);
+    setOrders(orders.map(o => o.id === concluidoId ? { ...o, status: "Concluído", notes: (o.notes || "") + "\n📋 CONCLUÍDO — Entrega: " + concluidoData.data_entrega + " | Pedido: " + concluidoData.numero_pedido + " | Pagamento: " + concluidoData.forma_pagamento } : o));
+    setConcluidoId(null);
   };
 
   // PDF viewer
@@ -729,6 +744,46 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
       <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 20px" }}>Orçamentos</h1>
+
+      {/* Modal Concluído */}
+      {concluidoId && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28, width: 420, maxWidth: "100%" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#10B981", fontSize: 20, margin: "0 0 6px" }}>Concluir Orçamento</h2>
+            <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Preencha os dados da conclusão</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 }}>Data de Entrega *</label>
+                <input type="date" value={concluidoData.data_entrega} onChange={e => setConcluidoData({ ...concluidoData, data_entrega: e.target.value })} style={{ width: "100%", padding: "10px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 }}>Número do Pedido *</label>
+                <input placeholder="Ex: PED-001" value={concluidoData.numero_pedido} onChange={e => setConcluidoData({ ...concluidoData, numero_pedido: e.target.value })} style={{ width: "100%", padding: "10px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 }}>Forma de Pagamento *</label>
+                <select value={concluidoData.forma_pagamento} onChange={e => setConcluidoData({ ...concluidoData, forma_pagamento: e.target.value })} style={{ width: "100%", padding: "10px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                  <option value="">Selecione...</option>
+                  <option value="Boleto">Boleto</option>
+                  <option value="PIX">PIX</option>
+                  <option value="Cartão de Crédito">Cartão de Crédito</option>
+                  <option value="Cartão de Débito">Cartão de Débito</option>
+                  <option value="Transferência">Transferência</option>
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Parcelado">Parcelado</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                <button onClick={() => setConcluidoId(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                <button onClick={saveConcluido} disabled={!concluidoData.data_entrega || !concluidoData.numero_pedido || !concluidoData.forma_pagamento} style={{ flex: 1, background: !concluidoData.data_entrega || !concluidoData.numero_pedido || !concluidoData.forma_pagamento ? COLORS.textDim : "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !concluidoData.data_entrega || !concluidoData.numero_pedido || !concluidoData.forma_pagamento ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Concluir</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {orders.map(o => {
           const isOpen = expanded === o.id;
