@@ -55,6 +55,8 @@ export async function POST(request) {
   const isClienteCpf = docCliente.length === 11;
 
   const nfe = {
+    data_emissao: new Date().toISOString(),
+    data_entrada_saida: new Date().toISOString(),
     natureza_operacao: "Venda",
     forma_pagamento: "0",
     tipo_documento: "1",
