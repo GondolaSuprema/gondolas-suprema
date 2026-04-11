@@ -1499,6 +1499,7 @@ function FinanceiroPage() {
   const [showAddForn, setShowAddForn] = useState("");
   const [fornForm, setFornForm] = useState({ data: "", pedido: "", parcela: "", valor: "" });
   const [gondForm, setGondForm] = useState({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" });
+  const [mdfForm, setMdfForm] = useState({ dia: "", mes: "", qtd: "", valor: "" });
   const [loading, setLoading] = useState(true);
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
@@ -1583,6 +1584,19 @@ function FinanceiroPage() {
     const update = {}; update[campo] = valor;
     await supabase.from("despesas").update(update).eq("id", id);
     setFornecedores(fornecedores.map(f => f.id === id ? { ...f, [campo]: valor } : f));
+  };
+
+  const adicionarMdf = async () => {
+    const mf = mdfForm;
+    if (!mf.dia || !mf.mes || !mf.valor) return;
+    const y = mesSel.split("-")[0];
+    const venc = y + "-" + mf.mes + "-" + mf.dia;
+    const mesKey = y + "-" + mf.mes;
+    const nova = { id: genId(), nome: "forn_mdf||" + (mf.qtd || "1") + "|", vencimento: venc, valor: Number(mf.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false };
+    await supabase.from("despesas").insert(nova);
+    setFornecedores([...fornecedores, nova]);
+    setMdfForm({ dia: "", mes: "", qtd: "", valor: "" });
+    setShowAddForn("");
   };
 
   const adicionarGondolas = async () => {
@@ -1859,7 +1873,7 @@ function FinanceiroPage() {
           return { tipo: parts[0], pedido: parts[1] || "", parcela: parts[2] || "", pagador: parts[3] || "" };
         };
         const totalFornGeral = fornecedores.reduce((s, f) => s + (f.valor || 0), 0);
-        const renderFornCard = (t, items, isGondolas) => {
+        const renderFornCard = (t, items, isGondolas, isMdf) => {
               const totalForn = items.reduce((s, f) => s + (f.valor || 0), 0);
               return (
                 <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
@@ -1969,7 +1983,48 @@ function FinanceiroPage() {
                         </div>
                       </div>
                     </div>
-                  ) : showAddForn === t.key && !isGondolas ? (
+                  ) : showAddForn === t.key && isMdf ? (
+                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 380, maxWidth: "100%" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                          <h2 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 18, margin: 0 }}>Nova Despesa — MDF</h2>
+                          <button onClick={() => { setShowAddForn(""); setMdfForm({ dia: "", mes: "", qtd: "", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Dia *</div>
+                              <select value={mdfForm.dia} onChange={e => setMdfForm({ ...mdfForm, dia: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                                <option value="">Selecione...</option>
+                                {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Mês *</div>
+                              <select value={mdfForm.mes} onChange={e => setMdfForm({ ...mdfForm, mes: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                                <option value="">Selecione...</option>
+                                <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option><option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option><option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Quantidade</div>
+                              <input type="number" min="1" placeholder="1" value={mdfForm.qtd} onChange={e => setMdfForm({ ...mdfForm, qtd: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                            </div>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Valor (R$) *</div>
+                              <input type="number" min="0" step="0.01" placeholder="0,00" value={mdfForm.valor} onChange={e => setMdfForm({ ...mdfForm, valor: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textAlign: "right" }} />
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                            <button onClick={() => { setShowAddForn(""); setMdfForm({ dia: "", mes: "", qtd: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                            <button onClick={adicionarMdf} disabled={!mdfForm.dia || !mdfForm.mes || !mdfForm.valor} style={{ flex: 1, background: !mdfForm.dia || !mdfForm.mes || !mdfForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !mdfForm.dia || !mdfForm.mes || !mdfForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Salvar</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : showAddForn === t.key && !isGondolas && !isMdf ? (
                     <div style={{ padding: "8px 10px", borderTop: `1px solid ${COLORS.border}`, background: COLORS.bg + "80" }}>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "flex-end" }}>
                         <div>
@@ -2015,8 +2070,8 @@ function FinanceiroPage() {
             </div>
             {/* MDF + Outros lado a lado */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {renderFornCard(tipos[1], fornecedores.filter(f => f.nome.startsWith("forn_mdf")))}
-              {renderFornCard(tipos[2], fornecedores.filter(f => f.nome.startsWith("forn_outros")))}
+              {renderFornCard(tipos[1], fornecedores.filter(f => f.nome.startsWith("forn_mdf")), false, true)}
+              {renderFornCard(tipos[2], fornecedores.filter(f => f.nome.startsWith("forn_outros")), false, false)}
             </div>
           </div>
         );
