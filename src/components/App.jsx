@@ -1609,7 +1609,12 @@ function FinanceiroPage() {
                 </tr>
               </thead>
               <tbody>
-                {despesas.map(d => {
+                {[...despesas].sort((a, b) => {
+                  if (!a.vencimento && !b.vencimento) return 0;
+                  if (!a.vencimento) return 1;
+                  if (!b.vencimento) return -1;
+                  return a.vencimento.localeCompare(b.vencimento);
+                }).map(d => {
                   const sit = getSituacao(d);
                   return (
                     <tr key={d.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
@@ -1617,7 +1622,27 @@ function FinanceiroPage() {
                         {d.fixa ? d.nome : <span>{d.nome}</span>}
                       </td>
                       <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                        <input type="date" value={d.vencimento || ""} onChange={e => atualizarDespesa(d.id, "vencimento", e.target.value)} style={{ ...inp, width: 130, textAlign: "center" }} />
+                        <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                          <select value={d.vencimento ? d.vencimento.split("-")[2] : ""} onChange={e => { const m = d.vencimento ? d.vencimento.split("-")[1] : mesSel.split("-")[1]; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + m + "-" + e.target.value); }} style={{ ...inp, width: 55, textAlign: "center", padding: "7px 4px" }}>
+                            <option value="">Dia</option>
+                            {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
+                          </select>
+                          <select value={d.vencimento ? d.vencimento.split("-")[1] : ""} onChange={e => { const dia = d.vencimento ? d.vencimento.split("-")[2] : "01"; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + e.target.value + "-" + dia); }} style={{ ...inp, width: 75, textAlign: "center", padding: "7px 4px" }}>
+                            <option value="">Mês</option>
+                            <option value="01">Jan</option>
+                            <option value="02">Fev</option>
+                            <option value="03">Mar</option>
+                            <option value="04">Abr</option>
+                            <option value="05">Mai</option>
+                            <option value="06">Jun</option>
+                            <option value="07">Jul</option>
+                            <option value="08">Ago</option>
+                            <option value="09">Set</option>
+                            <option value="10">Out</option>
+                            <option value="11">Nov</option>
+                            <option value="12">Dez</option>
+                          </select>
+                        </div>
                       </td>
                       <td style={{ padding: "10px 12px", textAlign: "right" }}>
                         <input type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0,00" style={{ ...inp, width: 100, textAlign: "right", color: COLORS.orange, fontWeight: 700 }} />
