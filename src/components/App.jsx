@@ -156,7 +156,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
               { k: "resumo", l: "Resumo" },
               { k: "orders", l: "Orçamentos" },
               { k: "graficos", l: "Gráficos" },
-              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }, { k: "financeiro", l: "Financeiro" }, { k: "dre", l: "DRE" }, { k: "conciliacao", l: "Conciliação" }] : []),
+              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }, { k: "financeiro", l: "Financeiro" }, { k: "dre", l: "DRE" }, { k: "nf", l: "NF" }, { k: "conciliacao", l: "Conciliação" }] : []),
             ].map(i => (
               <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
             ))}
@@ -2417,6 +2417,154 @@ function DrePage() {
   );
 }
 
+// ─── NOTAS FISCAIS ───
+function NFPage() {
+  const [notas, setNotas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
+  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+
+  const carregarNotas = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/listar-nfe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ambiente: "producao" }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.notas)) {
+        setNotas(data.notas);
+      }
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
+
+  useEffect(() => { carregarNotas(); }, []);
+
+  const notasMes = notas.filter(n => {
+    const dt = n.data_emissao || n.requisicao?.data_emissao || "";
+    return dt.startsWith(mesSel);
+  });
+
+  const statusColor = (s) => {
+    if (s === "autorizado") return "#10B981";
+    if (s === "cancelado") return "#F87171";
+    if (s === "processando_autorizacao") return "#F59E0B";
+    if (s === "erro_autorizacao") return "#F87171";
+    return "#888";
+  };
+
+  const statusLabel = (s) => {
+    if (s === "autorizado") return "Autorizada";
+    if (s === "cancelado") return "Cancelada";
+    if (s === "processando_autorizacao") return "Processando";
+    if (s === "erro_autorizacao") return "Erro";
+    return s || "—";
+  };
+
+  const totalAutorizadas = notasMes.filter(n => n.status === "autorizado").reduce((s, n) => s + Number(n.valor_total || n.requisicao?.valor_total || 0), 0);
+  const totalCanceladas = notasMes.filter(n => n.status === "cancelado").length;
+
+  return (
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Notas Fiscais</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>NF-e emitidas via SEFAZ</p>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+            {Array.from({ length: 12 }, (_, i) => {
+              const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
+              const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+              return <option key={v} value={v}>{mesNomes[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
+            })}
+          </select>
+          <button onClick={carregarNotas} style={{ background: COLORS.orange + "15", border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Atualizar</button>
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Total NF-e</div>
+          <div style={{ color: COLORS.white, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{notasMes.length}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Autorizadas</div>
+          <div style={{ color: "#10B981", fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{notasMes.filter(n => n.status === "autorizado").length}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Canceladas</div>
+          <div style={{ color: "#F87171", fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{totalCanceladas}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Valor Autorizado</div>
+          <div style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalAutorizadas)}</div>
+        </div>
+      </div>
+
+      {/* Tabela */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>NF-e — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
+        </div>
+        {loading ? (
+          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando notas da SEFAZ...</div>
+        ) : notasMes.length === 0 ? (
+          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 12 }}>Nenhuma NF-e encontrada neste mês</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Número</th>
+                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Data</th>
+                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Destinatário</th>
+                  <th style={{ padding: "8px 10px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
+                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Chave</th>
+                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Ref</th>
+                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>PDF</th>
+                </tr>
+              </thead>
+              <tbody>
+                {notasMes.map((n, i) => {
+                  const req = n.requisicao || {};
+                  const dt = n.data_emissao || req.data_emissao || "";
+                  const dataFmt = dt ? new Date(dt).toLocaleDateString("pt-BR") : "—";
+                  const dest = n.nome_destinatario || req.nome_destinatario || "—";
+                  const valor = n.valor_total || req.valor_total || 0;
+                  const urlBase = "https://api.focusnfe.com.br";
+                  return (
+                    <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}`, background: n.status === "cancelado" ? COLORS.danger + "05" : "transparent" }}>
+                      <td style={{ padding: "8px 10px", color: COLORS.white, fontWeight: 700, fontSize: 13 }}>{n.numero || "—"}</td>
+                      <td style={{ padding: "8px 10px", color: COLORS.textMuted }}>{dataFmt}</td>
+                      <td style={{ padding: "8px 10px", color: COLORS.text, fontWeight: 500, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dest}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(Number(valor))}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                        <span style={{ background: statusColor(n.status) + "20", color: statusColor(n.status), padding: "2px 8px", borderRadius: 10, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{statusLabel(n.status)}</span>
+                      </td>
+                      <td style={{ padding: "8px 10px", color: COLORS.textDim, fontSize: 8, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.chave_nfe || "—"}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textDim, fontSize: 8 }}>{n.ref || "—"}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                        {n.caminho_danfe && n.status === "autorizado" && (
+                          <a href={urlBase + n.caminho_danfe} target="_blank" rel="noopener noreferrer" style={{ color: "#10B981", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>PDF</a>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── CONCILIAÇÃO BANCÁRIA ───
 const CONTAS = [
   { key: "sicredi", label: "Sicredi", color: "#2E7D32", icon: "🏦" },
@@ -2642,6 +2790,8 @@ export default function App() {
       {page === "financeiro" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
       {page === "dre" && user?.isAdmin && <DrePage />}
       {page === "dre" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
+      {page === "nf" && user?.isAdmin && <NFPage />}
+      {page === "nf" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
       {page === "conciliacao" && user?.isAdmin && <ConciliacaoPage />}
       {page === "conciliacao" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage />}
