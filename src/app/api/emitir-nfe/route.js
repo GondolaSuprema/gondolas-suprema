@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 export async function POST(request) {
   const body = await request.json();
-  const { ordem, ambiente } = body;
+  const { ordem, ambiente, acao, ref_cancelamento, justificativa } = body;
 
   const TOKENS = {
     homologacao: "YoOU9pLnnkcTYCiPx9fF59ChxxeDa7D4",
@@ -13,8 +13,38 @@ export async function POST(request) {
   const baseUrl = ambiente === "producao"
     ? "https://api.focusnfe.com.br/v2/nfe"
     : "https://homologacao.focusnfe.com.br/v2/nfe";
+  const urlBase = ambiente === "producao"
+    ? "https://api.focusnfe.com.br"
+    : "https://homologacao.focusnfe.com.br";
   const authHeader = "Basic " + Buffer.from(token + ":").toString("base64");
 
+  // CANCELAMENTO
+  if (acao === "cancelar") {
+    try {
+      const response = await fetch(baseUrl + "/" + ref_cancelamento, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": authHeader,
+        },
+        body: JSON.stringify({ justificativa: justificativa || "Cancelamento solicitado pelo emitente" }),
+      });
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch (e) {
+        return Response.json({ success: false, mensagem: "Resposta: " + text.substring(0, 300) });
+      }
+      return Response.json({
+        success: data.status === "cancelado",
+        status: data.status,
+        mensagem: data.mensagem_sefaz || data.mensagem || JSON.stringify(data),
+      });
+    } catch (error) {
+      return Response.json({ success: false, mensagem: error.message });
+    }
+  }
+
+  // EMISSAO
   const cfop = ordem.client?.estado?.toUpperCase() === "SC" ? "5102" : "6102";
 
   const totalItens = (ordem.items || []).reduce((s, it) => s + (it.total || 0), 0);
@@ -27,9 +57,9 @@ export async function POST(request) {
     if (nome.includes("mpp") || nome.includes("porta palete") || nome.includes("mini porta")) {
       ncm = "73089090";
     }
-    
+
     const valorItem = totalItens > 0 ? (item.total / totalItens) * totalNfe : item.total;
-    
+
     return {
       numero_item: String(i + 1),
       codigo_produto: String(item.code || i + 1),
@@ -137,8 +167,8 @@ export async function POST(request) {
         status: data.status,
         numero: data.numero,
         chave: data.chave_nfe,
-        url_danfe: data.caminho_danfe ? "https://homologacao.focusnfe.com.br" + data.caminho_danfe : null,
-        url_xml: data.caminho_xml_nota_fiscal ? "https://homologacao.focusnfe.com.br" + data.caminho_xml_nota_fiscal : null,
+        url_danfe: data.caminho_danfe ? urlBase + data.caminho_danfe : null,
+        url_xml: data.caminho_xml_nota_fiscal ? urlBase + data.caminho_xml_nota_fiscal : null,
         ref: ref,
       });
     } else if (data.status === "processando_autorizacao") {
@@ -162,8 +192,8 @@ export async function POST(request) {
         status: checkData.status,
         numero: checkData.numero,
         chave: checkData.chave_nfe,
-        url_danfe: checkData.caminho_danfe ? "https://homologacao.focusnfe.com.br" + checkData.caminho_danfe : null,
-        url_xml: checkData.caminho_xml_nota_fiscal ? "https://homologacao.focusnfe.com.br" + checkData.caminho_xml_nota_fiscal : null,
+        url_danfe: checkData.caminho_danfe ? urlBase + checkData.caminho_danfe : null,
+        url_xml: checkData.caminho_xml_nota_fiscal ? urlBase + checkData.caminho_xml_nota_fiscal : null,
         mensagem: checkData.mensagem_sefaz,
         ref: ref,
       });
