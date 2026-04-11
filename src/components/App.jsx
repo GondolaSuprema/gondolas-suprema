@@ -155,7 +155,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
               { k: "catalog", l: "Produtos" },
               { k: "resumo", l: "Resumo" },
               { k: "orders", l: "Orçamentos" },
-              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }] : []),
+              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }, { k: "graficos", l: "Gráficos" }] : []),
             ].map(i => (
               <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
             ))}
@@ -1311,6 +1311,172 @@ function AdminPage() {
   );
 }
 
+// ─── GRÁFICOS ───
+function GaugeChart({ value, max, name, color }) {
+  const pct = Math.min(value / max, 1);
+  const angle = pct * 180;
+  const r = 90;
+  const cx = 100;
+  const cy = 100;
+  const rad = (a) => (a - 180) * Math.PI / 180;
+  const arcX = (a) => cx + r * Math.cos(rad(a));
+  const arcY = (a) => cy + r * Math.sin(rad(a));
+  const needleX = cx + (r - 15) * Math.cos(rad(angle));
+  const needleY = cy + (r - 15) * Math.sin(rad(angle));
+  const pctLabel = Math.round(pct * 100);
+
+  const zones = [
+    { start: 0, end: 45, color: "#F87171" },
+    { start: 45, end: 90, color: "#F59E0B" },
+    { start: 90, end: 135, color: "#3B82F6" },
+    { start: 135, end: 180, color: "#10B981" },
+  ];
+
+  const arcPath = (startA, endA, radius) => {
+    const x1 = cx + radius * Math.cos(rad(startA));
+    const y1 = cy + radius * Math.sin(rad(startA));
+    const x2 = cx + radius * Math.cos(rad(endA));
+    const y2 = cy + radius * Math.sin(rad(endA));
+    return `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`;
+  };
+
+  return (
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: "20px 16px 14px", textAlign: "center" }}>
+      <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{name}</div>
+      <svg viewBox="0 0 200 120" style={{ width: "100%", maxWidth: 240 }}>
+        {/* Background arc */}
+        <path d={arcPath(0, 180, r)} fill="none" stroke={COLORS.border} strokeWidth="18" strokeLinecap="round" />
+        {/* Colored zones */}
+        {zones.map((z, i) => (
+          <path key={i} d={arcPath(z.start, z.end, r)} fill="none" stroke={z.color} strokeWidth="18" strokeLinecap="butt" opacity="0.3" />
+        ))}
+        {/* Active arc */}
+        {angle > 0 && <path d={arcPath(0, Math.min(angle, 180), r)} fill="none" stroke={color} strokeWidth="18" strokeLinecap="round" />}
+        {/* Zone labels */}
+        <text x={cx + r * Math.cos(rad(0)) - 5} y={cy + r * Math.sin(rad(0)) + 14} fill={COLORS.textDim} fontSize="7" fontFamily="DM Sans" textAnchor="end">R$0</text>
+        <text x={cx + r * Math.cos(rad(45))} y={cy + r * Math.sin(rad(45)) - 4} fill={COLORS.textDim} fontSize="6" fontFamily="DM Sans" textAnchor="middle">25%</text>
+        <text x={cx + r * Math.cos(rad(90))} y={cy + r * Math.sin(rad(90)) - 6} fill={COLORS.textDim} fontSize="6" fontFamily="DM Sans" textAnchor="middle">50%</text>
+        <text x={cx + r * Math.cos(rad(135))} y={cy + r * Math.sin(rad(135)) - 4} fill={COLORS.textDim} fontSize="6" fontFamily="DM Sans" textAnchor="middle">75%</text>
+        <text x={cx + r * Math.cos(rad(180)) + 5} y={cy + r * Math.sin(rad(180)) + 14} fill={COLORS.textDim} fontSize="7" fontFamily="DM Sans" textAnchor="start">100%</text>
+        {/* Needle */}
+        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r="5" fill={color} />
+        <circle cx={cx} cy={cy} r="2.5" fill={COLORS.bg} />
+        {/* Value */}
+        <text x={cx} y={cy + 16} fill={color} fontSize="12" fontWeight="800" fontFamily="Playfair Display" textAnchor="middle">
+          {value >= 1000 ? (value / 1000).toFixed(1) + "k" : value.toFixed(0)}
+        </text>
+      </svg>
+      <div style={{ fontFamily: "'Playfair Display', serif", color: color, fontSize: 18, fontWeight: 800, marginTop: 4 }}>{fmt(value)}</div>
+      <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Meta: {fmt(max)} · {pctLabel}% atingido</div>
+      <div style={{ marginTop: 8, height: 4, background: COLORS.border, borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ width: pctLabel + "%", height: "100%", background: color, borderRadius: 2, transition: "width 0.5s" }} />
+      </div>
+    </div>
+  );
+}
+
+function GraficosPage() {
+  const [allOrders, setAllOrders] = useState([]);
+  const [mesSel, setMesSel] = useState("");
+  const META = 100000;
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("orcamentos").select("*").eq("status", "Concluído").order("data", { ascending: false });
+      if (data) {
+        setAllOrders(data.map(o => ({
+          id: o.id, date: o.data, total: o.total || 0, vendedor: o.vendedor_nome, vendedorId: o.vendedor_id
+        })));
+      }
+    };
+    load();
+  }, []);
+
+  const meses = [...new Set(allOrders.map(o => { const d = new Date(o.date); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }))].sort().reverse();
+  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+  const activeMes = mesSel || meses[0] || "";
+  const cores = { v1: "#F5A623", v2: "#3B82F6", v3: "#10B981" };
+
+  const vendedoresData = VENDEDORES.filter(v => !v.isAdmin).map(v => {
+    const vendasMes = allOrders.filter(o => {
+      const d = new Date(o.date);
+      return o.vendedorId === v.id && (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === activeMes;
+    });
+    return { ...v, totalMes: vendasMes.reduce((s, o) => s + o.total, 0), qtdVendas: vendasMes.length };
+  });
+
+  // Also include admin's own sales
+  const adminVendas = allOrders.filter(o => {
+    const d = new Date(o.date);
+    return o.vendedorId === "v1" && (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === activeMes;
+  });
+
+  const totalEquipe = vendedoresData.reduce((s, v) => s + v.totalMes, 0);
+
+  return (
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Gráficos de Vendas</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Acompanhamento de metas por vendedor</p>
+        </div>
+        <select value={activeMes} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+          {meses.length === 0 && <option value="">Sem dados</option>}
+          {meses.map(m => <option key={m} value={m}>{mesNomes[m.split("-")[1]]} {m.split("-")[0]}</option>)}
+        </select>
+      </div>
+
+      {/* Meta da equipe */}
+      <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}12, ${COLORS.orange}06)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 14, padding: "20px 24px", marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
+        <div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Total da Equipe</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 800, color: COLORS.orange }}>{fmt(totalEquipe)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Meta equipe: {fmt(META * VENDEDORES.filter(v => !v.isAdmin).length)} · {Math.round(totalEquipe / (META * VENDEDORES.filter(v => !v.isAdmin).length) * 100)}%</div>
+        </div>
+        <div style={{ width: 200 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ color: COLORS.textDim, fontSize: 10 }}>0%</span>
+            <span style={{ color: COLORS.textDim, fontSize: 10 }}>100%</span>
+          </div>
+          <div style={{ height: 10, background: COLORS.border, borderRadius: 5, overflow: "hidden" }}>
+            <div style={{ width: Math.min(totalEquipe / (META * VENDEDORES.filter(v => !v.isAdmin).length) * 100, 100) + "%", height: "100%", background: `linear-gradient(90deg, #F87171, #F59E0B, #10B981)`, borderRadius: 5, transition: "width 0.5s" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Velocímetros por vendedor */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+        {vendedoresData.map((v, i) => (
+          <GaugeChart key={v.id} name={v.name} value={v.totalMes} max={META} color={Object.values(cores)[i] || COLORS.orange} />
+        ))}
+      </div>
+
+      {/* Ranking */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginTop: 20, overflow: "hidden" }}>
+        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}` }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Ranking do Mês</h2>
+        </div>
+        {[...vendedoresData].sort((a, b) => b.totalMes - a.totalMes).map((v, i) => (
+          <div key={v.id} style={{ padding: "12px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 20 }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>
+              <div>
+                <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{v.name}</div>
+                <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{v.qtdVendas} venda(s) concluída(s)</div>
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: COLORS.orange }}>{fmt(v.totalMes)}</div>
+              <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{Math.round(v.totalMes / META * 100)}% da meta</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ───
 export default function App() {
   const [page, setPage] = useState("login");
@@ -1359,6 +1525,8 @@ export default function App() {
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && user?.isAdmin && <AdminPage />}
       {page === "adm" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
+      {page === "graficos" && user?.isAdmin && <GraficosPage />}
+      {page === "graficos" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
     </div>
   );
 }
