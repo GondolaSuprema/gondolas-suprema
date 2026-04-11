@@ -1021,6 +1021,8 @@ function AdminPage() {
   const [filterDataAte, setFilterDataAte] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [mesSel, setMesSel] = useState("");
+  const [vendaStatus, setVendaStatus] = useState({});
 
   useEffect(() => {
     const loadAll = async () => {
@@ -1162,6 +1164,85 @@ function AdminPage() {
           <button onClick={() => { setFilterVendedor("all"); setFilterCidade("all"); setFilterDataDe(""); setFilterDataAte(""); }} style={{ background: "transparent", border: `1px solid ${COLORS.danger}`, color: COLORS.danger, padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Limpar filtros</button>
         )}
       </div>
+
+      {/* Relatório Vendas Concluídas por Mês */}
+      {(() => {
+        const concluidos = allOrders.filter(o => o.status === "Concluído");
+        const meses = [...new Set(concluidos.map(o => { const d = new Date(o.date); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }))].sort().reverse();
+        const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+        const activeMes = mesSel || meses[0] || "";
+
+        const updateVendaStatus = async (orderId, newSt) => {
+          setVendaStatus(prev => ({ ...prev, [orderId]: newSt }));
+          const existingNotes = allOrders.find(o => o.id === orderId)?.notes || "";
+          const cleanNotes = existingNotes.replace(/\n🏷️ Status venda:.*$/m, "");
+          await supabase.from("orcamentos").update({ notes: cleanNotes + "\n🏷️ Status venda: " + newSt }).eq("id", orderId);
+        };
+
+        const getVendaStatus = (o) => {
+          if (vendaStatus[o.id]) return vendaStatus[o.id];
+          const match = (o.notes || "").match(/🏷️ Status venda: (.+)$/m);
+          return match ? match[1] : "Em Aberto";
+        };
+
+        const mesConcluidos = concluidos.filter(o => { const d = new Date(o.date); return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === activeMes; });
+        const totalMes = mesConcluidos.reduce((s, o) => s + (o.total || 0), 0);
+        const vstSc = { "Em Aberto": "#F59E0B", "Pago": "#10B981", "Gerar NF": "#3B82F6", "Concluído": "#8B5CF6" };
+
+        return concluidos.length > 0 ? (
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
+            <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#10B981", fontSize: 18, margin: 0 }}>Vendas Concluídas</h2>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <select value={activeMes} onChange={e => setMesSel(e.target.value)} style={{ padding: "6px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+                  {meses.map(m => <option key={m} value={m}>{mesNomes[m.split("-")[1]]} {m.split("-")[0]}</option>)}
+                </select>
+                <span style={{ color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalMes)}</span>
+              </div>
+            </div>
+            {mesConcluidos.length === 0 ? (
+              <div style={{ padding: "20px", textAlign: "center", color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Nenhuma venda concluída neste mês</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                      <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Empresa</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>CNPJ</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Cidade</th>
+                      <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Valor Total</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</th>
+                      <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mesConcluidos.map(o => {
+                      const vs = getVendaStatus(o);
+                      return (
+                        <tr key={o.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                          <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500 }}>{o.client?.empresa || "-"}</td>
+                          <td style={{ padding: "10px 12px", color: COLORS.textMuted }}>{o.client?.cnpj || "-"}</td>
+                          <td style={{ padding: "10px 12px", color: COLORS.textMuted }}>{o.client?.cidade || "-"}{o.client?.estado ? "/" + o.client.estado : ""}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(o.total || 0)}</td>
+                          <td style={{ padding: "10px 12px", color: COLORS.accent, fontWeight: 500 }}>{o.vendedor || "-"}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                            <select value={vs} onChange={e => updateVendaStatus(o.id, e.target.value)} style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                              <option value="Em Aberto">Em Aberto</option>
+                              <option value="Pago">Pago</option>
+                              <option value="Gerar NF">Gerar NF</option>
+                              <option value="Concluído">Concluído</option>
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : null;
+      })()}
 
       {/* Lista */}
       {filtered.length === 0 ? (
