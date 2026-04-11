@@ -1027,15 +1027,19 @@ function AdminPage() {
   const [vendaStatus, setVendaStatus] = useState({});
   const [emitindoNfe, setEmitindoNfe] = useState(null);
   const [nfeResult, setNfeResult] = useState(null);
+  const [confirmEmitir, setConfirmEmitir] = useState(null);
+  const [cancelandoNfe, setCancelandoNfe] = useState(null);
+  const [cancelJustificativa, setCancelJustificativa] = useState("");
 
   const emitirNfe = async (ordem) => {
+    setConfirmEmitir(null);
     setEmitindoNfe(ordem.id);
     setNfeResult(null);
     try {
       const res = await fetch("/api/emitir-nfe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ordem, ambiente: "homologacao" }),
+        body: JSON.stringify({ ordem, ambiente: "producao" }),
       });
       const data = await res.json();
       setNfeResult(data);
@@ -1043,6 +1047,23 @@ function AdminPage() {
       setNfeResult({ success: false, mensagem: e.message });
     }
     setEmitindoNfe(null);
+  };
+
+  const cancelarNfe = async (ref, justificativa) => {
+    setCancelandoNfe("loading");
+    try {
+      const res = await fetch("/api/emitir-nfe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "cancelar", ref_cancelamento: ref, justificativa, ambiente: "producao" }),
+      });
+      const data = await res.json();
+      setNfeResult(data.success ? { ...data, cancelado: true } : data);
+    } catch (e) {
+      setNfeResult({ success: false, mensagem: e.message });
+    }
+    setCancelandoNfe(null);
+    setCancelJustificativa("");
   };
 
   useEffect(() => {
@@ -1186,21 +1207,40 @@ function AdminPage() {
         )}
       </div>
 
+      {/* Modal Confirmação Emitir NF */}
+      {confirmEmitir && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 18, margin: "0 0 12px" }}>⚠️ Confirmar Emissão de NF-e</h2>
+            <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 14px" }}>Esta ação irá emitir uma <strong style={{ color: COLORS.danger }}>Nota Fiscal REAL</strong> na SEFAZ com valor fiscal. Não pode ser desfeita (apenas cancelada em até 24h).</p>
+            <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+              <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>{confirmEmitir.client?.empresa}</div>
+              <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: {confirmEmitir.client?.cnpj} | {confirmEmitir.client?.cidade}/{confirmEmitir.client?.estado}</div>
+              <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(confirmEmitir.total)}</div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmEmitir(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+              <button onClick={() => emitirNfe(confirmEmitir)} style={{ flex: 1, background: "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Sim, Emitir NF-e</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Resultado NF-e */}
       {nfeResult && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", color: nfeResult.success ? "#10B981" : COLORS.danger, fontSize: 18, margin: "0 0 12px" }}>{nfeResult.success ? "✓ NF-e Emitida com Sucesso!" : "✕ Erro na Emissão"}</h2>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: nfeResult.cancelado ? "#F59E0B" : nfeResult.success ? "#10B981" : COLORS.danger, fontSize: 18, margin: "0 0 12px" }}>{nfeResult.cancelado ? "✓ NF-e Cancelada" : nfeResult.success ? "✓ NF-e Emitida com Sucesso!" : "✕ Erro na Emissão"}</h2>
             {nfeResult.success ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}>
+                {nfeResult.numero && <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}>
                   <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Número</div>
-                  <div style={{ color: COLORS.white, fontSize: 14, fontWeight: 700 }}>{nfeResult.numero || "-"}</div>
-                </div>
-                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}>
+                  <div style={{ color: COLORS.white, fontSize: 14, fontWeight: 700 }}>{nfeResult.numero}</div>
+                </div>}
+                {nfeResult.chave && <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}>
                   <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Chave de Acesso</div>
-                  <div style={{ color: COLORS.text, fontSize: 10, wordBreak: "break-all" }}>{nfeResult.chave || "-"}</div>
-                </div>
+                  <div style={{ color: COLORS.text, fontSize: 10, wordBreak: "break-all" }}>{nfeResult.chave}</div>
+                </div>}
                 <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}>
                   <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Status</div>
                   <div style={{ color: "#10B981", fontSize: 13, fontWeight: 700 }}>{nfeResult.status}</div>
@@ -1211,6 +1251,24 @@ function AdminPage() {
                 {nfeResult.url_xml && (
                   <a href={nfeResult.url_xml} target="_blank" rel="noopener noreferrer" style={{ background: "#3B82F615", border: "1px solid #3B82F640", color: "#3B82F6", padding: "10px", borderRadius: 8, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>📋 Baixar XML</a>
                 )}
+                {nfeResult.ref && !nfeResult.cancelado && (
+                  <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 10, marginTop: 4 }}>
+                    {cancelandoNfe === "loading" ? (
+                      <div style={{ textAlign: "center", color: COLORS.textMuted, fontSize: 12 }}>Cancelando...</div>
+                    ) : cancelandoNfe === nfeResult.ref ? (
+                      <div>
+                        <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, textTransform: "uppercase" }}>Justificativa do cancelamento (mín. 15 caracteres)</div>
+                        <input value={cancelJustificativa} onChange={e => setCancelJustificativa(e.target.value)} placeholder="Motivo do cancelamento..." style={{ width: "100%", padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => setCancelandoNfe(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
+                          <button onClick={() => cancelarNfe(nfeResult.ref, cancelJustificativa)} disabled={cancelJustificativa.length < 15} style={{ flex: 1, background: cancelJustificativa.length < 15 ? COLORS.textDim : COLORS.danger, color: "#fff", border: "none", padding: "8px", borderRadius: 7, fontWeight: 700, cursor: cancelJustificativa.length < 15 ? "not-allowed" : "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Confirmar Cancelamento</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setCancelandoNfe(nfeResult.ref)} style={{ width: "100%", background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "8px", borderRadius: 7, fontWeight: 700, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Cancelar NF-e (até 24h)</button>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, borderRadius: 8, padding: "12px 14px" }}>
@@ -1218,7 +1276,7 @@ function AdminPage() {
                 {nfeResult.erros && <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 8, whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto" }}>{JSON.stringify(nfeResult.erros, null, 2)}</div>}
               </div>
             )}
-            <button onClick={() => setNfeResult(null)} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 12 }}>Fechar</button>
+            <button onClick={() => { setNfeResult(null); setCancelandoNfe(null); setCancelJustificativa(""); }} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 12 }}>Fechar</button>
           </div>
         </div>
       )}
@@ -1294,11 +1352,11 @@ function AdminPage() {
                               <option value="Concluído">Concluído</option>
                             </select>
                           </td>
-                          <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                          <td style={{ padding: "10px 8px", textAlign: "center" }}>
                             {emitindoNfe === o.id ? (
                               <span style={{ color: COLORS.textMuted, fontSize: 9 }}>Emitindo...</span>
                             ) : (
-                              <button onClick={() => emitirNfe(o)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Emitir NF</button>
+                              <button onClick={() => setConfirmEmitir(o)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Emitir NF</button>
                             )}
                           </td>
                         </tr>
