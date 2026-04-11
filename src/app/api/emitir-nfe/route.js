@@ -17,12 +17,19 @@ export async function POST(request) {
 
   const cfop = ordem.client?.estado?.toUpperCase() === "SC" ? "5102" : "6102";
 
+  const totalItens = (ordem.items || []).reduce((s, it) => s + (it.total || 0), 0);
+  const frete = ordem.frete || 0;
+  const totalNfe = ordem.total || 0;
+
   const produtos = (ordem.items || []).map((item, i) => {
     let ncm = "94031000";
     const nome = (item.name || "").toLowerCase();
     if (nome.includes("mpp") || nome.includes("porta palete") || nome.includes("mini porta")) {
       ncm = "73089090";
     }
+    
+    const valorItem = totalItens > 0 ? (item.total / totalItens) * (totalNfe - frete) : item.total;
+    
     return {
       numero_item: String(i + 1),
       codigo_produto: String(item.code || i + 1),
@@ -31,11 +38,11 @@ export async function POST(request) {
       cfop: cfop,
       unidade_comercial: "UN",
       quantidade_comercial: String(item.qty || 1),
-      valor_unitario_comercial: (item.total / (item.qty || 1)).toFixed(4),
-      valor_bruto: (item.total || 0).toFixed(2),
+      valor_unitario_comercial: (valorItem / (item.qty || 1)).toFixed(4),
+      valor_bruto: valorItem.toFixed(2),
       unidade_tributavel: "UN",
       quantidade_tributavel: String(item.qty || 1),
-      valor_unitario_tributavel: (item.total / (item.qty || 1)).toFixed(4),
+      valor_unitario_tributavel: (valorItem / (item.qty || 1)).toFixed(4),
       icms_origem: "0",
       icms_situacao_tributaria: "400",
       icms_base_calculo: "0.00",
@@ -93,11 +100,11 @@ export async function POST(request) {
     items: produtos,
     modalidade_frete: "3",
     valor_produtos: produtos.reduce((s, p) => s + Number(p.valor_bruto), 0).toFixed(2),
-    valor_total: (ordem.total || 0).toFixed(2),
-    valor_desconto: Math.max(0, produtos.reduce((s, p) => s + Number(p.valor_bruto), 0) - (ordem.total || 0)).toFixed(2),
+    valor_frete: frete.toFixed(2),
+    valor_total: totalNfe.toFixed(2),
     formas_pagamento: [{
       forma_pagamento: "99",
-      valor_pagamento: (ordem.total || 0).toFixed(2),
+      valor_pagamento: totalNfe.toFixed(2),
     }],
   };
 
