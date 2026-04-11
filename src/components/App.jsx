@@ -741,7 +741,10 @@ function AdminPage() {
   const [allOrders, setAllOrders] = useState([]);
   const [filterVendedor, setFilterVendedor] = useState("all");
   const [filterCidade, setFilterCidade] = useState("all");
+  const [filterDataDe, setFilterDataDe] = useState("");
+  const [filterDataAte, setFilterDataAte] = useState("");
   const [expanded, setExpanded] = useState(null);
+  const [confirmDel, setConfirmDel] = useState(null);
 
   useEffect(() => {
     const loadAll = async () => {
@@ -763,6 +766,8 @@ function AdminPage() {
   const filtered = allOrders.filter(o => {
     if (filterVendedor !== "all" && o.vendedor !== filterVendedor) return false;
     if (filterCidade !== "all" && o.client?.cidade !== filterCidade) return false;
+    if (filterDataDe) { const d = new Date(o.date); const de = new Date(filterDataDe); if (d < de) return false; }
+    if (filterDataAte) { const d = new Date(o.date); const ate = new Date(filterDataAte + "T23:59:59"); if (d > ate) return false; }
     return true;
   });
 
@@ -802,8 +807,12 @@ function AdminPage() {
           <option value="all">Todas as cidades</option>
           {cidades.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        {(filterVendedor !== "all" || filterCidade !== "all") && (
-          <button onClick={() => { setFilterVendedor("all"); setFilterCidade("all"); }} style={{ background: "transparent", border: `1px solid ${COLORS.danger}`, color: COLORS.danger, padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Limpar filtros</button>
+        <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>De:</span>
+        <input type="date" value={filterDataDe} onChange={e => setFilterDataDe(e.target.value)} style={sel} />
+        <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Até:</span>
+        <input type="date" value={filterDataAte} onChange={e => setFilterDataAte(e.target.value)} style={sel} />
+        {(filterVendedor !== "all" || filterCidade !== "all" || filterDataDe || filterDataAte) && (
+          <button onClick={() => { setFilterVendedor("all"); setFilterCidade("all"); setFilterDataDe(""); setFilterDataAte(""); }} style={{ background: "transparent", border: `1px solid ${COLORS.danger}`, color: COLORS.danger, padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Limpar filtros</button>
         )}
       </div>
 
@@ -823,9 +832,12 @@ function AdminPage() {
                   <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{o.client?.empresa || "Sem empresa"}</div>
                   <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Vendedor: <strong style={{ color: COLORS.accent }}>{o.vendedor}</strong>{o.client?.cidade ? " · " + o.client.cidade + (o.client.estado ? "/" + o.client.estado : "") : ""}</div>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <span style={{ background: sc[o.status] || sc.Pendente, color: "#000", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status || "Pendente"}</span>
-                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: COLORS.orange, marginTop: 4 }}>{fmt(o.total || 0)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ background: sc[o.status] || sc.Pendente, color: "#000", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status || "Pendente"}</span>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: COLORS.orange, marginTop: 4 }}>{fmt(o.total || 0)}</div>
+                  </div>
+                  <button onClick={async (e) => { e.stopPropagation(); if (window.confirm("Excluir este orçamento?")) { await supabase.from("orcamentos").delete().eq("id", o.id); setAllOrders(allOrders.filter(x => x.id !== o.id)); }}} style={{ background: COLORS.danger + "15", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "8px", borderRadius: 7, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>🗑️</button>
                 </div>
               </div>
               {expanded === o.id && (
@@ -846,6 +858,17 @@ function AdminPage() {
                         <span style={{ color: COLORS.orange, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{fmt(it.total)}</span>
                       </div>
                     ))}
+                  </div>
+                  <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    {confirmDel === o.id ? (
+                      <>
+                        <span style={{ color: COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif", alignSelf: "center" }}>Tem certeza?</span>
+                        <button onClick={async (e) => { e.stopPropagation(); await supabase.from("orcamentos").delete().eq("id", o.id); setAllOrders(allOrders.filter(x => x.id !== o.id)); setConfirmDel(null); setExpanded(null); }} style={{ background: COLORS.danger, border: "none", color: "#fff", padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Sim, excluir</button>
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDel(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                      </>
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); setConfirmDel(o.id); }} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🗑️ Excluir orçamento</button>
+                    )}
                   </div>
                 </div>
               )}
