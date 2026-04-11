@@ -1218,6 +1218,7 @@ function AdminPage() {
             ) : (
               <div style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, borderRadius: 8, padding: "12px 14px" }}>
                 <div style={{ color: COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{nfeResult.mensagem || "Erro desconhecido"}</div>
+                {nfeResult.erros && <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 8, whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto" }}>{JSON.stringify(nfeResult.erros, null, 2)}</div>}
               </div>
             )}
             <button onClick={() => setNfeResult(null)} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 12 }}>Fechar</button>
