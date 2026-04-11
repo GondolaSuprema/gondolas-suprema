@@ -1568,22 +1568,22 @@ function FinanceiroPage() {
       </div>
 
       {/* Cards resumo */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total do Mês</div>
-          <div style={{ color: COLORS.orange, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalMes)}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Total</div>
+          <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalMes)}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Pago</div>
-          <div style={{ color: "#10B981", fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalPago)}</div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Pago</div>
+          <div style={{ color: "#10B981", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalPago)}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Em Aberto</div>
-          <div style={{ color: "#F87171", fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalAberto)}</div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Aberto</div>
+          <div style={{ color: "#F87171", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalAberto)}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Vencidas</div>
-          <div style={{ color: "#F87171", fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{despesas.filter(d => d.status !== "Pago" && d.vencimento && d.vencimento < hoje).length}</div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Vencidas</div>
+          <div style={{ color: "#F87171", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{despesas.filter(d => d.status !== "Pago" && d.vencimento && d.vencimento < hoje).length}</div>
         </div>
       </div>
 
@@ -1597,15 +1597,15 @@ function FinanceiroPage() {
           <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando...</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                  <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Despesa</th>
-                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vencimento</th>
-                  <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Valor</th>
-                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Situação</th>
-                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
-                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}></th>
+                  <th style={{ padding: "6px 8px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Despesa</th>
+                  <th style={{ padding: "6px 8px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Venc.</th>
+                  <th style={{ padding: "6px 8px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+                  <th style={{ padding: "6px 8px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Sit.</th>
+                  <th style={{ padding: "6px 8px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
+                  <th style={{ padding: "6px 4px", width: 20 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -1618,46 +1618,33 @@ function FinanceiroPage() {
                   const sit = getSituacao(d);
                   return (
                     <tr key={d.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                      <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500 }}>
-                        {d.fixa ? d.nome : <span>{d.nome}</span>}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                        <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-                          <select value={d.vencimento ? d.vencimento.split("-")[2] : ""} onChange={e => { const m = d.vencimento ? d.vencimento.split("-")[1] : mesSel.split("-")[1]; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + m + "-" + e.target.value); }} style={{ ...inp, width: 55, textAlign: "center", padding: "7px 4px" }}>
-                            <option value="">Dia</option>
+                      <td style={{ padding: "6px 8px", color: COLORS.text, fontWeight: 500, fontSize: 11 }}>{d.nome}</td>
+                      <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                        <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
+                          <select value={d.vencimento ? d.vencimento.split("-")[2] : ""} onChange={e => { const m = d.vencimento ? d.vencimento.split("-")[1] : mesSel.split("-")[1]; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + m + "-" + e.target.value); }} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
+                            <option value="">--</option>
                             {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
                           </select>
-                          <select value={d.vencimento ? d.vencimento.split("-")[1] : ""} onChange={e => { const dia = d.vencimento ? d.vencimento.split("-")[2] : "01"; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + e.target.value + "-" + dia); }} style={{ ...inp, width: 75, textAlign: "center", padding: "7px 4px" }}>
-                            <option value="">Mês</option>
-                            <option value="01">Jan</option>
-                            <option value="02">Fev</option>
-                            <option value="03">Mar</option>
-                            <option value="04">Abr</option>
-                            <option value="05">Mai</option>
-                            <option value="06">Jun</option>
-                            <option value="07">Jul</option>
-                            <option value="08">Ago</option>
-                            <option value="09">Set</option>
-                            <option value="10">Out</option>
-                            <option value="11">Nov</option>
-                            <option value="12">Dez</option>
+                          <select value={d.vencimento ? d.vencimento.split("-")[1] : ""} onChange={e => { const dia = d.vencimento ? d.vencimento.split("-")[2] : "01"; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + e.target.value + "-" + dia); }} style={{ ...inp, width: 50, padding: "4px 2px", fontSize: 10 }}>
+                            <option value="">--</option>
+                            <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option><option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
                           </select>
                         </div>
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                        <input type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0,00" style={{ ...inp, width: 100, textAlign: "right", color: COLORS.orange, fontWeight: 700 }} />
+                      <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                        <input type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0" style={{ ...inp, width: 75, textAlign: "right", color: COLORS.orange, fontWeight: 700, padding: "4px 6px", fontSize: 11 }} />
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                        <span style={{ background: sit.color + "20", color: sit.color, padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 700 }}>{sit.label}</span>
+                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                        <span style={{ background: sit.color + "20", color: sit.color, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{sit.label}</span>
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                        <select value={d.status} onChange={e => atualizarDespesa(d.id, "status", e.target.value)} style={{ background: d.status === "Pago" ? "#10B98120" : "#F5910B20", color: d.status === "Pago" ? "#10B981" : "#F59E0B", border: `1px solid ${d.status === "Pago" ? "#10B98140" : "#F59E0B40"}`, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
-                          <option value="Em Aberto">Em Aberto</option>
+                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                        <select value={d.status} onChange={e => atualizarDespesa(d.id, "status", e.target.value)} style={{ background: d.status === "Pago" ? "#10B98120" : "#F59E0B20", color: d.status === "Pago" ? "#10B981" : "#F59E0B", border: `1px solid ${d.status === "Pago" ? "#10B98140" : "#F59E0B40"}`, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                          <option value="Em Aberto">Aberto</option>
                           <option value="Pago">Pago</option>
                         </select>
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                        {!d.fixa && <button onClick={() => excluirDespesa(d.id)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 14 }}>✕</button>}
+                      <td style={{ padding: "4px 2px", textAlign: "center" }}>
+                        {!d.fixa && <button onClick={() => excluirDespesa(d.id)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>✕</button>}
                       </td>
                     </tr>
                   );
@@ -1665,12 +1652,10 @@ function FinanceiroPage() {
               </tbody>
               <tfoot>
                 <tr style={{ background: COLORS.bg }}>
-                  <td style={{ padding: "12px", color: COLORS.white, fontWeight: 700 }}>TOTAL</td>
+                  <td style={{ padding: "8px", color: COLORS.white, fontWeight: 700, fontSize: 11 }}>TOTAL</td>
                   <td></td>
-                  <td style={{ padding: "12px", textAlign: "right", color: COLORS.orange, fontWeight: 800, fontFamily: "'Playfair Display', serif", fontSize: 14 }}>{fmt(totalMes)}</td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
+                  <td style={{ padding: "8px", textAlign: "right", color: COLORS.orange, fontWeight: 800, fontFamily: "'Playfair Display', serif", fontSize: 13 }}>{fmt(totalMes)}</td>
+                  <td></td><td></td><td></td>
                 </tr>
               </tfoot>
             </table>
