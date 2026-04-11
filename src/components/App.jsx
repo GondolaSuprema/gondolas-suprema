@@ -1495,6 +1495,9 @@ function FinanceiroPage() {
   const [novaDespesa, setNovaDespesa] = useState("");
   const [showAddVar, setShowAddVar] = useState(false);
   const [varForm, setVarForm] = useState({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" });
+  const [fornecedores, setFornecedores] = useState([]);
+  const [showAddForn, setShowAddForn] = useState("");
+  const [fornForm, setFornForm] = useState({ data: "", pedido: "", parcela: "", valor: "" });
   const [loading, setLoading] = useState(true);
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
@@ -1514,7 +1517,14 @@ function FinanceiroPage() {
     setLoading(false);
   };
 
-  useEffect(() => { carregarDespesas(mesSel); }, [mesSel]);
+  const carregarFornecedores = async (mes) => {
+    const { data } = await supabase.from("despesas").select("*").eq("mes", mes).in("nome", ["forn_gondolas", "forn_mdf", "forn_outros"]).order("vencimento");
+    // Also load by checking if nome starts with forn_
+    const { data: data2 } = await supabase.from("despesas").select("*").eq("mes", mes).like("nome", "forn_%");
+    if (data2) setFornecedores(data2);
+  };
+
+  useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(mesSel); }, [mesSel]);
 
   const atualizarDespesa = async (id, campo, valor) => {
     const update = {}; update[campo] = valor;
@@ -1545,6 +1555,35 @@ function FinanceiroPage() {
     setDespesas([...despesas, nova]);
     setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" });
     setShowAddVar(false);
+  };
+
+  const adicionarFornecedor = async (tipo) => {
+    const ff = fornForm;
+    if (!ff.valor) return;
+    const y = mesSel.split("-")[0];
+    const dia = ff.data || "01";
+    const mes = mesSel.split("-")[1];
+    const venc = y + "-" + mes + "-" + String(dia).padStart(2, "0");
+    const nova = { id: genId(), nome: "forn_" + tipo, vencimento: venc, valor: Number(ff.valor) || 0, status: "Em Aberto", mes: mesSel, fixa: false };
+    // Store pedido and parcela in notes-like approach using nome
+    if (ff.pedido || ff.parcela) {
+      nova.nome = "forn_" + tipo + "|" + (ff.pedido || "") + "|" + (ff.parcela || "");
+    }
+    await supabase.from("despesas").insert(nova);
+    setFornecedores([...fornecedores, nova]);
+    setFornForm({ data: "", pedido: "", parcela: "", valor: "" });
+    setShowAddForn("");
+  };
+
+  const excluirFornecedor = async (id) => {
+    await supabase.from("despesas").delete().eq("id", id);
+    setFornecedores(fornecedores.filter(f => f.id !== id));
+  };
+
+  const atualizarFornecedor = async (id, campo, valor) => {
+    const update = {}; update[campo] = valor;
+    await supabase.from("despesas").update(update).eq("id", id);
+    setFornecedores(fornecedores.map(f => f.id === id ? { ...f, [campo]: valor } : f));
   };
 
   const excluirDespesa = async (id) => {
@@ -1682,11 +1721,13 @@ function FinanceiroPage() {
 
       {/* Sub-tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
-        <button onClick={() => setSubTab("fixas")} style={{ background: subTab === "fixas" ? COLORS.orange + "20" : COLORS.card, color: subTab === "fixas" ? COLORS.orange : COLORS.textMuted, border: `1px solid ${subTab === "fixas" ? COLORS.orange + "40" : COLORS.border}`, padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Despesas Fixas ({fixas.length})</button>
-        <button onClick={() => setSubTab("variaveis")} style={{ background: subTab === "variaveis" ? "#8B5CF6" + "20" : COLORS.card, color: subTab === "variaveis" ? "#8B5CF6" : COLORS.textMuted, border: `1px solid ${subTab === "variaveis" ? "#8B5CF640" : COLORS.border}`, padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Despesas Variáveis ({variaveis.length})</button>
+        <button onClick={() => setSubTab("fixas")} style={{ background: subTab === "fixas" ? COLORS.orange + "20" : COLORS.card, color: subTab === "fixas" ? COLORS.orange : COLORS.textMuted, border: `1px solid ${subTab === "fixas" ? COLORS.orange + "40" : COLORS.border}`, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Fixas ({fixas.length})</button>
+        <button onClick={() => setSubTab("variaveis")} style={{ background: subTab === "variaveis" ? "#8B5CF6" + "20" : COLORS.card, color: subTab === "variaveis" ? "#8B5CF6" : COLORS.textMuted, border: `1px solid ${subTab === "variaveis" ? "#8B5CF640" : COLORS.border}`, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Variáveis ({variaveis.length})</button>
+        <button onClick={() => setSubTab("fornecedores")} style={{ background: subTab === "fornecedores" ? "#3B82F6" + "20" : COLORS.card, color: subTab === "fornecedores" ? "#3B82F6" : COLORS.textMuted, border: `1px solid ${subTab === "fornecedores" ? "#3B82F640" : COLORS.border}`, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Fornecedores</button>
       </div>
 
-      {/* Tabela */}
+      {/* Tabela Fixas/Variáveis */}
+      {(subTab === "fixas" || subTab === "variaveis") && (
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", color: subTab === "fixas" ? COLORS.orange : "#8B5CF6", fontSize: 15, margin: 0 }}>{subTab === "fixas" ? "Despesas Fixas" : "Despesas Variáveis"} — {mesNomes[mesSel.split("-")[1]]}</h2>
@@ -1772,6 +1813,112 @@ function FinanceiroPage() {
           </div>
         )}
       </div>
+      )}
+
+      {/* Fornecedores */}
+      {subTab === "fornecedores" && (() => {
+        const tipos = [
+          { key: "gondolas", label: "Gôndolas Brasil", color: "#F5A623" },
+          { key: "mdf", label: "MDF", color: "#3B82F6" },
+          { key: "outros", label: "Outros Fornecedores", color: "#10B981" },
+        ];
+        const parseForn = (f) => {
+          const parts = f.nome.replace("forn_", "").split("|");
+          return { tipo: parts[0], pedido: parts[1] || "", parcela: parts[2] || "" };
+        };
+        const totalFornGeral = fornecedores.reduce((s, f) => s + (f.valor || 0), 0);
+        return (
+          <div>
+            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Total Fornecedores</span>
+              <span style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalFornGeral)}</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+            {tipos.map(t => {
+              const items = fornecedores.filter(f => f.nome.startsWith("forn_" + t.key));
+              const totalForn = items.reduce((s, f) => s + (f.valor || 0), 0);
+              return (
+                <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: t.color + "10" }}>
+                    <h3 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 13, margin: 0 }}>{t.label}</h3>
+                    <span style={{ color: t.color, fontSize: 12, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalForn)}</span>
+                  </div>
+                  <div style={{ maxHeight: 280, overflowY: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                          <th style={{ padding: "4px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Data</th>
+                          <th style={{ padding: "4px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Pedido</th>
+                          <th style={{ padding: "4px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Parc.</th>
+                          <th style={{ padding: "4px 6px", textAlign: "right", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Valor</th>
+                          <th style={{ padding: "4px 4px", textAlign: "center", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Sit.</th>
+                          <th style={{ padding: "4px 2px", width: 14 }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...items].sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || "")).map(f => {
+                          const p = parseForn(f);
+                          const sit = getSituacao(f);
+                          return (
+                            <tr key={f.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                              <td style={{ padding: "4px 6px", color: COLORS.text, fontSize: 10 }}>{f.vencimento ? f.vencimento.split("-")[2] + "/" + f.vencimento.split("-")[1] : "--"}</td>
+                              <td style={{ padding: "4px 6px", color: COLORS.textMuted, fontSize: 10 }}>{p.pedido || "-"}</td>
+                              <td style={{ padding: "4px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 10 }}>{p.parcela || "-"}</td>
+                              <td style={{ padding: "4px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontSize: 10 }}>{fmt(f.valor)}</td>
+                              <td style={{ padding: "3px 3px", textAlign: "center" }}>
+                                <select value={f.status} onChange={e => atualizarFornecedor(f.id, "status", e.target.value)} style={{ background: f.status === "Pago" ? "#10B98120" : "#F59E0B20", color: f.status === "Pago" ? "#10B981" : "#F59E0B", border: "none", padding: "2px 3px", borderRadius: 8, fontSize: 8, fontWeight: 700, cursor: "pointer", outline: "none" }}>
+                                  <option value="Em Aberto">Aberto</option>
+                                  <option value="Pago">Pago</option>
+                                </select>
+                              </td>
+                              <td style={{ padding: "2px", textAlign: "center" }}>
+                                <button onClick={() => excluirFornecedor(f.id)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 10, padding: 0, lineHeight: 1 }}>✕</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {items.length === 0 && <div style={{ padding: 14, textAlign: "center", color: COLORS.textDim, fontSize: 10 }}>Nenhuma despesa</div>}
+                  </div>
+                  {showAddForn === t.key ? (
+                    <div style={{ padding: "8px 10px", borderTop: `1px solid ${COLORS.border}`, background: COLORS.bg + "80" }}>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "flex-end" }}>
+                        <div>
+                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Dia</div>
+                          <select value={fornForm.data} onChange={e => setFornForm({ ...fornForm, data: e.target.value })} style={{ ...inp, width: 40, padding: "3px 1px", fontSize: 9 }}>
+                            <option value="">--</option>
+                            {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Pedido</div>
+                          <input placeholder="Nº" value={fornForm.pedido} onChange={e => setFornForm({ ...fornForm, pedido: e.target.value })} style={{ ...inp, width: 60, padding: "3px 4px", fontSize: 9 }} />
+                        </div>
+                        <div>
+                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Parc.</div>
+                          <input placeholder="1/3" value={fornForm.parcela} onChange={e => setFornForm({ ...fornForm, parcela: e.target.value })} style={{ ...inp, width: 40, padding: "3px 2px", fontSize: 9, textAlign: "center" }} />
+                        </div>
+                        <div>
+                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>R$</div>
+                          <input type="number" min="0" step="0.01" placeholder="0" value={fornForm.valor} onChange={e => setFornForm({ ...fornForm, valor: e.target.value })} style={{ ...inp, width: 65, padding: "3px 4px", fontSize: 9, textAlign: "right", color: COLORS.orange, fontWeight: 700 }} />
+                        </div>
+                        <button onClick={() => adicionarFornecedor(t.key)} style={{ background: t.color, border: "none", color: "#fff", padding: "3px 8px", borderRadius: 4, fontWeight: 700, fontSize: 9, cursor: "pointer" }}>✓</button>
+                        <button onClick={() => { setShowAddForn(""); setFornForm({ data: "", pedido: "", parcela: "", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 11 }}>✕</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: "6px 10px", borderTop: `1px solid ${COLORS.border}`, textAlign: "center" }}>
+                      <button onClick={() => { setShowAddForn(t.key); setFornForm({ data: "", pedido: "", parcela: "", valor: "" }); }} style={{ background: t.color + "15", border: `1px solid ${t.color}30`, color: t.color, padding: "4px 12px", borderRadius: 5, fontWeight: 700, fontSize: 9, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Adicionar</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
