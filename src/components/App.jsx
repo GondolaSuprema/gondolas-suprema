@@ -1039,9 +1039,6 @@ function AdminPage() {
       });
       const data = await res.json();
       setNfeResult(data);
-      if (data.success) {
-        updateVendaStatus(ordem.id, "Concluído");
-      }
     } catch (e) {
       setNfeResult({ success: false, mensagem: e.message });
     }
