@@ -1500,6 +1500,7 @@ function FinanceiroPage() {
   const [fornForm, setFornForm] = useState({ data: "", pedido: "", parcela: "", valor: "" });
   const [gondForm, setGondForm] = useState({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" });
   const [mdfForm, setMdfForm] = useState({ dia: "", mes: "", qtd: "", valor: "" });
+  const [outrosForm, setOutrosForm] = useState({ dia: "", mes: "", fornecedor: "", valor: "" });
   const [loading, setLoading] = useState(true);
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
@@ -1596,6 +1597,19 @@ function FinanceiroPage() {
     await supabase.from("despesas").insert(nova);
     setFornecedores([...fornecedores, nova]);
     setMdfForm({ dia: "", mes: "", qtd: "", valor: "" });
+    setShowAddForn("");
+  };
+
+  const adicionarOutros = async () => {
+    const of2 = outrosForm;
+    if (!of2.dia || !of2.mes || !of2.fornecedor || !of2.valor) return;
+    const y = mesSel.split("-")[0];
+    const venc = y + "-" + of2.mes + "-" + of2.dia;
+    const mesKey = y + "-" + of2.mes;
+    const nova = { id: genId(), nome: "forn_outros|" + of2.fornecedor + "||", vencimento: venc, valor: Number(of2.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false };
+    await supabase.from("despesas").insert(nova);
+    setFornecedores([...fornecedores, nova]);
+    setOutrosForm({ dia: "", mes: "", fornecedor: "", valor: "" });
     setShowAddForn("");
   };
 
@@ -2025,34 +2039,47 @@ function FinanceiroPage() {
                       </div>
                     </div>
                   ) : showAddForn === t.key && !isGondolas && !isMdf ? (
-                    <div style={{ padding: "8px 10px", borderTop: `1px solid ${COLORS.border}`, background: COLORS.bg + "80" }}>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "flex-end" }}>
-                        <div>
-                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Dia</div>
-                          <select value={fornForm.data} onChange={e => setFornForm({ ...fornForm, data: e.target.value })} style={{ ...inp, width: 40, padding: "3px 1px", fontSize: 9 }}>
-                            <option value="">--</option>
-                            {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
-                          </select>
+                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 380, maxWidth: "100%" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                          <h2 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 18, margin: 0 }}>Nova Despesa — Fornecedor</h2>
+                          <button onClick={() => { setShowAddForn(""); setOutrosForm({ dia: "", mes: "", fornecedor: "", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
                         </div>
-                        <div>
-                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Pedido</div>
-                          <input placeholder="Nº" value={fornForm.pedido} onChange={e => setFornForm({ ...fornForm, pedido: e.target.value })} style={{ ...inp, width: 60, padding: "3px 4px", fontSize: 9 }} />
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Dia *</div>
+                              <select value={outrosForm.dia} onChange={e => setOutrosForm({ ...outrosForm, dia: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                                <option value="">Selecione...</option>
+                                {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Mês *</div>
+                              <select value={outrosForm.mes} onChange={e => setOutrosForm({ ...outrosForm, mes: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                                <option value="">Selecione...</option>
+                                <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option><option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option><option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Nome do Fornecedor *</div>
+                            <input placeholder="Ex: Fornecedor XYZ" value={outrosForm.fornecedor} onChange={e => setOutrosForm({ ...outrosForm, fornecedor: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                          </div>
+                          <div>
+                            <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Valor (R$) *</div>
+                            <input type="number" min="0" step="0.01" placeholder="0,00" value={outrosForm.valor} onChange={e => setOutrosForm({ ...outrosForm, valor: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textAlign: "right" }} />
+                          </div>
+                          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                            <button onClick={() => { setShowAddForn(""); setOutrosForm({ dia: "", mes: "", fornecedor: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                            <button onClick={adicionarOutros} disabled={!outrosForm.dia || !outrosForm.mes || !outrosForm.fornecedor || !outrosForm.valor} style={{ flex: 1, background: !outrosForm.dia || !outrosForm.mes || !outrosForm.fornecedor || !outrosForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !outrosForm.dia || !outrosForm.mes || !outrosForm.fornecedor || !outrosForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Salvar</button>
+                          </div>
                         </div>
-                        <div>
-                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Parc.</div>
-                          <input placeholder="1/3" value={fornForm.parcela} onChange={e => setFornForm({ ...fornForm, parcela: e.target.value })} style={{ ...inp, width: 40, padding: "3px 2px", fontSize: 9, textAlign: "center" }} />
-                        </div>
-                        <div>
-                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>R$</div>
-                          <input type="number" min="0" step="0.01" placeholder="0" value={fornForm.valor} onChange={e => setFornForm({ ...fornForm, valor: e.target.value })} style={{ ...inp, width: 65, padding: "3px 4px", fontSize: 9, textAlign: "right", color: COLORS.orange, fontWeight: 700 }} />
-                        </div>
-                        <button onClick={() => adicionarFornecedor(t.key)} style={{ background: t.color, border: "none", color: "#fff", padding: "3px 8px", borderRadius: 4, fontWeight: 700, fontSize: 9, cursor: "pointer" }}>✓</button>
-                        <button onClick={() => { setShowAddForn(""); setFornForm({ data: "", pedido: "", parcela: "", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 11 }}>✕</button>
                       </div>
                     </div>
                   ) : (
                     <div style={{ padding: "6px 10px", borderTop: `1px solid ${COLORS.border}`, textAlign: "center" }}>
-                      <button onClick={() => { setShowAddForn(t.key); setFornForm({ data: "", pedido: "", parcela: "", valor: "" }); }} style={{ background: t.color + "15", border: `1px solid ${t.color}30`, color: t.color, padding: "4px 12px", borderRadius: 5, fontWeight: 700, fontSize: 9, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Adicionar</button>
+                      <button onClick={() => setShowAddForn(t.key)} style={{ background: t.color + "15", border: `1px solid ${t.color}30`, color: t.color, padding: "4px 12px", borderRadius: 5, fontWeight: 700, fontSize: 9, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Adicionar</button>
                     </div>
                   )}
                 </div>
