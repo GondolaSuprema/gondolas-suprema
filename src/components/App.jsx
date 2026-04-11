@@ -687,12 +687,12 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   const sc = { "Aguardando Retorno": "#3B82F6", "Desistiu": "#F87171", "Sem Retorno": "#8B5CF6", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
   const statusOptions = ["Aguardando Retorno", "Desistiu", "Sem Retorno", "Fechou Concorrência", "Concluído"];
   const [concluidoId, setConcluidoId] = useState(null);
-  const [concluidoData, setConcluidoData] = useState({ data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag2: "", pag2_parcelas: "" });
+  const [concluidoData, setConcluidoData] = useState({ data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
 
   const updateStatus = async (orderId, newStatus) => {
     if (newStatus === "Concluído") {
       setConcluidoId(orderId);
-      setConcluidoData({ data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag2: "", pag2_parcelas: "" });
+      setConcluidoData({ data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
       return;
     }
     await supabase.from("orcamentos").update({ status: newStatus }).eq("id", orderId);
@@ -702,8 +702,14 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   const saveConcluido = async () => {
     if (!concluidoId) return;
     const cd = concluidoData;
-    let pagStr = cd.pag1 + (cd.pag1_parcelas ? " " + cd.pag1_parcelas + "x" : "");
-    if (cd.pag2) pagStr += " + " + cd.pag2 + (cd.pag2_parcelas ? " " + cd.pag2_parcelas + "x" : "");
+    let pagStr = cd.pag1;
+    if (cd.pag1_parcelas) pagStr += " " + cd.pag1_parcelas + "x";
+    if (cd.pag1_valor) pagStr += " R$ " + Number(cd.pag1_valor).toFixed(2);
+    if (cd.pag2) {
+      pagStr += " + " + cd.pag2;
+      if (cd.pag2_parcelas) pagStr += " " + cd.pag2_parcelas + "x";
+      if (cd.pag2_valor) pagStr += " R$ " + Number(cd.pag2_valor).toFixed(2);
+    }
     const info = "\n📋 CONCLUÍDO — Entrega: " + cd.data_entrega + " | Pedido: " + cd.numero_pedido + " | Pagamento: " + pagStr;
     const existingNotes = orders.find(o => o.id === concluidoId)?.notes || "";
     await supabase.from("orcamentos").update({ status: "Concluído", notes: existingNotes + info }).eq("id", concluidoId);
@@ -798,12 +804,18 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                     </select>
                   </div>
                 )}
+                {cd.pag1 && (
+                  <div style={{ marginTop: 10 }}>
+                    <label style={lblStyle}>Valor (R$)</label>
+                    <input type="number" min="0" step="0.01" placeholder="0,00" value={cd.pag1_valor} onChange={e => setConcluidoData({ ...cd, pag1_valor: e.target.value })} style={selStyle} />
+                  </div>
+                )}
               </div>
 
               {/* Pagamento 2 (opcional) */}
               <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
                 <label style={lblStyle}>Forma de Pagamento 2 (opcional)</label>
-                <select value={cd.pag2} onChange={e => setConcluidoData({ ...cd, pag2: e.target.value, pag2_parcelas: "" })} style={selStyle}>
+                <select value={cd.pag2} onChange={e => setConcluidoData({ ...cd, pag2: e.target.value, pag2_parcelas: "", pag2_valor: "" })} style={selStyle}>
                   <option value="">Sem segundo pagamento</option>
                   <option value="Dinheiro">Dinheiro</option>
                   <option value="PIX">PIX</option>
@@ -826,6 +838,12 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                       <option value="">Selecione...</option>
                       {Array.from({ length: 8 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
                     </select>
+                  </div>
+                )}
+                {cd.pag2 && (
+                  <div style={{ marginTop: 10 }}>
+                    <label style={lblStyle}>Valor (R$)</label>
+                    <input type="number" min="0" step="0.01" placeholder="0,00" value={cd.pag2_valor} onChange={e => setConcluidoData({ ...cd, pag2_valor: e.target.value })} style={selStyle} />
                   </div>
                 )}
               </div>
