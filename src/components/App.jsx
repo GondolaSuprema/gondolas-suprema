@@ -1484,7 +1484,7 @@ function GraficosPage() {
 
 // ─── FINANCEIRO ───
 const DESPESAS_FIXAS = [
-  "Salário João", "Salário João", "S.A", "Internet Fixa", "Seguro HR",
+  "Salário João", "Salário Gaúcho", "S.A", "Internet Fixa", "Seguro HR",
   "Sistema", "Aluguel Barracão", "Carro HR", "Contabilidade", "INSS", "SIMPLES", "FGTS"
 ];
 
