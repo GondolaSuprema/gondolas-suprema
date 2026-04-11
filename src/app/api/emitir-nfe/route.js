@@ -28,7 +28,7 @@ export async function POST(request) {
       ncm = "73089090";
     }
     
-    const valorItem = totalItens > 0 ? (item.total / totalItens) * (totalNfe - frete) : item.total;
+    const valorItem = totalItens > 0 ? (item.total / totalItens) * totalNfe : item.total;
     
     return {
       numero_item: String(i + 1),
@@ -99,8 +99,7 @@ export async function POST(request) {
     email_destinatario: ordem.client?.email || "",
     items: produtos,
     modalidade_frete: "3",
-    valor_produtos: produtos.reduce((s, p) => s + Number(p.valor_bruto), 0).toFixed(2),
-    ...(frete > 0 ? { valor_frete: frete.toFixed(2) } : {}),
+    valor_produtos: totalNfe.toFixed(2),
     valor_total: totalNfe.toFixed(2),
     formas_pagamento: [{
       forma_pagamento: "99",
