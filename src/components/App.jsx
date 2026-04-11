@@ -1498,6 +1498,7 @@ function FinanceiroPage() {
   const [fornecedores, setFornecedores] = useState([]);
   const [showAddForn, setShowAddForn] = useState("");
   const [fornForm, setFornForm] = useState({ data: "", pedido: "", parcela: "", valor: "" });
+  const [gondForm, setGondForm] = useState({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" });
   const [loading, setLoading] = useState(true);
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
@@ -1517,14 +1518,12 @@ function FinanceiroPage() {
     setLoading(false);
   };
 
-  const carregarFornecedores = async (mes) => {
-    const { data } = await supabase.from("despesas").select("*").eq("mes", mes).in("nome", ["forn_gondolas", "forn_mdf", "forn_outros"]).order("vencimento");
-    // Also load by checking if nome starts with forn_
-    const { data: data2 } = await supabase.from("despesas").select("*").eq("mes", mes).like("nome", "forn_%");
-    if (data2) setFornecedores(data2);
+  const carregarFornecedores = async () => {
+    const { data } = await supabase.from("despesas").select("*").like("nome", "forn_%").order("vencimento");
+    if (data) setFornecedores(data);
   };
 
-  useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(mesSel); }, [mesSel]);
+  useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(); }, [mesSel]);
 
   const atualizarDespesa = async (id, campo, valor) => {
     const update = {}; update[campo] = valor;
@@ -1584,6 +1583,39 @@ function FinanceiroPage() {
     const update = {}; update[campo] = valor;
     await supabase.from("despesas").update(update).eq("id", id);
     setFornecedores(fornecedores.map(f => f.id === id ? { ...f, [campo]: valor } : f));
+  };
+
+  const adicionarGondolas = async () => {
+    const gf = gondForm;
+    if (!gf.documento || !gf.dia || !gf.mes || !gf.valor) return;
+    const qtd = Number(gf.qtdParcelas) || 1;
+    const val = Number(gf.valor) || 0;
+    const y = Number(mesSel.split("-")[0]);
+    const m = Number(gf.mes);
+    const d = gf.dia;
+    const novas = [];
+    for (let i = 0; i < qtd; i++) {
+      let mesAtual = m + i;
+      let anoAtual = y;
+      while (mesAtual > 12) { mesAtual -= 12; anoAtual++; }
+      const mesStr = String(mesAtual).padStart(2, "0");
+      const venc = anoAtual + "-" + mesStr + "-" + d;
+      const mesKey = anoAtual + "-" + mesStr;
+      const nova = {
+        id: genId(),
+        nome: "forn_gondolas|" + gf.documento + "|" + (i + 1) + "/" + qtd,
+        vencimento: venc,
+        valor: val,
+        status: "Em Aberto",
+        mes: mesKey,
+        fixa: false
+      };
+      novas.push(nova);
+      await supabase.from("despesas").insert(nova);
+    }
+    setFornecedores([...fornecedores, ...novas]);
+    setGondForm({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" });
+    setShowAddForn("");
   };
 
   const excluirDespesa = async (id) => {
@@ -1827,7 +1859,7 @@ function FinanceiroPage() {
           return { tipo: parts[0], pedido: parts[1] || "", parcela: parts[2] || "" };
         };
         const totalFornGeral = fornecedores.reduce((s, f) => s + (f.valor || 0), 0);
-        const renderFornCard = (t, items) => {
+        const renderFornCard = (t, items, isGondolas) => {
               const totalForn = items.reduce((s, f) => s + (f.valor || 0), 0);
               return (
                 <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
@@ -1873,7 +1905,44 @@ function FinanceiroPage() {
                     </table>
                     {items.length === 0 && <div style={{ padding: 14, textAlign: "center", color: COLORS.textDim, fontSize: 10 }}>Nenhuma despesa</div>}
                   </div>
-                  {showAddForn === t.key ? (
+                  {showAddForn === t.key && isGondolas ? (
+                    <div style={{ padding: "12px 14px", borderTop: `1px solid ${COLORS.border}`, background: COLORS.bg + "80" }}>
+                      <div style={{ color: t.color, fontSize: 11, fontWeight: 700, marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>Novo Boleto — Gôndolas Brasil</div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "flex-end" }}>
+                        <div>
+                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Nº Documento</div>
+                          <input placeholder="Ex: NF-1234" value={gondForm.documento} onChange={e => setGondForm({ ...gondForm, documento: e.target.value })} style={{ ...inp, width: 90, padding: "4px 6px", fontSize: 10 }} />
+                        </div>
+                        <div>
+                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Dia Venc.</div>
+                          <select value={gondForm.dia} onChange={e => setGondForm({ ...gondForm, dia: e.target.value })} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
+                            <option value="">--</option>
+                            {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Mês 1ª Parc.</div>
+                          <select value={gondForm.mes} onChange={e => setGondForm({ ...gondForm, mes: e.target.value })} style={{ ...inp, width: 52, padding: "4px 2px", fontSize: 10 }}>
+                            <option value="">--</option>
+                            <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option><option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
+                          </select>
+                        </div>
+                        <div>
+                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Parcelas</div>
+                          <select value={gondForm.qtdParcelas} onChange={e => setGondForm({ ...gondForm, qtdParcelas: e.target.value })} style={{ ...inp, width: 45, padding: "4px 2px", fontSize: 10 }}>
+                            {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <div style={{ color: COLORS.textDim, fontSize: 7, marginBottom: 1, textTransform: "uppercase" }}>Valor Parcela R$</div>
+                          <input type="number" min="0" step="0.01" placeholder="0,00" value={gondForm.valor} onChange={e => setGondForm({ ...gondForm, valor: e.target.value })} style={{ ...inp, width: 85, padding: "4px 6px", fontSize: 10, textAlign: "right", color: COLORS.orange, fontWeight: 700 }} />
+                        </div>
+                        <button onClick={adicionarGondolas} disabled={!gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor} style={{ background: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? COLORS.textDim : t.color, border: "none", color: "#fff", padding: "4px 10px", borderRadius: 4, fontWeight: 700, fontSize: 9, cursor: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? "not-allowed" : "pointer" }}>Gerar</button>
+                        <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 11 }}>✕</button>
+                      </div>
+                      {gondForm.qtdParcelas > 1 && gondForm.dia && gondForm.mes && <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 6, fontFamily: "'DM Sans', sans-serif" }}>Serão geradas {gondForm.qtdParcelas} parcelas a partir de {gondForm.dia}/{gondForm.mes}</div>}
+                    </div>
+                  ) : showAddForn === t.key && !isGondolas ? (
                     <div style={{ padding: "8px 10px", borderTop: `1px solid ${COLORS.border}`, background: COLORS.bg + "80" }}>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "flex-end" }}>
                         <div>
@@ -1915,7 +1984,7 @@ function FinanceiroPage() {
             </div>
             {/* Gôndolas Brasil - largura total */}
             <div style={{ marginBottom: 12 }}>
-              {renderFornCard(tipos[0], fornecedores.filter(f => f.nome.startsWith("forn_gondolas")))}
+              {renderFornCard(tipos[0], fornecedores.filter(f => f.nome.startsWith("forn_gondolas")), true)}
             </div>
             {/* MDF + Outros lado a lado */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
