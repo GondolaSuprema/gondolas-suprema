@@ -156,7 +156,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
               { k: "resumo", l: "Resumo" },
               { k: "orders", l: "Orçamentos" },
               { k: "graficos", l: "Gráficos" },
-              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }, { k: "financeiro", l: "Financeiro" }] : []),
+              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }, { k: "financeiro", l: "Financeiro" }, { k: "dre", l: "DRE" }] : []),
             ].map(i => (
               <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
             ))}
@@ -2110,6 +2110,163 @@ function FinanceiroPage() {
   );
 }
 
+// ─── DRE ───
+function DrePage() {
+  const [vendas, setVendas] = useState([]);
+  const [despesas, setDespesas] = useState([]);
+  const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
+  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: orcData } = await supabase.from("orcamentos").select("*").eq("status", "Concluído");
+      if (orcData) setVendas(orcData);
+      const { data: despData } = await supabase.from("despesas").select("*");
+      if (despData) setDespesas(despData);
+    };
+    load();
+  }, []);
+
+  const vendasMes = vendas.filter(o => { const d = new Date(o.data); return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mesSel; });
+  const despMes = despesas.filter(d => d.mes === mesSel && !d.nome.startsWith("forn_"));
+  const fornMes = despesas.filter(d => d.nome.startsWith("forn_") && d.vencimento && d.vencimento.startsWith(mesSel));
+  const fixasMes = despMes.filter(d => d.fixa);
+  const variaveisMes = despMes.filter(d => !d.fixa);
+
+  // RECEITA BRUTA
+  const receitaBruta = vendasMes.reduce((s, o) => s + (o.total || 0), 0);
+  const comissoes = vendasMes.reduce((s, o) => s + (o.comissao || 0), 0);
+
+  // CUSTO PRODUTOS (fornecedores)
+  const custoFornGondolas = despesas.filter(d => d.nome.startsWith("forn_gondolas") && d.vencimento && d.vencimento.startsWith(mesSel)).reduce((s, d) => s + (d.valor || 0), 0);
+  const custoFornMdf = despesas.filter(d => d.nome.startsWith("forn_mdf") && d.vencimento && d.vencimento.startsWith(mesSel)).reduce((s, d) => s + (d.valor || 0), 0);
+  const custoFornOutros = despesas.filter(d => d.nome.startsWith("forn_outros") && d.vencimento && d.vencimento.startsWith(mesSel)).reduce((s, d) => s + (d.valor || 0), 0);
+  const custoFornTotal = custoFornGondolas + custoFornMdf + custoFornOutros;
+
+  // LUCRO BRUTO
+  const lucroBruto = receitaBruta - custoFornTotal;
+  const margemBruta = receitaBruta > 0 ? (lucroBruto / receitaBruta * 100) : 0;
+
+  // DESPESAS OPERACIONAIS
+  const totalFixas = fixasMes.reduce((s, d) => s + (d.valor || 0), 0);
+  const totalVariaveis = variaveisMes.reduce((s, d) => s + (d.valor || 0), 0);
+  const totalDespOp = totalFixas + totalVariaveis;
+
+  // RESULTADO OPERACIONAL (EBITDA)
+  const resultadoOp = lucroBruto - totalDespOp;
+  const margemOp = receitaBruta > 0 ? (resultadoOp / receitaBruta * 100) : 0;
+
+  // RESULTADO LÍQUIDO
+  const resultadoLiq = resultadoOp - comissoes;
+  const margemLiq = receitaBruta > 0 ? (resultadoLiq / receitaBruta * 100) : 0;
+
+  const row = (label, value, bold, color, indent, bg) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: indent ? "6px 16px 6px 32px" : "8px 16px", background: bg || "transparent", borderBottom: `1px solid ${COLORS.border}` }}>
+      <span style={{ color: bold ? COLORS.white : COLORS.textMuted, fontSize: bold ? 13 : 12, fontWeight: bold ? 700 : 400, fontFamily: "'DM Sans', sans-serif" }}>{label}</span>
+      <span style={{ color: color || (value >= 0 ? COLORS.text : COLORS.danger), fontSize: bold ? 14 : 12, fontWeight: bold ? 800 : 600, fontFamily: "'Playfair Display', serif" }}>{value < 0 ? "- " : ""}{fmt(Math.abs(value))}</span>
+    </div>
+  );
+
+  const pctRow = (label, pct, color) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 16px" }}>
+      <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{label}</span>
+      <span style={{ color: color || COLORS.textMuted, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{pct.toFixed(1)}%</span>
+    </div>
+  );
+
+  const separator = (label, color) => (
+    <div style={{ padding: "10px 16px", background: (color || COLORS.orange) + "10", borderBottom: `1px solid ${COLORS.border}` }}>
+      <span style={{ color: color || COLORS.orange, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{label}</span>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 700, margin: "0 auto", padding: "28px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>DRE</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Demonstração do Resultado do Exercício</p>
+        </div>
+        <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+          {Array.from({ length: 12 }, (_, i) => {
+            const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
+            const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+            return <option key={v} value={v}>{mesNomes[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
+          })}
+        </select>
+      </div>
+
+      {/* Cards resumo */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, textAlign: "center" }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Receita</div>
+          <div style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(receitaBruta)}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, textAlign: "center" }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Despesas</div>
+          <div style={{ color: "#F87171", fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalDespOp + custoFornTotal + comissoes)}</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${resultadoLiq >= 0 ? "#10B98140" : COLORS.danger + "40"}`, borderRadius: 10, padding: 14, textAlign: "center" }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Resultado</div>
+          <div style={{ color: resultadoLiq >= 0 ? "#10B981" : COLORS.danger, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{resultadoLiq < 0 ? "- " : ""}{fmt(Math.abs(resultadoLiq))}</div>
+        </div>
+      </div>
+
+      {/* DRE */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>DRE — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
+        </div>
+
+        {separator("Receitas", "#10B981")}
+        {row("Receita Bruta de Vendas", receitaBruta, true, COLORS.orange)}
+        {row("Vendas Concluídas (" + vendasMes.length + ")", receitaBruta, false, null, true)}
+
+        {separator("Custo dos Produtos Vendidos (CPV)", "#F87171")}
+        {row("Gôndolas Brasil", -custoFornGondolas, false, COLORS.danger, true)}
+        {row("MDF", -custoFornMdf, false, COLORS.danger, true)}
+        {row("Outros Fornecedores", -custoFornOutros, false, COLORS.danger, true)}
+        {row("(-) Total CPV", -custoFornTotal, true, COLORS.danger)}
+
+        {separator("Lucro Bruto", lucroBruto >= 0 ? "#10B981" : "#F87171")}
+        {row("Lucro Bruto", lucroBruto, true, lucroBruto >= 0 ? "#10B981" : COLORS.danger, false, lucroBruto >= 0 ? "#10B98108" : COLORS.danger + "08")}
+        {pctRow("Margem Bruta", margemBruta, lucroBruto >= 0 ? "#10B981" : COLORS.danger)}
+
+        {separator("Despesas Operacionais", "#8B5CF6")}
+        {row("Despesas Fixas", -totalFixas, false, COLORS.danger, true)}
+        {fixasMes.filter(d => d.valor > 0).map((d, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 16px 3px 48px", borderBottom: `1px solid ${COLORS.border}05` }}>
+            <span style={{ color: COLORS.textDim, fontSize: 10 }}>{d.nome}</span>
+            <span style={{ color: COLORS.textDim, fontSize: 10 }}>{fmt(d.valor)}</span>
+          </div>
+        ))}
+        {row("Despesas Variáveis", -totalVariaveis, false, COLORS.danger, true)}
+        {variaveisMes.filter(d => d.valor > 0).map((d, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 16px 3px 48px", borderBottom: `1px solid ${COLORS.border}05` }}>
+            <span style={{ color: COLORS.textDim, fontSize: 10 }}>{d.nome}</span>
+            <span style={{ color: COLORS.textDim, fontSize: 10 }}>{fmt(d.valor)}</span>
+          </div>
+        ))}
+        {row("(-) Total Despesas Operacionais", -totalDespOp, true, COLORS.danger)}
+
+        {separator("Resultado Operacional", resultadoOp >= 0 ? "#3B82F6" : "#F87171")}
+        {row("EBITDA", resultadoOp, true, resultadoOp >= 0 ? "#3B82F6" : COLORS.danger, false, resultadoOp >= 0 ? "#3B82F608" : COLORS.danger + "08")}
+        {pctRow("Margem Operacional", margemOp, resultadoOp >= 0 ? "#3B82F6" : COLORS.danger)}
+
+        {separator("Deduções", "#F59E0B")}
+        {row("(-) Comissões de Vendas", -comissoes, false, COLORS.danger, true)}
+
+        {separator("Resultado Líquido", resultadoLiq >= 0 ? "#10B981" : "#F87171")}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", background: resultadoLiq >= 0 ? "#10B98112" : COLORS.danger + "12" }}>
+          <span style={{ color: COLORS.white, fontSize: 15, fontWeight: 800, fontFamily: "'DM Sans', sans-serif" }}>RESULTADO LÍQUIDO</span>
+          <span style={{ color: resultadoLiq >= 0 ? "#10B981" : COLORS.danger, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{resultadoLiq < 0 ? "- " : ""}{fmt(Math.abs(resultadoLiq))}</span>
+        </div>
+        {pctRow("Margem Líquida", margemLiq, resultadoLiq >= 0 ? "#10B981" : COLORS.danger)}
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ───
 export default function App() {
   const [page, setPage] = useState("login");
@@ -2160,6 +2317,8 @@ export default function App() {
       {page === "adm" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
       {page === "financeiro" && user?.isAdmin && <FinanceiroPage />}
       {page === "financeiro" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
+      {page === "dre" && user?.isAdmin && <DrePage />}
+      {page === "dre" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
     </div>
