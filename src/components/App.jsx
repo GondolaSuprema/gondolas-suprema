@@ -1827,15 +1827,7 @@ function FinanceiroPage() {
           return { tipo: parts[0], pedido: parts[1] || "", parcela: parts[2] || "" };
         };
         const totalFornGeral = fornecedores.reduce((s, f) => s + (f.valor || 0), 0);
-        return (
-          <div>
-            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Total Fornecedores</span>
-              <span style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalFornGeral)}</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
-            {tipos.map(t => {
-              const items = fornecedores.filter(f => f.nome.startsWith("forn_" + t.key));
+        const renderFornCard = (t, items) => {
               const totalForn = items.reduce((s, f) => s + (f.valor || 0), 0);
               return (
                 <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
@@ -1914,7 +1906,21 @@ function FinanceiroPage() {
                   )}
                 </div>
               );
-            })}
+            };
+        return (
+          <div>
+            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Total Fornecedores</span>
+              <span style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalFornGeral)}</span>
+            </div>
+            {/* Gôndolas Brasil - largura total */}
+            <div style={{ marginBottom: 12 }}>
+              {renderFornCard(tipos[0], fornecedores.filter(f => f.nome.startsWith("forn_gondolas")))}
+            </div>
+            {/* MDF + Outros lado a lado */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {renderFornCard(tipos[1], fornecedores.filter(f => f.nome.startsWith("forn_mdf")))}
+              {renderFornCard(tipos[2], fornecedores.filter(f => f.nome.startsWith("forn_outros")))}
             </div>
           </div>
         );
