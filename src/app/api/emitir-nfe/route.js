@@ -27,7 +27,7 @@ export async function POST(request) {
       numero_item: String(i + 1),
       codigo_produto: String(item.code || i + 1),
       descricao: item.name || "Produto",
-      ncm: ncm,
+      codigo_ncm: ncm,
       cfop: cfop,
       unidade_comercial: "UN",
       quantidade_comercial: String(item.qty || 1),
