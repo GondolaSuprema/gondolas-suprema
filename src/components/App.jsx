@@ -1812,61 +1812,64 @@ function FinanceiroPage() {
                 <button onClick={() => setShowAddVar(true)} style={{ background: "#8B5CF6", border: "none", color: "#fff", padding: "8px 20px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Adicionar Despesa Variável</button>
               </div>
             ) : (
-              <div style={{ padding: "14px 18px", background: COLORS.bg + "80" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ color: "#8B5CF6", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Nova Despesa Variável</span>
-                  <button onClick={() => { setShowAddVar(false); setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 12 }}>✕</button>
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-                  {/* Categoria */}
-                  <div style={{ flex: "1 1 140px" }}>
-                    <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Categoria *</div>
-                    <select value={varForm.categoria} onChange={e => setVarForm({ ...varForm, categoria: e.target.value, socio: "" })} style={{ ...inp, width: "100%", fontSize: 11 }}>
-                      <option value="">Selecione...</option>
-                      <option value="Marketing">Marketing</option>
-                      <option value="Gasolina">Gasolina</option>
-                      <option value="Frete">Frete</option>
-                      <option value="Serviços Terceiros">Serviços Terceiros</option>
-                      <option value="Pedágio">Pedágio</option>
-                      <option value="Tarifa Bancária">Tarifa Bancária</option>
-                      <option value="Equipamentos">Equipamentos</option>
-                      <option value="Comissão">Comissão</option>
-                      <option value="Pagamento Socios">Pagamento Sócios</option>
-                    </select>
+              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#8B5CF6", fontSize: 18, margin: 0 }}>Nova Despesa Variável</h2>
+                    <button onClick={() => { setShowAddVar(false); setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
                   </div>
-                  {/* Sócio (se pagamento sócios) */}
-                  {varForm.categoria === "Pagamento Socios" && (
-                    <div style={{ flex: "1 1 120px" }}>
-                      <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Sócio *</div>
-                      <select value={varForm.socio} onChange={e => setVarForm({ ...varForm, socio: e.target.value })} style={{ ...inp, width: "100%", fontSize: 11 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div>
+                      <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Categoria *</div>
+                      <select value={varForm.categoria} onChange={e => setVarForm({ ...varForm, categoria: e.target.value, socio: "" })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
                         <option value="">Selecione...</option>
-                        <option value="Alessandro">Alessandro</option>
-                        <option value="Zanella">Zanella</option>
-                        <option value="Luiz">Luiz</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Gasolina">Gasolina</option>
+                        <option value="Frete">Frete</option>
+                        <option value="Serviços Terceiros">Serviços Terceiros</option>
+                        <option value="Pedágio">Pedágio</option>
+                        <option value="Tarifa Bancária">Tarifa Bancária</option>
+                        <option value="Equipamentos">Equipamentos</option>
+                        <option value="Comissão">Comissão</option>
+                        <option value="Pagamento Socios">Pagamento Sócios</option>
                       </select>
                     </div>
-                  )}
-                  {/* Data */}
-                  <div style={{ flex: "0 0 auto" }}>
-                    <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Data</div>
-                    <div style={{ display: "flex", gap: 2 }}>
-                      <select value={varForm.vencimento_dia} onChange={e => setVarForm({ ...varForm, vencimento_dia: e.target.value })} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
-                        <option value="">--</option>
-                        {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
-                      </select>
-                      <select value={varForm.vencimento_mes} onChange={e => setVarForm({ ...varForm, vencimento_mes: e.target.value })} style={{ ...inp, width: 50, padding: "4px 2px", fontSize: 10 }}>
-                        <option value="">--</option>
-                        <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option><option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
-                      </select>
+                    {varForm.categoria === "Pagamento Socios" && (
+                      <div>
+                        <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Sócio *</div>
+                        <select value={varForm.socio} onChange={e => setVarForm({ ...varForm, socio: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                          <option value="">Selecione...</option>
+                          <option value="Alessandro">Alessandro</option>
+                          <option value="Zanella">Zanella</option>
+                          <option value="Luiz">Luiz</option>
+                        </select>
+                      </div>
+                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div>
+                        <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Dia *</div>
+                        <select value={varForm.vencimento_dia} onChange={e => setVarForm({ ...varForm, vencimento_dia: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                          <option value="">Selecione...</option>
+                          {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Mês *</div>
+                        <select value={varForm.vencimento_mes} onChange={e => setVarForm({ ...varForm, vencimento_mes: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                          <option value="">Selecione...</option>
+                          <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option><option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option><option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Valor (R$) *</div>
+                      <input type="number" min="0" step="0.01" value={varForm.valor} onChange={e => setVarForm({ ...varForm, valor: e.target.value })} placeholder="0,00" style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textAlign: "right" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                      <button onClick={() => { setShowAddVar(false); setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                      <button onClick={() => { adicionarVariavel(); setShowAddVar(false); }} disabled={!varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) || !varForm.valor} style={{ flex: 1, background: !varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) || !varForm.valor ? COLORS.textDim : "#8B5CF6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) || !varForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Salvar</button>
                     </div>
                   </div>
-                  {/* Valor */}
-                  <div style={{ flex: "0 0 auto" }}>
-                    <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Valor R$</div>
-                    <input type="number" min="0" step="0.01" value={varForm.valor} onChange={e => setVarForm({ ...varForm, valor: e.target.value })} placeholder="0,00" style={{ ...inp, width: 90, textAlign: "right", color: COLORS.orange, fontWeight: 700, fontSize: 11 }} />
-                  </div>
-                  {/* Botão */}
-                  <button onClick={adicionarVariavel} disabled={!varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio)} style={{ background: !varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) ? COLORS.textDim : "#8B5CF6", border: "none", color: "#fff", padding: "7px 14px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: !varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", alignSelf: "flex-end" }}>Salvar</button>
                 </div>
               </div>
             )}
