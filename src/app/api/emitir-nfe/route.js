@@ -166,6 +166,7 @@ export async function POST(request) {
         success: false,
         status: data.status || "erro",
         mensagem: data.mensagem_sefaz || data.mensagem || JSON.stringify(data),
+        erros: data.erros || data.erros_validacao || null,
         ref: ref,
       });
     }
