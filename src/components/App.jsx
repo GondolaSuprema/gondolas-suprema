@@ -518,9 +518,12 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
               <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.product.name}</div>
               <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{catLabel(it.product.category)} · Qtd: {it.qty}</div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{fmt(itemBase(it))}</div>
-              {markup > 0 && <div style={{ color: COLORS.success, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>+{fmt(itemComissao(it))}</div>}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{fmt(itemBase(it))}</div>
+                {markup > 0 && <div style={{ color: COLORS.success, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>+{fmt(itemComissao(it))}</div>}
+              </div>
+              <button onClick={() => setItems(items.filter((_, j) => j !== i))} style={{ background: COLORS.danger + "15", border: "none", color: COLORS.danger, padding: "6px 8px", borderRadius: 6, cursor: "pointer", fontSize: 12, lineHeight: 1 }}>✕</button>
             </div>
           </div>
         ))}
