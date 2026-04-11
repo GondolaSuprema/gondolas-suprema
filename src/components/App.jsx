@@ -1044,6 +1044,23 @@ function AdminPage() {
       });
       const data = await res.json();
       setNfeResult(data);
+      if (data.success) {
+        await supabase.from("notas_fiscais").insert({
+          id: data.ref || genId(),
+          ordem_id: ordem.id,
+          numero: data.numero,
+          chave: data.chave,
+          ref: data.ref,
+          status: "autorizado",
+          valor: ordem.total || 0,
+          destinatario: ordem.client?.empresa || "",
+          cnpj_destinatario: ordem.client?.cnpj || "",
+          data_emissao: new Date().toISOString(),
+          url_danfe: data.url_danfe || "",
+          url_xml: data.url_xml || "",
+          vendedor: ordem.vendedor || "",
+        });
+      }
     } catch (e) {
       setNfeResult({ success: false, mensagem: e.message });
     }
@@ -1060,6 +1077,9 @@ function AdminPage() {
       });
       const data = await res.json();
       setNfeResult(data.success ? { ...data, cancelado: true } : data);
+      if (data.success) {
+        await supabase.from("notas_fiscais").update({ status: "cancelado" }).eq("ref", ref);
+      }
     } catch (e) {
       setNfeResult({ success: false, mensagem: e.message });
     }
@@ -2426,44 +2446,25 @@ function NFPage() {
 
   const carregarNotas = async () => {
     setLoading(true);
-    try {
-      const res = await fetch("/api/listar-nfe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ambiente: "producao" }),
-      });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.notas)) {
-        setNotas(data.notas);
-      }
-    } catch (e) { console.error(e); }
+    const { data } = await supabase.from("notas_fiscais").select("*").order("data_emissao", { ascending: false });
+    if (data) setNotas(data);
     setLoading(false);
   };
 
   useEffect(() => { carregarNotas(); }, []);
 
   const notasMes = notas.filter(n => {
-    const dt = n.data_emissao || n.requisicao?.data_emissao || "";
+    const dt = n.data_emissao || "";
     return dt.startsWith(mesSel);
   });
 
   const statusColor = (s) => {
     if (s === "autorizado") return "#10B981";
     if (s === "cancelado") return "#F87171";
-    if (s === "processando_autorizacao") return "#F59E0B";
-    if (s === "erro_autorizacao") return "#F87171";
     return "#888";
   };
 
-  const statusLabel = (s) => {
-    if (s === "autorizado") return "Autorizada";
-    if (s === "cancelado") return "Cancelada";
-    if (s === "processando_autorizacao") return "Processando";
-    if (s === "erro_autorizacao") return "Erro";
-    return s || "—";
-  };
-
-  const totalAutorizadas = notasMes.filter(n => n.status === "autorizado").reduce((s, n) => s + Number(n.valor_total || n.requisicao?.valor_total || 0), 0);
+  const totalAutorizadas = notasMes.filter(n => n.status === "autorizado").reduce((s, n) => s + Number(n.valor || 0), 0);
   const totalCanceladas = notasMes.filter(n => n.status === "cancelado").length;
 
   return (
@@ -2511,51 +2512,45 @@ function NFPage() {
           <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>NF-e — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
         </div>
         {loading ? (
-          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando notas da SEFAZ...</div>
+          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando...</div>
         ) : notasMes.length === 0 ? (
-          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 12 }}>Nenhuma NF-e encontrada neste mês</div>
+          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 12 }}>Nenhuma NF-e neste mês</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Número</th>
+                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Nº</th>
                   <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Data</th>
                   <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Destinatário</th>
+                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>CNPJ</th>
                   <th style={{ padding: "8px 10px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vendedor</th>
                   <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
-                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Chave</th>
-                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Ref</th>
                   <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>PDF</th>
+                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>XML</th>
                 </tr>
               </thead>
               <tbody>
-                {notasMes.map((n, i) => {
-                  const req = n.requisicao || {};
-                  const dt = n.data_emissao || req.data_emissao || "";
-                  const dataFmt = dt ? new Date(dt).toLocaleDateString("pt-BR") : "—";
-                  const dest = n.nome_destinatario || req.nome_destinatario || "—";
-                  const valor = n.valor_total || req.valor_total || 0;
-                  const urlBase = "https://api.focusnfe.com.br";
-                  return (
-                    <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}`, background: n.status === "cancelado" ? COLORS.danger + "05" : "transparent" }}>
-                      <td style={{ padding: "8px 10px", color: COLORS.white, fontWeight: 700, fontSize: 13 }}>{n.numero || "—"}</td>
-                      <td style={{ padding: "8px 10px", color: COLORS.textMuted }}>{dataFmt}</td>
-                      <td style={{ padding: "8px 10px", color: COLORS.text, fontWeight: 500, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dest}</td>
-                      <td style={{ padding: "8px 10px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(Number(valor))}</td>
-                      <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                        <span style={{ background: statusColor(n.status) + "20", color: statusColor(n.status), padding: "2px 8px", borderRadius: 10, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{statusLabel(n.status)}</span>
-                      </td>
-                      <td style={{ padding: "8px 10px", color: COLORS.textDim, fontSize: 8, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.chave_nfe || "—"}</td>
-                      <td style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textDim, fontSize: 8 }}>{n.ref || "—"}</td>
-                      <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                        {n.caminho_danfe && n.status === "autorizado" && (
-                          <a href={urlBase + n.caminho_danfe} target="_blank" rel="noopener noreferrer" style={{ color: "#10B981", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>PDF</a>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {notasMes.map(n => (
+                  <tr key={n.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: n.status === "cancelado" ? COLORS.danger + "05" : "transparent" }}>
+                    <td style={{ padding: "8px 10px", color: COLORS.white, fontWeight: 700, fontSize: 13 }}>{n.numero || "—"}</td>
+                    <td style={{ padding: "8px 10px", color: COLORS.textMuted }}>{n.data_emissao ? new Date(n.data_emissao).toLocaleDateString("pt-BR") : "—"}</td>
+                    <td style={{ padding: "8px 10px", color: COLORS.text, fontWeight: 500 }}>{n.destinatario || "—"}</td>
+                    <td style={{ padding: "8px 10px", color: COLORS.textDim, fontSize: 10 }}>{n.cnpj_destinatario || "—"}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(Number(n.valor || 0))}</td>
+                    <td style={{ padding: "8px 10px", color: COLORS.accent, fontWeight: 500 }}>{n.vendedor || "—"}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                      <span style={{ background: statusColor(n.status) + "20", color: statusColor(n.status), padding: "2px 8px", borderRadius: 10, fontSize: 9, fontWeight: 700 }}>{n.status === "autorizado" ? "Autorizada" : n.status === "cancelado" ? "Cancelada" : n.status}</span>
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                      {n.url_danfe && n.status === "autorizado" && <a href={n.url_danfe} target="_blank" rel="noopener noreferrer" style={{ color: "#10B981", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>PDF</a>}
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                      {n.url_xml && n.status === "autorizado" && <a href={n.url_xml} target="_blank" rel="noopener noreferrer" style={{ color: "#3B82F6", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>XML</a>}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
