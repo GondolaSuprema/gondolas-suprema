@@ -1634,7 +1634,10 @@ function FinanceiroPage() {
                         </div>
                       </td>
                       <td style={{ padding: "4px 8px", textAlign: "right" }}>
-                        <input type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0" style={{ ...inp, width: 75, textAlign: "right", color: COLORS.orange, fontWeight: 700, padding: "4px 6px", fontSize: 11 }} />
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
+                          <span style={{ color: COLORS.textDim, fontSize: 10 }}>R$</span>
+                          <input type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0,00" style={{ ...inp, width: 95, textAlign: "right", color: COLORS.orange, fontWeight: 700, padding: "4px 6px", fontSize: 11 }} />
+                        </div>
                       </td>
                       <td style={{ padding: "4px 6px", textAlign: "center" }}>
                         <span style={{ background: sit.color + "20", color: sit.color, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{sit.label}</span>
