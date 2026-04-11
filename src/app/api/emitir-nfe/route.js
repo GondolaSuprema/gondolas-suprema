@@ -100,7 +100,7 @@ export async function POST(request) {
     items: produtos,
     modalidade_frete: "3",
     valor_produtos: produtos.reduce((s, p) => s + Number(p.valor_bruto), 0).toFixed(2),
-    valor_frete: frete.toFixed(2),
+    ...(frete > 0 ? { valor_frete: frete.toFixed(2) } : {}),
     valor_total: totalNfe.toFixed(2),
     formas_pagamento: [{
       forma_pagamento: "99",
