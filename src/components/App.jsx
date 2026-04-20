@@ -39,51 +39,51 @@ const CATEGORIES = [
 
 const PRODUCTS = [
   // ── PAREDE C/ BANDEJAS ──
-  { id: 1, name: "Parede Inicial 1,40 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 449.66, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca", price: 451.22 }, { label: "Preta" }] },
-  { id: 2, name: "Parede Continuação 1,40 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 360.19, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca", price: 361.43 }, { label: "Preta" }] },
-  { id: 3, name: "Parede Inicial 1,70 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 550.53, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca", price: 552.45 }, { label: "Preta" }] },
-  { id: 4, name: "Parede Continuação 1,70 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 444.93, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca", price: 446.47 }, { label: "Preta" }] },
-  { id: 5, name: "Parede Inicial 2,00 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 605.07, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca", price: 607.19 }, { label: "Preta" }] },
-  { id: 6, name: "Parede Continuação 2,00 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 483.38, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca", price: 485.06 }, { label: "Preta" }] },
+  { id: 1, name: "Parede Inicial 1,40 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 451.22, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 449.66 }] },
+  { id: 2, name: "Parede Continuação 1,40 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 361.43, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 360.19 }] },
+  { id: 3, name: "Parede Inicial 1,70 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 552.45, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 550.53 }] },
+  { id: 4, name: "Parede Continuação 1,70 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 446.47, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 444.93 }] },
+  { id: 5, name: "Parede Inicial 2,00 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 607.19, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 605.07 }] },
+  { id: 6, name: "Parede Continuação 2,00 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 485.06, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 483.38 }] },
   // ── PAREDE C/ GANCHOS ──
-  { id: 7, name: "Parede Inicial 1,40 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 496.11, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca", price: 525.51 }, { label: "Preta" }] },
-  { id: 8, name: "Parede Continuação 1,40 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 406.64, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca", price: 435.72 }, { label: "Preta" }] },
-  { id: 9, name: "Parede Inicial 1,70 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 597.04, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca", price: 636.02 }, { label: "Preta" }] },
-  { id: 10, name: "Parede Continuação 1,70 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 491.44, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca", price: 530.04 }, { label: "Preta" }] },
-  { id: 11, name: "Parede Inicial 2,00 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 697.91, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca", price: 746.47 }, { label: "Preta" }] },
-  { id: 12, name: "Parede Continuação 2,00 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 576.22, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca", price: 624.34 }, { label: "Preta" }] },
+  { id: 7, name: "Parede Inicial 1,40 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 525.51, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 496.11 }] },
+  { id: 8, name: "Parede Continuação 1,40 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 435.72, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 406.64 }] },
+  { id: 9, name: "Parede Inicial 1,70 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 636.02, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 597.04 }] },
+  { id: 10, name: "Parede Continuação 1,70 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 530.04, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 491.44 }] },
+  { id: 11, name: "Parede Inicial 2,00 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 746.47, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 697.91 }] },
+  { id: 12, name: "Parede Continuação 2,00 c/ Ganchos", category: "parede-ganchos", icon: "🪝", price: 624.34, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 576.22 }] },
   // ── PAREDE C/ CESTOS ──
-  { id: 13, name: "Parede Inicial 1,40 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 828.63, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca", price: 869.73 }, { label: "Preta" }] },
-  { id: 14, name: "Parede Continuação 1,40 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 739.16, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca", price: 779.94 }, { label: "Preta" }] },
-  { id: 15, name: "Parede Inicial 1,70 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 1197.56, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca", price: 1265.43 }, { label: "Preta" }] },
-  { id: 16, name: "Parede Continuação 1,70 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 1091.97, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca", price: 1159.46 }, { label: "Preta" }] },
-  { id: 17, name: "Parede Inicial 2,00 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 1409.28, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca", price: 1490.63 }, { label: "Preta" }] },
-  { id: 18, name: "Parede Continuação 2,00 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 1287.58, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca", price: 1368.49 }, { label: "Preta" }] },
+  { id: 13, name: "Parede Inicial 1,40 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 869.73, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 828.63 }] },
+  { id: 14, name: "Parede Continuação 1,40 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 779.94, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 739.16 }] },
+  { id: 15, name: "Parede Inicial 1,70 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 1265.43, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 1197.56 }] },
+  { id: 16, name: "Parede Continuação 1,70 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 1159.46, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 1091.97 }] },
+  { id: 17, name: "Parede Inicial 2,00 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 1490.63, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 1409.28 }] },
+  { id: 18, name: "Parede Continuação 2,00 c/ Cestos", category: "parede-cestos", icon: "🧺", price: 1368.49, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 1287.58 }] },
   // ── CENTRO C/ BANDEJAS ──
-  { id: 19, name: "Centro Inicial 1,40 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 663.49, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca", price: 665.69 }, { label: "Preta" }] },
-  { id: 20, name: "Centro Continuação 1,40 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 557.77, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca", price: 559.63 }, { label: "Preta" }] },
-  { id: 21, name: "Centro Inicial 1,70 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 810.62, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca", price: 813.34 }, { label: "Preta" }] },
-  { id: 22, name: "Centro Continuação 1,70 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 688.78, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca", price: 691.09 }, { label: "Preta" }] },
-  { id: 23, name: "Centro Inicial 2,00 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 865.17, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca", price: 868.08 }, { label: "Preta" }] },
-  { id: 24, name: "Centro Continuação 2,00 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 727.22, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca", price: 729.68 }, { label: "Preta" }] },
+  { id: 19, name: "Centro Inicial 1,40 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 665.69, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 663.49 }] },
+  { id: 20, name: "Centro Continuação 1,40 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 559.63, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 557.77 }] },
+  { id: 21, name: "Centro Inicial 1,70 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 813.34, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 810.62 }] },
+  { id: 22, name: "Centro Continuação 1,70 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 691.09, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 688.78 }] },
+  { id: 23, name: "Centro Inicial 2,00 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 868.08, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 865.17 }] },
+  { id: 24, name: "Centro Continuação 2,00 c/ Bandejas", category: "centro-bandejas", icon: "🏬", price: 729.68, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 727.22 }] },
   // ── CENTRO C/ GANCHOS ──
-  { id: 25, name: "Centro Inicial 1,40 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 756.39, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca", price: 814.26 }, { label: "Preta" }] },
-  { id: 26, name: "Centro Continuação 1,40 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 650.67, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca", price: 708.2 }, { label: "Preta" }] },
-  { id: 27, name: "Centro Inicial 1,70 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 903.65, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca", price: 980.48 }, { label: "Preta" }] },
-  { id: 28, name: "Centro Continuação 1,70 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 781.8, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca", price: 858.23 }, { label: "Preta" }] },
-  { id: 29, name: "Centro Inicial 2,00 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 1050.84, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca", price: 1146.64 }, { label: "Preta" }] },
-  { id: 30, name: "Centro Continuação 2,00 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 912.9, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca", price: 1008.24 }, { label: "Preta" }] },
+  { id: 25, name: "Centro Inicial 1,40 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 814.26, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 756.39 }] },
+  { id: 26, name: "Centro Continuação 1,40 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 708.2, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 650.67 }] },
+  { id: 27, name: "Centro Inicial 1,70 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 980.48, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 903.65 }] },
+  { id: 28, name: "Centro Continuação 1,70 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 858.23, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 781.8 }] },
+  { id: 29, name: "Centro Inicial 2,00 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 1146.64, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 1050.84 }] },
+  { id: 30, name: "Centro Continuação 2,00 c/ Ganchos", category: "centro-ganchos", icon: "🪝", price: 1008.24, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 912.9 }] },
   // ── CENTRO C/ CESTOS ──
-  { id: 31, name: "Centro Inicial 1,40 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 1421.43, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca", price: 1502.7 }, { label: "Preta" }] },
-  { id: 32, name: "Centro Continuação 1,40 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 1315.71, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca", price: 1396.65 }, { label: "Preta" }] },
-  { id: 33, name: "Centro Inicial 1,70 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 1790.37, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca", price: 1898.41 }, { label: "Preta" }] },
-  { id: 34, name: "Centro Continuação 1,70 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 1668.52, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca", price: 1776.16 }, { label: "Preta" }] },
-  { id: 35, name: "Centro Inicial 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2159.25, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca", price: 2294.05 }, { label: "Preta" }] },
-  { id: 36, name: "Centro Continuação 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2021.3, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca", price: 2155.65 }, { label: "Preta" }] },
+  { id: 31, name: "Centro Inicial 1,40 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 1502.7, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 1421.43 }] },
+  { id: 32, name: "Centro Continuação 1,40 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 1396.65, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 1315.71 }] },
+  { id: 33, name: "Centro Inicial 1,70 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 1898.41, specs: { altura: "1,70m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 1790.37 }] },
+  { id: 34, name: "Centro Continuação 1,70 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 1776.16, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 1668.52 }] },
+  { id: 35, name: "Centro Inicial 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2294.05, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 2159.25 }] },
+  { id: 36, name: "Centro Continuação 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2155.65, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 2021.3 }] },
   // ── PONTA ──
-  { id: 37, name: "Ponta 1,40m", category: "ponta", icon: "▶️", price: 411.76, specs: { altura: "1,40m" }, options: [{ label: "Branca", price: 411.76 }, { label: "Preta" }] },
-  { id: 38, name: "Ponta 1,70m", category: "ponta", icon: "▶️", price: 523.75, specs: { altura: "1,70m" }, options: [{ label: "Branca", price: 523.94 }, { label: "Preta" }] },
-  { id: 39, name: "Ponta 2,00m", category: "ponta", icon: "▶️", price: 575.29, specs: { altura: "2,00m" }, options: [{ label: "Branca", price: 575.66 }, { label: "Preta" }] },
+  { id: 37, name: "Ponta 1,40m", category: "ponta", icon: "▶️", price: 411.76, specs: { altura: "1,40m" }, options: [{ label: "Branca" }, { label: "Preta", price: 411.76 }] },
+  { id: 38, name: "Ponta 1,70m", category: "ponta", icon: "▶️", price: 523.94, specs: { altura: "1,70m" }, options: [{ label: "Branca" }, { label: "Preta", price: 523.75 }] },
+  { id: 39, name: "Ponta 2,00m", category: "ponta", icon: "▶️", price: 575.66, specs: { altura: "2,00m" }, options: [{ label: "Branca" }, { label: "Preta", price: 575.29 }] },
   // ── SLIM 2000x600 ──
   { id: 40, name: "Slim Inicial 3 Níveis", category: "slim", icon: "📦", price: 663.29, specs: { niveis: "3", tipo: "Inicial", dimensao: "2000x600" }, options: [] },
   { id: 41, name: "Slim Continuação 3 Níveis", category: "slim", icon: "📦", price: 499.26, specs: { niveis: "3", tipo: "Continuação", dimensao: "2000x600" }, options: [] },
@@ -934,7 +934,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                     <button onClick={(e) => { e.stopPropagation(); showPdf(o); }} style={{ background: "#25D366", border: "none", color: "#fff", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 100 }}>📤 Compartilhar</button>
                     <button onClick={(e) => { e.stopPropagation(); startEdit(o); }} style={{ background: "#3B82F6" + "15", border: `1px solid #3B82F640`, color: "#3B82F6", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 100 }}>✏️ Editar</button>
                     <button onClick={(e) => { e.stopPropagation(); addMoreItems(o.id); }} style={{ background: COLORS.orange + "15", border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 100 }}>+ Adicionar</button>
-                    <button onClick={(e) => { e.stopPropagation(); setConfirmDel(o.id); }} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 50 }}>🗑️</button>
+                    {user.isAdmin && <button onClick={(e) => { e.stopPropagation(); setConfirmDel(o.id); }} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 50 }}>🗑️</button>}
                   </div>
                 </div>
               )}
