@@ -1,11 +1,6 @@
 import { useState, useEffect } from "react";
 import { sharePDFWhatsApp } from "../lib/pdf";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  "https://euclqngycuqoftaryiyz.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1Y2xxbmd5Y3Vxb2Z0YXJ5aXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDQ5MDgsImV4cCI6MjA5MTQyMDkwOH0.08BINQpxsB_IvHFrT7XiEstFcCUfOfXKYTQEe40rMi4"
-);
+import { supabase } from "../lib/supabase";
 
 const COLORS = {
   bg: "#0A0E18",
@@ -278,23 +273,37 @@ function ClientPage({ clientData, setClientData, setPage }) {
   );
 }
 
-// ─── LOGIN ───
-const VENDEDORES = [
-  { id: "v1", name: "Alessandro Thonsen", email: "ale.thonsen@gmail.com", password: "Xandyth@8118", isAdmin: true },
-  { id: "v2", name: "Adelmo Martinello", email: "adelmo_ade@yahoo.com.br", password: "Adelmo@321" },
-  { id: "v3", name: "Willian Zanella", email: "comercial@gondolasuprema.com", password: "Zanella@321" },
-];
-
+// ─── LOGIN (Supabase Auth) ───
 function Login({ onLogin, setPage }) {
   const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
-  const go = () => {
+  const [loading, setLoading] = useState(false);
+
+  const go = async () => {
     setErr("");
     if (!f.email || !f.password) return setErr("Preencha todos os campos.");
-    const u = VENDEDORES.find(u => u.email.toLowerCase() === f.email.toLowerCase() && u.password === f.password);
-    if (!u) return setErr("E-mail ou senha incorretos.");
-    onLogin(u); setPage("client");
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: f.email.trim().toLowerCase(),
+      password: f.password,
+    });
+    setLoading(false);
+    if (error) {
+      const msg = error.message || "";
+      if (msg.toLowerCase().includes("invalid")) return setErr("E-mail ou senha incorretos.");
+      return setErr(msg);
+    }
+    const meta = data.user?.user_metadata || {};
+    const u = {
+      id: meta.legacy_id || data.user.id,
+      name: meta.name || data.user.email,
+      email: data.user.email,
+      isAdmin: !!meta.isAdmin,
+    };
+    onLogin(u);
+    setPage("client");
   };
+
   const inp = { width: "100%", padding: "11px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 60px)", padding: 20 }}>
@@ -303,9 +312,9 @@ function Login({ onLogin, setPage }) {
         <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 24px", fontFamily: "'DM Sans', sans-serif" }}>Acesse com suas credenciais</p>
         {err && <div style={{ background: COLORS.danger + "15", color: COLORS.danger, padding: "8px 12px", borderRadius: 7, fontSize: 12, marginBottom: 14, fontFamily: "'DM Sans', sans-serif" }}>{err}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <input placeholder="E-mail" type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} style={inp} />
-          <input placeholder="Senha" type="password" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} style={inp} onKeyDown={e => e.key === "Enter" && go()} />
-          <button onClick={go} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "12px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>Entrar</button>
+          <input placeholder="E-mail" type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} style={inp} disabled={loading} />
+          <input placeholder="Senha" type="password" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} style={inp} onKeyDown={e => e.key === "Enter" && !loading && go()} disabled={loading} />
+          <button onClick={go} disabled={loading} style={{ background: loading ? COLORS.border : COLORS.orange, color: "#000", border: "none", padding: "12px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{loading ? "Entrando..." : "Entrar"}</button>
         </div>
       </div>
     </div>
@@ -2792,24 +2801,38 @@ export default function App() {
   const [editingOrderId, setEditingOrderId] = useState(null);
 
   useEffect(() => {
-    const s = localStorage.getItem("gs_cur");
-    if (s) {
-      const saved = JSON.parse(s);
-      // Verify saved user is still a valid vendedor
-      const valid = VENDEDORES.find(v => v.id === saved.id);
-      if (valid) {
-        setUser(valid);
-        setPage("client");
-      } else {
-        localStorage.removeItem("gs_cur");
-      }
-    }
     const cd = localStorage.getItem("gs_client_data");
     if (cd) setClientData(JSON.parse(cd));
+
+    const mapSessionUser = (sessionUser) => {
+      if (!sessionUser) return null;
+      const meta = sessionUser.user_metadata || {};
+      return {
+        id: meta.legacy_id || sessionUser.id,
+        name: meta.name || sessionUser.email,
+        email: sessionUser.email,
+        isAdmin: !!meta.isAdmin,
+      };
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(mapSessionUser(session.user));
+        setPage("client");
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const mapped = mapSessionUser(session?.user);
+      setUser(mapped);
+      if (!mapped) setPage("login");
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = u => { setUser(u); localStorage.setItem("gs_cur", JSON.stringify(u)); };
-  const logout = () => { setUser(null); localStorage.removeItem("gs_cur"); setPage("client"); };
+  const login = u => { setUser(u); };
+  const logout = async () => { await supabase.auth.signOut(); setUser(null); setPage("login"); };
   const addToQuote = p => {
     const ex = cart.findIndex(i => i.product.id === p.id);
     if (ex >= 0) { const c = [...cart]; c[ex] = { ...c[ex], qty: c[ex].qty + 1 }; setCart(c); }
