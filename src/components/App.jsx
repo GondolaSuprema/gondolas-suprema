@@ -274,6 +274,14 @@ function ClientPage({ clientData, setClientData, setPage }) {
 }
 
 // ─── LOGIN (Supabase Auth) ───
+// Lista de vendedores (sem senhas) — usada apenas para exibicao em filtros, ranking e graficos.
+// Autenticacao real e feita via Supabase Auth (ver supabase.auth.signInWithPassword abaixo).
+const VENDEDORES = [
+  { id: "v1", name: "Alessandro Thonsen", email: "ale.thonsen@gmail.com",        isAdmin: true  },
+  { id: "v2", name: "Adelmo Martinello",  email: "adelmo_ade@yahoo.com.br",      isAdmin: false },
+  { id: "v3", name: "Willian Zanella",    email: "comercial@gondolasuprema.com", isAdmin: true  },
+];
+
 function Login({ onLogin, setPage }) {
   const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
