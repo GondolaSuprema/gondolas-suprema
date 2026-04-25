@@ -186,13 +186,19 @@ function ClientPage({ clientData, setClientData, setPage }) {
     if (!form.cnpj.trim()) faltando.push("CNPJ");
     if (!form.telefone.trim()) faltando.push("Celular");
     if (!form.cidade.trim()) faltando.push("Cidade");
+    const cepDigits = (form.cep || "").replace(/\D/g, "");
+    if (cepDigits && cepDigits.length !== 8) {
+      setErro("CEP deve ter 8 digitos (ex: 88132-700).");
+      return;
+    }
     if (faltando.length > 0) {
       setErro("Preencha os campos obrigatórios: " + faltando.join(", "));
       return;
     }
     setErro("");
-    setClientData(form);
-    localStorage.setItem("gs_client_data", JSON.stringify(form));
+    const cleaned = { ...form, cep: cepDigits };
+    setClientData(cleaned);
+    localStorage.setItem("gs_client_data", JSON.stringify(cleaned));
     setPage("catalog");
   };
 
@@ -227,14 +233,24 @@ function ClientPage({ clientData, setClientData, setPage }) {
             <label style={labelStyle}>E-mail</label>
             <input placeholder="email@empresa.com" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={inp} />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
             <div>
-              <label style={labelStyle}>Endereço</label>
-              <input placeholder="Rua, número" value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })} style={inp} />
+              <label style={labelStyle}>Rua / Logradouro</label>
+              <input placeholder="Ex: Av. Brasil" value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })} style={inp} />
             </div>
+            <div>
+              <label style={labelStyle}>Número</label>
+              <input placeholder="123" value={form.numero || ""} onChange={e => setForm({ ...form, numero: e.target.value })} style={inp} />
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Bairro</label>
               <input placeholder="Bairro" value={form.bairro} onChange={e => setForm({ ...form, bairro: e.target.value })} style={inp} />
+            </div>
+            <div>
+              <label style={labelStyle}>CEP (recomendado p/ NFe)</label>
+              <input placeholder="00000-000" value={form.cep || ""} onChange={e => setForm({ ...form, cep: e.target.value })} style={inp} maxLength={9} />
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
@@ -265,7 +281,7 @@ function ClientPage({ clientData, setClientData, setPage }) {
             {clientData.cnpj && <span style={{ color: COLORS.textMuted }}> — CNPJ: {clientData.cnpj}</span>}
             {clientData.responsavel && <><br/>Resp: {clientData.responsavel}</>}
             {clientData.telefone && <span style={{ color: COLORS.textMuted }}> • Tel: {clientData.telefone}</span>}
-            {clientData.cidade && <><br/>{clientData.endereco && `${clientData.endereco}, `}{clientData.bairro && `${clientData.bairro} — `}{clientData.cidade}{clientData.estado && `/${clientData.estado}`}</>}
+            {clientData.cidade && <><br/>{clientData.endereco && `${clientData.endereco}${clientData.numero ? ", " + clientData.numero : ""}`}{clientData.bairro && ` — ${clientData.bairro}`} — {clientData.cidade}{clientData.estado && `/${clientData.estado}`}{clientData.cep && ` · CEP ${clientData.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")}`}</>}
           </div>
         </div>
       )}
@@ -497,9 +513,11 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           cliente_telefone: cd.telefone,
           cliente_email: cd.email,
           cliente_endereco: cd.endereco,
+          cliente_numero: cd.numero,
           cliente_bairro: cd.bairro,
           cliente_cidade: cd.cidade,
           cliente_estado: cd.estado,
+          cliente_cep: cd.cep,
           items: newItems,
           total: totalFinal,
           frete,
@@ -646,7 +664,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
       if (data) {
         setOrders(data.map(o => ({
           id: o.id, date: o.data, total: o.total, frete: o.frete, notes: o.notes, status: o.status, items: o.items, vendedor: o.vendedor_nome,
-          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado }
+          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
         })));
       }
     };
@@ -1113,7 +1131,7 @@ function AdminPage() {
         setAllOrders(data.map(o => ({
           id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, status: o.status, items: o.items,
           vendedor: o.vendedor_nome, vendedorId: o.vendedor_id,
-          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado }
+          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
         })));
       }
     };
@@ -2805,7 +2823,7 @@ export default function App() {
   const [page, setPage] = useState("login");
   const [user, setUser] = useState(null);
   const [cart, setCart] = useState([]);
-  const [clientData, setClientData] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "" });
+  const [clientData, setClientData] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" });
   const [editingOrderId, setEditingOrderId] = useState(null);
 
   useEffect(() => {
