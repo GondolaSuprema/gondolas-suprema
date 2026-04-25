@@ -5,11 +5,17 @@ export async function POST(request) {
   const { ref, ambiente } = body;
 
   const TOKENS = {
-    homologacao: "YoOU9pLnnkcTYCiPx9fF59ChxxeDa7D4",
-    producao: "J2rPtH7N9vNbVbqN3GlusOOCRhdqlTKr",
+    homologacao: process.env.FOCUS_NFE_TOKEN_HOMOLOGACAO,
+    producao: process.env.FOCUS_NFE_TOKEN_PRODUCAO,
   };
 
   const token = ambiente === "producao" ? TOKENS.producao : TOKENS.homologacao;
+  if (!token) {
+    return Response.json({
+      success: false,
+      mensagem: "Token Focus NFe nao configurado.",
+    }, { status: 500 });
+  }
   const baseUrl = ambiente === "producao"
     ? "https://api.focusnfe.com.br/v2/nfe"
     : "https://homologacao.focusnfe.com.br/v2/nfe";
