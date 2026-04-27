@@ -30,6 +30,7 @@ const CATEGORIES = [
   { key: "slim", label: "Slim 2000x600" },
   { key: "mpp", label: "MPP 2000x800" },
   { key: "mdf", label: "MDF" },
+  { key: "outros", label: "Outros Produtos" },
 ];
 
 const PRODUCTS = [
@@ -349,7 +350,39 @@ function Login({ onLogin, setPage }) {
 function Catalog({ onAdd }) {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const filtered = PRODUCTS.filter(p => (filter === "all" || p.category === filter) && p.name.toLowerCase().includes(search.toLowerCase()));
+  const [outrosProdutos, setOutrosProdutos] = useState([]);
+  const [loadingOutros, setLoadingOutros] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoadingOutros(true);
+      const { data, error } = await supabase
+        .from("produtos_uniplus")
+        .select("id, nome, preco_brasil, categoria, linha_planilha")
+        .eq("ativo", true)
+        .order("nome", { ascending: true });
+      if (cancelled) return;
+      if (error) { console.error("Erro carregando outros produtos:", error); setLoadingOutros(false); return; }
+      // Adapta para o formato dos PRODUCTS hardcoded
+      const adaptados = (data || []).map(r => ({
+        id: r.id,
+        name: r.nome,
+        category: "outros",
+        icon: "📦",
+        price: Number(r.preco_brasil) || 0,
+        specs: { categoria: r.categoria || "Diversos" },
+        options: []
+      }));
+      setOutrosProdutos(adaptados);
+      setLoadingOutros(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const todosProdutos = [...PRODUCTS, ...outrosProdutos];
+  const filtered = todosProdutos.filter(p => (filter === "all" || p.category === filter) && p.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
@@ -361,30 +394,53 @@ function Catalog({ onAdd }) {
           <button key={c.key} onClick={() => setFilter(c.key)} style={{ background: filter === c.key ? COLORS.orange : "transparent", color: filter === c.key ? "#000" : COLORS.textMuted, border: `1px solid ${filter === c.key ? COLORS.orange : COLORS.border}`, padding: "5px 14px", borderRadius: 18, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{c.label}</button>
         ))}
       </div>
-      <div style={{ color: COLORS.textDim, fontSize: 12, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" }}>{filtered.length} produto(s) encontrado(s)</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
-        {filtered.map(p => (
-          <div key={p.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden", transition: "all .2s" }}>
-            <div style={{ height: 80, background: `linear-gradient(135deg, ${COLORS.orange}08, ${COLORS.orange}15)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38 }}>{p.icon}</div>
-            <div style={{ padding: "14px 16px" }}>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.orange, fontWeight: 700, marginBottom: 4, fontFamily: "'DM Sans', sans-serif" }}>{catLabel(p.category)}</div>
-              <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 15, margin: "0 0 6px", lineHeight: 1.3 }}>{p.name}</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", marginBottom: 10 }}>
-                {Object.entries(p.specs).map(([k, v]) => (
-                  <div key={k} style={{ fontSize: 10, fontFamily: "'DM Sans', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    <span style={{ color: COLORS.textDim, textTransform: "capitalize" }}>{k}: </span>
-                    <span style={{ color: COLORS.textMuted }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${COLORS.border}` }}>
-                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange }}>{fmt(p.price)}</span>
-                <button onClick={() => onAdd(p)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "7px 14px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Orçamento</button>
+      <div style={{ color: COLORS.textDim, fontSize: 12, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" }}>
+        {filtered.length} produto(s) encontrado(s){filter === "outros" && loadingOutros ? " — carregando..." : ""}
+      </div>
+      {filter === "outros" ? (
+        // Visualização em lista para "Outros Produtos"
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.textDim, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
+            <div>Produto</div>
+            <div style={{ textAlign: "right", minWidth: 110 }}>Valor Suprema</div>
+            <div style={{ minWidth: 100 }}></div>
+          </div>
+          {filtered.length === 0 && !loadingOutros && (
+            <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
+          )}
+          {filtered.map((p, idx) => (
+            <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", alignItems: "center" }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, lineHeight: 1.3 }}>{p.name}</div>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange, textAlign: "right", minWidth: 110 }}>{fmt(p.price)}</div>
+              <button onClick={() => onAdd(p)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "6px 12px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 100 }}>+ Orçamento</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+          {filtered.map(p => (
+            <div key={p.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden", transition: "all .2s" }}>
+              <div style={{ height: 80, background: `linear-gradient(135deg, ${COLORS.orange}08, ${COLORS.orange}15)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38 }}>{p.icon}</div>
+              <div style={{ padding: "14px 16px" }}>
+                <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.orange, fontWeight: 700, marginBottom: 4, fontFamily: "'DM Sans', sans-serif" }}>{catLabel(p.category)}</div>
+                <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 15, margin: "0 0 6px", lineHeight: 1.3 }}>{p.name}</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", marginBottom: 10 }}>
+                  {Object.entries(p.specs).map(([k, v]) => (
+                    <div key={k} style={{ fontSize: 10, fontFamily: "'DM Sans', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ color: COLORS.textDim, textTransform: "capitalize" }}>{k}: </span>
+                      <span style={{ color: COLORS.textMuted }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: `1px solid ${COLORS.border}` }}>
+                  <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange }}>{fmt(p.price)}</span>
+                  <button onClick={() => onAdd(p)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "7px 14px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Orçamento</button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
