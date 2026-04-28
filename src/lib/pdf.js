@@ -12,7 +12,12 @@ const COMPANY = {
 const fmt = (v) =>
   v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const ICON_KEYS = ["parede-branca", "parede-preta", "centro-branca", "centro-preta", "mpp"];
+const ICON_KEYS = [
+  "parede-branca", "parede-preta",
+  "centro-branca", "centro-preta",
+  "mpp",
+  "checkout-branco", "checkout-preto",
+];
 const ICON_EXTS = ["jpg", "jpeg", "png"];
 
 function getProductIconKey(item) {
@@ -22,6 +27,7 @@ function getProductIconKey(item) {
   const all = `${cat} ${name} ${opts}`;
   const isPreta = /preta|preto|black/.test(all);
 
+  if (/checkout|check-out/.test(all)) return isPreta ? "checkout-preto" : "checkout-branco";
   if (/mini\s*porta\s*pal|mpp|slim/.test(all)) return "mpp";
   if (/ponta/.test(all)) return isPreta ? "parede-preta" : "parede-branca";
   if (/centro/.test(all)) return isPreta ? "centro-preta" : "centro-branca";
