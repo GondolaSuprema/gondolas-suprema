@@ -996,7 +996,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
       const { data } = await supabase.from("orcamentos").select("*").eq("vendedor_id", user.id).order("data", { ascending: false });
       if (data) {
         setOrders(data.map(o => ({
-          id: o.id, date: o.data, total: o.total, frete: o.frete, notes: o.notes, status: o.status, items: o.items, vendedor: o.vendedor_nome,
+          id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, status: o.status, items: o.items, vendedor: o.vendedor_nome,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
         })));
       }
