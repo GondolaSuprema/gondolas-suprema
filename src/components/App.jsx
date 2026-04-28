@@ -230,17 +230,43 @@ function ClientPage({ clientData, setClientData, setPage }) {
       }
       const d = await resp.json();
       const cepLimpo = d.cep ? String(d.cep).replace(/\D/g, "") : "";
+
+      let emailFinal = d.email || "";
+      let telefoneFinal = "";
+      const ddd = d.ddd_telefone_1 ? String(d.ddd_telefone_1).replace(/\D/g, "") : "";
+      if (ddd) telefoneFinal = ddd;
+
+      if (!emailFinal) {
+        try {
+          const respRws = await fetch(`https://receitaws.com.br/v1/cnpj/${cnpjLimpo}`);
+          if (respRws.ok) {
+            const dRws = await respRws.json();
+            if (dRws.status !== "ERROR") {
+              emailFinal = dRws.email || "";
+              if (!telefoneFinal && dRws.telefone) {
+                telefoneFinal = String(dRws.telefone).replace(/\D/g, "");
+              }
+            }
+          }
+        } catch (e2) {}
+      }
+
       setForm(prev => ({
         ...prev,
-        empresa: prev.empresa.trim() || d.razao_social || d.nome_fantasia || "",
-        email:    prev.email.trim()    || d.email     || "",
-        endereco: prev.endereco.trim() || d.logradouro || "",
+        empresa:  prev.empresa.trim()  || d.razao_social || d.nome_fantasia || "",
+        email:    prev.email.trim()    || emailFinal     || "",
+        telefone: prev.telefone.trim() || telefoneFinal  || "",
+        endereco: prev.endereco.trim() || d.logradouro   || "",
         numero:   (prev.numero || "").trim() || d.numero || "",
         bairro:   prev.bairro.trim()   || d.bairro    || "",
         cep:      (prev.cep || "").trim() || cepLimpo,
         cidade:   prev.cidade.trim()   || d.municipio || "",
         estado:   prev.estado.trim()   || d.uf        || "",
       }));
+
+      if (!emailFinal) {
+        setErro("Empresa encontrada, mas sem e-mail cadastrado na Receita. Preencha manualmente.");
+      }
     } catch (e) {
       setErro("Sem conexão para consultar o CNPJ. Verifique sua internet.");
     } finally {
@@ -254,17 +280,22 @@ function ClientPage({ clientData, setClientData, setPage }) {
     if (!form.cnpj.trim()) faltando.push("CNPJ");
     if (!form.telefone.trim()) faltando.push("Celular");
     if (!form.cidade.trim()) faltando.push("Cidade");
+    if (faltando.length > 0) {
+      setErro("Preencha os campos obrigatórios: " + faltando.join(", "));
+      return;
+    }
+    const telDigits = (form.telefone || "").replace(/\D/g, "");
+    if (telDigits.length < 10 || telDigits.length > 11) {
+      setErro("Celular inválido. Informe DDD + número (10 ou 11 dígitos). Ex: (48) 99965-6082.");
+      return;
+    }
     const cepDigits = (form.cep || "").replace(/\D/g, "");
     if (cepDigits && cepDigits.length !== 8) {
       setErro("CEP deve ter 8 digitos (ex: 88132-700).");
       return;
     }
-    if (faltando.length > 0) {
-      setErro("Preencha os campos obrigatórios: " + faltando.join(", "));
-      return;
-    }
     setErro("");
-    const cleaned = { ...form, cep: cepDigits };
+    const cleaned = { ...form, cep: cepDigits, telefone: telDigits };
     setClientData(cleaned);
     localStorage.setItem("gs_client_data", JSON.stringify(cleaned));
     setPage("catalog");
