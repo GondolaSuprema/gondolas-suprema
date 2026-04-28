@@ -161,11 +161,11 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     return Object.assign({}, it, { iconKey: getProductIconKey(it) });
   });
 
-  // Label "PRODUTOS:" alinhado a direita acima da tabela
+  // Label "PRODUTOS:" alinhado a esquerda acima da tabela
   doc.setFontSize(11);
   doc.setFont(undefined, "bold");
   doc.setTextColor(60);
-  doc.text("PRODUTOS:", pageW - margin, 67, { align: "right" });
+  doc.text("PRODUTOS:", margin, 67);
 
   // Table
   var tableData = itemsWithIcons.map(function(it) {
@@ -178,6 +178,11 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
       fmt(it.total),
     ];
   });
+
+  // Larguras das colunas e alinhamento da tabela a direita
+  var colWidths = { foto: 16, produto: 38, categoria: 28, qtd: 12, opcionais: 28, subtotal: 28 };
+  var tableWidth = colWidths.foto + colWidths.produto + colWidths.categoria + colWidths.qtd + colWidths.opcionais + colWidths.subtotal;
+  var tableLeftMargin = pageW - margin - tableWidth;
 
   doc.autoTable({
     startY: 71,
@@ -193,14 +198,14 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     },
     bodyStyles: { fontSize: 9, textColor: [40, 40, 40], minCellHeight: 16, valign: "middle" },
     columnStyles: {
-      0: { cellWidth: 16, halign: "center" },
-      1: { fontStyle: "bold", cellWidth: 38 },
-      2: { cellWidth: 28 },
-      3: { cellWidth: 12, halign: "center" },
-      4: { cellWidth: 28 },
-      5: { cellWidth: 28, halign: "right" },
+      0: { cellWidth: colWidths.foto, halign: "center" },
+      1: { fontStyle: "bold", cellWidth: colWidths.produto },
+      2: { cellWidth: colWidths.categoria },
+      3: { cellWidth: colWidths.qtd, halign: "center" },
+      4: { cellWidth: colWidths.opcionais },
+      5: { cellWidth: colWidths.subtotal, halign: "right" },
     },
-    margin: { left: margin, right: margin },
+    margin: { left: tableLeftMargin, right: margin },
     didDrawCell: function (data) {
       if (data.section !== "body" || data.column.index !== 0) return;
       var item = itemsWithIcons[data.row.index];
