@@ -954,10 +954,15 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
 
   const startEdit = (o) => {
     setEditingId(o.id);
-    setEditItems([...(o.items || [])]);
+    // Decompor itens pra garantir que a edicao sempre comece com CUSTO puro
+    const itensCusto = (o.items || []).map(it => ({ ...it, total: getItemCusto(it, o) }));
+    setEditItems(itensCusto);
     setEditFrete(o.frete || 0);
     setEditNotes(o.notes || "");
-    setEditMarkup(0);
+    // Recuperar a margem do orcamento como percentual aplicado
+    const subCusto = itensCusto.reduce((s, it) => s + (Number(it.total) || 0), 0);
+    const markupAtual = subCusto > 0 ? Math.round(((Number(o.comissao) || 0) / subCusto) * 100) : 0;
+    setEditMarkup(markupAtual);
   };
 
   const cancelEdit = () => {
@@ -970,12 +975,18 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
 
   const saveEdit = async (orderId) => {
     setSaving(true);
-    const subtotal = editItems.reduce((s, it) => s + (it.total || 0), 0);
-    const comissao = subtotal * editMarkup / 100;
-    const newItems = editMarkup > 0 ? editItems.map(it => ({ ...it, total: it.total + (it.total * editMarkup / 100) })) : editItems;
-    const newTotal = newItems.reduce((s, it) => s + (it.total || 0), 0) + editFrete;
-    await supabase.from("orcamentos").update({ items: newItems, total: newTotal, frete: editFrete, notes: editNotes }).eq("id", orderId);
-    setOrders(orders.map(o => o.id === orderId ? { ...o, items: newItems, total: newTotal, frete: editFrete, notes: editNotes } : o));
+    const subtotalCusto = editItems.reduce((s, it) => s + (Number(it.total) || 0), 0);
+    const comissao = subtotalCusto * (Number(editMarkup) || 0) / 100;
+    const frete = Number(editFrete) || 0;
+    const newTotal = subtotalCusto + comissao + frete;
+    await supabase.from("orcamentos").update({
+      items: editItems,
+      total: newTotal,
+      frete,
+      comissao,
+      notes: editNotes,
+    }).eq("id", orderId);
+    setOrders(orders.map(o => o.id === orderId ? { ...o, items: editItems, total: newTotal, frete, comissao, notes: editNotes } : o));
     setSaving(false);
     cancelEdit();
   };
