@@ -675,7 +675,7 @@ function Catalog({ onAdd }) {
 }
 
 // ─── QUOTE ───
-function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId }) {
+function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId, markup, setMarkup, frete, setFrete }) {
   const [notes, setNotes] = useState("");
   const upd = (i, f, v) => { const c = [...items]; c[i] = { ...c[i], [f]: v }; setItems(c); };
   const togOpt = (i, oi) => { const c = [...items]; c[i] = { ...c[i], selOpts: [oi] }; setItems(c); };
@@ -683,6 +683,8 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
   const itemPrice = it => it.product.options[it.selOpts[0]]?.price ?? it.product.price;
   const itemTotal = it => itemPrice(it) * it.qty;
   const total = items.reduce((s, i) => s + itemTotal(i), 0);
+  const totalComissao = total * (markup || 0) / 100;
+  const totalFinal = total + totalComissao + (frete || 0);
 
   if (!items.length) return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 20px", textAlign: "center" }}>
@@ -736,11 +738,29 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
       </div>
       <button onClick={() => setPage("catalog")} style={{ width: "100%", background: COLORS.card, border: `2px dashed ${COLORS.border}`, color: COLORS.orange, padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 12, transition: "all .2s" }}>+ Adicionar mais produtos</button>
       <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
+
+      {/* Comissão */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
+        <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+        <div style={{ marginLeft: "auto", textAlign: "right" }}>
+          <div style={{ color: COLORS.success, fontSize: 16, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalComissao)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre produtos" : "Sem comissão"}</div>
+        </div>
+      </div>
+
+      {/* Frete */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
+        <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{frete > 0 ? "Frete incluso no total" : "Sem frete"}</span>
+      </div>
+
       <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}12, ${COLORS.orange}06)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 12, padding: "18px 22px", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Subtotal produtos</div>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: total === 0 ? COLORS.textDim : COLORS.orange }}>{total === 0 ? "Valores sob consulta" : fmt(total)}</div>
-          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{items.length} produto(s) · {items.reduce((s, i) => s + i.qty, 0)} un</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total do orçamento (Custo + Comissão + Frete)</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: totalFinal === 0 ? COLORS.textDim : COLORS.orange }}>{totalFinal === 0 ? "Valores sob consulta" : fmt(totalFinal)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{items.length} produto(s) · {items.reduce((s, i) => s + i.qty, 0)} un · Subtotal {fmt(total)}</div>
         </div>
         <button onClick={() => setPage("resumo")} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "12px 24px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Ver Resumo →</button>
       </div>
@@ -749,9 +769,7 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
 }
 
 // ─── RESUMO ───
-function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, setItems }) {
-  const [markup, setMarkup] = useState(0);
-  const [frete, setFrete] = useState(0);
+function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, setItems, markup, setMarkup, frete, setFrete }) {
   const [notes, setNotes] = useState("");
 
   const itemPrice = it => it.product.options[it.selOpts[0]]?.price ?? it.product.price;
@@ -813,7 +831,10 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
       }
     } catch (e) { console.error("Erro ao salvar:", e); }
     setSaving(false);
-    setItems([]); setPage("orders");
+    setItems([]);
+    setMarkup(0);
+    setFrete(0);
+    setPage("orders");
   };
 
   if (!items.length) return (
@@ -3138,6 +3159,8 @@ export default function App() {
   const EMPTY_CLIENT = { empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" };
   const [clientData, setClientData] = useState(EMPTY_CLIENT);
   const [editingOrderId, setEditingOrderId] = useState(null);
+  const [markup, setMarkup] = useState(0);
+  const [frete, setFrete] = useState(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -3177,6 +3200,8 @@ export default function App() {
     if (typeof window !== "undefined") localStorage.removeItem("gs_client_data");
     setClientData(EMPTY_CLIENT);
     setCart([]);
+    setMarkup(0);
+    setFrete(0);
     setUser(null);
     setPage("login");
   };
@@ -3195,8 +3220,8 @@ export default function App() {
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "catalog" && <Catalog onAdd={addToQuote} />}
-      {page === "quote" && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} />}
-      {page === "resumo" && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} />}
+      {page === "quote" && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} />}
+      {page === "resumo" && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && user?.isAdmin && <AdminPage />}
