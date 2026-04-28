@@ -12,42 +12,41 @@ const COMPANY = {
 const fmt = (v) =>
   v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const ICON_URLS = [
-  "/produto-icons/parede-branca.jpg",
-  "/produto-icons/parede-preta.jpg",
-  "/produto-icons/centro-branca.jpg",
-  "/produto-icons/centro-preta.jpg",
-  "/produto-icons/mpp.jpg",
-];
+const ICON_KEYS = ["parede-branca", "parede-preta", "centro-branca", "centro-preta", "mpp"];
+const ICON_EXTS = ["jpg", "jpeg", "png"];
 
-function getProductIconUrl(item) {
+function getProductIconKey(item) {
   const cat = (item.cat || "").toLowerCase();
   const name = (item.name || "").toLowerCase();
   const opts = (item.opts || []).join(" ").toLowerCase();
   const all = `${cat} ${name} ${opts}`;
   const isPreta = /preta|preto|black/.test(all);
 
-  if (/mini\s*porta\s*pal|mpp|slim/.test(all)) return "/produto-icons/mpp.jpg";
-  if (/ponta/.test(all)) return isPreta ? "/produto-icons/parede-preta.jpg" : "/produto-icons/parede-branca.jpg";
-  if (/centro/.test(all)) return isPreta ? "/produto-icons/centro-preta.jpg" : "/produto-icons/centro-branca.jpg";
-  if (/g[oô]ndola|parede/.test(all)) return isPreta ? "/produto-icons/parede-preta.jpg" : "/produto-icons/parede-branca.jpg";
+  if (/mini\s*porta\s*pal|mpp|slim/.test(all)) return "mpp";
+  if (/ponta/.test(all)) return isPreta ? "parede-preta" : "parede-branca";
+  if (/centro/.test(all)) return isPreta ? "centro-preta" : "centro-branca";
+  if (/g[oô]ndola|parede/.test(all)) return isPreta ? "parede-preta" : "parede-branca";
   return null;
 }
 
 async function loadIcons() {
   const map = {};
-  for (const url of ICON_URLS) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) continue;
-      const b = await r.blob();
-      map[url] = await new Promise((res, rej) => {
-        const fr = new FileReader();
-        fr.onload = () => res(fr.result);
-        fr.onerror = rej;
-        fr.readAsDataURL(b);
-      });
-    } catch (e) {}
+  for (const key of ICON_KEYS) {
+    for (const ext of ICON_EXTS) {
+      try {
+        const r = await fetch(`/produto-icons/${key}.${ext}`);
+        if (!r.ok) continue;
+        const b = await r.blob();
+        const dataUrl = await new Promise((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = () => res(fr.result);
+          fr.onerror = rej;
+          fr.readAsDataURL(b);
+        });
+        map[key] = dataUrl;
+        break;
+      } catch (e) {}
+    }
   }
   return map;
 }
@@ -125,7 +124,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
   // Carrega icones de produto
   var iconMap = await loadIcons();
   var itemsWithIcons = items.map(function(it) {
-    return Object.assign({}, it, { iconUrl: getProductIconUrl(it) });
+    return Object.assign({}, it, { iconKey: getProductIconKey(it) });
   });
 
   // Table
@@ -165,13 +164,16 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
     didDrawCell: function (data) {
       if (data.section !== "body" || data.column.index !== 0) return;
       var item = itemsWithIcons[data.row.index];
-      if (!item || !item.iconUrl || !iconMap[item.iconUrl]) return;
+      if (!item || !item.iconKey) return;
+      var dataUrl = iconMap[item.iconKey];
+      if (!dataUrl) return;
+      var fmtType = dataUrl.indexOf("data:image/png") === 0 ? "PNG" : "JPEG";
       var pad = 1.5;
       var size = Math.min(data.cell.width - pad * 2, data.cell.height - pad * 2);
       var x = data.cell.x + (data.cell.width - size) / 2;
       var y = data.cell.y + (data.cell.height - size) / 2;
       try {
-        doc.addImage(iconMap[item.iconUrl], "JPEG", x, y, size, size);
+        doc.addImage(dataUrl, fmtType, x, y, size, size);
       } catch (e) {}
     },
   });
