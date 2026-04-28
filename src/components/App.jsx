@@ -1211,18 +1211,42 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                     ))}
                   </div>
 
-                  {o.frete > 0 && <div style={{ padding: "6px 12px", fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>Frete: {fmt(o.frete)}</div>}
                   {o.notes && <div style={{ padding: "8px 12px", background: COLORS.orange + "08", borderRadius: 8, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif", marginBottom: 12 }}>💬 {o.notes}</div>}
 
-                  <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}10, ${COLORS.orange}05)`, border: `1px solid ${COLORS.orange}25`, borderRadius: 10, padding: "14px 16px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Total do orçamento</div>
-                      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: COLORS.orange }}>{fmt(o.total)}</div>
-                    </div>
-                    <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "right" }}>
-                      {o.items.length} produto(s)<br/>{o.items.reduce((s, it) => s + it.qty, 0)} unidade(s)
-                    </div>
-                  </div>
+                  {(() => {
+                    const valorComissao = o.comissao || 0;
+                    const valorFrete = o.frete || 0;
+                    const valorCusto = (o.total || 0) - valorComissao - valorFrete;
+                    const linhaStyle = { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", fontFamily: "'DM Sans', sans-serif" };
+                    const labelStyle = { color: COLORS.textMuted, fontSize: 12 };
+                    const valorStyle = { color: COLORS.text, fontSize: 13, fontWeight: 600 };
+                    return (
+                      <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}10, ${COLORS.orange}05)`, border: `1px solid ${COLORS.orange}25`, borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
+                        <div style={linhaStyle}>
+                          <span style={labelStyle}>Valor Custo</span>
+                          <span style={valorStyle}>{fmt(valorCusto)}</span>
+                        </div>
+                        <div style={linhaStyle}>
+                          <span style={labelStyle}>+ Valor Comissão</span>
+                          <span style={valorStyle}>{fmt(valorComissao)}</span>
+                        </div>
+                        <div style={linhaStyle}>
+                          <span style={labelStyle}>+ Frete</span>
+                          <span style={valorStyle}>{fmt(valorFrete)}</span>
+                        </div>
+                        <div style={{ borderTop: `1px solid ${COLORS.orange}30`, margin: "8px 0 6px" }} />
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>= Total</div>
+                            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: COLORS.orange }}>{fmt(o.total)}</div>
+                          </div>
+                          <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "right" }}>
+                            {o.items.length} produto(s)<br/>{o.items.reduce((s, it) => s + it.qty, 0)} unidade(s)
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {isConfirming && (
                     <div style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, borderRadius: 10, padding: "14px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
