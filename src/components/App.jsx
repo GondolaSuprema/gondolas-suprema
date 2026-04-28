@@ -177,9 +177,76 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
 function ClientPage({ clientData, setClientData, setPage }) {
   const [form, setForm] = useState(clientData);
   const [erro, setErro] = useState("");
+  const [buscandoCnpj, setBuscandoCnpj] = useState(false);
+  const [inputsReady, setInputsReady] = useState(false);
+
+  useEffect(() => {
+    const isEmpty = !clientData.empresa && !clientData.cnpj && !clientData.telefone && !clientData.cidade;
+    if (isEmpty) setForm(clientData);
+  }, [clientData]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setForm(prev => ({
+        empresa: prev.empresa || "",
+        cnpj: prev.cnpj || "",
+        responsavel: prev.responsavel || "",
+        telefone: prev.telefone || "",
+        email: prev.email || "",
+        endereco: prev.endereco || "",
+        numero: prev.numero || "",
+        bairro: prev.bairro || "",
+        cep: prev.cep || "",
+        cidade: prev.cidade || "",
+        estado: prev.estado || "",
+      }));
+      setInputsReady(true);
+    }, 80);
+    return () => clearTimeout(t);
+  }, []);
   const inp = { width: "100%", padding: "12px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
   const inpErr = { ...inp, border: `1px solid ${COLORS.danger}` };
   const labelStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
+
+  const noFill = {
+    autoComplete: "off",
+    readOnly: true,
+    onFocus: (e) => e.target.removeAttribute("readonly"),
+  };
+
+  const buscarCnpj = async () => {
+    const cnpjLimpo = (form.cnpj || "").replace(/\D/g, "");
+    if (cnpjLimpo.length !== 14) {
+      setErro("CNPJ deve ter 14 dígitos para a consulta automática.");
+      return;
+    }
+    setErro("");
+    setBuscandoCnpj(true);
+    try {
+      const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`);
+      if (!resp.ok) {
+        setErro(resp.status === 404 ? "CNPJ não encontrado na Receita." : "Falha ao consultar CNPJ. Tente novamente.");
+        return;
+      }
+      const d = await resp.json();
+      const cepLimpo = d.cep ? String(d.cep).replace(/\D/g, "") : "";
+      setForm(prev => ({
+        ...prev,
+        empresa: prev.empresa.trim() || d.razao_social || d.nome_fantasia || "",
+        email:    prev.email.trim()    || d.email     || "",
+        endereco: prev.endereco.trim() || d.logradouro || "",
+        numero:   (prev.numero || "").trim() || d.numero || "",
+        bairro:   prev.bairro.trim()   || d.bairro    || "",
+        cep:      (prev.cep || "").trim() || cepLimpo,
+        cidade:   prev.cidade.trim()   || d.municipio || "",
+        estado:   prev.estado.trim()   || d.uf        || "",
+      }));
+    } catch (e) {
+      setErro("Sem conexão para consultar o CNPJ. Verifique sua internet.");
+    } finally {
+      setBuscandoCnpj(false);
+    }
+  };
 
   const handleSave = () => {
     const faltando = [];
@@ -213,60 +280,102 @@ function ClientPage({ clientData, setClientData, setPage }) {
 
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24 }}>
         {erro && <div style={{ background: COLORS.danger + "15", color: COLORS.danger, padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 16, fontFamily: "'DM Sans', sans-serif" }}>{erro}</div>}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {!inputsReady ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {[...Array(8)].map((_, i) => (
+              <div key={i} style={{ height: 44, background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, opacity: 0.4 }} />
+            ))}
+          </div>
+        ) : (
+        <form autoComplete="off" onSubmit={e => e.preventDefault()} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <input type="text" name="prevent_autofill" autoComplete="off" style={{ display: "none" }} />
+          <input type="password" name="prevent_autofill_pwd" autoComplete="new-password" style={{ display: "none" }} />
           <div>
             <label style={labelStyle}>Nome da Empresa *</label>
-            <input placeholder="Ex: Supermercado Bom Preço" value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} style={!form.empresa.trim() && erro ? inpErr : inp} />
+            <input {...noFill} placeholder="Ex: Supermercado Bom Preço" name="gs_empresa_nofill" value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} style={!form.empresa.trim() && erro ? inpErr : inp} />
           </div>
           <div>
             <label style={labelStyle}>CNPJ *</label>
-            <input placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} style={!form.cnpj.trim() && erro ? inpErr : inp} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                {...noFill}
+                placeholder="00.000.000/0001-00"
+                name="gs_cnpj_nofill"
+                value={form.cnpj}
+                onChange={e => setForm({ ...form, cnpj: e.target.value })}
+                onFocus={(e) => e.target.removeAttribute("readonly")}
+                onBlur={() => {
+                  const c = (form.cnpj || "").replace(/\D/g, "");
+                  if (c.length === 14 && !buscandoCnpj) buscarCnpj();
+                }}
+                style={!form.cnpj.trim() && erro ? { ...inpErr, flex: 1 } : { ...inp, flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={buscarCnpj}
+                disabled={buscandoCnpj}
+                title="Buscar dados da empresa pelo CNPJ"
+                style={{
+                  background: COLORS.orange, color: "#000", border: "none",
+                  padding: "0 16px", borderRadius: 8, fontWeight: 700, fontSize: 12,
+                  cursor: buscandoCnpj ? "wait" : "pointer",
+                  fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+                  opacity: buscandoCnpj ? 0.6 : 1,
+                }}
+              >
+                {buscandoCnpj ? "Buscando..." : "Buscar dados"}
+              </button>
+            </div>
+            <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
+              Preenche automaticamente os campos vazios com os dados da Receita.
+            </div>
           </div>
           <div>
             <label style={labelStyle}>Responsável</label>
-            <input placeholder="Nome do responsável" value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} style={inp} />
+            <input {...noFill} placeholder="Nome do responsável" name="gs_resp_nofill" value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} style={inp} />
           </div>
           <div>
             <label style={labelStyle}>Celular *</label>
-            <input placeholder="(00) 00000-0000" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} style={!form.telefone.trim() && erro ? inpErr : inp} />
+            <input {...noFill} placeholder="(00) 00000-0000" name="gs_tel_nofill" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} style={!form.telefone.trim() && erro ? inpErr : inp} />
           </div>
           <div>
             <label style={labelStyle}>E-mail</label>
-            <input placeholder="email@empresa.com" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={inp} />
+            <input {...noFill} placeholder="email@empresa.com" name="gs_email_nofill" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={inp} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Rua / Logradouro</label>
-              <input placeholder="Ex: Av. Brasil" value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })} style={inp} />
+              <input {...noFill} placeholder="Ex: Av. Brasil" name="gs_end_nofill" value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })} style={inp} />
             </div>
             <div>
               <label style={labelStyle}>Número</label>
-              <input placeholder="123" value={form.numero || ""} onChange={e => setForm({ ...form, numero: e.target.value })} style={inp} />
+              <input {...noFill} placeholder="123" name="gs_num_nofill" value={form.numero || ""} onChange={e => setForm({ ...form, numero: e.target.value })} style={inp} />
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Bairro</label>
-              <input placeholder="Bairro" value={form.bairro} onChange={e => setForm({ ...form, bairro: e.target.value })} style={inp} />
+              <input {...noFill} placeholder="Bairro" name="gs_bairro_nofill" value={form.bairro} onChange={e => setForm({ ...form, bairro: e.target.value })} style={inp} />
             </div>
             <div>
               <label style={labelStyle}>CEP (recomendado p/ NFe)</label>
-              <input placeholder="00000-000" value={form.cep || ""} onChange={e => setForm({ ...form, cep: e.target.value })} style={inp} maxLength={9} />
+              <input {...noFill} placeholder="00000-000" name="gs_cep_nofill" value={form.cep || ""} onChange={e => setForm({ ...form, cep: e.target.value })} style={inp} maxLength={9} />
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Cidade *</label>
-              <input placeholder="Cidade" value={form.cidade} onChange={e => setForm({ ...form, cidade: e.target.value })} style={!form.cidade.trim() && erro ? inpErr : inp} />
+              <input {...noFill} placeholder="Cidade" name="gs_cidade_nofill" value={form.cidade} onChange={e => setForm({ ...form, cidade: e.target.value })} style={!form.cidade.trim() && erro ? inpErr : inp} />
             </div>
             <div>
               <label style={labelStyle}>Estado</label>
-              <input placeholder="UF" value={form.estado} onChange={e => setForm({ ...form, estado: e.target.value })} style={inp} maxLength={2} />
+              <input {...noFill} placeholder="UF" name="gs_uf_nofill" value={form.estado} onChange={e => setForm({ ...form, estado: e.target.value })} style={inp} maxLength={2} />
             </div>
           </div>
-        </div>
+        </form>
+        )}
 
-        <button onClick={handleSave} style={{
+        <button onClick={handleSave} disabled={!inputsReady} style={{
           width: "100%", background: COLORS.orange, color: "#000", border: "none", padding: "14px",
           borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 24
         }}>
@@ -2879,12 +2988,14 @@ export default function App() {
   const [page, setPage] = useState("login");
   const [user, setUser] = useState(null);
   const [cart, setCart] = useState([]);
-  const [clientData, setClientData] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" });
+  const EMPTY_CLIENT = { empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" };
+  const [clientData, setClientData] = useState(EMPTY_CLIENT);
   const [editingOrderId, setEditingOrderId] = useState(null);
 
   useEffect(() => {
-    const cd = localStorage.getItem("gs_client_data");
-    if (cd) setClientData(JSON.parse(cd));
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("gs_client_data");
+    }
 
     const mapSessionUser = (sessionUser) => {
       if (!sessionUser) return null;
@@ -2914,7 +3025,14 @@ export default function App() {
   }, []);
 
   const login = u => { setUser(u); };
-  const logout = async () => { await supabase.auth.signOut(); setUser(null); setPage("login"); };
+  const logout = async () => {
+    await supabase.auth.signOut();
+    if (typeof window !== "undefined") localStorage.removeItem("gs_client_data");
+    setClientData(EMPTY_CLIENT);
+    setCart([]);
+    setUser(null);
+    setPage("login");
+  };
   const addToQuote = p => {
     const ex = cart.findIndex(i => i.product.id === p.id);
     if (ex >= 0) { const c = [...cart]; c[ex] = { ...c[ex], qty: c[ex].qty + 1 }; setCart(c); }
@@ -2927,7 +3045,7 @@ export default function App() {
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet" />
       <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
-      {page === "client" && user && <ClientPage clientData={clientData} setClientData={setClientData} setPage={setPage} />}
+      {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "catalog" && <Catalog onAdd={addToQuote} />}
       {page === "quote" && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} />}
