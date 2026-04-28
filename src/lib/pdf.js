@@ -161,6 +161,12 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     return Object.assign({}, it, { iconKey: getProductIconKey(it) });
   });
 
+  // Label "PRODUTOS:" alinhado a direita acima da tabela
+  doc.setFontSize(11);
+  doc.setFont(undefined, "bold");
+  doc.setTextColor(60);
+  doc.text("PRODUTOS:", pageW - margin, 67, { align: "right" });
+
   // Table
   var tableData = itemsWithIcons.map(function(it) {
     return [
@@ -174,7 +180,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   });
 
   doc.autoTable({
-    startY: 64,
+    startY: 71,
     head: [["Foto", "Produto", "Categoria", "Qtd", "Opcionais", "Subtotal"]],
     body: tableData,
     theme: "grid",
