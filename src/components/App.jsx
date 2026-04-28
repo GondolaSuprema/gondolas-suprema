@@ -264,8 +264,12 @@ function ClientPage({ clientData, setClientData, setPage }) {
         estado:   prev.estado.trim()   || d.uf        || "",
       }));
 
-      if (!emailFinal) {
-        setErro("Empresa encontrada, mas sem e-mail cadastrado na Receita. Preencha manualmente.");
+      const faltando = [];
+      if (!d.logradouro) faltando.push("rua");
+      if (!d.numero) faltando.push("número");
+      if (!emailFinal) faltando.push("e-mail");
+      if (faltando.length > 0) {
+        setErro(`Empresa encontrada. A Receita não tem ${faltando.join(", ")} cadastrado(s) — preencha manualmente.`);
       }
     } catch (e) {
       setErro("Sem conexão para consultar o CNPJ. Verifique sua internet.");
