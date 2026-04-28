@@ -105,6 +105,24 @@ const fmt = (v) => v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style:
 const genId = () => Math.random().toString(36).substr(2, 9);
 const catLabel = (key) => CATEGORIES.find(c => c.key === key)?.label || key;
 
+function formatarCnpj(valor) {
+  const d = (valor || "").replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`;
+  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`;
+}
+
+function formatarCelular(valor) {
+  const d = (valor || "").replace(/\D/g, "").slice(0, 11);
+  if (d.length === 0) return "";
+  if (d.length <= 2) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 2)})${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)})${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)})${d.slice(2, 7)}-${d.slice(7, 11)}`;
+}
+
 const LOGO_B64 = "data:image/jpeg;base64,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";
 
 const COMPANY = {
@@ -321,7 +339,7 @@ function ClientPage({ clientData, setClientData, setPage }) {
         ...prev,
         empresa:  prev.empresa.trim()  || d.razao_social || d.nome_fantasia || "",
         email:    prev.email.trim()    || emailFinal     || "",
-        telefone: prev.telefone.trim() || telefoneFinal  || "",
+        telefone: prev.telefone.trim() || formatarCelular(telefoneFinal) || "",
         endereco: prev.endereco.trim() || d.logradouro   || "",
         numero:   (prev.numero || "").trim() || d.numero || "",
         bairro:   prev.bairro.trim()   || d.bairro    || "",
@@ -403,12 +421,13 @@ function ClientPage({ clientData, setClientData, setPage }) {
                 placeholder="00.000.000/0001-00"
                 name="gs_cnpj_nofill"
                 value={form.cnpj}
-                onChange={e => setForm({ ...form, cnpj: e.target.value })}
+                onChange={e => setForm({ ...form, cnpj: formatarCnpj(e.target.value) })}
                 onFocus={(e) => e.target.removeAttribute("readonly")}
                 onBlur={() => {
                   const c = (form.cnpj || "").replace(/\D/g, "");
                   if (c.length === 14 && !buscandoCnpj) buscarCnpj();
                 }}
+                maxLength={18}
                 style={!form.cnpj.trim() && erro ? { ...inpErr, flex: 1 } : { ...inp, flex: 1 }}
               />
               <button
@@ -437,7 +456,7 @@ function ClientPage({ clientData, setClientData, setPage }) {
           </div>
           <div>
             <label style={labelStyle}>Celular *</label>
-            <input {...noFill} placeholder="(00) 00000-0000" name="gs_tel_nofill" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} style={!form.telefone.trim() && erro ? inpErr : inp} />
+            <input {...noFill} placeholder="(00)00000-0000" name="gs_tel_nofill" value={form.telefone} onChange={e => setForm({ ...form, telefone: formatarCelular(e.target.value) })} maxLength={14} style={!form.telefone.trim() && erro ? inpErr : inp} />
           </div>
           <div>
             <label style={labelStyle}>E-mail</label>
