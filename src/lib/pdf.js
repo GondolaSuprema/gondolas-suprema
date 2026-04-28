@@ -125,19 +125,21 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   doc.setFont(undefined, "bold");
   doc.text("ORCAMENTO", pageW - margin, 18, { align: "right" });
 
-  doc.setFontSize(10);
+  // Em destaque (laranja): nome da empresa em vez do ID interno
+  doc.setFontSize(11);
   doc.setTextColor(245, 166, 35);
-  if (orderNum) doc.text("#" + orderNum, pageW - margin, 24, { align: "right" });
+  doc.setFont(undefined, "bold");
+  var tituloDestaque = (client && client.empresa) ? client.empresa : (orderNum ? "#" + orderNum : "");
+  if (tituloDestaque) {
+    doc.text(tituloDestaque, pageW - margin, 24, { align: "right", maxWidth: 90 });
+  }
 
   doc.setFontSize(9);
   doc.setTextColor(100);
+  doc.setFont(undefined, "normal");
   doc.text("Data: " + date, pageW - margin, 30, { align: "right" });
 
   var cy = 36;
-  doc.setTextColor(30);
-  doc.setFont(undefined, "bold");
-  if (client && client.empresa) { doc.text("Empresa: " + client.empresa, pageW - margin, cy, { align: "right" }); cy += 4.5; }
-  doc.setFont(undefined, "normal");
   doc.setTextColor(80);
   if (client && client.cnpj) { doc.text("CNPJ: " + client.cnpj, pageW - margin, cy, { align: "right" }); cy += 4.5; }
   if (client && client.responsavel) { doc.text("Responsavel: " + client.responsavel, pageW - margin, cy, { align: "right" }); cy += 4.5; }

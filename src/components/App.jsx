@@ -115,21 +115,87 @@ const COMPANY = {
   site: "www.gondolasuprema.com",
 };
 
-const pdfStyles = `@page{size:A4;margin:20mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Helvetica,Arial,sans-serif;padding:36px;color:#1a1a1a;max-width:800px;margin:auto;position:relative}.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.06;z-index:0;pointer-events:none;width:400px;height:auto}.content{position:relative;z-index:1}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F5A623;padding-bottom:18px;margin-bottom:24px}.logo-area{display:flex;align-items:center;gap:12px}.logo-area img{height:60px}.logo-text{font-size:10px;color:#666;line-height:1.5;margin-top:4px}.info{text-align:right;font-size:11px;color:#666;line-height:1.6}table{width:100%;border-collapse:collapse;margin:12px 0}th{background:#f5f5f5;text-align:left;padding:8px 10px;font-size:11px;border-bottom:2px solid #ddd;color:#555;text-transform:uppercase;letter-spacing:.5px}td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px}.tr td{font-weight:700;font-size:14px;border-top:2px solid #333;border-bottom:none;padding-top:12px}.n{background:#fafafa;padding:14px;border-radius:6px;margin:16px 0;font-size:12px;color:#555}.ft{margin-top:32px;padding-top:12px;border-top:1px solid #eee;font-size:10px;color:#999;text-align:center}@media print{body{padding:0}.watermark{position:fixed;opacity:0.06}}`;
+const pdfStyles = `@page{size:A4;margin:20mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Helvetica,Arial,sans-serif;padding:36px;color:#1a1a1a;max-width:800px;margin:auto;position:relative}.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.06;z-index:0;pointer-events:none;width:400px;height:auto}.content{position:relative;z-index:1}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F5A623;padding-bottom:18px;margin-bottom:24px}.logo-area{display:flex;align-items:center;gap:12px}.logo-area img{height:60px}.logo-text{font-size:10px;color:#666;line-height:1.5;margin-top:4px}.info{text-align:right;font-size:11px;color:#666;line-height:1.6}table{width:100%;border-collapse:collapse;margin:12px 0}th{background:#f5f5f5;text-align:left;padding:8px 10px;font-size:11px;border-bottom:2px solid #ddd;color:#555;text-transform:uppercase;letter-spacing:.5px}td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;vertical-align:middle}.tr td{font-weight:700;font-size:14px;border-top:2px solid #333;border-bottom:none;padding-top:12px}.n{background:#fafafa;padding:14px;border-radius:6px;margin:16px 0;font-size:12px;color:#555}.ft{margin-top:32px;padding-top:12px;border-top:1px solid #eee;font-size:10px;color:#999;text-align:center}.foto-cell{width:54px;text-align:center}.foto-cell img{width:46px;height:46px;object-fit:contain;border-radius:4px;background:#fafafa}.pgto-title{font-size:13px;font-weight:700;color:#333;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.5px}.pgto-info{font-size:12px;color:#555;margin:2px 0}.pgto-table th{font-size:10px;text-align:center}.pgto-table td{text-align:center;font-size:11px}.pgto-obs{font-size:11px;color:#888;font-style:italic;margin-top:8px}@media print{body{padding:0}.watermark{position:fixed;opacity:0.06}}`;
 
-function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, notes }) {
+const ICON_FILE_MAP = {
+  "parede-branca": "parede-branca.jpeg",
+  "parede-preta": "parede-preta.png",
+  "centro-branca": "centro-branca.jpg",
+  "centro-preta": "centro-preta.jpg",
+  "mpp": "mpp.jpg",
+  "checkout-branco": "checkout-branco.jpeg",
+  "checkout-preto": "checkout-preto.jpeg",
+};
+
+function getIconKeyFromItem(item) {
+  const cat = (item.cat || "").toLowerCase();
+  const name = (item.name || "").toLowerCase();
+  const opts = (item.opts || []).join(" ").toLowerCase();
+  const all = `${cat} ${name} ${opts}`;
+  const isPreta = /preta|preto|black/.test(all);
+  if (/checkout|check-out/.test(all)) return isPreta ? "checkout-preto" : "checkout-branco";
+  if (/mini\s*porta\s*pal|mpp|slim/.test(all)) return "mpp";
+  if (/ponta/.test(all)) return isPreta ? "parede-preta" : "parede-branca";
+  if (/centro/.test(all)) return isPreta ? "centro-preta" : "centro-branca";
+  if (/g[oô]ndola|parede/.test(all)) return isPreta ? "parede-preta" : "parede-branca";
+  return null;
+}
+
+function getIconHtml(item) {
+  const key = getIconKeyFromItem(item);
+  if (!key || !ICON_FILE_MAP[key]) return "";
+  return `<img src="/produto-icons/${ICON_FILE_MAP[key]}" alt="" />`;
+}
+
+const TABELA_JUROS_BOLETO_HTML = [
+  { parcelas: 1, juros: 0 },
+  { parcelas: 2, juros: 0 },
+  { parcelas: 3, juros: 0 },
+  { parcelas: 4, juros: 0.015 },
+  { parcelas: 5, juros: 0.030 },
+  { parcelas: 6, juros: 0.045 },
+  { parcelas: 7, juros: 0.060 },
+  { parcelas: 8, juros: 0.075 },
+];
+
+function buildPaymentSection(total, comissao) {
+  const entrada = Number(comissao) || 0;
+  if (!total || total <= entrada) return "";
+  const saldo = total - entrada;
+  const linhas = TABELA_JUROS_BOLETO_HTML.map(({ parcelas, juros }) => {
+    const totalParcelado = saldo * (1 + juros);
+    const valorParcela = totalParcelado / parcelas;
+    const totalGeral = entrada + totalParcelado;
+    const acrescimo = juros === 0 ? "Sem juros" : "+" + (juros * 100).toFixed(1).replace(".", ",") + "%";
+    return `<tr><td><strong>${parcelas}x</strong></td><td>${fmt(valorParcela)}</td><td>${acrescimo}</td><td>${fmt(totalParcelado)}</td><td>${fmt(totalGeral)}</td></tr>`;
+  }).join("");
+  return `
+    <div class="pgto-title">Opções de Pagamento — Boleto</div>
+    ${entrada > 0 ? `<div class="pgto-info"><strong>Entrada (à vista):</strong> ${fmt(entrada)}</div>` : ""}
+    <div class="pgto-info"><strong>Saldo a parcelar:</strong> ${fmt(saldo)}</div>
+    <table class="pgto-table">
+      <thead><tr><th>Parcelas</th><th>Valor da parcela</th><th>Acréscimo</th><th>Total parcelado</th><th>Total geral</th></tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+    <div class="pgto-obs">*obs: Mediante análise de crédito</div>
+  `;
+}
+
+function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, notes, comissao }) {
+  const tituloDestaque = clientCompany || (orderNum ? `#${orderNum}` : "");
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orçamento Gôndolas Suprema</title><style>${pdfStyles}</style></head><body>
 <img class="watermark" src="${LOGO_B64}" alt=""/>
 <div class="content">
 <div class="hdr">
   <div><div class="logo-area"><img src="${LOGO_B64}" alt="Logo"/></div>
   <div class="logo-text">${COMPANY.razao}<br>CNPJ: ${COMPANY.cnpj}<br>${COMPANY.endereco}<br>Tel: ${COMPANY.telefone}<br>${COMPANY.site}</div></div>
-  <div class="info"><strong style="font-size:16px;color:#333">ORÇAMENTO</strong>${orderNum ? `<br><span style="color:#F5A623;font-weight:700">#${orderNum}</span>` : ""}<br>Data: ${date}${clientCompany ? `<br><br><strong>Empresa:</strong> ${clientCompany}` : ""}${clientCnpj ? `<br><strong>CNPJ:</strong> ${clientCnpj}` : ""}${clientName ? `<br><strong>Responsável:</strong> ${clientName}` : ""}${clientPhone ? `<br><strong>Tel:</strong> ${clientPhone}` : ""}${clientEmail ? `<br><strong>E-mail:</strong> ${clientEmail}` : ""}${clientEndereco ? `<br><strong>End:</strong> ${clientEndereco}` : ""}</div>
+  <div class="info"><strong style="font-size:16px;color:#333">ORÇAMENTO</strong>${tituloDestaque ? `<br><span style="color:#F5A623;font-weight:700;font-size:13px">${tituloDestaque}</span>` : ""}<br>Data: ${date}${clientCnpj ? `<br><strong>CNPJ:</strong> ${clientCnpj}` : ""}${clientName ? `<br><strong>Responsável:</strong> ${clientName}` : ""}${clientPhone ? `<br><strong>Tel:</strong> ${clientPhone}` : ""}${clientEmail ? `<br><strong>E-mail:</strong> ${clientEmail}` : ""}${clientEndereco ? `<br><strong>End:</strong> ${clientEndereco}` : ""}</div>
 </div>
-<table><thead><tr><th>Produto</th><th>Categoria</th><th>Qtd</th><th>Opcionais</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>
-${items.map(i => `<tr><td><strong>${i.name}</strong></td><td>${i.cat || ""}</td><td>${i.qty}</td><td>${i.opts?.length ? i.opts.join(", ") : "—"}</td><td style="text-align:right">${fmt(i.total)}</td></tr>`).join("")}
-<tr class="tr"><td colspan="4">TOTAL GERAL</td><td style="text-align:right;color:#F5A623">${total === 0 ? "Sob consulta" : fmt(total)}</td></tr>
+<table><thead><tr><th>Foto</th><th>Produto</th><th>Categoria</th><th>Qtd</th><th>Opcionais</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>
+${items.map(i => `<tr><td class="foto-cell">${getIconHtml(i)}</td><td><strong>${i.name}</strong></td><td>${i.cat || ""}</td><td>${i.qty}</td><td>${i.opts?.length ? i.opts.join(", ") : "—"}</td><td style="text-align:right">${fmt(i.total)}</td></tr>`).join("")}
+<tr class="tr"><td colspan="5">TOTAL GERAL</td><td style="text-align:right;color:#F5A623">${total === 0 ? "Sob consulta" : fmt(total)}</td></tr>
 </tbody></table>
+${buildPaymentSection(total, comissao)}
 ${notes ? `<div class="n"><strong>Observações:</strong><br>${notes}</div>` : ""}
 <div class="ft">Orçamento válido por 15 dias • ${COMPANY.razao} • CNPJ: ${COMPANY.cnpj} • ${COMPANY.endereco} • ${COMPANY.telefone}</div>
 </div>
@@ -892,7 +958,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
       clientName: cd.responsavel || user.name, clientCompany: cd.empresa || user.company, clientPhone: cd.telefone || user.phone || "",
       clientCnpj: cd.cnpj, clientEndereco: cd.endereco && cd.cidade ? `${cd.endereco}${cd.bairro ? `, ${cd.bairro}` : ""} — ${cd.cidade}${cd.estado ? `/${cd.estado}` : ""}` : "",
       clientEmail: cd.email,
-      items: order.items, total: order.total, notes: order.notes
+      items: order.items, total: order.total, notes: order.notes,
+      comissao: order.comissao || 0,
     });
   };
 
@@ -901,8 +968,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   const [pdfOrder, setPdfOrder] = useState(null);
 
   const showPdf = (order) => {
+    const cd = order.client || clientData || {};
     setPdfHtml(buildPdfHtml(order));
-    setPdfTitle(order.id.slice(0, 6));
+    setPdfTitle(cd.empresa || user.name || order.id.slice(0, 6));
     setPdfOrder(order);
   };
 
@@ -966,7 +1034,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <button onClick={() => { setPdfHtml(null); setPdfOrder(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20 }}>Orçamento #{pdfTitle}</h2>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20 }}>Orçamento — {pdfTitle}</h2>
           <button onClick={() => handleWhatsApp()} disabled={sharingOrder} style={{ background: sharingOrder ? COLORS.textDim : "#25D366", color: "#fff", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: sharingOrder ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             {sharingOrder ? "Gerando PDF..." : "Enviar via WhatsApp"}
