@@ -102,8 +102,24 @@ const PRODUCTS = [
 ];
 
 const fmt = (v) => v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtMoney = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const genId = () => Math.random().toString(36).substr(2, 9);
 const catLabel = (key) => CATEGORIES.find(c => c.key === key)?.label || key;
+
+function getItemCusto(item, order) {
+  const itemTotal = Number(item.total) || 0;
+  const orderTotal = Number(order.total) || 0;
+  const orderComissao = Number(order.comissao) || 0;
+  const orderFrete = Number(order.frete) || 0;
+  const totalSemFrete = orderTotal - orderFrete;
+  const somaItens = (order.items || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
+  const itensTeemComissao = Math.abs(somaItens - totalSemFrete) < 1 && orderComissao > 0;
+  if (!itensTeemComissao) return itemTotal;
+  const custoTotal = totalSemFrete - orderComissao;
+  if (custoTotal <= 0) return itemTotal;
+  const fator = custoTotal / somaItens;
+  return itemTotal * fator;
+}
 
 function formatarCnpj(valor) {
   const d = (valor || "").replace(/\D/g, "").slice(0, 14);
@@ -786,7 +802,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
     if (!user || saving) return;
     setSaving(true);
     const cd = clientData || {};
-    const newItems = items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemFinal(i) }));
+    const newItems = items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemBase(i) }));
 
     try {
       if (editingOrderId) {
@@ -1237,26 +1253,29 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
               {isOpen && editingId !== o.id && (
                 <div style={{ padding: "0 18px 18px", borderTop: `1px solid ${COLORS.border}` }}>
                   <div style={{ marginTop: 14 }}>
-                    {o.items.map((it, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: COLORS.bg, borderRadius: 8, marginBottom: 6 }}>
-                        <div>
-                          <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.name}</div>
-                          <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
-                            <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{it.cat}</span>
-                            <span style={{ color: COLORS.textDim, fontSize: 11 }}>×{it.qty}</span>
+                    {o.items.map((it, i) => {
+                      const custo = getItemCusto(it, o);
+                      return (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: COLORS.bg, borderRadius: 8, marginBottom: 6 }}>
+                          <div>
+                            <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.name}</div>
+                            <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
+                              <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{it.cat}</span>
+                              <span style={{ color: COLORS.textDim, fontSize: 11 }}>×{it.qty}</span>
+                            </div>
                           </div>
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: custo === 0 ? COLORS.textDim : COLORS.textMuted }}>{fmtMoney(custo)}</span>
                         </div>
-                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: it.total === 0 ? COLORS.textDim : COLORS.textMuted }}>{fmt(it.total)}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {o.notes && <div style={{ padding: "8px 12px", background: COLORS.orange + "08", borderRadius: 8, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif", marginBottom: 12 }}>💬 {o.notes}</div>}
 
                   {(() => {
-                    const valorComissao = o.comissao || 0;
-                    const valorFrete = o.frete || 0;
-                    const valorCusto = (o.total || 0) - valorComissao - valorFrete;
+                    const valorComissao = Number(o.comissao) || 0;
+                    const valorFrete = Number(o.frete) || 0;
+                    const valorCusto = (Number(o.total) || 0) - valorComissao - valorFrete;
                     const linhaStyle = { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", fontFamily: "'DM Sans', sans-serif" };
                     const labelStyle = { color: COLORS.textMuted, fontSize: 12 };
                     const valorStyle = { color: COLORS.text, fontSize: 13, fontWeight: 600 };
@@ -1264,21 +1283,21 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                       <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}10, ${COLORS.orange}05)`, border: `1px solid ${COLORS.orange}25`, borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
                         <div style={linhaStyle}>
                           <span style={labelStyle}>Valor Custo</span>
-                          <span style={valorStyle}>{fmt(valorCusto)}</span>
+                          <span style={valorStyle}>{fmtMoney(valorCusto)}</span>
                         </div>
                         <div style={linhaStyle}>
                           <span style={labelStyle}>+ Valor Comissão</span>
-                          <span style={valorStyle}>{fmt(valorComissao)}</span>
+                          <span style={{ ...valorStyle, color: valorComissao > 0 ? COLORS.success : COLORS.textDim }}>{fmtMoney(valorComissao)}</span>
                         </div>
                         <div style={linhaStyle}>
                           <span style={labelStyle}>+ Frete</span>
-                          <span style={valorStyle}>{fmt(valorFrete)}</span>
+                          <span style={{ ...valorStyle, color: valorFrete > 0 ? COLORS.text : COLORS.textDim }}>{fmtMoney(valorFrete)}</span>
                         </div>
                         <div style={{ borderTop: `1px solid ${COLORS.orange}30`, margin: "8px 0 6px" }} />
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <div>
                             <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>= Total</div>
-                            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: COLORS.orange }}>{fmt(o.total)}</div>
+                            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: COLORS.orange }}>{fmtMoney(o.total)}</div>
                           </div>
                           <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "right" }}>
                             {o.items.length} produto(s)<br/>{o.items.reduce((s, it) => s + it.qty, 0)} unidade(s)
