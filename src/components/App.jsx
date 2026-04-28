@@ -917,7 +917,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
         orderNum: o.id.slice(0, 6).toUpperCase(),
         date: new Date(o.date).toLocaleDateString("pt-BR"),
         client: cd,
-        items: o.items, total: o.total, notes: o.notes
+        items: o.items, total: o.total, notes: o.notes,
+        comissao: o.comissao || 0,
       });
     } catch(e) { console.error(e); }
     setSharingOrder(false);

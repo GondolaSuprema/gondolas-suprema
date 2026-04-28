@@ -35,6 +35,32 @@ function getProductIconKey(item) {
   return null;
 }
 
+const TABELA_JUROS_BOLETO = [
+  { parcelas: 1, juros: 0 },
+  { parcelas: 2, juros: 0 },
+  { parcelas: 3, juros: 0 },
+  { parcelas: 4, juros: 0.015 },
+  { parcelas: 5, juros: 0.030 },
+  { parcelas: 6, juros: 0.045 },
+  { parcelas: 7, juros: 0.060 },
+  { parcelas: 8, juros: 0.075 },
+];
+
+function calcularOpcoesPagamento(total, entrada) {
+  const saldo = Math.max(total - entrada, 0);
+  return TABELA_JUROS_BOLETO.map(({ parcelas, juros }) => {
+    const totalParcelado = saldo * (1 + juros);
+    const valorParcela = totalParcelado / parcelas;
+    return {
+      parcelas,
+      juros,
+      valorParcela,
+      totalParcelado,
+      totalGeral: entrada + totalParcelado,
+    };
+  });
+}
+
 async function loadIcons() {
   const map = {};
   for (const key of ICON_KEYS) {
@@ -57,7 +83,7 @@ async function loadIcons() {
   return map;
 }
 
-export async function generatePDF({ orderNum, date, client, items, total, notes }) {
+export async function generatePDF({ orderNum, date, client, items, total, notes, comissao }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -197,8 +223,74 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
   doc.setTextColor(245, 166, 35);
   doc.text(total === 0 ? "Sob consulta" : fmt(total), pageW - margin, finalY + 7, { align: "right" });
 
+  // Opcoes de pagamento (Boleto)
+  var paymentEndY = finalY + 12;
+  var entrada = Number(comissao) || 0;
+  if (total > 0 && total > entrada) {
+    var saldo = total - entrada;
+    var opcoes = calcularOpcoesPagamento(total, entrada);
+
+    var paymentTitleY = finalY + 16;
+    doc.setFontSize(10);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(30);
+    doc.text("OPCOES DE PAGAMENTO - BOLETO", margin, paymentTitleY);
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, "normal");
+    doc.setTextColor(80);
+    if (entrada > 0) {
+      doc.text("Entrada (a vista): " + fmt(entrada), margin, paymentTitleY + 5);
+      doc.text("Saldo a parcelar: " + fmt(saldo), margin, paymentTitleY + 10);
+    } else {
+      doc.text("Saldo a parcelar: " + fmt(saldo), margin, paymentTitleY + 5);
+    }
+
+    var tabelaStartY = paymentTitleY + (entrada > 0 ? 13 : 8);
+    var bodyData = opcoes.map(function (op) {
+      var jurosLabel = op.juros === 0 ? "Sem juros" : "+" + (op.juros * 100).toFixed(1).replace(".", ",") + "%";
+      return [
+        op.parcelas + "x",
+        fmt(op.valorParcela),
+        jurosLabel,
+        fmt(op.totalParcelado),
+        fmt(op.totalGeral),
+      ];
+    });
+
+    doc.autoTable({
+      startY: tabelaStartY,
+      head: [["Parcelas", "Valor da parcela", "Acrescimo", "Total parcelado", "Total geral"]],
+      body: bodyData,
+      theme: "grid",
+      headStyles: {
+        fillColor: [245, 245, 245],
+        textColor: [80, 80, 80],
+        fontStyle: "bold",
+        fontSize: 8,
+        halign: "center",
+      },
+      bodyStyles: { fontSize: 8, textColor: [40, 40, 40], halign: "center" },
+      columnStyles: {
+        0: { cellWidth: 18, fontStyle: "bold" },
+        1: { cellWidth: 35, halign: "right" },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 35, halign: "right" },
+        4: { cellWidth: 37, halign: "right" },
+      },
+      margin: { left: margin, right: margin },
+    });
+
+    paymentEndY = doc.lastAutoTable.finalY + 4;
+    doc.setFontSize(8);
+    doc.setFont(undefined, "italic");
+    doc.setTextColor(120);
+    doc.text("*obs: Mediante analise de credito", margin, paymentEndY);
+    paymentEndY += 4;
+  }
+
   // Notes
-  var notesY = finalY + 16;
+  var notesY = paymentEndY + 4;
   if (notes) {
     doc.setFillColor(250, 250, 250);
     doc.roundedRect(margin, notesY, pageW - margin * 2, 16, 2, 2, "F");
