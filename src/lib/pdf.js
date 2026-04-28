@@ -12,6 +12,46 @@ const COMPANY = {
 const fmt = (v) =>
   v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+const ICON_URLS = [
+  "/produto-icons/parede-branca.jpg",
+  "/produto-icons/parede-preta.jpg",
+  "/produto-icons/centro-branca.jpg",
+  "/produto-icons/centro-preta.jpg",
+  "/produto-icons/mpp.jpg",
+];
+
+function getProductIconUrl(item) {
+  const cat = (item.cat || "").toLowerCase();
+  const name = (item.name || "").toLowerCase();
+  const opts = (item.opts || []).join(" ").toLowerCase();
+  const all = `${cat} ${name} ${opts}`;
+  const isPreta = /preta|preto|black/.test(all);
+
+  if (/mini\s*porta\s*pal|mpp|slim/.test(all)) return "/produto-icons/mpp.jpg";
+  if (/ponta/.test(all)) return isPreta ? "/produto-icons/parede-preta.jpg" : "/produto-icons/parede-branca.jpg";
+  if (/centro/.test(all)) return isPreta ? "/produto-icons/centro-preta.jpg" : "/produto-icons/centro-branca.jpg";
+  if (/g[oô]ndola|parede/.test(all)) return isPreta ? "/produto-icons/parede-preta.jpg" : "/produto-icons/parede-branca.jpg";
+  return null;
+}
+
+async function loadIcons() {
+  const map = {};
+  for (const url of ICON_URLS) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const b = await r.blob();
+      map[url] = await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(fr.result);
+        fr.onerror = rej;
+        fr.readAsDataURL(b);
+      });
+    } catch (e) {}
+  }
+  return map;
+}
+
 export async function generatePDF({ orderNum, date, client, items, total, notes }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -82,9 +122,16 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
   doc.setLineWidth(0.8);
   doc.line(margin, 60, pageW - margin, 60);
 
+  // Carrega icones de produto
+  var iconMap = await loadIcons();
+  var itemsWithIcons = items.map(function(it) {
+    return Object.assign({}, it, { iconUrl: getProductIconUrl(it) });
+  });
+
   // Table
-  var tableData = items.map(function(it) {
+  var tableData = itemsWithIcons.map(function(it) {
     return [
+      "",
       it.name || "",
       it.cat || "",
       String(it.qty),
@@ -95,7 +142,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
 
   doc.autoTable({
     startY: 64,
-    head: [["Produto", "Categoria", "Qtd", "Opcionais", "Subtotal"]],
+    head: [["Foto", "Produto", "Categoria", "Qtd", "Opcionais", "Subtotal"]],
     body: tableData,
     theme: "grid",
     headStyles: {
@@ -105,15 +152,28 @@ export async function generatePDF({ orderNum, date, client, items, total, notes 
       fontSize: 9,
       halign: "left",
     },
-    bodyStyles: { fontSize: 9, textColor: [40, 40, 40] },
+    bodyStyles: { fontSize: 9, textColor: [40, 40, 40], minCellHeight: 16, valign: "middle" },
     columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 45 },
-      1: { cellWidth: 30 },
-      2: { cellWidth: 15, halign: "center" },
-      3: { cellWidth: 30 },
-      4: { cellWidth: 30, halign: "right" },
+      0: { cellWidth: 16, halign: "center" },
+      1: { fontStyle: "bold", cellWidth: 38 },
+      2: { cellWidth: 28 },
+      3: { cellWidth: 12, halign: "center" },
+      4: { cellWidth: 28 },
+      5: { cellWidth: 28, halign: "right" },
     },
     margin: { left: margin, right: margin },
+    didDrawCell: function (data) {
+      if (data.section !== "body" || data.column.index !== 0) return;
+      var item = itemsWithIcons[data.row.index];
+      if (!item || !item.iconUrl || !iconMap[item.iconUrl]) return;
+      var pad = 1.5;
+      var size = Math.min(data.cell.width - pad * 2, data.cell.height - pad * 2);
+      var x = data.cell.x + (data.cell.width - size) / 2;
+      var y = data.cell.y + (data.cell.height - size) / 2;
+      try {
+        doc.addImage(iconMap[item.iconUrl], "JPEG", x, y, size, size);
+      } catch (e) {}
+    },
   });
 
   // Total row
