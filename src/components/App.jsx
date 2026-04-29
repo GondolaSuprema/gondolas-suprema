@@ -863,6 +863,78 @@ const PRODUCT_RECIPES = {
     ["diversos-402", 4],
     ["diversos-125", 6],
   ],
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ── PONTA DE GÔNDOLA c/ BANDEJA ──
+  // Coluna e complementar = mesmas da Parede
+  // Painel troca p/ AMAPA FIT PAINEL PONTA 78×34 (133/134)
+  // Bandeja 40 troca p/ AMAPA FIT 60KG BANDEJA PONTA 40×78 (90/91)
+  // Bandeja 30 troca p/ AMAPA FIT 40KG BANDEJA PONTA 30×78 (69/70)
+  // Par SLG e porta-etiqueta = mesmos
+  // Quantidades = iguais à Parede c/ Bandeja
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Ponta c/ Bandeja - 1,37m - Branca
+  "300|1,37m|Branca": [
+    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BRANCO
+    ["diversos-75", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
+    ["diversos-133", 4],  // PAINEL PONTA 78*34 BRANCO
+    ["diversos-90", 1],   // BANDEJA PONTA 40*78 BRANCA
+    ["diversos-69", 3],   // BANDEJA PONTA 30*78 BRANCA
+    ["diversos-83", 3],   // PAR SLG 30CM BRANCO
+    ["diversos-402", 4],  // PORTA ETIQUETA
+  ],
+  // Ponta c/ Bandeja - 1,70m - Branca
+  "300|1,70m|Branca": [
+    ["diversos-81", 2],
+    ["diversos-77", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
+    ["diversos-133", 5],
+    ["diversos-90", 1],
+    ["diversos-69", 4],
+    ["diversos-83", 4],
+    ["diversos-402", 5],
+  ],
+  // Ponta c/ Bandeja - 2,00m - Branca
+  "300|2,00m|Branca": [
+    ["diversos-81", 2],
+    ["diversos-79", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
+    ["diversos-133", 6],
+    ["diversos-90", 1],
+    ["diversos-69", 4],
+    ["diversos-83", 4],
+    ["diversos-402", 5],
+  ],
+
+  // Ponta c/ Bandeja - 1,37m - Preta
+  "300|1,37m|Preta": [
+    ["diversos-82", 2],   // COLUNA PAREDE 1,06M PRETO
+    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["diversos-134", 4],  // PAINEL PONTA 78*34 PRETO
+    ["diversos-91", 1],   // BANDEJA PONTA 40*78 PRETA
+    ["diversos-70", 3],   // BANDEJA PONTA 30*78 PRETA
+    ["diversos-84", 3],   // PAR SLG 30CM PRETO
+    ["diversos-402", 4],
+  ],
+  // Ponta c/ Bandeja - 1,70m - Preta
+  "300|1,70m|Preta": [
+    ["diversos-82", 2],
+    ["diversos-78", 2],
+    ["diversos-134", 5],
+    ["diversos-91", 1],
+    ["diversos-70", 4],
+    ["diversos-84", 4],
+    ["diversos-402", 5],
+  ],
+  // Ponta c/ Bandeja - 2,00m - Preta
+  "300|2,00m|Preta": [
+    ["diversos-82", 2],
+    ["diversos-80", 2],
+    ["diversos-134", 6],
+    ["diversos-91", 1],
+    ["diversos-70", 4],
+    ["diversos-84", 4],
+    ["diversos-402", 5],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
@@ -940,10 +1012,8 @@ const PRODUCTS = [
   { id: 34, name: "Centro Continuação 1,70 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 1776.16, specs: { altura: "1,70m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 1668.52 }] },
   { id: 35, name: "Centro Inicial 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2294.05, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 2159.25 }] },
   { id: 36, name: "Centro Continuação 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2155.65, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 2021.3 }] },
-  // ── PONTA ──
-  { id: 37, name: "Ponta 1,40m", category: "ponta", icon: "▶️", price: 411.76, specs: { altura: "1,40m" }, options: [{ label: "Branca" }, { label: "Preta", price: 411.76 }] },
-  { id: 38, name: "Ponta 1,70m", category: "ponta", icon: "▶️", price: 523.94, specs: { altura: "1,70m" }, options: [{ label: "Branca" }, { label: "Preta", price: 523.75 }] },
-  { id: 39, name: "Ponta 2,00m", category: "ponta", icon: "▶️", price: 575.66, specs: { altura: "2,00m" }, options: [{ label: "Branca" }, { label: "Preta", price: 575.29 }] },
+  // ── PONTA DE GÔNDOLA (novo modelo com variantes) ──
+  { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
   // ── SLIM 2000x600 ──
   { id: 40, name: "Slim Inicial 3 Níveis", category: "slim", icon: "📦", price: 663.29, specs: { niveis: "3", tipo: "Inicial", dimensao: "2000x600" }, options: [] },
   { id: 41, name: "Slim Continuação 3 Níveis", category: "slim", icon: "📦", price: 499.26, specs: { niveis: "3", tipo: "Continuação", dimensao: "2000x600" }, options: [] },
@@ -1530,8 +1600,8 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
             </div>
           ))}
         </div>
-      ) : filter === "gondolas-parede" || filter === "gondolas-centro" ? (
-        // Visualização em lista com variantes (altura + cor) para Gôndolas de Parede e Centro
+      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" ? (
+        // Visualização em lista com variantes (altura + cor) para Gôndolas de Parede, Centro e Ponta
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
