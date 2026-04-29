@@ -35,6 +35,11 @@ const VARIANTS_GONDOLA_PAREDE = [
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
 
+const VARIANTS_MPP = [
+  { key: "largura", label: "Largura", options: ["1200mm", "1800mm"] },
+  { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
+];
+
 // Receitas: cada produto + variante recebe uma lista [uniplusId, qtd]
 // Quando o preco do componente muda em produtos_uniplus, o preco da gondola se atualiza automaticamente.
 const PRODUCT_RECIPES = {
@@ -935,6 +940,80 @@ const PRODUCT_RECIPES = {
     ["diversos-84", 4],
     ["diversos-402", 5],
   ],
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ── MPP 2000×800 S/MDF ──
+  // Inicial = 2 montantes / Continuação = 1 montante (diversos-196)
+  // Por nível: 1 par de longarina (218=1200mm, 219=1800mm)
+  //          + transversinas 800mm (diversos-251): 2 p/ 1200, 3 p/ 1800
+  // Sem MDF, sem sapata, sem travessa
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ── MPP 2000×1200×800 INICIAL S/MDF (id 400) ──
+  "400|1200mm|3": [
+    ["diversos-196", 2],   // MONTANTE 2000×800
+    ["diversos-218", 3],   // PAR LONGARINA 1200MM
+    ["diversos-251", 6],   // TRANSVERSINA 800MM (2/par × 3 pares)
+  ],
+  "400|1200mm|4": [
+    ["diversos-196", 2],
+    ["diversos-218", 4],
+    ["diversos-251", 8],
+  ],
+  "400|1200mm|5": [
+    ["diversos-196", 2],
+    ["diversos-218", 5],
+    ["diversos-251", 10],
+  ],
+  // ── MPP 2000×1800×800 INICIAL S/MDF (id 400) ──
+  "400|1800mm|3": [
+    ["diversos-196", 2],
+    ["diversos-219", 3],   // PAR LONGARINA 1800MM
+    ["diversos-251", 9],   // TRANSVERSINA 800MM (3/par × 3 pares)
+  ],
+  "400|1800mm|4": [
+    ["diversos-196", 2],
+    ["diversos-219", 4],
+    ["diversos-251", 12],
+  ],
+  "400|1800mm|5": [
+    ["diversos-196", 2],
+    ["diversos-219", 5],
+    ["diversos-251", 15],
+  ],
+
+  // ── MPP 2000×1200×800 CONTINUAÇÃO S/MDF (id 401) ──
+  "401|1200mm|3": [
+    ["diversos-196", 1],
+    ["diversos-218", 3],
+    ["diversos-251", 6],
+  ],
+  "401|1200mm|4": [
+    ["diversos-196", 1],
+    ["diversos-218", 4],
+    ["diversos-251", 8],
+  ],
+  "401|1200mm|5": [
+    ["diversos-196", 1],
+    ["diversos-218", 5],
+    ["diversos-251", 10],
+  ],
+  // ── MPP 2000×1800×800 CONTINUAÇÃO S/MDF (id 401) ──
+  "401|1800mm|3": [
+    ["diversos-196", 1],
+    ["diversos-219", 3],
+    ["diversos-251", 9],
+  ],
+  "401|1800mm|4": [
+    ["diversos-196", 1],
+    ["diversos-219", 4],
+    ["diversos-251", 12],
+  ],
+  "401|1800mm|5": [
+    ["diversos-196", 1],
+    ["diversos-219", 5],
+    ["diversos-251", 15],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
@@ -1021,13 +1100,9 @@ const PRODUCTS = [
   { id: 43, name: "Slim Continuação 4 Níveis", category: "slim", icon: "📦", price: 611, specs: { niveis: "4", tipo: "Continuação", dimensao: "2000x600" }, options: [] },
   { id: 44, name: "Slim Inicial 5 Níveis", category: "slim", icon: "📦", price: 886.77, specs: { niveis: "5", tipo: "Inicial", dimensao: "2000x600" }, options: [] },
   { id: 45, name: "Slim Continuação 5 Níveis", category: "slim", icon: "📦", price: 722.74, specs: { niveis: "5", tipo: "Continuação", dimensao: "2000x600" }, options: [] },
-  // ── MPP 2000x800 ──
-  { id: 46, name: "MPP Inicial 3 Níveis", category: "mpp", icon: "🏗️", price: 1043.14, specs: { niveis: "3", tipo: "Inicial", dimensao: "2000x800" }, options: [] },
-  { id: 47, name: "MPP Continuação 3 Níveis", category: "mpp", icon: "🏗️", price: 798.02, specs: { niveis: "3", tipo: "Continuação", dimensao: "2000x800" }, options: [] },
-  { id: 48, name: "MPP Inicial 4 Níveis", category: "mpp", icon: "🏗️", price: 1227.44, specs: { niveis: "4", tipo: "Inicial", dimensao: "2000x800" }, options: [] },
-  { id: 49, name: "MPP Continuação 4 Níveis", category: "mpp", icon: "🏗️", price: 982.32, specs: { niveis: "4", tipo: "Continuação", dimensao: "2000x800" }, options: [] },
-  { id: 50, name: "MPP Inicial 5 Níveis", category: "mpp", icon: "🏗️", price: 1411.74, specs: { niveis: "5", tipo: "Inicial", dimensao: "2000x800" }, options: [] },
-  { id: 51, name: "MPP Continuação 5 Níveis", category: "mpp", icon: "🏗️", price: 1166.62, specs: { niveis: "5", tipo: "Continuação", dimensao: "2000x800" }, options: [] },
+  // ── MPP 2000×800 S/MDF (novo modelo com variantes) ──
+  { id: 400, name: "MPP 2000×800 Inicial S/MDF",     category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
+  { id: 401, name: "MPP 2000×800 Continuação S/MDF", category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   // ── MDF ──
   { id: 52, name: "MDF 1200x600", category: "mdf", icon: "🪵", price: 43.80, specs: { dimensao: "1200x600mm" }, options: [] },
   { id: 53, name: "MDF 1200x800", category: "mdf", icon: "🪵", price: 43.80, specs: { dimensao: "1200x800mm" }, options: [] },
@@ -1600,8 +1675,8 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
             </div>
           ))}
         </div>
-      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" ? (
-        // Visualização em lista com variantes (altura + cor) para Gôndolas de Parede, Centro e Ponta
+      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "mpp" ? (
+        // Visualização em lista com variantes para Gôndolas de Parede, Centro, Ponta e MPP
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
