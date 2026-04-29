@@ -308,6 +308,142 @@ const PRODUCT_RECIPES = {
     ["diversos-146", 3],
     ["diversos-173", 15],
   ],
+
+  // ── PAREDE C/ CESTO (estrutura do Gancho, sem ganchos, reguas trocadas por cestos) ──
+  // Parede Inicial c/ Cesto - 1,37m - Branca
+  "104|1,37m|Branca": [
+    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BRANCO
+    ["diversos-75", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
+    ["diversos-126", 4],  // PAINEL BRANCO
+    ["diversos-66", 1],   // BANDEJA 40*90 BRANCA
+    ["diversos-64", 1],   // BANDEJA 30*90 BRANCA
+    ["diversos-83", 1],   // PAR SLG BRANCO
+    ["diversos-402", 2],  // PORTA ETIQUETA
+    ["diversos-124", 2],  // CESTO 2 DIVISORIAS BRANCO
+  ],
+  // Parede Continuação c/ Cesto - 1,37m - Branca
+  "105|1,37m|Branca": [
+    ["diversos-81", 1],
+    ["diversos-75", 1],
+    ["diversos-126", 4],
+    ["diversos-66", 1],
+    ["diversos-64", 1],
+    ["diversos-83", 1],
+    ["diversos-402", 2],
+    ["diversos-124", 2],
+  ],
+  // Parede Inicial c/ Cesto - 1,70m - Branca
+  "104|1,70m|Branca": [
+    ["diversos-81", 2],
+    ["diversos-77", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
+    ["diversos-126", 5],
+    ["diversos-66", 1],
+    ["diversos-64", 1],
+    ["diversos-83", 1],
+    ["diversos-402", 2],
+    ["diversos-124", 3],
+  ],
+  // Parede Continuação c/ Cesto - 1,70m - Branca
+  "105|1,70m|Branca": [
+    ["diversos-81", 1],
+    ["diversos-77", 1],
+    ["diversos-126", 5],
+    ["diversos-66", 1],
+    ["diversos-64", 1],
+    ["diversos-83", 1],
+    ["diversos-402", 2],
+    ["diversos-124", 3],
+  ],
+  // Parede Inicial c/ Cesto - 2,00m - Branca
+  "104|2,00m|Branca": [
+    ["diversos-81", 2],
+    ["diversos-79", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
+    ["diversos-126", 6],
+    ["diversos-66", 1],
+    ["diversos-64", 1],
+    ["diversos-83", 1],
+    ["diversos-402", 2],
+    ["diversos-124", 3],
+  ],
+  // Parede Continuação c/ Cesto - 2,00m - Branca
+  "105|2,00m|Branca": [
+    ["diversos-81", 1],
+    ["diversos-79", 1],
+    ["diversos-126", 6],
+    ["diversos-66", 1],
+    ["diversos-64", 1],
+    ["diversos-83", 1],
+    ["diversos-402", 2],
+    ["diversos-124", 3],
+  ],
+
+  // ── PAREDE C/ CESTO PRETA ──
+  // Parede Inicial c/ Cesto - 1,37m - Preta
+  "104|1,37m|Preta": [
+    ["diversos-82", 2],   // COLUNA PAREDE 1,06M PRETO
+    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["diversos-127", 4],  // PAINEL PRETO
+    ["diversos-67", 1],   // BANDEJA 40*90 PRETA
+    ["diversos-65", 1],   // BANDEJA 30*90 PRETA
+    ["diversos-84", 1],   // PAR SLG PRETO
+    ["diversos-402", 2],  // PORTA ETIQUETA
+    ["diversos-125", 2],  // CESTO 2 DIVISORIAS PRETO
+  ],
+  // Parede Continuação c/ Cesto - 1,37m - Preta
+  "105|1,37m|Preta": [
+    ["diversos-82", 1],
+    ["diversos-76", 1],
+    ["diversos-127", 4],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-125", 2],
+  ],
+  // Parede Inicial c/ Cesto - 1,70m - Preta
+  "104|1,70m|Preta": [
+    ["diversos-82", 2],
+    ["diversos-78", 2],
+    ["diversos-127", 5],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-125", 3],
+  ],
+  // Parede Continuação c/ Cesto - 1,70m - Preta
+  "105|1,70m|Preta": [
+    ["diversos-82", 1],
+    ["diversos-78", 1],
+    ["diversos-127", 5],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-125", 3],
+  ],
+  // Parede Inicial c/ Cesto - 2,00m - Preta
+  "104|2,00m|Preta": [
+    ["diversos-82", 2],
+    ["diversos-80", 2],
+    ["diversos-127", 6],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-125", 3],
+  ],
+  // Parede Continuação c/ Cesto - 2,00m - Preta
+  "105|2,00m|Preta": [
+    ["diversos-82", 1],
+    ["diversos-80", 1],
+    ["diversos-127", 6],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-125", 3],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
