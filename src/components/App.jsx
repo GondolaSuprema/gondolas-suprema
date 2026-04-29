@@ -210,6 +210,30 @@ const PRODUCT_RECIPES = {
     ["diversos-145", 3],
     ["diversos-172", 15],
   ],
+  // Parede Inicial c/ Gancho - 2,00m - Branca
+  "102|2,00m|Branca": [
+    ["diversos-81", 2],
+    ["diversos-79", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
+    ["diversos-126", 6],  // PAINEL (5+1)
+    ["diversos-66", 1],
+    ["diversos-64", 1],
+    ["diversos-83", 1],
+    ["diversos-402", 2],
+    ["diversos-145", 3],  // REGUA (igual 1,70m)
+    ["diversos-172", 15], // GANCHO (igual 1,70m)
+  ],
+  // Parede Continuação c/ Gancho - 2,00m - Branca (1 coluna a menos)
+  "103|2,00m|Branca": [
+    ["diversos-81", 1],
+    ["diversos-79", 1],
+    ["diversos-126", 6],
+    ["diversos-66", 1],
+    ["diversos-64", 1],
+    ["diversos-83", 1],
+    ["diversos-402", 2],
+    ["diversos-145", 3],
+    ["diversos-172", 15],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
