@@ -40,6 +40,12 @@ const VARIANTS_MPP = [
   { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
 ];
 
+const VARIANTS_SLIM = [
+  { key: "largura", label: "Largura", options: ["1200mm", "1800mm"] },
+  { key: "niveis", label: "Níveis", options: ["3", "4", "5", "6"] },
+  { key: "cor", label: "Cor", options: ["Cinza Cristal", "Branco", "Cinza Grafite"] },
+];
+
 // Receitas: cada produto + variante recebe uma lista [uniplusId, qtd]
 // Quando o preco do componente muda em produtos_uniplus, o preco da gondola se atualiza automaticamente.
 const PRODUCT_RECIPES = {
@@ -1014,6 +1020,174 @@ const PRODUCT_RECIPES = {
     ["diversos-219", 5],
     ["diversos-499", 15],
   ],
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ── SLIM 2000×600 S/MDF ──
+  // 3 cores de montante:
+  //   - Cinza Cristal (AMAPA 250KG) → diversos-205
+  //   - Branco (AMAPA 250KG) → diversos-204
+  //   - Cinza Grafite (GRUPO SA 200KG) → diversos-458
+  // Longarinas Laranja AMAPA 250KG: 221 (1200mm) / 223 (1800mm) — comuns às 3 cores
+  // Inicial = 2 montantes / Continuação = 1 montante
+  // Por nível: 1 par de longarina. Sem transversina, sem MDF
+  // Cinza Cristal e Branco: 3/4/5 níveis | Cinza Grafite: 4/5/6 níveis
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ── SLIM INICIAL (id 500) — CINZA CRISTAL ──
+  "500|1200mm|3|Cinza Cristal": [
+    ["diversos-205", 2],
+    ["diversos-221", 3],
+  ],
+  "500|1200mm|4|Cinza Cristal": [
+    ["diversos-205", 2],
+    ["diversos-221", 4],
+  ],
+  "500|1200mm|5|Cinza Cristal": [
+    ["diversos-205", 2],
+    ["diversos-221", 5],
+  ],
+  "500|1800mm|3|Cinza Cristal": [
+    ["diversos-205", 2],
+    ["diversos-223", 3],
+  ],
+  "500|1800mm|4|Cinza Cristal": [
+    ["diversos-205", 2],
+    ["diversos-223", 4],
+  ],
+  "500|1800mm|5|Cinza Cristal": [
+    ["diversos-205", 2],
+    ["diversos-223", 5],
+  ],
+
+  // ── SLIM INICIAL (id 500) — BRANCO ──
+  "500|1200mm|3|Branco": [
+    ["diversos-204", 2],
+    ["diversos-221", 3],
+  ],
+  "500|1200mm|4|Branco": [
+    ["diversos-204", 2],
+    ["diversos-221", 4],
+  ],
+  "500|1200mm|5|Branco": [
+    ["diversos-204", 2],
+    ["diversos-221", 5],
+  ],
+  "500|1800mm|3|Branco": [
+    ["diversos-204", 2],
+    ["diversos-223", 3],
+  ],
+  "500|1800mm|4|Branco": [
+    ["diversos-204", 2],
+    ["diversos-223", 4],
+  ],
+  "500|1800mm|5|Branco": [
+    ["diversos-204", 2],
+    ["diversos-223", 5],
+  ],
+
+  // ── SLIM INICIAL (id 500) — CINZA GRAFITE (4/5/6 níveis) ──
+  "500|1200mm|4|Cinza Grafite": [
+    ["diversos-458", 2],
+    ["diversos-221", 4],
+  ],
+  "500|1200mm|5|Cinza Grafite": [
+    ["diversos-458", 2],
+    ["diversos-221", 5],
+  ],
+  "500|1200mm|6|Cinza Grafite": [
+    ["diversos-458", 2],
+    ["diversos-221", 6],
+  ],
+  "500|1800mm|4|Cinza Grafite": [
+    ["diversos-458", 2],
+    ["diversos-223", 4],
+  ],
+  "500|1800mm|5|Cinza Grafite": [
+    ["diversos-458", 2],
+    ["diversos-223", 5],
+  ],
+  "500|1800mm|6|Cinza Grafite": [
+    ["diversos-458", 2],
+    ["diversos-223", 6],
+  ],
+
+  // ── SLIM CONTINUAÇÃO (id 501) — CINZA CRISTAL ──
+  "501|1200mm|3|Cinza Cristal": [
+    ["diversos-205", 1],
+    ["diversos-221", 3],
+  ],
+  "501|1200mm|4|Cinza Cristal": [
+    ["diversos-205", 1],
+    ["diversos-221", 4],
+  ],
+  "501|1200mm|5|Cinza Cristal": [
+    ["diversos-205", 1],
+    ["diversos-221", 5],
+  ],
+  "501|1800mm|3|Cinza Cristal": [
+    ["diversos-205", 1],
+    ["diversos-223", 3],
+  ],
+  "501|1800mm|4|Cinza Cristal": [
+    ["diversos-205", 1],
+    ["diversos-223", 4],
+  ],
+  "501|1800mm|5|Cinza Cristal": [
+    ["diversos-205", 1],
+    ["diversos-223", 5],
+  ],
+
+  // ── SLIM CONTINUAÇÃO (id 501) — BRANCO ──
+  "501|1200mm|3|Branco": [
+    ["diversos-204", 1],
+    ["diversos-221", 3],
+  ],
+  "501|1200mm|4|Branco": [
+    ["diversos-204", 1],
+    ["diversos-221", 4],
+  ],
+  "501|1200mm|5|Branco": [
+    ["diversos-204", 1],
+    ["diversos-221", 5],
+  ],
+  "501|1800mm|3|Branco": [
+    ["diversos-204", 1],
+    ["diversos-223", 3],
+  ],
+  "501|1800mm|4|Branco": [
+    ["diversos-204", 1],
+    ["diversos-223", 4],
+  ],
+  "501|1800mm|5|Branco": [
+    ["diversos-204", 1],
+    ["diversos-223", 5],
+  ],
+
+  // ── SLIM CONTINUAÇÃO (id 501) — CINZA GRAFITE (4/5/6 níveis) ──
+  "501|1200mm|4|Cinza Grafite": [
+    ["diversos-458", 1],
+    ["diversos-221", 4],
+  ],
+  "501|1200mm|5|Cinza Grafite": [
+    ["diversos-458", 1],
+    ["diversos-221", 5],
+  ],
+  "501|1200mm|6|Cinza Grafite": [
+    ["diversos-458", 1],
+    ["diversos-221", 6],
+  ],
+  "501|1800mm|4|Cinza Grafite": [
+    ["diversos-458", 1],
+    ["diversos-223", 4],
+  ],
+  "501|1800mm|5|Cinza Grafite": [
+    ["diversos-458", 1],
+    ["diversos-223", 5],
+  ],
+  "501|1800mm|6|Cinza Grafite": [
+    ["diversos-458", 1],
+    ["diversos-223", 6],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
@@ -1093,13 +1267,9 @@ const PRODUCTS = [
   { id: 36, name: "Centro Continuação 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2155.65, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 2021.3 }] },
   // ── PONTA DE GÔNDOLA (novo modelo com variantes) ──
   { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  // ── SLIM 2000x600 ──
-  { id: 40, name: "Slim Inicial 3 Níveis", category: "slim", icon: "📦", price: 663.29, specs: { niveis: "3", tipo: "Inicial", dimensao: "2000x600" }, options: [] },
-  { id: 41, name: "Slim Continuação 3 Níveis", category: "slim", icon: "📦", price: 499.26, specs: { niveis: "3", tipo: "Continuação", dimensao: "2000x600" }, options: [] },
-  { id: 42, name: "Slim Inicial 4 Níveis", category: "slim", icon: "📦", price: 775.03, specs: { niveis: "4", tipo: "Inicial", dimensao: "2000x600" }, options: [] },
-  { id: 43, name: "Slim Continuação 4 Níveis", category: "slim", icon: "📦", price: 611, specs: { niveis: "4", tipo: "Continuação", dimensao: "2000x600" }, options: [] },
-  { id: 44, name: "Slim Inicial 5 Níveis", category: "slim", icon: "📦", price: 886.77, specs: { niveis: "5", tipo: "Inicial", dimensao: "2000x600" }, options: [] },
-  { id: 45, name: "Slim Continuação 5 Níveis", category: "slim", icon: "📦", price: 722.74, specs: { niveis: "5", tipo: "Continuação", dimensao: "2000x600" }, options: [] },
+  // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
+  { id: 500, name: "Slim 2000×600 Inicial S/MDF",     category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM },
+  { id: 501, name: "Slim 2000×600 Continuação S/MDF", category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM },
   // ── MPP 2000×800 S/MDF (novo modelo com variantes) ──
   { id: 400, name: "MPP 2000×800 Inicial S/MDF",     category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   { id: 401, name: "MPP 2000×800 Continuação S/MDF", category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
@@ -1675,8 +1845,8 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
             </div>
           ))}
         </div>
-      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "mpp" ? (
-        // Visualização em lista com variantes para Gôndolas de Parede, Centro, Ponta e MPP
+      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "mpp" || filter === "slim" ? (
+        // Visualização em lista com variantes para Gôndolas de Parede, Centro, Ponta, MPP e Slim
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
