@@ -118,7 +118,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
 
     // Watermark - logo grande centralizada e transparente (PNG com fundo transparente)
     doc.saveGraphicsState();
-    doc.setGState(new doc.GState({ opacity: 0.12 }));
+    doc.setGState(new doc.GState({ opacity: 0.15 }));
     var wmSize = 180;
     doc.addImage(logoBase64, "PNG", pageW / 2 - wmSize / 2, pageH / 2 - wmSize / 2, wmSize, wmSize);
     doc.restoreGraphicsState();
@@ -133,7 +133,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   //   do cliente colados acima da linha laranja.
   // ──────────────────────────────────────────────────────────────────────
   var rightX = pageW - margin;          // X de alinhamento direito (ORCAMENTO/cliente)
-  var headerBottom = 80;                // Y da linha laranja final (header maior pra acomodar logo grande)
+  var headerBottom = 67;                // Y da linha laranja final (compacto, texto colado abaixo da logo)
 
   // Bloco texto da empresa — empilhado embaixo, terminando logo acima da linha laranja
   var leftLineHeight = 4;
@@ -212,7 +212,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   doc.setFontSize(11);
   doc.setFont(undefined, "bold");
   doc.setTextColor(60);
-  doc.text("PRODUTOS:", margin, 87);
+  doc.text("PRODUTOS:", margin, 74);
 
   // Table
   var tableData = itemsWithIcons.map(function(it) {
@@ -231,7 +231,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   // Total = 18+52+34+14+30+32 = 180mm (= pageW 210 - 2*margin 30)
 
   doc.autoTable({
-    startY: 91,
+    startY: 78,
     head: [["Foto", "Produto", "Categoria", "Qtd", "Opcionais", "Subtotal"]],
     body: tableData,
     theme: "grid",
