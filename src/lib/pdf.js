@@ -133,36 +133,46 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   doc.text("Tel: " + COMPANY.telefone, infoLeftX, 29);
   doc.text(COMPANY.site, infoLeftX, 34);
 
-  // Bloco direito: ORCAMENTO em destaque
+  // Bloco direito (topo): ORCAMENTO em destaque
   doc.setFontSize(22);
   doc.setTextColor(30);
   doc.setFont(undefined, "bold");
   doc.text("ORCAMENTO", rightX, 17, { align: "right" });
 
-  // Titulo destaque (laranja) - empresa do cliente
-  doc.setFontSize(13);
-  doc.setTextColor(245, 166, 35);
-  doc.setFont(undefined, "bold");
-  var tituloDestaque = (client && client.empresa) ? client.empresa : (orderNum ? "#" + orderNum : "");
-  if (tituloDestaque) {
-    doc.text(tituloDestaque, rightX, 25, { align: "right", maxWidth: 110 });
-  }
-
-  // Dados do cliente
-  doc.setFontSize(9);
-  doc.setTextColor(90);
-  doc.setFont(undefined, "normal");
-  doc.text("Data: " + date, rightX, 32, { align: "right" });
-
-  var cy = 37;
-  doc.setTextColor(80);
-  if (client && client.cnpj) { doc.text("CNPJ: " + client.cnpj, rightX, cy, { align: "right" }); cy += 4.5; }
-  if (client && client.responsavel) { doc.text("Responsavel: " + client.responsavel, rightX, cy, { align: "right" }); cy += 4.5; }
-  if (client && client.telefone) { doc.text("Tel: " + client.telefone, rightX, cy, { align: "right" }); cy += 4.5; }
-  if (client && client.email) { doc.text("E-mail: " + client.email, rightX, cy, { align: "right" }); cy += 4.5; }
+  // === Bloco direito (parte inferior): titulo cliente + dados, colados acima da linha laranja ===
+  // Coleta as linhas que vao aparecer
+  var clientLines = ["Data: " + date];
+  if (client && client.cnpj) clientLines.push("CNPJ: " + client.cnpj);
+  if (client && client.responsavel) clientLines.push("Responsavel: " + client.responsavel);
+  if (client && client.telefone) clientLines.push("Tel: " + client.telefone);
+  if (client && client.email) clientLines.push("E-mail: " + client.email);
   if (client && client.endereco && client.cidade) {
     var addr = client.endereco + (client.bairro ? ", " + client.bairro : "") + " - " + client.cidade + (client.estado ? "/" + client.estado : "");
-    doc.text("End: " + addr, rightX, cy, { align: "right" }); cy += 4.5;
+    clientLines.push("End: " + addr);
+  }
+
+  // Calcula Y de inicio pra que o bloco termine em headerBottom - 3 (logo acima da linha laranja)
+  var lineHeight = 4.5;
+  var lastLineY = headerBottom - 3; // ultima linha 3mm acima da linha laranja
+  var firstLineY = lastLineY - (clientLines.length - 1) * lineHeight;
+
+  // Titulo destaque (laranja) — empresa do cliente, posicionado logo acima do bloco de dados
+  var tituloDestaque = (client && client.empresa) ? client.empresa : (orderNum ? "#" + orderNum : "");
+  if (tituloDestaque) {
+    doc.setFontSize(13);
+    doc.setTextColor(245, 166, 35);
+    doc.setFont(undefined, "bold");
+    doc.text(tituloDestaque, rightX, firstLineY - 6, { align: "right", maxWidth: 110 });
+  }
+
+  // Renderiza dados do cliente, empilhando ate lastLineY
+  doc.setFontSize(9);
+  doc.setFont(undefined, "normal");
+  doc.setTextColor(80);
+  var cy = firstLineY;
+  for (var li = 0; li < clientLines.length; li++) {
+    doc.text(clientLines[li], rightX, cy, { align: "right" });
+    cy += lineHeight;
   }
 
   // Linha laranja embaixo do cabecalho - ocupando toda largura util
