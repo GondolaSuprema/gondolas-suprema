@@ -122,8 +122,8 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     doc.addImage(logoBase64, "JPEG", pageW / 2 - 75.6, pageH / 2 - 135, 151.2, 270);
     doc.restoreGraphicsState();
 
-    // Header logo - proporcional (imagem vertical 1080x1920), no TOPO da coluna esquerda (+8%)
-    doc.addImage(logoBase64, "JPEG", margin, 5, 21.6, 37.8);
+    // Header logo - proporcional (imagem vertical 1080x1920), no TOPO da coluna esquerda
+    doc.addImage(logoBase64, "JPEG", margin, 5, 23.76, 41.58);
   } catch (e) {}
 
   // ──────────────────────────────────────────────────────────────────────
