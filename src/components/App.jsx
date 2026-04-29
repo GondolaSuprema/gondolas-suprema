@@ -98,6 +98,68 @@ const PRODUCT_RECIPES = {
     ["diversos-83", 4],
     ["diversos-402", 5],
   ],
+
+  // ── PRETAS (mesma estrutura das brancas, componentes pretos) ──
+  // Parede Inicial c/ Bandeja - 1,37m - Preta
+  "100|1,37m|Preta": [
+    ["diversos-82", 2],   // COLUNA PAREDE 1,06M PRETO
+    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["diversos-127", 4],  // PAINEL 90*34CM PRETO
+    ["diversos-67", 1],   // BANDEJA 40*90CM PRETA
+    ["diversos-65", 3],   // BANDEJA 30*90CM PRETA
+    ["diversos-84", 3],   // PAR SLG 30CM PRETO
+    ["diversos-402", 4],  // PORTA ETIQUETA (sem cor)
+  ],
+  // Parede Continuação c/ Bandeja - 1,37m - Preta
+  "101|1,37m|Preta": [
+    ["diversos-82", 1],
+    ["diversos-76", 1],
+    ["diversos-127", 4],
+    ["diversos-67", 1],
+    ["diversos-65", 3],
+    ["diversos-84", 3],
+    ["diversos-402", 4],
+  ],
+  // Parede Inicial c/ Bandeja - 1,70m - Preta
+  "100|1,70m|Preta": [
+    ["diversos-82", 2],
+    ["diversos-78", 2],   // COLUNA COMPLEMENTAR 1,70M PRETO
+    ["diversos-127", 5],
+    ["diversos-67", 1],
+    ["diversos-65", 4],
+    ["diversos-84", 4],
+    ["diversos-402", 5],
+  ],
+  // Parede Continuação c/ Bandeja - 1,70m - Preta
+  "101|1,70m|Preta": [
+    ["diversos-82", 1],
+    ["diversos-78", 1],
+    ["diversos-127", 5],
+    ["diversos-67", 1],
+    ["diversos-65", 4],
+    ["diversos-84", 4],
+    ["diversos-402", 5],
+  ],
+  // Parede Inicial c/ Bandeja - 2,00m - Preta
+  "100|2,00m|Preta": [
+    ["diversos-82", 2],
+    ["diversos-80", 2],   // COLUNA COMPLEMENTAR 2,02M PRETO
+    ["diversos-127", 6],
+    ["diversos-67", 1],
+    ["diversos-65", 4],
+    ["diversos-84", 4],
+    ["diversos-402", 5],
+  ],
+  // Parede Continuação c/ Bandeja - 2,00m - Preta
+  "101|2,00m|Preta": [
+    ["diversos-82", 1],
+    ["diversos-80", 1],
+    ["diversos-127", 6],
+    ["diversos-67", 1],
+    ["diversos-65", 4],
+    ["diversos-84", 4],
+    ["diversos-402", 5],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
