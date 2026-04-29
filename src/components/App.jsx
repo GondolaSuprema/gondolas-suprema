@@ -608,6 +608,7 @@ function Catalog({ onAdd }) {
   const [outrosProdutos, setOutrosProdutos] = useState([]);
   const [loadingOutros, setLoadingOutros] = useState(false);
   const [variantSel, setVariantSel] = useState({}); // { [productId]: { altura: "1,37m", cor: "Branca" } }
+  const [qtyByProduct, setQtyByProduct] = useState({});
 
   const getProductVariantSel = (p) => {
     const sel = variantSel[p.id] || {};
@@ -620,6 +621,9 @@ function Catalog({ onAdd }) {
   const setProductVariant = (productId, key, value) => {
     setVariantSel(prev => ({ ...prev, [productId]: { ...(prev[productId] || {}), [key]: value } }));
   };
+
+  const getProductQty = (p) => qtyByProduct[p.id] || 1;
+  const setProductQty = (productId, qty) => setQtyByProduct(prev => ({ ...prev, [productId]: Math.max(1, qty) }));
 
   useEffect(() => {
     let cancelled = false;
@@ -692,6 +696,7 @@ function Catalog({ onAdd }) {
           )}
           {filtered.map((p, idx) => {
             const sel = getProductVariantSel(p);
+            const qty = getProductQty(p);
             const pillStyle = (active) => ({ background: active ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${active ? COLORS.orange : COLORS.border}`, color: active ? COLORS.orange : COLORS.textMuted, padding: "4px 12px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: active ? 600 : 400 });
             return (
               <div key={p.id} style={{ padding: "14px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
@@ -706,8 +711,19 @@ function Catalog({ onAdd }) {
                     ))}
                   </div>
                 ))}
+                <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                  <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginRight: 6 }}>Qtd:</span>
+                  <button onClick={() => setProductQty(p.id, qty - 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 26, height: 28, borderRadius: "6px 0 0 6px", cursor: "pointer", fontSize: 13 }}>−</button>
+                  <input
+                    type="number" min="1"
+                    value={qty}
+                    onChange={e => setProductQty(p.id, Number(e.target.value) || 1)}
+                    style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 44, height: 28, textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", padding: 0, MozAppearance: "textfield" }}
+                  />
+                  <button onClick={() => setProductQty(p.id, qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 26, height: 28, borderRadius: "0 6px 6px 0", cursor: "pointer", fontSize: 13 }}>+</button>
+                </div>
                 <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange, textAlign: "right", minWidth: 110 }}>{p.price === 0 ? "Sob consulta" : fmt(p.price)}</div>
-                <button onClick={() => onAdd(p, sel)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "7px 14px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 110 }}>+ Orçamento</button>
+                <button onClick={() => onAdd(p, sel, qty)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "7px 14px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 110 }}>+ Orçamento</button>
               </div>
             );
           })}
@@ -3310,13 +3326,14 @@ export default function App() {
     setUser(null);
     setPage("login");
   };
-  const addToQuote = (p, selectedVariants) => {
+  const addToQuote = (p, selectedVariants, qty) => {
+    const addQty = Math.max(1, Number(qty) || 1);
     const sameVariants = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {});
     const ex = cart.findIndex(i => i.product.id === p.id && sameVariants(i.selVariants, selectedVariants));
-    if (ex >= 0) { const c = [...cart]; c[ex] = { ...c[ex], qty: c[ex].qty + 1 }; setCart(c); }
+    if (ex >= 0) { const c = [...cart]; c[ex] = { ...c[ex], qty: c[ex].qty + addQty }; setCart(c); }
     else setCart([...cart, {
       product: p,
-      qty: 1,
+      qty: addQty,
       selOpts: p.options && p.options.length > 0 ? [0] : [],
       selVariants: selectedVariants || null,
     }]);
