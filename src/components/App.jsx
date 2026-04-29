@@ -20,15 +20,12 @@ const COLORS = {
 
 const CATEGORIES = [
   { key: "all", label: "Todos" },
-  { key: "parede-bandejas", label: "Parede c/ Bandejas" },
-  { key: "parede-ganchos", label: "Parede c/ Ganchos" },
-  { key: "parede-cestos", label: "Parede c/ Cestos" },
-  { key: "centro-bandejas", label: "Centro c/ Bandejas" },
-  { key: "centro-ganchos", label: "Centro c/ Ganchos" },
-  { key: "centro-cestos", label: "Centro c/ Cestos" },
-  { key: "ponta", label: "Ponta" },
-  { key: "slim", label: "Slim 2000x600" },
-  { key: "mpp", label: "MPP 2000x800" },
+  { key: "gondolas-parede", label: "Gôndolas de Parede" },
+  { key: "gondolas-centro", label: "Gôndolas de Centro" },
+  { key: "ponta-gondola", label: "Ponta de Gôndola" },
+  { key: "mpp", label: "MPP" },
+  { key: "slim", label: "Slim" },
+  { key: "moveis", label: "Móveis" },
   { key: "mdf", label: "MDF" },
   { key: "outros", label: "Outros Produtos" },
 ];
