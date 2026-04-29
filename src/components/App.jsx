@@ -2231,10 +2231,25 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
       const product = it.product;
       const qtd = Number(it.qty) || 0;
       const sel = it.selVariants || {};
-      const key = product && product.variants ? recipeKeyForProduct(product, sel) : null;
+
+      // Reconstroi referencia ao produto original (orçamentos salvos perdem product.variants)
+      const orig = product && product.id != null
+        ? PRODUCTS.find(p => p.id === product.id) || product
+        : product;
+      const productForKey = orig && orig.variants ? orig : null;
+
+      let key = productForKey ? recipeKeyForProduct(productForKey, sel) : null;
+
+      // Fallback adicional: se sel esta vazio, tenta usar it.opts (array preservado em ordem)
+      if (!key && product && product.id != null && Array.isArray(it.opts) && it.opts.length) {
+        const candidate = [product.id, ...it.opts].join("|");
+        if (PRODUCT_RECIPES[candidate]) key = candidate;
+      }
+
       const receita = key && PRODUCT_RECIPES[key];
       if (!receita) {
-        naoExpandidos.push({ nome: product?.name || "(sem nome)", qty: qtd, opts: it.opts || [] });
+        const nome = product?.name || orig?.name || "(sem nome)";
+        naoExpandidos.push({ nome, qty: qtd, opts: it.opts || [] });
         return;
       }
       receita.forEach(([uniplusId, qtdPorUnidade]) => {
