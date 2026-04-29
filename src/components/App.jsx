@@ -19,7 +19,6 @@ const COLORS = {
 };
 
 const CATEGORIES = [
-  { key: "all", label: "Todos" },
   { key: "gondolas-parede", label: "Gôndolas de Parede" },
   { key: "gondolas-centro", label: "Gôndolas de Centro" },
   { key: "ponta-gondola", label: "Ponta de Gôndola" },
@@ -1784,7 +1783,7 @@ function Login({ onLogin, setPage }) {
 
 // ─── CATALOG ───
 function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("gondolas-parede");
   const [search, setSearch] = useState("");
   const [outrosProdutos, setOutrosProdutos] = useState([]);
   const [loadingOutros, setLoadingOutros] = useState(false);
@@ -1823,7 +1822,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
   }, [uniplusFromApp]);
 
   const todosProdutos = [...PRODUCTS, ...outrosProdutos];
-  const filtered = todosProdutos.filter(p => (filter === "all" || p.category === filter) && p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = todosProdutos.filter(p => p.category === filter && p.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
@@ -1857,8 +1856,8 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
             </div>
           ))}
         </div>
-      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "mpp" || filter === "slim" ? (
-        // Visualização em lista com variantes para Gôndolas de Parede, Centro, Ponta, MPP e Slim
+      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "mpp" || filter === "slim" || filter === "mdf" ? (
+        // Visualização em lista para Gôndolas de Parede, Centro, Ponta, MPP, Slim e MDF
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
