@@ -116,14 +116,8 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
       r.readAsDataURL(blob);
     });
 
-    // Watermark - logo grande centralizada e transparente (PNG com fundo transparente)
-    doc.saveGraphicsState();
-    doc.setGState(new doc.GState({ opacity: 0.15 }));
-    var wmSize = 180;
-    doc.addImage(logoBase64, "PNG", pageW / 2 - wmSize / 2, pageH / 2 - wmSize / 2, wmSize, wmSize);
-    doc.restoreGraphicsState();
-
     // Header logo - quadrada (1024x1024), no TOPO da coluna esquerda
+    // (Marca d'agua e desenhada POR CIMA no final, em todas as paginas)
     doc.addImage(logoBase64, "PNG", margin, 5, 40, 40);
   } catch (e) {}
 
@@ -374,6 +368,20 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     footerY + 4,
     { align: "center" }
   );
+
+  // Marca d'agua POR CIMA de todo o conteudo, em TODAS as paginas
+  // (PNG transparente com opacity 0.12 — fica visivel atras das tabelas tambem)
+  if (logoBase64) {
+    var totalPages = doc.internal.getNumberOfPages();
+    var wmSize = 180;
+    for (var p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({ opacity: 0.12 }));
+      doc.addImage(logoBase64, "PNG", pageW / 2 - wmSize / 2, pageH / 2 - wmSize / 2, wmSize, wmSize);
+      doc.restoreGraphicsState();
+    }
+  }
 
   return doc;
 }
