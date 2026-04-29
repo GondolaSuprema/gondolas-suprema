@@ -116,14 +116,15 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
       r.readAsDataURL(blob);
     });
 
-    // Watermark - logo grande centralizada e transparente (+8% maior, opacidade levemente maior)
+    // Watermark - logo grande centralizada e transparente (logo quadrada 1024x1024, ratio 1:1)
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({ opacity: 0.08 }));
-    doc.addImage(logoBase64, "JPEG", pageW / 2 - 75.6, pageH / 2 - 135, 151.2, 270);
+    var wmSize = 180;
+    doc.addImage(logoBase64, "JPEG", pageW / 2 - wmSize / 2, pageH / 2 - wmSize / 2, wmSize, wmSize);
     doc.restoreGraphicsState();
 
-    // Header logo - proporcional (imagem vertical 1080x1920), no TOPO da coluna esquerda — versao maior
-    doc.addImage(logoBase64, "JPEG", margin, 5, 31, 54);
+    // Header logo - quadrada (1024x1024), no TOPO da coluna esquerda
+    doc.addImage(logoBase64, "JPEG", margin, 5, 40, 40);
   } catch (e) {}
 
   // ──────────────────────────────────────────────────────────────────────
