@@ -186,6 +186,30 @@ const PRODUCT_RECIPES = {
     ["diversos-145", 2],
     ["diversos-172", 10],
   ],
+  // Parede Inicial c/ Gancho - 1,70m - Branca
+  "102|1,70m|Branca": [
+    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BRANCO
+    ["diversos-77", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
+    ["diversos-126", 5],  // PAINEL 90*34CM BRANCO (4+1)
+    ["diversos-66", 1],   // BANDEJA 40*90CM BRANCA
+    ["diversos-64", 1],   // BANDEJA 30*90CM BRANCA
+    ["diversos-83", 1],   // PAR SLG 30CM BRANCO
+    ["diversos-402", 2],  // PORTA ETIQUETA
+    ["diversos-145", 3],  // RÉGUA 90CM BRANCO (2+1)
+    ["diversos-172", 15], // GANCHO SIMPLES 25CM BRANCO (10+5)
+  ],
+  // Parede Continuação c/ Gancho - 1,70m - Branca (1 coluna a menos)
+  "103|1,70m|Branca": [
+    ["diversos-81", 1],
+    ["diversos-77", 1],
+    ["diversos-126", 5],
+    ["diversos-66", 1],
+    ["diversos-64", 1],
+    ["diversos-83", 1],
+    ["diversos-402", 2],
+    ["diversos-145", 3],
+    ["diversos-172", 15],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
