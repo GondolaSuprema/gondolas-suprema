@@ -106,54 +106,69 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     doc.addImage(logoBase64, "JPEG", pageW / 2 - 70, pageH / 2 - 125, 140, 250);
     doc.restoreGraphicsState();
 
-    // Header logo - proporcional (imagem vertical 1080x1920)
-    doc.addImage(logoBase64, "JPEG", margin, 5, 22, 39);
+    // Header logo - proporcional (imagem vertical 1080x1920), maior pra ocupar bem o cabecalho
+    doc.addImage(logoBase64, "JPEG", margin, 7, 26, 46);
   } catch (e) {}
 
-  // Company info ao lado da logo
-  doc.setFontSize(8);
-  doc.setTextColor(100);
-  doc.text(COMPANY.razao, margin + 25, 15);
-  doc.text("CNPJ: " + COMPANY.cnpj, margin + 25, 19);
-  doc.text(COMPANY.endereco, margin + 25, 23);
-  doc.text("Tel: " + COMPANY.telefone, margin + 25, 27);
-  doc.text(COMPANY.site, margin + 25, 31);
+  // ──────────────────────────────────────────────────────────────────────
+  // Cabecalho — distribuido em 3 zonas usando toda a largura util da pagina:
+  //   [Logo 26mm] | [Razao + dados empresa, centro] | [ORCAMENTO + cliente, direita]
+  // ──────────────────────────────────────────────────────────────────────
+  var infoLeftX = margin + 30;        // X onde comeca o bloco de info da empresa
+  var rightX = pageW - margin;         // X de alinhamento direito (ORCAMENTO/cliente)
+  var headerBottom = 60;               // Y da linha laranja final
 
-  // Order info - right side
-  doc.setFontSize(16);
+  // Razao social — destaque, fonte maior em bold
+  doc.setFontSize(11);
+  doc.setTextColor(40);
+  doc.setFont(undefined, "bold");
+  doc.text(COMPANY.razao, infoLeftX, 14);
+
+  // Dados empresa - fonte maior (8.5pt) com cor de hierarquia
+  doc.setFontSize(8.5);
+  doc.setTextColor(110);
+  doc.setFont(undefined, "normal");
+  doc.text("CNPJ: " + COMPANY.cnpj, infoLeftX, 19);
+  doc.text(COMPANY.endereco, infoLeftX, 24);
+  doc.text("Tel: " + COMPANY.telefone, infoLeftX, 29);
+  doc.text(COMPANY.site, infoLeftX, 34);
+
+  // Bloco direito: ORCAMENTO em destaque
+  doc.setFontSize(22);
   doc.setTextColor(30);
   doc.setFont(undefined, "bold");
-  doc.text("ORCAMENTO", pageW - margin, 18, { align: "right" });
+  doc.text("ORCAMENTO", rightX, 17, { align: "right" });
 
-  // Em destaque (laranja): nome da empresa em vez do ID interno
-  doc.setFontSize(11);
+  // Titulo destaque (laranja) - empresa do cliente
+  doc.setFontSize(13);
   doc.setTextColor(245, 166, 35);
   doc.setFont(undefined, "bold");
   var tituloDestaque = (client && client.empresa) ? client.empresa : (orderNum ? "#" + orderNum : "");
   if (tituloDestaque) {
-    doc.text(tituloDestaque, pageW - margin, 24, { align: "right", maxWidth: 90 });
+    doc.text(tituloDestaque, rightX, 25, { align: "right", maxWidth: 110 });
   }
 
+  // Dados do cliente
   doc.setFontSize(9);
-  doc.setTextColor(100);
+  doc.setTextColor(90);
   doc.setFont(undefined, "normal");
-  doc.text("Data: " + date, pageW - margin, 30, { align: "right" });
+  doc.text("Data: " + date, rightX, 32, { align: "right" });
 
-  var cy = 36;
+  var cy = 37;
   doc.setTextColor(80);
-  if (client && client.cnpj) { doc.text("CNPJ: " + client.cnpj, pageW - margin, cy, { align: "right" }); cy += 4.5; }
-  if (client && client.responsavel) { doc.text("Responsavel: " + client.responsavel, pageW - margin, cy, { align: "right" }); cy += 4.5; }
-  if (client && client.telefone) { doc.text("Tel: " + client.telefone, pageW - margin, cy, { align: "right" }); cy += 4.5; }
-  if (client && client.email) { doc.text("E-mail: " + client.email, pageW - margin, cy, { align: "right" }); cy += 4.5; }
+  if (client && client.cnpj) { doc.text("CNPJ: " + client.cnpj, rightX, cy, { align: "right" }); cy += 4.5; }
+  if (client && client.responsavel) { doc.text("Responsavel: " + client.responsavel, rightX, cy, { align: "right" }); cy += 4.5; }
+  if (client && client.telefone) { doc.text("Tel: " + client.telefone, rightX, cy, { align: "right" }); cy += 4.5; }
+  if (client && client.email) { doc.text("E-mail: " + client.email, rightX, cy, { align: "right" }); cy += 4.5; }
   if (client && client.endereco && client.cidade) {
     var addr = client.endereco + (client.bairro ? ", " + client.bairro : "") + " - " + client.cidade + (client.estado ? "/" + client.estado : "");
-    doc.text("End: " + addr, pageW - margin, cy, { align: "right" }); cy += 4.5;
+    doc.text("End: " + addr, rightX, cy, { align: "right" }); cy += 4.5;
   }
 
-  // Orange line
+  // Linha laranja embaixo do cabecalho - ocupando toda largura util
   doc.setDrawColor(245, 166, 35);
   doc.setLineWidth(0.8);
-  doc.line(margin, 60, pageW - margin, 60);
+  doc.line(margin, headerBottom, pageW - margin, headerBottom);
 
   // Carrega icones de produto
   var iconMap = await loadIcons();
