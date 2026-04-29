@@ -2216,6 +2216,15 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const [editNotes, setEditNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [pecasModal, setPecasModal] = useState(null); // { lista: [...], naoExpandidos: [...] }
+  const [pecasFeitas, setPecasFeitas] = useState({}); // { [uniplusId]: true } — marcacao "ja pedido"
+
+  const togglePecaFeita = (id) => {
+    setPecasFeitas(prev => {
+      const next = { ...prev };
+      if (next[id]) delete next[id]; else next[id] = true;
+      return next;
+    });
+  };
 
   // Mapa { uniplusId -> nome } montado dos produtos sincronizados via Supabase
   const uniplusNomes = useMemo(() => {
@@ -2461,7 +2470,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                   {pecasModal.lista.length} item(s) — quantidades agregadas de todos os produtos do orçamento
                 </p>
               </div>
-              <button onClick={() => setPecasModal(null)} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Fechar</button>
+              <button onClick={() => { setPecasModal(null); setPecasFeitas({}); }} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Fechar</button>
             </div>
             <div style={{ overflowY: "auto", border: `1px solid ${COLORS.border}`, borderRadius: 10 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
@@ -2475,12 +2484,36 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                   {pecasModal.lista.length === 0 && (
                     <tr><td colSpan={2} style={{ padding: 16, textAlign: "center", color: COLORS.textMuted }}>Nenhum produto deste orçamento tem receita configurada.</td></tr>
                   )}
-                  {pecasModal.lista.map((p, idx) => (
-                    <tr key={p.id} style={{ borderBottom: idx < pecasModal.lista.length - 1 ? `1px solid ${COLORS.border}` : "none" }}>
-                      <td style={{ padding: "8px 12px", color: COLORS.text }}>{p.nome}</td>
-                      <td style={{ padding: "8px 12px", color: COLORS.accent, textAlign: "right", fontWeight: 700 }}>{p.qty}</td>
-                    </tr>
-                  ))}
+                  {pecasModal.lista.map((p, idx) => {
+                    const feita = !!pecasFeitas[p.id];
+                    return (
+                      <tr
+                        key={p.id}
+                        onClick={() => togglePecaFeita(p.id)}
+                        title={feita ? "Clique pra desmarcar" : "Clique pra marcar como ja pedido"}
+                        style={{
+                          borderBottom: idx < pecasModal.lista.length - 1 ? `1px solid ${COLORS.border}` : "none",
+                          cursor: "pointer",
+                          background: feita ? COLORS.bg : "transparent",
+                          transition: "background 0.15s",
+                          userSelect: "none",
+                        }}
+                      >
+                        <td style={{
+                          padding: "8px 12px",
+                          color: feita ? COLORS.textDim : COLORS.text,
+                          textDecoration: feita ? "line-through" : "none",
+                        }}>{p.nome}</td>
+                        <td style={{
+                          padding: "8px 12px",
+                          color: feita ? COLORS.textDim : COLORS.accent,
+                          textAlign: "right",
+                          fontWeight: 700,
+                          textDecoration: feita ? "line-through" : "none",
+                        }}>{p.qty}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
