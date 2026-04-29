@@ -1867,34 +1867,35 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
             const sel = getProductVariantSel(p);
             const qty = getProductQty(p);
             const computedPrice = computeProductPrice(p, sel, [0], uniplusPriceMap);
-            const pillStyle = (active) => ({ background: active ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${active ? COLORS.orange : COLORS.border}`, color: active ? COLORS.orange : COLORS.textMuted, padding: "4px 12px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: active ? 600 : 400 });
+            const pillStyle = (active) => ({ background: active ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${active ? COLORS.orange : COLORS.border}`, color: active ? COLORS.orange : COLORS.textMuted, padding: "3px 9px", borderRadius: 14, cursor: "pointer", fontSize: 10.5, fontFamily: "'DM Sans', sans-serif", fontWeight: active ? 600 : 400, whiteSpace: "nowrap", lineHeight: 1.2 });
             return (
-              <div key={p.id} style={{ padding: "14px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-                <div style={{ flex: "1 1 240px", minWidth: 200, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.3 }}>{p.name}</div>
-                {(p.variants || []).map(v => (
-                  <div key={v.key} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
-                    <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>{v.label}:</span>
-                    {v.options.map(op => (
-                      <button key={op} onClick={() => setProductVariant(p.id, v.key, op)} style={pillStyle(sel[v.key] === op)}>
-                        {sel[v.key] === op ? "✓ " : ""}{op}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: computedPrice === 0 ? COLORS.textDim : COLORS.orange, textAlign: "right", minWidth: 100 }}>{computedPrice === 0 ? "Sob consulta" : fmt(computedPrice)}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div key={p.id} style={{ padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "nowrap", alignItems: "center", gap: 14, minWidth: 0 }}>
+                <div style={{ flex: "0 1 220px", minWidth: 0, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={p.name}>{p.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 auto", flexWrap: "nowrap", justifyContent: "flex-start", minWidth: 0 }}>
+                  {(p.variants || []).map(v => (
+                    <div key={v.key} style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "nowrap" }}>
+                      <span style={{ color: COLORS.textDim, fontSize: 10.5, fontFamily: "'DM Sans', sans-serif", marginRight: 2, whiteSpace: "nowrap" }}>{v.label}:</span>
+                      {v.options.map(op => (
+                        <button key={op} onClick={() => setProductVariant(p.id, v.key, op)} style={pillStyle(sel[v.key] === op)}>
+                          {sel[v.key] === op ? "✓ " : ""}{op}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: computedPrice === 0 ? COLORS.textDim : COLORS.orange, textAlign: "right", minWidth: 100, whiteSpace: "nowrap", flexShrink: 0 }}>{computedPrice === 0 ? "Sob consulta" : fmt(computedPrice)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   <div style={{ display: "flex", alignItems: "center" }}>
-                    <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginRight: 6 }}>Qtd:</span>
-                    <button onClick={() => setProductQty(p.id, qty - 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 26, height: 28, borderRadius: "6px 0 0 6px", cursor: "pointer", fontSize: 13 }}>−</button>
+                    <button onClick={() => setProductQty(p.id, qty - 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 24, height: 26, borderRadius: "6px 0 0 6px", cursor: "pointer", fontSize: 13 }}>−</button>
                     <input
                       type="number" min="1"
                       value={qty}
                       onChange={e => setProductQty(p.id, Number(e.target.value) || 1)}
-                      style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 44, height: 28, textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", padding: 0, MozAppearance: "textfield" }}
+                      style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 36, height: 26, textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", padding: 0, MozAppearance: "textfield" }}
                     />
-                    <button onClick={() => setProductQty(p.id, qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 26, height: 28, borderRadius: "0 6px 6px 0", cursor: "pointer", fontSize: 13 }}>+</button>
+                    <button onClick={() => setProductQty(p.id, qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 24, height: 26, borderRadius: "0 6px 6px 0", cursor: "pointer", fontSize: 13 }}>+</button>
                   </div>
-                  <button onClick={() => onAdd(p, sel, qty)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "7px 14px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Orçamento</button>
+                  <button onClick={() => onAdd(p, sel, qty)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "6px 12px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Orçamento</button>
                 </div>
               </div>
             );
