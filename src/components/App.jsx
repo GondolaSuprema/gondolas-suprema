@@ -37,12 +37,12 @@ const VARIANTS_GONDOLA_PAREDE = [
 
 const PRODUCTS = [
   // ── GÔNDOLAS DE PAREDE (novo modelo com variantes) ──
-  { id: 100, name: "Gôndola de Parede Inicial c/ Bandeja",     category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  { id: 101, name: "Gôndola de Parede Continuação c/ Bandeja", category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  { id: 102, name: "Gôndola de Parede Inicial c/ Gancho",      category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  { id: 103, name: "Gôndola de Parede Continuação c/ Gancho",  category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  { id: 104, name: "Gôndola de Parede Inicial c/ Cesto",       category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  { id: 105, name: "Gôndola de Parede Continuação c/ Cesto",   category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 100, name: "Parede Inicial c/ Bandeja",     category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 101, name: "Parede Continuação c/ Bandeja", category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 102, name: "Parede Inicial c/ Gancho",      category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 103, name: "Parede Continuação c/ Gancho",  category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 104, name: "Parede Inicial c/ Cesto",       category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 105, name: "Parede Continuação c/ Cesto",   category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
 
   // ── PAREDE C/ BANDEJAS ──
   { id: 1, name: "Parede Inicial 1,40 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 451.22, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 449.66 }] },
