@@ -30,7 +30,20 @@ const CATEGORIES = [
   { key: "outros", label: "Outros Produtos" },
 ];
 
+const VARIANTS_GONDOLA_PAREDE = [
+  { key: "altura", label: "Altura", options: ["1,37m", "1,70m", "2,00m"] },
+  { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
+];
+
 const PRODUCTS = [
+  // ── GÔNDOLAS DE PAREDE (novo modelo com variantes) ──
+  { id: 100, name: "Gôndola de Parede Inicial c/ Bandeja",     category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 101, name: "Gôndola de Parede Continuação c/ Bandeja", category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 102, name: "Gôndola de Parede Inicial c/ Gancho",      category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 103, name: "Gôndola de Parede Continuação c/ Gancho",  category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 104, name: "Gôndola de Parede Inicial c/ Cesto",       category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 105, name: "Gôndola de Parede Continuação c/ Cesto",   category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+
   // ── PAREDE C/ BANDEJAS ──
   { id: 1, name: "Parede Inicial 1,40 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 451.22, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 449.66 }] },
   { id: 2, name: "Parede Continuação 1,40 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 361.43, specs: { altura: "1,40m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 360.19 }] },
@@ -594,6 +607,19 @@ function Catalog({ onAdd }) {
   const [search, setSearch] = useState("");
   const [outrosProdutos, setOutrosProdutos] = useState([]);
   const [loadingOutros, setLoadingOutros] = useState(false);
+  const [variantSel, setVariantSel] = useState({}); // { [productId]: { altura: "1,37m", cor: "Branca" } }
+
+  const getProductVariantSel = (p) => {
+    const sel = variantSel[p.id] || {};
+    if (!p.variants) return sel;
+    const filled = { ...sel };
+    p.variants.forEach(v => { if (!filled[v.key]) filled[v.key] = v.options[0]; });
+    return filled;
+  };
+
+  const setProductVariant = (productId, key, value) => {
+    setVariantSel(prev => ({ ...prev, [productId]: { ...(prev[productId] || {}), [key]: value } }));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -658,6 +684,34 @@ function Catalog({ onAdd }) {
             </div>
           ))}
         </div>
+      ) : filter === "gondolas-parede" ? (
+        // Visualização em lista com variantes (altura + cor) para Gôndolas de Parede
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+          {filtered.length === 0 && (
+            <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
+          )}
+          {filtered.map((p, idx) => {
+            const sel = getProductVariantSel(p);
+            const pillStyle = (active) => ({ background: active ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${active ? COLORS.orange : COLORS.border}`, color: active ? COLORS.orange : COLORS.textMuted, padding: "4px 12px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: active ? 600 : 400 });
+            return (
+              <div key={p.id} style={{ padding: "14px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+                <div style={{ flex: "1 1 240px", minWidth: 200, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.3 }}>{p.name}</div>
+                {(p.variants || []).map(v => (
+                  <div key={v.key} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
+                    <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>{v.label}:</span>
+                    {v.options.map(op => (
+                      <button key={op} onClick={() => setProductVariant(p.id, v.key, op)} style={pillStyle(sel[v.key] === op)}>
+                        {sel[v.key] === op ? "✓ " : ""}{op}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange, textAlign: "right", minWidth: 110 }}>{p.price === 0 ? "Sob consulta" : fmt(p.price)}</div>
+                <button onClick={() => onAdd(p, sel)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "7px 14px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 110 }}>+ Orçamento</button>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
           {filtered.map(p => (
@@ -692,8 +746,13 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
   const [notes, setNotes] = useState("");
   const upd = (i, f, v) => { const c = [...items]; c[i] = { ...c[i], [f]: v }; setItems(c); };
   const togOpt = (i, oi) => { const c = [...items]; c[i] = { ...c[i], selOpts: [oi] }; setItems(c); };
+  const setVariant = (i, key, value) => {
+    const c = [...items];
+    c[i] = { ...c[i], selVariants: { ...(c[i].selVariants || {}), [key]: value } };
+    setItems(c);
+  };
   const rem = i => setItems(items.filter((_, j) => j !== i));
-  const itemPrice = it => it.product.options[it.selOpts[0]]?.price ?? it.product.price;
+  const itemPrice = it => (it.product.options || [])[it.selOpts?.[0]]?.price ?? it.product.price ?? 0;
   const itemTotal = it => itemPrice(it) * it.qty;
   const total = items.reduce((s, i) => s + itemTotal(i), 0);
   const totalComissao = total * (markup || 0) / 100;
@@ -734,7 +793,16 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
               <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 40, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.white, fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{it.qty}</div>
               <button onClick={() => upd(i, "qty", it.qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 30, height: 30, borderRadius: "0 6px 6px 0", cursor: "pointer" }}>+</button>
             </div>
-            {it.product.options.length > 0 && (
+            {(it.product.variants || []).map(v => (
+              <div key={v.key} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>{v.label}:</span>
+                {v.options.map(op => {
+                  const sel = (it.selVariants || {})[v.key] === op;
+                  return <button key={op} onClick={() => setVariant(i, v.key, op)} style={{ background: sel ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${sel ? COLORS.orange : COLORS.border}`, color: sel ? COLORS.orange : COLORS.textMuted, padding: "4px 12px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: sel ? 600 : 400 }}>{sel ? "✓ " : ""}{op}</button>;
+                })}
+              </div>
+            ))}
+            {it.product.options && it.product.options.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                 <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", marginRight: 4 }}>Cor:</span>
                 {it.product.options.map((o, oi) => {
@@ -785,7 +853,7 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
 function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, setItems, markup, setMarkup, frete, setFrete }) {
   const [notes, setNotes] = useState("");
 
-  const itemPrice = it => it.product.options[it.selOpts[0]]?.price ?? it.product.price;
+  const itemPrice = it => (it.product.options || [])[it.selOpts?.[0]]?.price ?? it.product.price ?? 0;
   const itemBase = it => itemPrice(it) * it.qty;
   const itemComissao = it => itemBase(it) * markup / 100;
   const itemFinal = it => itemBase(it) + itemComissao(it);
@@ -799,7 +867,17 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
     if (!user || saving) return;
     setSaving(true);
     const cd = clientData || {};
-    const newItems = items.map(i => ({ name: i.product.name, cat: catLabel(i.product.category), qty: i.qty, opts: i.selOpts.map(oi => i.product.options[oi]?.label).filter(Boolean), total: itemBase(i) }));
+    const newItems = items.map(i => {
+      const optsFromOptions = (i.selOpts || []).map(oi => (i.product.options || [])[oi]?.label).filter(Boolean);
+      const optsFromVariants = i.selVariants ? Object.entries(i.selVariants).map(([k, v]) => v) : [];
+      return {
+        name: i.product.name,
+        cat: catLabel(i.product.category),
+        qty: i.qty,
+        opts: [...optsFromVariants, ...optsFromOptions],
+        total: itemBase(i),
+      };
+    });
 
     try {
       if (editingOrderId) {
@@ -3232,10 +3310,16 @@ export default function App() {
     setUser(null);
     setPage("login");
   };
-  const addToQuote = p => {
-    const ex = cart.findIndex(i => i.product.id === p.id);
+  const addToQuote = (p, selectedVariants) => {
+    const sameVariants = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {});
+    const ex = cart.findIndex(i => i.product.id === p.id && sameVariants(i.selVariants, selectedVariants));
     if (ex >= 0) { const c = [...cart]; c[ex] = { ...c[ex], qty: c[ex].qty + 1 }; setCart(c); }
-    else setCart([...cart, { product: p, qty: 1, selOpts: p.options.length > 0 ? [0] : [] }]);
+    else setCart([...cart, {
+      product: p,
+      qty: 1,
+      selOpts: p.options && p.options.length > 0 ? [0] : [],
+      selVariants: selectedVariants || null,
+    }]);
     setPage("quote");
   };
 
