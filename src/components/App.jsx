@@ -945,7 +945,7 @@ const PRODUCT_RECIPES = {
   // ── MPP 2000×800 S/MDF ──
   // Inicial = 2 montantes / Continuação = 1 montante (diversos-196)
   // Por nível: 1 par de longarina (218=1200mm, 219=1800mm)
-  //          + transversinas 800mm (diversos-251): 2 p/ 1200, 3 p/ 1800
+  //          + transversinas 800mm GRUPO SA BRANCA (diversos-499): 2 p/ 1200, 3 p/ 1800
   // Sem MDF, sem sapata, sem travessa
   // ═══════════════════════════════════════════════════════════════════
 
@@ -953,66 +953,66 @@ const PRODUCT_RECIPES = {
   "400|1200mm|3": [
     ["diversos-196", 2],   // MONTANTE 2000×800
     ["diversos-218", 3],   // PAR LONGARINA 1200MM
-    ["diversos-251", 6],   // TRANSVERSINA 800MM (2/par × 3 pares)
+    ["diversos-499", 6],   // TRANSVERSINA 800MM (2/par × 3 pares)
   ],
   "400|1200mm|4": [
     ["diversos-196", 2],
     ["diversos-218", 4],
-    ["diversos-251", 8],
+    ["diversos-499", 8],
   ],
   "400|1200mm|5": [
     ["diversos-196", 2],
     ["diversos-218", 5],
-    ["diversos-251", 10],
+    ["diversos-499", 10],
   ],
   // ── MPP 2000×1800×800 INICIAL S/MDF (id 400) ──
   "400|1800mm|3": [
     ["diversos-196", 2],
     ["diversos-219", 3],   // PAR LONGARINA 1800MM
-    ["diversos-251", 9],   // TRANSVERSINA 800MM (3/par × 3 pares)
+    ["diversos-499", 9],   // TRANSVERSINA 800MM (3/par × 3 pares)
   ],
   "400|1800mm|4": [
     ["diversos-196", 2],
     ["diversos-219", 4],
-    ["diversos-251", 12],
+    ["diversos-499", 12],
   ],
   "400|1800mm|5": [
     ["diversos-196", 2],
     ["diversos-219", 5],
-    ["diversos-251", 15],
+    ["diversos-499", 15],
   ],
 
   // ── MPP 2000×1200×800 CONTINUAÇÃO S/MDF (id 401) ──
   "401|1200mm|3": [
     ["diversos-196", 1],
     ["diversos-218", 3],
-    ["diversos-251", 6],
+    ["diversos-499", 6],
   ],
   "401|1200mm|4": [
     ["diversos-196", 1],
     ["diversos-218", 4],
-    ["diversos-251", 8],
+    ["diversos-499", 8],
   ],
   "401|1200mm|5": [
     ["diversos-196", 1],
     ["diversos-218", 5],
-    ["diversos-251", 10],
+    ["diversos-499", 10],
   ],
   // ── MPP 2000×1800×800 CONTINUAÇÃO S/MDF (id 401) ──
   "401|1800mm|3": [
     ["diversos-196", 1],
     ["diversos-219", 3],
-    ["diversos-251", 9],
+    ["diversos-499", 9],
   ],
   "401|1800mm|4": [
     ["diversos-196", 1],
     ["diversos-219", 4],
-    ["diversos-251", 12],
+    ["diversos-499", 12],
   ],
   "401|1800mm|5": [
     ["diversos-196", 1],
     ["diversos-219", 5],
-    ["diversos-251", 15],
+    ["diversos-499", 15],
   ],
 };
 
