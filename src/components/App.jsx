@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { sharePDFWhatsApp } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
 
@@ -34,6 +34,47 @@ const VARIANTS_GONDOLA_PAREDE = [
   { key: "altura", label: "Altura", options: ["1,37m", "1,70m", "2,00m"] },
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
+
+// Receitas: cada produto + variante recebe uma lista [uniplusId, qtd]
+// Quando o preco do componente muda em produtos_uniplus, o preco da gondola se atualiza automaticamente.
+const PRODUCT_RECIPES = {
+  // Parede Inicial c/ Bandeja - 1,37m - Branca
+  "100|1,37m|Branca": [
+    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
+    ["diversos-75", 2],   // COLUNA COMPLEMENTAR P/ 1,37M BRANCO
+    ["diversos-126", 4],  // PAINEL 90*34CM BRANCO
+    ["diversos-66", 1],   // BANDEJA 40*90CM BRANCA
+    ["diversos-64", 3],   // BANDEJA 30*90CM BRANCA
+    ["diversos-83", 3],   // PAR SLG 30CM BRANCO
+    ["diversos-402", 4],  // PORTA ETIQUETA 895MM LARANJA
+  ],
+  // Parede Continuação c/ Bandeja - 1,37m - Branca
+  "101|1,37m|Branca": [
+    ["diversos-81", 1],
+    ["diversos-75", 1],
+    ["diversos-126", 4],
+    ["diversos-66", 1],
+    ["diversos-64", 3],
+    ["diversos-83", 3],
+    ["diversos-402", 4],
+  ],
+};
+
+function recipeKeyForProduct(product, selVariants) {
+  if (!product || !selVariants || !product.variants) return null;
+  const parts = product.variants.map(v => selVariants[v.key]);
+  if (parts.some(p => !p)) return null;
+  return [product.id, ...parts].join("|");
+}
+
+function computeProductPrice(product, selVariants, selOpts, uniplusPriceMap) {
+  const key = recipeKeyForProduct(product, selVariants);
+  if (key && PRODUCT_RECIPES[key]) {
+    return PRODUCT_RECIPES[key].reduce((sum, [id, qty]) => sum + ((uniplusPriceMap || {})[id] || 0) * qty, 0);
+  }
+  const optPrice = (product.options || [])[selOpts?.[0]]?.price;
+  return optPrice ?? product.price ?? 0;
+}
 
 const PRODUCTS = [
   // ── GÔNDOLAS DE PAREDE (novo modelo com variantes) ──
@@ -602,7 +643,7 @@ function Login({ onLogin, setPage }) {
 }
 
 // ─── CATALOG ───
-function Catalog({ onAdd }) {
+function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [outrosProdutos, setOutrosProdutos] = useState([]);
@@ -626,32 +667,20 @@ function Catalog({ onAdd }) {
   const setProductQty = (productId, qty) => setQtyByProduct(prev => ({ ...prev, [productId]: Math.max(1, qty) }));
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoadingOutros(true);
-      const { data, error } = await supabase
-        .from("produtos_uniplus")
-        .select("id, nome, preco_brasil, categoria, linha_planilha")
-        .eq("ativo", true)
-        .order("nome", { ascending: true });
-      if (cancelled) return;
-      if (error) { console.error("Erro carregando outros produtos:", error); setLoadingOutros(false); return; }
-      // Adapta para o formato dos PRODUCTS hardcoded
-      const adaptados = (data || []).map(r => ({
-        id: r.id,
-        name: r.nome,
-        category: "outros",
-        icon: "📦",
-        price: Number(r.preco_brasil) || 0,
-        specs: { categoria: r.categoria || "Diversos" },
-        options: []
-      }));
-      setOutrosProdutos(adaptados);
-      setLoadingOutros(false);
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
+    if (!uniplusFromApp) return;
+    setLoadingOutros(true);
+    const adaptados = (uniplusFromApp || []).map(r => ({
+      id: r.id,
+      name: r.nome,
+      category: "outros",
+      icon: "📦",
+      price: Number(r.preco_brasil) || 0,
+      specs: { categoria: r.categoria || "Diversos" },
+      options: []
+    }));
+    setOutrosProdutos(adaptados);
+    setLoadingOutros(false);
+  }, [uniplusFromApp]);
 
   const todosProdutos = [...PRODUCTS, ...outrosProdutos];
   const filtered = todosProdutos.filter(p => (filter === "all" || p.category === filter) && p.name.toLowerCase().includes(search.toLowerCase()));
@@ -697,6 +726,7 @@ function Catalog({ onAdd }) {
           {filtered.map((p, idx) => {
             const sel = getProductVariantSel(p);
             const qty = getProductQty(p);
+            const computedPrice = computeProductPrice(p, sel, [0], uniplusPriceMap);
             const pillStyle = (active) => ({ background: active ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${active ? COLORS.orange : COLORS.border}`, color: active ? COLORS.orange : COLORS.textMuted, padding: "4px 12px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: active ? 600 : 400 });
             return (
               <div key={p.id} style={{ padding: "14px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
@@ -711,7 +741,7 @@ function Catalog({ onAdd }) {
                     ))}
                   </div>
                 ))}
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange, textAlign: "right", minWidth: 100 }}>{p.price === 0 ? "Sob consulta" : fmt(p.price)}</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: computedPrice === 0 ? COLORS.textDim : COLORS.orange, textAlign: "right", minWidth: 100 }}>{computedPrice === 0 ? "Sob consulta" : fmt(computedPrice)}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ display: "flex", alignItems: "center" }}>
                     <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginRight: 6 }}>Qtd:</span>
@@ -760,7 +790,7 @@ function Catalog({ onAdd }) {
 }
 
 // ─── QUOTE ───
-function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId, markup, setMarkup, frete, setFrete }) {
+function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId, markup, setMarkup, frete, setFrete, uniplusPriceMap }) {
   const [notes, setNotes] = useState("");
   const upd = (i, f, v) => { const c = [...items]; c[i] = { ...c[i], [f]: v }; setItems(c); };
   const togOpt = (i, oi) => { const c = [...items]; c[i] = { ...c[i], selOpts: [oi] }; setItems(c); };
@@ -770,7 +800,7 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
     setItems(c);
   };
   const rem = i => setItems(items.filter((_, j) => j !== i));
-  const itemPrice = it => (it.product.options || [])[it.selOpts?.[0]]?.price ?? it.product.price ?? 0;
+  const itemPrice = it => computeProductPrice(it.product, it.selVariants, it.selOpts, uniplusPriceMap);
   const itemTotal = it => itemPrice(it) * it.qty;
   const total = items.reduce((s, i) => s + itemTotal(i), 0);
   const totalComissao = total * (markup || 0) / 100;
@@ -868,10 +898,10 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
 }
 
 // ─── RESUMO ───
-function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, setItems, markup, setMarkup, frete, setFrete }) {
+function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, setItems, markup, setMarkup, frete, setFrete, uniplusPriceMap }) {
   const [notes, setNotes] = useState("");
 
-  const itemPrice = it => (it.product.options || [])[it.selOpts?.[0]]?.price ?? it.product.price ?? 0;
+  const itemPrice = it => computeProductPrice(it.product, it.selVariants, it.selOpts, uniplusPriceMap);
   const itemBase = it => itemPrice(it) * it.qty;
   const itemComissao = it => itemBase(it) * markup / 100;
   const itemFinal = it => itemBase(it) + itemComissao(it);
@@ -3284,6 +3314,22 @@ export default function App() {
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [markup, setMarkup] = useState(0);
   const [frete, setFrete] = useState(0);
+  const [uniplusProducts, setUniplusProducts] = useState([]);
+  const uniplusPriceMap = useMemo(() => {
+    const m = {};
+    uniplusProducts.forEach(p => { m[p.id] = Number(p.preco_brasil) || 0; });
+    return m;
+  }, [uniplusProducts]);
+
+  useEffect(() => {
+    supabase.from("produtos_uniplus")
+      .select("id, nome, preco_brasil, categoria, linha_planilha")
+      .eq("ativo", true)
+      .order("nome", { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data) setUniplusProducts(data);
+      });
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -3349,9 +3395,9 @@ export default function App() {
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "catalog" && <Catalog onAdd={addToQuote} />}
-      {page === "quote" && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} />}
-      {page === "resumo" && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} />}
+      {page === "catalog" && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "quote" && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "resumo" && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && user?.isAdmin && <AdminPage />}
