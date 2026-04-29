@@ -234,6 +234,80 @@ const PRODUCT_RECIPES = {
     ["diversos-145", 3],
     ["diversos-172", 15],
   ],
+
+  // ── PAREDE C/ GANCHO PRETA (mesma estrutura, componentes pretos) ──
+  // Parede Inicial c/ Gancho - 1,37m - Preta
+  "102|1,37m|Preta": [
+    ["diversos-82", 2],   // COLUNA PAREDE 1,06M PRETO
+    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["diversos-127", 4],  // PAINEL PRETO
+    ["diversos-67", 1],   // BANDEJA 40*90 PRETA
+    ["diversos-65", 1],   // BANDEJA 30*90 PRETA
+    ["diversos-84", 1],   // PAR SLG PRETO
+    ["diversos-402", 2],  // PORTA ETIQUETA
+    ["diversos-146", 2],  // RÉGUA 90CM PRETO
+    ["diversos-173", 10], // GANCHO 25CM PRETO
+  ],
+  // Parede Continuação c/ Gancho - 1,37m - Preta
+  "103|1,37m|Preta": [
+    ["diversos-82", 1],
+    ["diversos-76", 1],
+    ["diversos-127", 4],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-146", 2],
+    ["diversos-173", 10],
+  ],
+  // Parede Inicial c/ Gancho - 1,70m - Preta
+  "102|1,70m|Preta": [
+    ["diversos-82", 2],
+    ["diversos-78", 2],   // COLUNA COMPLEMENTAR 1,70M PRETO
+    ["diversos-127", 5],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-146", 3],
+    ["diversos-173", 15],
+  ],
+  // Parede Continuação c/ Gancho - 1,70m - Preta
+  "103|1,70m|Preta": [
+    ["diversos-82", 1],
+    ["diversos-78", 1],
+    ["diversos-127", 5],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-146", 3],
+    ["diversos-173", 15],
+  ],
+  // Parede Inicial c/ Gancho - 2,00m - Preta
+  "102|2,00m|Preta": [
+    ["diversos-82", 2],
+    ["diversos-80", 2],   // COLUNA COMPLEMENTAR 2,02M PRETO
+    ["diversos-127", 6],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-146", 3],
+    ["diversos-173", 15],
+  ],
+  // Parede Continuação c/ Gancho - 2,00m - Preta
+  "103|2,00m|Preta": [
+    ["diversos-82", 1],
+    ["diversos-80", 1],
+    ["diversos-127", 6],
+    ["diversos-67", 1],
+    ["diversos-65", 1],
+    ["diversos-84", 1],
+    ["diversos-402", 2],
+    ["diversos-146", 3],
+    ["diversos-173", 15],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
