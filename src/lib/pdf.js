@@ -9,6 +9,22 @@ const COMPANY = {
   site: "www.gondolasuprema.com",
 };
 
+// Telefone exibido no cabecalho do orcamento conforme o vendedor logado.
+// Cada vendedor tem seu numero direto pra que o cliente fale com quem fez o orcamento.
+const TELEFONES_VENDEDORES = {
+  ZANELLA: "(48) 98874-1848",
+  ADELMO:  "(48) 99658-4185",
+};
+
+function getVendedorTelefone(user) {
+  if (!user) return COMPANY.telefone;
+  var nome = (user.name || user.email || "").toUpperCase();
+  for (var key in TELEFONES_VENDEDORES) {
+    if (nome.indexOf(key) !== -1) return TELEFONES_VENDEDORES[key];
+  }
+  return COMPANY.telefone;
+}
+
 const fmt = (v) =>
   v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -83,7 +99,7 @@ async function loadIcons() {
   return map;
 }
 
-export async function generatePDF({ orderNum, date, client, items, total, notes, comissao }) {
+export async function generatePDF({ orderNum, date, client, items, total, notes, comissao, user }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -135,7 +151,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   doc.setFont(undefined, "normal");
   doc.text("CNPJ: " + COMPANY.cnpj, margin, leftFirstLineY + leftLineHeight);
   doc.text(COMPANY.endereco, margin, leftFirstLineY + leftLineHeight * 2);
-  doc.text("Tel: " + COMPANY.telefone, margin, leftFirstLineY + leftLineHeight * 3);
+  doc.text("Tel: " + getVendedorTelefone(user), margin, leftFirstLineY + leftLineHeight * 3);
   doc.text(COMPANY.site, margin, leftFirstLineY + leftLineHeight * 4);
 
   // Bloco direito (topo): ORCAMENTO em destaque

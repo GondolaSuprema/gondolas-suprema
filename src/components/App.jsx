@@ -2318,6 +2318,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
         client: cd,
         items: o.items, total: o.total, notes: o.notes,
         comissao: o.comissao || 0,
+        // Telefone do header sai do vendedor que fez o orcamento (fallback: usuario logado)
+        user: { name: o.vendedor_nome || o.vendedor || user.name, email: user.email },
       });
     } catch(e) { console.error(e); }
     setSharingOrder(false);
