@@ -179,10 +179,9 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     ];
   });
 
-  // Larguras das colunas e alinhamento da tabela a direita
-  var colWidths = { foto: 16, produto: 38, categoria: 28, qtd: 12, opcionais: 28, subtotal: 28 };
-  var tableWidth = colWidths.foto + colWidths.produto + colWidths.categoria + colWidths.qtd + colWidths.opcionais + colWidths.subtotal;
-  var tableLeftMargin = pageW - margin - tableWidth;
+  // Larguras das colunas — tabela ocupa toda largura util (pageW - 2*margin = 180mm em A4)
+  var colWidths = { foto: 18, produto: 52, categoria: 34, qtd: 14, opcionais: 30, subtotal: 32 };
+  // Total = 18+52+34+14+30+32 = 180mm (= pageW 210 - 2*margin 30)
 
   doc.autoTable({
     startY: 71,
@@ -205,7 +204,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
       4: { cellWidth: colWidths.opcionais },
       5: { cellWidth: colWidths.subtotal, halign: "right" },
     },
-    margin: { left: tableLeftMargin, right: margin },
+    margin: { left: margin, right: margin },
     didDrawCell: function (data) {
       if (data.section !== "body" || data.column.index !== 0) return;
       var item = itemsWithIcons[data.row.index];
