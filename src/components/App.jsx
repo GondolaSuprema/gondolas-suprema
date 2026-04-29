@@ -444,6 +444,425 @@ const PRODUCT_RECIPES = {
     ["diversos-402", 2],
     ["diversos-125", 3],
   ],
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ── GÔNDOLAS DE CENTRO ──
+  // Mesma estrutura da Parede, com:
+  //   - COLUNA CENTRO no lugar da COLUNA PAREDE (diversos-73 br / 74 pr)
+  //   - Bandejas, pares SLG, porta-etiqueta, réguas, ganchos e cestos DOBRADOS (2 lados)
+  //   - Painéis na MESMA quantidade da Parede
+  //   - Colunas complementares (75-80) iguais à Parede
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ── CENTRO C/ BANDEJA BRANCA ──
+  // Centro Inicial c/ Bandeja - 1,37m - Branca
+  "200|1,37m|Branca": [
+    ["diversos-73", 2],   // COLUNA CENTRO 1,06M BASE 40CM BRANCO
+    ["diversos-75", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
+    ["diversos-126", 4],  // PAINEL 90*34CM BRANCO (mesma qtd da Parede)
+    ["diversos-66", 2],   // BANDEJA 40*90CM BRANCA (dobrada)
+    ["diversos-64", 6],   // BANDEJA 30*90CM BRANCA (dobrada)
+    ["diversos-83", 6],   // PAR SLG 30CM BRANCO (dobrado)
+    ["diversos-402", 8],  // PORTA ETIQUETA 895MM LARANJA (dobrado)
+  ],
+  // Centro Continuação c/ Bandeja - 1,37m - Branca
+  "201|1,37m|Branca": [
+    ["diversos-73", 1],
+    ["diversos-75", 1],
+    ["diversos-126", 4],
+    ["diversos-66", 2],
+    ["diversos-64", 6],
+    ["diversos-83", 6],
+    ["diversos-402", 8],
+  ],
+  // Centro Inicial c/ Bandeja - 1,70m - Branca
+  "200|1,70m|Branca": [
+    ["diversos-73", 2],
+    ["diversos-77", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
+    ["diversos-126", 5],
+    ["diversos-66", 2],
+    ["diversos-64", 8],
+    ["diversos-83", 8],
+    ["diversos-402", 10],
+  ],
+  // Centro Continuação c/ Bandeja - 1,70m - Branca
+  "201|1,70m|Branca": [
+    ["diversos-73", 1],
+    ["diversos-77", 1],
+    ["diversos-126", 5],
+    ["diversos-66", 2],
+    ["diversos-64", 8],
+    ["diversos-83", 8],
+    ["diversos-402", 10],
+  ],
+  // Centro Inicial c/ Bandeja - 2,00m - Branca
+  "200|2,00m|Branca": [
+    ["diversos-73", 2],
+    ["diversos-79", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
+    ["diversos-126", 6],
+    ["diversos-66", 2],
+    ["diversos-64", 8],
+    ["diversos-83", 8],
+    ["diversos-402", 10],
+  ],
+  // Centro Continuação c/ Bandeja - 2,00m - Branca
+  "201|2,00m|Branca": [
+    ["diversos-73", 1],
+    ["diversos-79", 1],
+    ["diversos-126", 6],
+    ["diversos-66", 2],
+    ["diversos-64", 8],
+    ["diversos-83", 8],
+    ["diversos-402", 10],
+  ],
+
+  // ── CENTRO C/ BANDEJA PRETA ──
+  // Centro Inicial c/ Bandeja - 1,37m - Preta
+  "200|1,37m|Preta": [
+    ["diversos-74", 2],   // COLUNA CENTRO 1,06M BASE 40CM PRETO
+    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["diversos-127", 4],  // PAINEL 90*34CM PRETO
+    ["diversos-67", 2],   // BANDEJA 40*90 PRETA
+    ["diversos-65", 6],   // BANDEJA 30*90 PRETA
+    ["diversos-84", 6],   // PAR SLG PRETO
+    ["diversos-402", 8],  // PORTA ETIQUETA (sem cor)
+  ],
+  // Centro Continuação c/ Bandeja - 1,37m - Preta
+  "201|1,37m|Preta": [
+    ["diversos-74", 1],
+    ["diversos-76", 1],
+    ["diversos-127", 4],
+    ["diversos-67", 2],
+    ["diversos-65", 6],
+    ["diversos-84", 6],
+    ["diversos-402", 8],
+  ],
+  // Centro Inicial c/ Bandeja - 1,70m - Preta
+  "200|1,70m|Preta": [
+    ["diversos-74", 2],
+    ["diversos-78", 2],   // COLUNA COMPLEMENTAR 1,70M PRETO
+    ["diversos-127", 5],
+    ["diversos-67", 2],
+    ["diversos-65", 8],
+    ["diversos-84", 8],
+    ["diversos-402", 10],
+  ],
+  // Centro Continuação c/ Bandeja - 1,70m - Preta
+  "201|1,70m|Preta": [
+    ["diversos-74", 1],
+    ["diversos-78", 1],
+    ["diversos-127", 5],
+    ["diversos-67", 2],
+    ["diversos-65", 8],
+    ["diversos-84", 8],
+    ["diversos-402", 10],
+  ],
+  // Centro Inicial c/ Bandeja - 2,00m - Preta
+  "200|2,00m|Preta": [
+    ["diversos-74", 2],
+    ["diversos-80", 2],   // COLUNA COMPLEMENTAR 2,02M PRETO
+    ["diversos-127", 6],
+    ["diversos-67", 2],
+    ["diversos-65", 8],
+    ["diversos-84", 8],
+    ["diversos-402", 10],
+  ],
+  // Centro Continuação c/ Bandeja - 2,00m - Preta
+  "201|2,00m|Preta": [
+    ["diversos-74", 1],
+    ["diversos-80", 1],
+    ["diversos-127", 6],
+    ["diversos-67", 2],
+    ["diversos-65", 8],
+    ["diversos-84", 8],
+    ["diversos-402", 10],
+  ],
+
+  // ── CENTRO C/ GANCHO BRANCO ──
+  // Estrutura do Bandeja c/ menos bandejas (1×40 + 2×30 dobrado), + réguas e ganchos dobrados
+  // Centro Inicial c/ Gancho - 1,37m - Branca
+  "202|1,37m|Branca": [
+    ["diversos-73", 2],
+    ["diversos-75", 2],
+    ["diversos-126", 4],
+    ["diversos-66", 2],   // BANDEJA 40 base (dobrada)
+    ["diversos-64", 2],   // BANDEJA 30 (1 dobrada → 2)
+    ["diversos-83", 2],   // PAR SLG (1 dobrado → 2)
+    ["diversos-402", 4],  // PORTA ETIQUETA (2 dobrado → 4)
+    ["diversos-145", 4],  // RÉGUA 90CM BRANCO (2 dobradas → 4)
+    ["diversos-172", 20], // GANCHO SIMPLES 25CM BRANCO (10 dobrado → 20)
+  ],
+  // Centro Continuação c/ Gancho - 1,37m - Branca
+  "203|1,37m|Branca": [
+    ["diversos-73", 1],
+    ["diversos-75", 1],
+    ["diversos-126", 4],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-145", 4],
+    ["diversos-172", 20],
+  ],
+  // Centro Inicial c/ Gancho - 1,70m - Branca
+  "202|1,70m|Branca": [
+    ["diversos-73", 2],
+    ["diversos-77", 2],
+    ["diversos-126", 5],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-145", 6],  // 3 dobradas → 6
+    ["diversos-172", 30], // 15 dobrado → 30
+  ],
+  // Centro Continuação c/ Gancho - 1,70m - Branca
+  "203|1,70m|Branca": [
+    ["diversos-73", 1],
+    ["diversos-77", 1],
+    ["diversos-126", 5],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-145", 6],
+    ["diversos-172", 30],
+  ],
+  // Centro Inicial c/ Gancho - 2,00m - Branca
+  "202|2,00m|Branca": [
+    ["diversos-73", 2],
+    ["diversos-79", 2],
+    ["diversos-126", 6],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-145", 6],
+    ["diversos-172", 30],
+  ],
+  // Centro Continuação c/ Gancho - 2,00m - Branca
+  "203|2,00m|Branca": [
+    ["diversos-73", 1],
+    ["diversos-79", 1],
+    ["diversos-126", 6],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-145", 6],
+    ["diversos-172", 30],
+  ],
+
+  // ── CENTRO C/ GANCHO PRETO ──
+  // Centro Inicial c/ Gancho - 1,37m - Preta
+  "202|1,37m|Preta": [
+    ["diversos-74", 2],
+    ["diversos-76", 2],
+    ["diversos-127", 4],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-146", 4],  // RÉGUA 90CM PRETO (dobrada)
+    ["diversos-173", 20], // GANCHO 25CM PRETO (dobrado)
+  ],
+  // Centro Continuação c/ Gancho - 1,37m - Preta
+  "203|1,37m|Preta": [
+    ["diversos-74", 1],
+    ["diversos-76", 1],
+    ["diversos-127", 4],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-146", 4],
+    ["diversos-173", 20],
+  ],
+  // Centro Inicial c/ Gancho - 1,70m - Preta
+  "202|1,70m|Preta": [
+    ["diversos-74", 2],
+    ["diversos-78", 2],
+    ["diversos-127", 5],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-146", 6],
+    ["diversos-173", 30],
+  ],
+  // Centro Continuação c/ Gancho - 1,70m - Preta
+  "203|1,70m|Preta": [
+    ["diversos-74", 1],
+    ["diversos-78", 1],
+    ["diversos-127", 5],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-146", 6],
+    ["diversos-173", 30],
+  ],
+  // Centro Inicial c/ Gancho - 2,00m - Preta
+  "202|2,00m|Preta": [
+    ["diversos-74", 2],
+    ["diversos-80", 2],
+    ["diversos-127", 6],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-146", 6],
+    ["diversos-173", 30],
+  ],
+  // Centro Continuação c/ Gancho - 2,00m - Preta
+  "203|2,00m|Preta": [
+    ["diversos-74", 1],
+    ["diversos-80", 1],
+    ["diversos-127", 6],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-146", 6],
+    ["diversos-173", 30],
+  ],
+
+  // ── CENTRO C/ CESTO BRANCO ──
+  // Estrutura do Gancho sem ganchos/réguas, com cestos dobrados
+  // Centro Inicial c/ Cesto - 1,37m - Branca
+  "204|1,37m|Branca": [
+    ["diversos-73", 2],
+    ["diversos-75", 2],
+    ["diversos-126", 4],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-124", 4],  // CESTO 2 DIVISORIAS BRANCO (2 dobrado → 4)
+  ],
+  // Centro Continuação c/ Cesto - 1,37m - Branca
+  "205|1,37m|Branca": [
+    ["diversos-73", 1],
+    ["diversos-75", 1],
+    ["diversos-126", 4],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-124", 4],
+  ],
+  // Centro Inicial c/ Cesto - 1,70m - Branca
+  "204|1,70m|Branca": [
+    ["diversos-73", 2],
+    ["diversos-77", 2],
+    ["diversos-126", 5],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-124", 6],  // 3 dobrado → 6
+  ],
+  // Centro Continuação c/ Cesto - 1,70m - Branca
+  "205|1,70m|Branca": [
+    ["diversos-73", 1],
+    ["diversos-77", 1],
+    ["diversos-126", 5],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-124", 6],
+  ],
+  // Centro Inicial c/ Cesto - 2,00m - Branca
+  "204|2,00m|Branca": [
+    ["diversos-73", 2],
+    ["diversos-79", 2],
+    ["diversos-126", 6],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-124", 6],
+  ],
+  // Centro Continuação c/ Cesto - 2,00m - Branca
+  "205|2,00m|Branca": [
+    ["diversos-73", 1],
+    ["diversos-79", 1],
+    ["diversos-126", 6],
+    ["diversos-66", 2],
+    ["diversos-64", 2],
+    ["diversos-83", 2],
+    ["diversos-402", 4],
+    ["diversos-124", 6],
+  ],
+
+  // ── CENTRO C/ CESTO PRETO ──
+  // Centro Inicial c/ Cesto - 1,37m - Preta
+  "204|1,37m|Preta": [
+    ["diversos-74", 2],
+    ["diversos-76", 2],
+    ["diversos-127", 4],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-125", 4],  // CESTO 2 DIVISORIAS PRETO (dobrado)
+  ],
+  // Centro Continuação c/ Cesto - 1,37m - Preta
+  "205|1,37m|Preta": [
+    ["diversos-74", 1],
+    ["diversos-76", 1],
+    ["diversos-127", 4],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-125", 4],
+  ],
+  // Centro Inicial c/ Cesto - 1,70m - Preta
+  "204|1,70m|Preta": [
+    ["diversos-74", 2],
+    ["diversos-78", 2],
+    ["diversos-127", 5],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-125", 6],
+  ],
+  // Centro Continuação c/ Cesto - 1,70m - Preta
+  "205|1,70m|Preta": [
+    ["diversos-74", 1],
+    ["diversos-78", 1],
+    ["diversos-127", 5],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-125", 6],
+  ],
+  // Centro Inicial c/ Cesto - 2,00m - Preta
+  "204|2,00m|Preta": [
+    ["diversos-74", 2],
+    ["diversos-80", 2],
+    ["diversos-127", 6],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-125", 6],
+  ],
+  // Centro Continuação c/ Cesto - 2,00m - Preta
+  "205|2,00m|Preta": [
+    ["diversos-74", 1],
+    ["diversos-80", 1],
+    ["diversos-127", 6],
+    ["diversos-67", 2],
+    ["diversos-65", 2],
+    ["diversos-84", 2],
+    ["diversos-402", 4],
+    ["diversos-125", 6],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
@@ -470,6 +889,14 @@ const PRODUCTS = [
   { id: 103, name: "Parede Continuação c/ Gancho",  category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
   { id: 104, name: "Parede Inicial c/ Cesto",       category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
   { id: 105, name: "Parede Continuação c/ Cesto",   category: "gondolas-parede", icon: "🧱", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+
+  // ── GÔNDOLAS DE CENTRO (novo modelo com variantes) ──
+  { id: 200, name: "Centro Inicial c/ Bandeja",     category: "gondolas-centro", icon: "🏬", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 201, name: "Centro Continuação c/ Bandeja", category: "gondolas-centro", icon: "🏬", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 202, name: "Centro Inicial c/ Gancho",      category: "gondolas-centro", icon: "🏬", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 203, name: "Centro Continuação c/ Gancho",  category: "gondolas-centro", icon: "🏬", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 204, name: "Centro Inicial c/ Cesto",       category: "gondolas-centro", icon: "🏬", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 205, name: "Centro Continuação c/ Cesto",   category: "gondolas-centro", icon: "🏬", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
 
   // ── PAREDE C/ BANDEJAS ──
   { id: 1, name: "Parede Inicial 1,40 c/ Bandejas", category: "parede-bandejas", icon: "🏪", price: 451.22, specs: { altura: "1,40m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 449.66 }] },
@@ -1103,8 +1530,8 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
             </div>
           ))}
         </div>
-      ) : filter === "gondolas-parede" ? (
-        // Visualização em lista com variantes (altura + cor) para Gôndolas de Parede
+      ) : filter === "gondolas-parede" || filter === "gondolas-centro" ? (
+        // Visualização em lista com variantes (altura + cor) para Gôndolas de Parede e Centro
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
