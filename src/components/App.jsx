@@ -2204,7 +2204,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
 }
 
 // ─── ORDERS ───
-function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
+function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplusProducts = [] }) {
   const [orders, setOrders] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
@@ -2214,6 +2214,40 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
   const [editMarkup, setEditMarkup] = useState(0);
   const [editNotes, setEditNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pecasModal, setPecasModal] = useState(null); // { lista: [...], naoExpandidos: [...] }
+
+  // Mapa { uniplusId -> nome } montado dos produtos sincronizados via Supabase
+  const uniplusNomes = useMemo(() => {
+    const m = {};
+    uniplusProducts.forEach(p => { m[p.id] = p.nome; });
+    return m;
+  }, [uniplusProducts]);
+
+  // Decompoe os items do orcamento em pecas brutas (uniplus) usando PRODUCT_RECIPES
+  const gerarListaPecas = (items) => {
+    const peças = {};
+    const naoExpandidos = [];
+    (items || []).forEach(it => {
+      const product = it.product;
+      const qtd = Number(it.qty) || 0;
+      const sel = it.selVariants || {};
+      const key = product && product.variants ? recipeKeyForProduct(product, sel) : null;
+      const receita = key && PRODUCT_RECIPES[key];
+      if (!receita) {
+        naoExpandidos.push({ nome: product?.name || "(sem nome)", qty: qtd, opts: it.opts || [] });
+        return;
+      }
+      receita.forEach(([uniplusId, qtdPorUnidade]) => {
+        const total = qtdPorUnidade * qtd;
+        if (!peças[uniplusId]) peças[uniplusId] = 0;
+        peças[uniplusId] += total;
+      });
+    });
+    const lista = Object.entries(peças)
+      .map(([id, qty]) => ({ id, nome: uniplusNomes[id] || id, qty }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    return { lista, naoExpandidos };
+  };
 
   const startEdit = (o) => {
     setEditingId(o.id);
@@ -2396,6 +2430,67 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
       <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 20px" }}>Orçamentos</h1>
 
+      {/* Modal Lista de Peças (UniPlus) */}
+      {pecasModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 620, maxWidth: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.accent, fontSize: 20, margin: 0 }}>Peças para o Pedido (UniPlus)</h2>
+                <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "4px 0 0", fontFamily: "'DM Sans', sans-serif" }}>
+                  {pecasModal.lista.length} item(s) — quantidades agregadas de todos os produtos do orçamento
+                </p>
+              </div>
+              <button onClick={() => setPecasModal(null)} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Fechar</button>
+            </div>
+            <div style={{ overflowY: "auto", border: `1px solid ${COLORS.border}`, borderRadius: 10 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                <thead>
+                  <tr style={{ background: COLORS.bg, position: "sticky", top: 0 }}>
+                    <th style={{ textAlign: "left", padding: "10px 12px", color: COLORS.textMuted, fontWeight: 600, borderBottom: `1px solid ${COLORS.border}` }}>Peça (UniPlus)</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", color: COLORS.textMuted, fontWeight: 600, borderBottom: `1px solid ${COLORS.border}`, width: 80 }}>Qtd</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pecasModal.lista.length === 0 && (
+                    <tr><td colSpan={2} style={{ padding: 16, textAlign: "center", color: COLORS.textMuted }}>Nenhum produto deste orçamento tem receita configurada.</td></tr>
+                  )}
+                  {pecasModal.lista.map((p, idx) => (
+                    <tr key={p.id} style={{ borderBottom: idx < pecasModal.lista.length - 1 ? `1px solid ${COLORS.border}` : "none" }}>
+                      <td style={{ padding: "8px 12px", color: COLORS.text }}>{p.nome}</td>
+                      <td style={{ padding: "8px 12px", color: COLORS.accent, textAlign: "right", fontWeight: 700 }}>{p.qty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {pecasModal.naoExpandidos.length > 0 && (
+              <div style={{ marginTop: 12, padding: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8 }}>
+                <div style={{ color: COLORS.danger, fontSize: 11, fontWeight: 600, marginBottom: 6, fontFamily: "'DM Sans', sans-serif" }}>
+                  ⚠ Sem receita (não puderam ser destrinchados):
+                </div>
+                {pecasModal.naoExpandidos.map((it, i) => (
+                  <div key={i} style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+                    • {it.qty}× {it.nome}{it.opts.length ? ` (${it.opts.join(", ")})` : ""}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  const linhas = pecasModal.lista.map(p => `${p.qty}\t${p.nome}`).join("\n");
+                  navigator.clipboard?.writeText(linhas);
+                }}
+                style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}
+              >
+                Copiar lista
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Concluído */}
       {concluidoId && (() => {
         const cd = concluidoData;
@@ -2418,9 +2513,13 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
                   <input placeholder="Ex: PED-001" value={cd.numero_pedido} onChange={e => setConcluidoData({ ...cd, numero_pedido: e.target.value })} style={{ ...selStyle, flex: 1 }} />
                   <button
                     type="button"
-                    onClick={() => { /* TODO: acao da agenda */ }}
-                    title="Agenda"
-                    aria-label="Abrir agenda"
+                    onClick={() => {
+                      const o = orders.find(x => x.id === concluidoId);
+                      if (!o) return;
+                      setPecasModal(gerarListaPecas(o.items));
+                    }}
+                    title="Ver pecas para pedido no UniPlus"
+                    aria-label="Abrir lista de pecas"
                     style={{
                       background: COLORS.card,
                       border: `1px solid ${COLORS.border}`,
@@ -4568,7 +4667,7 @@ export default function App() {
       {page === "catalog" && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} uniplusPriceMap={uniplusPriceMap} />}
       {page === "quote" && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
       {page === "resumo" && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
-      {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} />}
+      {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && user?.isAdmin && <AdminPage />}
       {page === "adm" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
