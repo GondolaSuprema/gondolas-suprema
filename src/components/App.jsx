@@ -58,6 +58,16 @@ const PRODUCT_RECIPES = {
     ["diversos-83", 3],
     ["diversos-402", 4],
   ],
+  // Parede Inicial c/ Bandeja - 1,70m - Branca
+  "100|1,70m|Branca": [
+    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
+    ["diversos-77", 2],   // COLUNA COMPLEMENTAR P/ 1,70M BRANCO
+    ["diversos-126", 5],  // PAINEL 90*34CM BRANCO
+    ["diversos-66", 1],   // BANDEJA 40*90CM BRANCA
+    ["diversos-64", 4],   // BANDEJA 30*90CM BRANCA
+    ["diversos-83", 4],   // PAR SLG 30CM BRANCO
+    ["diversos-402", 5],  // PORTA ETIQUETA 895MM LARANJA
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
