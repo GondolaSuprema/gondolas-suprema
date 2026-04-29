@@ -68,6 +68,16 @@ const PRODUCT_RECIPES = {
     ["diversos-83", 4],   // PAR SLG 30CM BRANCO
     ["diversos-402", 5],  // PORTA ETIQUETA 895MM LARANJA
   ],
+  // Parede Continuação c/ Bandeja - 1,70m - Branca (1 coluna a menos que a Inicial)
+  "101|1,70m|Branca": [
+    ["diversos-81", 1],
+    ["diversos-77", 1],
+    ["diversos-126", 5],
+    ["diversos-66", 1],
+    ["diversos-64", 4],
+    ["diversos-83", 4],
+    ["diversos-402", 5],
+  ],
 };
 
 function recipeKeyForProduct(product, selVariants) {
