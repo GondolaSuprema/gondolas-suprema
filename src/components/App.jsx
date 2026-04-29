@@ -2306,6 +2306,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId }) {
 
   const [sharingOrder, setSharingOrder] = useState(false);
   const handleWhatsApp = async (order) => {
+    if (sharingOrder) return; // evita disparar 2x se clicar rapido
     setSharingOrder(true);
     const o = order || pdfOrder;
     if (!o) { setSharingOrder(false); return; }

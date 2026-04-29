@@ -335,20 +335,25 @@ export async function sharePDFWhatsApp(params) {
   var doc = await generatePDF(params);
   var blob = doc.output("blob");
   var clientName = (params.client && params.client.empresa ? params.client.empresa : params.orderNum || "novo").replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, "-").replace(/-+/g, "-");
-  var file = new File([blob], "orcamento-" + clientName + ".pdf", {
-    type: "application/pdf",
-  });
+  var fileName = "orcamento-" + clientName + ".pdf";
+  var file = new File([blob], fileName, { type: "application/pdf" });
 
-  if (navigator.share) {
+  // Tenta compartilhar via Web Share API (WhatsApp/iMessage/etc.) se o browser suportar arquivos
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
         title: "Orcamento " + (params.client && params.client.empresa ? params.client.empresa : "") + " - Gondolas Suprema",
         files: [file],
       });
-      return true;
-    } catch (e) {}
+      return true; // Compartilhado com sucesso — nao baixa fallback pra evitar duplicacao
+    } catch (e) {
+      // Usuario cancelou o share — respeitar a escolha, nao baixar
+      if (e && e.name === "AbortError") return false;
+      // Outros erros (permissao, etc.) caem no fallback de download abaixo
+    }
   }
 
-  doc.save("orcamento-" + clientName + ".pdf");
+  // Fallback: download local quando o share nao esta disponivel ou falhou
+  doc.save(fileName);
   return false;
 }
