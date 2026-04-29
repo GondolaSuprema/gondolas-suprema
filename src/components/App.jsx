@@ -2059,6 +2059,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
       const optsFromOptions = (i.selOpts || []).map(oi => (i.product.options || [])[oi]?.label).filter(Boolean);
       const optsFromVariants = i.selVariants ? Object.entries(i.selVariants).map(([k, v]) => v) : [];
       return {
+        product_id: i.product.id,
         name: i.product.name,
         cat: catLabel(i.product.category),
         qty: i.qty,
@@ -2228,27 +2229,31 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     const peças = {};
     const naoExpandidos = [];
     (items || []).forEach(it => {
-      const product = it.product;
       const qtd = Number(it.qty) || 0;
       const sel = it.selVariants || {};
 
-      // Reconstroi referencia ao produto original (orçamentos salvos perdem product.variants)
-      const orig = product && product.id != null
-        ? PRODUCTS.find(p => p.id === product.id) || product
-        : product;
-      const productForKey = orig && orig.variants ? orig : null;
+      // Orcamentos salvos no banco so tem name/cat/qty/opts (sem product/id).
+      // Tenta achar produto em PRODUCTS por: product.id -> product_id -> nome exato
+      const orig =
+        (it.product?.id != null && PRODUCTS.find(p => p.id === it.product.id)) ||
+        (it.product_id != null && PRODUCTS.find(p => p.id === it.product_id)) ||
+        (it.name && PRODUCTS.find(p => p.name === it.name)) ||
+        it.product ||
+        null;
 
-      let key = productForKey ? recipeKeyForProduct(productForKey, sel) : null;
+      let key = orig && orig.variants && Object.keys(sel).length
+        ? recipeKeyForProduct(orig, sel)
+        : null;
 
-      // Fallback adicional: se sel esta vazio, tenta usar it.opts (array preservado em ordem)
-      if (!key && product && product.id != null && Array.isArray(it.opts) && it.opts.length) {
-        const candidate = [product.id, ...it.opts].join("|");
+      // Fallback: monta key com it.opts (array preservado em ordem das variants)
+      if (!key && orig && orig.id != null && Array.isArray(it.opts) && it.opts.length) {
+        const candidate = [orig.id, ...it.opts].join("|");
         if (PRODUCT_RECIPES[candidate]) key = candidate;
       }
 
       const receita = key && PRODUCT_RECIPES[key];
       if (!receita) {
-        const nome = product?.name || orig?.name || "(sem nome)";
+        const nome = orig?.name || it.name || it.product?.name || "(sem nome)";
         naoExpandidos.push({ nome, qty: qtd, opts: it.opts || [] });
         return;
       }
