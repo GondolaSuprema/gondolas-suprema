@@ -106,32 +106,37 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     doc.addImage(logoBase64, "JPEG", pageW / 2 - 70, pageH / 2 - 125, 140, 250);
     doc.restoreGraphicsState();
 
-    // Header logo - proporcional (imagem vertical 1080x1920), maior pra ocupar bem o cabecalho
-    doc.addImage(logoBase64, "JPEG", margin, 7, 26, 46);
+    // Header logo - proporcional (imagem vertical 1080x1920), no TOPO da coluna esquerda
+    doc.addImage(logoBase64, "JPEG", margin, 5, 20, 35);
   } catch (e) {}
 
   // ──────────────────────────────────────────────────────────────────────
-  // Cabecalho — distribuido em 3 zonas usando toda a largura util da pagina:
-  //   [Logo 26mm] | [Razao + dados empresa, centro] | [ORCAMENTO + cliente, direita]
+  // Cabecalho — coluna esquerda: LOGO em cima + texto da empresa colado
+  //   acima da linha laranja. Coluna direita: ORCAMENTO em cima + dados
+  //   do cliente colados acima da linha laranja.
   // ──────────────────────────────────────────────────────────────────────
-  var infoLeftX = margin + 30;        // X onde comeca o bloco de info da empresa
-  var rightX = pageW - margin;         // X de alinhamento direito (ORCAMENTO/cliente)
-  var headerBottom = 60;               // Y da linha laranja final
+  var rightX = pageW - margin;          // X de alinhamento direito (ORCAMENTO/cliente)
+  var headerBottom = 60;                // Y da linha laranja final
 
-  // Razao social — destaque, fonte maior em bold
-  doc.setFontSize(11);
+  // Bloco texto da empresa — empilhado embaixo, terminando logo acima da linha laranja
+  var leftLineHeight = 4;
+  var leftLastLineY = headerBottom - 3;       // ultima linha da empresa em Y=57
+  var leftFirstLineY = leftLastLineY - 4 * leftLineHeight;  // 5 linhas → Y=41
+
+  // Razao social — destaque
+  doc.setFontSize(10);
   doc.setTextColor(40);
   doc.setFont(undefined, "bold");
-  doc.text(COMPANY.razao, infoLeftX, 14);
+  doc.text(COMPANY.razao, margin, leftFirstLineY);
 
-  // Dados empresa - fonte maior (8.5pt) com cor de hierarquia
-  doc.setFontSize(8.5);
+  // Dados empresa
+  doc.setFontSize(8);
   doc.setTextColor(110);
   doc.setFont(undefined, "normal");
-  doc.text("CNPJ: " + COMPANY.cnpj, infoLeftX, 19);
-  doc.text(COMPANY.endereco, infoLeftX, 24);
-  doc.text("Tel: " + COMPANY.telefone, infoLeftX, 29);
-  doc.text(COMPANY.site, infoLeftX, 34);
+  doc.text("CNPJ: " + COMPANY.cnpj, margin, leftFirstLineY + leftLineHeight);
+  doc.text(COMPANY.endereco, margin, leftFirstLineY + leftLineHeight * 2);
+  doc.text("Tel: " + COMPANY.telefone, margin, leftFirstLineY + leftLineHeight * 3);
+  doc.text(COMPANY.site, margin, leftFirstLineY + leftLineHeight * 4);
 
   // Bloco direito (topo): ORCAMENTO em destaque
   doc.setFontSize(22);
