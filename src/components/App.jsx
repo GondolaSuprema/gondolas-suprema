@@ -40,10 +40,16 @@ const VARIANTS_MPP = [
   { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
 ];
 
-const VARIANTS_SLIM = [
+const VARIANTS_SLIM_AMAPA = [
   { key: "largura", label: "Largura", options: ["1200mm", "1800mm"] },
-  { key: "niveis", label: "Níveis", options: ["3", "4", "5", "6"] },
-  { key: "cor", label: "Cor", options: ["Cinza Cristal", "Branco", "Cinza Grafite"] },
+  { key: "niveis",  label: "Níveis",  options: ["4", "5", "6"] },
+  { key: "cor",     label: "Cor",     options: ["C+L", "Branco"] },
+];
+
+const VARIANTS_SLIM_SA = [
+  { key: "largura", label: "Largura", options: ["1200mm", "1800mm"] },
+  { key: "niveis",  label: "Níveis",  options: ["4", "5", "6"] },
+  { key: "cor",     label: "Cor",     options: ["C+L"] },
 ];
 
 // Receitas: cada produto + variante recebe uma lista [uniplusId, qtd]
@@ -1022,48 +1028,41 @@ const PRODUCT_RECIPES = {
   ],
 
   // ═══════════════════════════════════════════════════════════════════
-  // ── SLIM 2000×600 S/MDF ──
-  // 3 cores de montante:
-  //   - Cinza Cristal (AMAPA 250KG) → diversos-205
-  //   - Branco (AMAPA 250KG) → diversos-204
-  //   - Cinza Grafite (GRUPO SA 200KG) → diversos-458
-  // Longarinas Laranja AMAPA 250KG: 221 (1200mm) / 223 (1800mm) — comuns às 3 cores
-  // Inicial = 2 montantes / Continuação = 1 montante
-  // Por nível: 1 par de longarina. Sem transversina, sem MDF
-  // Cinza Cristal e Branco: 3/4/5 níveis | Cinza Grafite: 4/5/6 níveis
+  // ── SLIM 2000×600 S/MDF — versão AMAPA (montante AMAPA + long. AMAPA) ──
+  // C+L = montante Cinza Cristal AMAPA (205) + longarina laranja
+  // Branco = montante Branco AMAPA (204) + longarina laranja
+  // Longarinas laranja AMAPA: 221 (1200mm) / 223 (1800mm)
+  // Inicial = 2 montantes / Continuação = 1. Sem transversina, sem MDF
+  // Níveis: 4, 5 e 6
   // ═══════════════════════════════════════════════════════════════════
 
-  // ── SLIM INICIAL (id 500) — CINZA CRISTAL ──
-  "500|1200mm|3|Cinza Cristal": [
-    ["diversos-205", 2],
-    ["diversos-221", 3],
-  ],
-  "500|1200mm|4|Cinza Cristal": [
+  // ── SLIM INICIAL AMAPA (id 500) — C+L ──
+  "500|1200mm|4|C+L": [
     ["diversos-205", 2],
     ["diversos-221", 4],
   ],
-  "500|1200mm|5|Cinza Cristal": [
+  "500|1200mm|5|C+L": [
     ["diversos-205", 2],
     ["diversos-221", 5],
   ],
-  "500|1800mm|3|Cinza Cristal": [
-    ["diversos-205", 2],
-    ["diversos-223", 3],
-  ],
-  "500|1800mm|4|Cinza Cristal": [
+  "500|1800mm|4|C+L": [
     ["diversos-205", 2],
     ["diversos-223", 4],
   ],
-  "500|1800mm|5|Cinza Cristal": [
+  "500|1800mm|5|C+L": [
     ["diversos-205", 2],
     ["diversos-223", 5],
   ],
-
-  // ── SLIM INICIAL (id 500) — BRANCO ──
-  "500|1200mm|3|Branco": [
-    ["diversos-204", 2],
-    ["diversos-221", 3],
+  "500|1200mm|6|C+L": [
+    ["diversos-205", 2],
+    ["diversos-221", 6],
   ],
+  "500|1800mm|6|C+L": [
+    ["diversos-205", 2],
+    ["diversos-223", 6],
+  ],
+
+  // ── SLIM INICIAL AMAPA (id 500) — BRANCO ──
   "500|1200mm|4|Branco": [
     ["diversos-204", 2],
     ["diversos-221", 4],
@@ -1071,10 +1070,6 @@ const PRODUCT_RECIPES = {
   "500|1200mm|5|Branco": [
     ["diversos-204", 2],
     ["diversos-221", 5],
-  ],
-  "500|1800mm|3|Branco": [
-    ["diversos-204", 2],
-    ["diversos-223", 3],
   ],
   "500|1800mm|4|Branco": [
     ["diversos-204", 2],
@@ -1084,64 +1079,42 @@ const PRODUCT_RECIPES = {
     ["diversos-204", 2],
     ["diversos-223", 5],
   ],
-
-  // ── SLIM INICIAL (id 500) — CINZA GRAFITE (4/5/6 níveis) ──
-  "500|1200mm|4|Cinza Grafite": [
-    ["diversos-458", 2],
-    ["diversos-221", 4],
-  ],
-  "500|1200mm|5|Cinza Grafite": [
-    ["diversos-458", 2],
-    ["diversos-221", 5],
-  ],
-  "500|1200mm|6|Cinza Grafite": [
-    ["diversos-458", 2],
+  "500|1200mm|6|Branco": [
+    ["diversos-204", 2],
     ["diversos-221", 6],
   ],
-  "500|1800mm|4|Cinza Grafite": [
-    ["diversos-458", 2],
-    ["diversos-223", 4],
-  ],
-  "500|1800mm|5|Cinza Grafite": [
-    ["diversos-458", 2],
-    ["diversos-223", 5],
-  ],
-  "500|1800mm|6|Cinza Grafite": [
-    ["diversos-458", 2],
+  "500|1800mm|6|Branco": [
+    ["diversos-204", 2],
     ["diversos-223", 6],
   ],
 
-  // ── SLIM CONTINUAÇÃO (id 501) — CINZA CRISTAL ──
-  "501|1200mm|3|Cinza Cristal": [
-    ["diversos-205", 1],
-    ["diversos-221", 3],
-  ],
-  "501|1200mm|4|Cinza Cristal": [
+  // ── SLIM CONTINUAÇÃO AMAPA (id 501) — C+L ──
+  "501|1200mm|4|C+L": [
     ["diversos-205", 1],
     ["diversos-221", 4],
   ],
-  "501|1200mm|5|Cinza Cristal": [
+  "501|1200mm|5|C+L": [
     ["diversos-205", 1],
     ["diversos-221", 5],
   ],
-  "501|1800mm|3|Cinza Cristal": [
-    ["diversos-205", 1],
-    ["diversos-223", 3],
-  ],
-  "501|1800mm|4|Cinza Cristal": [
+  "501|1800mm|4|C+L": [
     ["diversos-205", 1],
     ["diversos-223", 4],
   ],
-  "501|1800mm|5|Cinza Cristal": [
+  "501|1800mm|5|C+L": [
     ["diversos-205", 1],
     ["diversos-223", 5],
   ],
-
-  // ── SLIM CONTINUAÇÃO (id 501) — BRANCO ──
-  "501|1200mm|3|Branco": [
-    ["diversos-204", 1],
-    ["diversos-221", 3],
+  "501|1200mm|6|C+L": [
+    ["diversos-205", 1],
+    ["diversos-221", 6],
   ],
+  "501|1800mm|6|C+L": [
+    ["diversos-205", 1],
+    ["diversos-223", 6],
+  ],
+
+  // ── SLIM CONTINUAÇÃO AMAPA (id 501) — BRANCO ──
   "501|1200mm|4|Branco": [
     ["diversos-204", 1],
     ["diversos-221", 4],
@@ -1149,10 +1122,6 @@ const PRODUCT_RECIPES = {
   "501|1200mm|5|Branco": [
     ["diversos-204", 1],
     ["diversos-221", 5],
-  ],
-  "501|1800mm|3|Branco": [
-    ["diversos-204", 1],
-    ["diversos-223", 3],
   ],
   "501|1800mm|4|Branco": [
     ["diversos-204", 1],
@@ -1162,29 +1131,70 @@ const PRODUCT_RECIPES = {
     ["diversos-204", 1],
     ["diversos-223", 5],
   ],
+  "501|1200mm|6|Branco": [
+    ["diversos-204", 1],
+    ["diversos-221", 6],
+  ],
+  "501|1800mm|6|Branco": [
+    ["diversos-204", 1],
+    ["diversos-223", 6],
+  ],
 
-  // ── SLIM CONTINUAÇÃO (id 501) — CINZA GRAFITE (4/5/6 níveis) ──
-  "501|1200mm|4|Cinza Grafite": [
+  // ═══════════════════════════════════════════════════════════════════
+  // ── SLIM SA+AMAPA 2000×600 S/MDF (montante GRUPO SA + long. AMAPA) ──
+  // C+L = montante Cinza Grafite GRUPO SA (458) + longarina laranja AMAPA
+  // Inicial = 2 montantes / Continuação = 1. Sem transversina, sem MDF
+  // Níveis: 4, 5 e 6
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ── SLIM SA+AMAPA INICIAL (id 502) — C+L ──
+  "502|1200mm|4|C+L": [
+    ["diversos-458", 2],
+    ["diversos-221", 4],
+  ],
+  "502|1200mm|5|C+L": [
+    ["diversos-458", 2],
+    ["diversos-221", 5],
+  ],
+  "502|1200mm|6|C+L": [
+    ["diversos-458", 2],
+    ["diversos-221", 6],
+  ],
+  "502|1800mm|4|C+L": [
+    ["diversos-458", 2],
+    ["diversos-223", 4],
+  ],
+  "502|1800mm|5|C+L": [
+    ["diversos-458", 2],
+    ["diversos-223", 5],
+  ],
+  "502|1800mm|6|C+L": [
+    ["diversos-458", 2],
+    ["diversos-223", 6],
+  ],
+
+  // ── SLIM SA+AMAPA CONTINUAÇÃO (id 503) — C+L ──
+  "503|1200mm|4|C+L": [
     ["diversos-458", 1],
     ["diversos-221", 4],
   ],
-  "501|1200mm|5|Cinza Grafite": [
+  "503|1200mm|5|C+L": [
     ["diversos-458", 1],
     ["diversos-221", 5],
   ],
-  "501|1200mm|6|Cinza Grafite": [
+  "503|1200mm|6|C+L": [
     ["diversos-458", 1],
     ["diversos-221", 6],
   ],
-  "501|1800mm|4|Cinza Grafite": [
+  "503|1800mm|4|C+L": [
     ["diversos-458", 1],
     ["diversos-223", 4],
   ],
-  "501|1800mm|5|Cinza Grafite": [
+  "503|1800mm|5|C+L": [
     ["diversos-458", 1],
     ["diversos-223", 5],
   ],
-  "501|1800mm|6|Cinza Grafite": [
+  "503|1800mm|6|C+L": [
     ["diversos-458", 1],
     ["diversos-223", 6],
   ],
@@ -1268,8 +1278,10 @@ const PRODUCTS = [
   // ── PONTA DE GÔNDOLA (novo modelo com variantes) ──
   { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
-  { id: 500, name: "Slim 2000×600 Inicial S/MDF",     category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM },
-  { id: 501, name: "Slim 2000×600 Continuação S/MDF", category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM },
+  { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
+  { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
+  { id: 502, name: "Slim SA+Amapa 2000×600 Inicial",     category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_SA },
+  { id: 503, name: "Slim SA+Amapa 2000×600 Continuação", category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_SA },
   // ── MPP 2000×800 S/MDF (novo modelo com variantes) ──
   { id: 400, name: "MPP 2000×800 Inicial S/MDF",     category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   { id: 401, name: "MPP 2000×800 Continuação S/MDF", category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
