@@ -122,8 +122,8 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     doc.addImage(logoBase64, "JPEG", pageW / 2 - 75.6, pageH / 2 - 135, 151.2, 270);
     doc.restoreGraphicsState();
 
-    // Header logo - proporcional (imagem vertical 1080x1920), no TOPO da coluna esquerda
-    doc.addImage(logoBase64, "JPEG", margin, 5, 23.76, 41.58);
+    // Header logo - proporcional (imagem vertical 1080x1920), no TOPO da coluna esquerda — versao maior
+    doc.addImage(logoBase64, "JPEG", margin, 5, 31, 54);
   } catch (e) {}
 
   // ──────────────────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   //   do cliente colados acima da linha laranja.
   // ──────────────────────────────────────────────────────────────────────
   var rightX = pageW - margin;          // X de alinhamento direito (ORCAMENTO/cliente)
-  var headerBottom = 60;                // Y da linha laranja final
+  var headerBottom = 80;                // Y da linha laranja final (header maior pra acomodar logo grande)
 
   // Bloco texto da empresa — empilhado embaixo, terminando logo acima da linha laranja
   var leftLineHeight = 4;
@@ -211,7 +211,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   doc.setFontSize(11);
   doc.setFont(undefined, "bold");
   doc.setTextColor(60);
-  doc.text("PRODUTOS:", margin, 67);
+  doc.text("PRODUTOS:", margin, 87);
 
   // Table
   var tableData = itemsWithIcons.map(function(it) {
@@ -230,7 +230,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   // Total = 18+52+34+14+30+32 = 180mm (= pageW 210 - 2*margin 30)
 
   doc.autoTable({
-    startY: 71,
+    startY: 91,
     head: [["Foto", "Produto", "Categoria", "Qtd", "Opcionais", "Subtotal"]],
     body: tableData,
     theme: "grid",
