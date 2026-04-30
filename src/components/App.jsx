@@ -1442,8 +1442,12 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
               { k: "resumo", l: "Resumo" },
               { k: "orders", l: "Orçamentos" },
               { k: "graficos", l: "Gráficos" },
-              ...(user.isAdmin ? [{ k: "adm", l: "ADM" }, { k: "financeiro", l: "Financeiro" }, { k: "dre", l: "DRE" }, { k: "nf", l: "NF" }, { k: "conciliacao", l: "Conciliação" }] : []),
-            ].map(i => (
+              { k: "adm", l: "ADM" },
+              { k: "financeiro", l: "Financeiro" },
+              { k: "dre", l: "DRE" },
+              { k: "nf", l: "NF" },
+              { k: "conciliacao", l: "Conciliação" },
+            ].filter(i => canAccess(user, i.k)).map(i => (
               <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
             ))}
           </div>
@@ -1715,10 +1719,31 @@ function ClientPage({ clientData, setClientData, setPage }) {
 // Lista de vendedores (sem senhas) — usada apenas para exibicao em filtros, ranking e graficos.
 // Autenticacao real e feita via Supabase Auth (ver supabase.auth.signInWithPassword abaixo).
 const VENDEDORES = [
+  // O isAdmin aqui (no array) tem outro proposito: excluir nao-vendedores
+  // dos rankings/agregacoes. Zanella e socio (nao vende) entao fica true.
+  // O acesso real as abas usa user.role + ROLE_PERMISSIONS abaixo.
   { id: "v1", name: "Alessandro Thonsen", email: "ale.thonsen@gmail.com",        isAdmin: true  },
   { id: "v2", name: "Adelmo Martinello",  email: "adelmo_ade@yahoo.com.br",      isAdmin: false },
   { id: "v3", name: "Willian Zanella",    email: "comercial@gondolasuprema.com", isAdmin: true  },
 ];
+
+// ─── PERMISSOES POR ROLE ───
+// O role vem do raw_user_meta_data.role no Supabase Auth.
+// Cada role lista exatamente quais abas de navegacao pode acessar.
+// Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
+const ROLE_PERMISSIONS = {
+  admin:    ["client", "catalog", "resumo", "orders", "graficos", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  gestor:   ["client", "catalog", "resumo", "orders", "graficos", "adm"],
+  vendedor: ["client", "catalog", "resumo", "orders", "graficos"],
+};
+
+// canAccess(user, "adm") => true/false
+// Se nao tiver role no metadata, deriva de isAdmin (back-compat).
+function canAccess(user, tab) {
+  if (!user) return false;
+  const role = user.role || (user.isAdmin ? "admin" : "vendedor");
+  return (ROLE_PERMISSIONS[role] || []).includes(tab);
+}
 
 function Login({ onLogin, setPage }) {
   const [f, setF] = useState({ email: "", password: "" });
@@ -1745,6 +1770,7 @@ function Login({ onLogin, setPage }) {
       name: meta.name || data.user.email,
       email: data.user.email,
       isAdmin: !!meta.isAdmin,
+      role: meta.role || (meta.isAdmin ? "admin" : "vendedor"),
     };
     onLogin(u);
     setPage("client");
@@ -4652,6 +4678,7 @@ export default function App() {
         name: meta.name || sessionUser.email,
         email: sessionUser.email,
         isAdmin: !!meta.isAdmin,
+        role: meta.role || (meta.isAdmin ? "admin" : "vendedor"),
       };
     };
 
@@ -4708,16 +4735,16 @@ export default function App() {
       {page === "resumo" && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "adm" && user?.isAdmin && <AdminPage />}
-      {page === "adm" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
-      {page === "financeiro" && user?.isAdmin && <FinanceiroPage />}
-      {page === "financeiro" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
-      {page === "dre" && user?.isAdmin && <DrePage />}
-      {page === "dre" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
-      {page === "nf" && user?.isAdmin && <NFPage />}
-      {page === "nf" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
-      {page === "conciliacao" && user?.isAdmin && <ConciliacaoPage />}
-      {page === "conciliacao" && !user?.isAdmin && <Login onLogin={login} setPage={setPage} />}
+      {page === "adm" && canAccess(user, "adm") && <AdminPage />}
+      {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
+      {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroPage />}
+      {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
+      {page === "dre" && canAccess(user, "dre") && <DrePage />}
+      {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
+      {page === "nf" && canAccess(user, "nf") && <NFPage />}
+      {page === "nf" && !canAccess(user, "nf") && <Login onLogin={login} setPage={setPage} />}
+      {page === "conciliacao" && canAccess(user, "conciliacao") && <ConciliacaoPage />}
+      {page === "conciliacao" && !canAccess(user, "conciliacao") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
     </div>
