@@ -1513,56 +1513,42 @@ function ClientPage({ clientData, setClientData, setPage }) {
     setErro("");
     setBuscandoCnpj(true);
     try {
-      const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`);
-      if (!resp.ok) {
-        setErro(resp.status === 404 ? "CNPJ não encontrado na Receita." : "Falha ao consultar CNPJ. Tente novamente.");
+      // Consulta via API Route interna (servidor) — evita bloqueios
+      // de CORS, extensoes e service workers no navegador.
+      const resp = await fetch(`/api/consultar-cnpj/${cnpjLimpo}`, { cache: "no-store" });
+      const d = await resp.json().catch(() => ({}));
+
+      if (!resp.ok || d?.success === false) {
+        if (resp.status === 404) {
+          setErro("CNPJ não encontrado na Receita.");
+        } else {
+          setErro(d?.mensagem || "Falha ao consultar CNPJ. Tente novamente.");
+        }
         return;
-      }
-      const d = await resp.json();
-      const cepLimpo = d.cep ? String(d.cep).replace(/\D/g, "") : "";
-
-      let emailFinal = d.email || "";
-      let telefoneFinal = "";
-      const ddd = d.ddd_telefone_1 ? String(d.ddd_telefone_1).replace(/\D/g, "") : "";
-      if (ddd) telefoneFinal = ddd;
-
-      if (!emailFinal) {
-        try {
-          const respRws = await fetch(`https://receitaws.com.br/v1/cnpj/${cnpjLimpo}`);
-          if (respRws.ok) {
-            const dRws = await respRws.json();
-            if (dRws.status !== "ERROR") {
-              emailFinal = dRws.email || "";
-              if (!telefoneFinal && dRws.telefone) {
-                telefoneFinal = String(dRws.telefone).replace(/\D/g, "");
-              }
-            }
-          }
-        } catch (e2) {}
       }
 
       setForm(prev => ({
         ...prev,
         empresa:  prev.empresa.trim()  || d.razao_social || d.nome_fantasia || "",
-        email:    prev.email.trim()    || emailFinal     || "",
-        telefone: prev.telefone.trim() || formatarCelular(telefoneFinal) || "",
+        email:    prev.email.trim()    || d.email        || "",
+        telefone: prev.telefone.trim() || formatarCelular(d.telefone || "") || "",
         endereco: prev.endereco.trim() || d.logradouro   || "",
         numero:   (prev.numero || "").trim() || d.numero || "",
-        bairro:   prev.bairro.trim()   || d.bairro    || "",
-        cep:      (prev.cep || "").trim() || cepLimpo,
-        cidade:   prev.cidade.trim()   || d.municipio || "",
-        estado:   prev.estado.trim()   || d.uf        || "",
+        bairro:   prev.bairro.trim()   || d.bairro       || "",
+        cep:      (prev.cep || "").trim() || d.cep       || "",
+        cidade:   prev.cidade.trim()   || d.municipio    || "",
+        estado:   prev.estado.trim()   || d.uf           || "",
       }));
 
       const faltando = [];
       if (!d.logradouro) faltando.push("rua");
       if (!d.numero) faltando.push("número");
-      if (!emailFinal) faltando.push("e-mail");
+      if (!d.email) faltando.push("e-mail");
       if (faltando.length > 0) {
         setErro(`Empresa encontrada. A Receita não tem ${faltando.join(", ")} cadastrado(s) — preencha manualmente.`);
       }
     } catch (e) {
-      setErro("Sem conexão para consultar o CNPJ. Verifique sua internet.");
+      setErro("Falha de rede ao consultar o CNPJ. Verifique sua internet.");
     } finally {
       setBuscandoCnpj(false);
     }
