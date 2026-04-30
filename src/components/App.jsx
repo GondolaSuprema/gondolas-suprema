@@ -1406,7 +1406,7 @@ function buildPaymentSection(total, comissao) {
   `;
 }
 
-function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, notes, comissao }) {
+function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, notes, comissao, incluirParcelamento }) {
   const tituloDestaque = clientCompany || (orderNum ? `#${orderNum}` : "");
   // Filtra anotacoes internas (CONCLUÍDO, Status venda) antes de exibir pro cliente
   const notesClean = sanitizeNotesForCustomer(notes);
@@ -1422,7 +1422,7 @@ function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, 
 ${items.map(i => `<tr><td class="foto-cell">${getIconHtml(i)}</td><td><strong>${i.name}</strong></td><td>${i.cat || ""}</td><td>${i.qty}</td><td>${i.opts?.length ? i.opts.join(", ") : "—"}</td><td style="text-align:right">${fmt(i.total)}</td></tr>`).join("")}
 <tr class="tr"><td colspan="5">TOTAL GERAL</td><td style="text-align:right;color:#F5A623">${total === 0 ? "Sob consulta" : fmt(total)}</td></tr>
 </tbody></table>
-${buildPaymentSection(total, comissao)}
+${incluirParcelamento ? buildPaymentSection(total, comissao) : ""}
 ${notesClean ? `<div class="n"><strong>Observações:</strong><br>${notesClean}</div>` : ""}
 <div class="ft">Orçamento válido por 15 dias • ${COMPANY.razao} • CNPJ: ${COMPANY.cnpj} • ${COMPANY.endereco} • ${COMPANY.telefone}</div>
 </div>
@@ -2361,6 +2361,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const [saving, setSaving] = useState(false);
   const [pecasModal, setPecasModal] = useState(null); // { lista: [...], naoExpandidos: [...] }
   const [pecasFeitas, setPecasFeitas] = useState({}); // { [uniplusId]: true } — marcacao "ja pedido"
+  const [parcelamentoOpts, setParcelamentoOpts] = useState({}); // { [orderId]: bool } — incluir tabela de parcelamento por boleto no PDF/HTML
 
   const togglePecaFeita = (id) => {
     setPecasFeitas(prev => {
@@ -2497,6 +2498,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
       clientEmail: cd.email,
       items: order.items, total: order.total, notes: order.notes,
       comissao: order.comissao || 0,
+      incluirParcelamento: !!parcelamentoOpts[order.id],
     });
   };
 
@@ -2527,6 +2529,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
         comissao: o.comissao || 0,
         // Telefone do header sai do vendedor que fez o orcamento (fallback: usuario logado)
         user: { name: o.vendedor_nome || o.vendedor || user.name, email: user.email },
+        incluirParcelamento: !!parcelamentoOpts[o.id],
       });
     } catch(e) { console.error(e); }
     setSharingOrder(false);
@@ -2923,6 +2926,27 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                       </div>
                     </div>
                   )}
+
+                  {/* Toggle: incluir tabela de parcelamento por boleto no PDF/HTML enviado pro cliente */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "10px 12px", background: parcelamentoOpts[o.id] ? "#10B98112" : COLORS.bg, border: `1px solid ${parcelamentoOpts[o.id] ? "#10B98140" : COLORS.border}`, borderRadius: 8 }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setParcelamentoOpts(prev => ({ ...prev, [o.id]: !prev[o.id] })); }}
+                      title={parcelamentoOpts[o.id] ? "Parcelamento será incluído no orçamento" : "Clique para incluir parcelamento"}
+                      style={{
+                        background: parcelamentoOpts[o.id] ? "#10B981" : "transparent",
+                        border: `1.5px solid ${parcelamentoOpts[o.id] ? "#10B981" : COLORS.border}`,
+                        width: 22, height: 22, borderRadius: 5, cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        color: "#fff", fontSize: 13, fontWeight: 800, padding: 0, lineHeight: 1
+                      }}
+                    >{parcelamentoOpts[o.id] ? "✓" : ""}</button>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: parcelamentoOpts[o.id] ? "#10B981" : COLORS.text, fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>💳 Incluir parcelamento por boleto</div>
+                      <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 1 }}>
+                        {parcelamentoOpts[o.id] ? "A tabela de parcelas (1x a 8x) será adicionada no orçamento." : "Sem parcelamento — orçamento envia só o total."}
+                      </div>
+                    </div>
+                  </div>
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button onClick={(e) => { e.stopPropagation(); showPdf(o); }} style={{ background: "#25D366", border: "none", color: "#fff", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 100 }}>📤 Compartilhar</button>

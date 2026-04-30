@@ -114,7 +114,7 @@ async function loadIcons() {
   return map;
 }
 
-export async function generatePDF({ orderNum, date, client, items, total, notes, comissao, user }) {
+export async function generatePDF({ orderNum, date, client, items, total, notes, comissao, user, incluirParcelamento }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -291,10 +291,10 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   doc.setTextColor(245, 166, 35);
   doc.text(total === 0 ? "Sob consulta" : fmt(total), pageW - margin, finalY + 7, { align: "right" });
 
-  // Opcoes de pagamento (Boleto)
+  // Opcoes de pagamento (Boleto) — so aparece se vendedor marcou no toggle
   var paymentEndY = finalY + 12;
   var entrada = Number(comissao) || 0;
-  if (total > 0 && total > entrada) {
+  if (incluirParcelamento && total > 0 && total > entrada) {
     var saldo = total - entrada;
     var opcoes = calcularOpcoesPagamento(total, entrada);
 
