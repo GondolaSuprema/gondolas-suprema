@@ -3432,6 +3432,9 @@ function ComissoesPage({ user }) {
     const d = new Date(s);
     return d.toLocaleDateString("pt-BR");
   };
+  // fmt() global mostra "Sob consulta" pra zero (regra do catalogo). Aqui em
+  // comissoes valor zero significa "ainda nao recebeu" — sempre mostra R$ 0,00.
+  const fmtMoney = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const sel = { padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" };
   const statCard = (label, value, color, small) => (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16 }}>
@@ -3472,10 +3475,10 @@ function ComissoesPage({ user }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 20 }}>
-        {statCard("A Pagar (Vendedor)", fmt(totalAPagar), "#F59E0B")}
-        {statCard("Já Pago (Vendedor)", fmt(totalPago), COLORS.success)}
+        {statCard("A Pagar (Vendedor)", fmtMoney(totalAPagar), "#F59E0B")}
+        {statCard("Já Pago (Vendedor)", fmtMoney(totalPago), COLORS.success)}
         {statCard("Vendas Concluídas", qtdVendas, COLORS.orange, true)}
-        {isAdmin && statCard("Total Comissão Suprema", fmt(totalComissaoSuprema), COLORS.text, true)}
+        {isAdmin && statCard("Total Comissão Suprema", fmtMoney(totalComissaoSuprema), COLORS.text, true)}
       </div>
 
       {/* Tabela de comissoes */}
@@ -3517,8 +3520,8 @@ function ComissoesPage({ user }) {
                       <div style={{ color: COLORS.textDim, fontSize: 10, fontWeight: 400 }}>{v.cidade}{v.uf ? "/" + v.uf : ""}{v.numeroPedido ? " · #" + v.numeroPedido : ""}</div>
                     </td>
                     {isAdmin && <td style={{ padding: "10px 14px", color: COLORS.accent, fontWeight: 500 }}>{v.vendedor}</td>}
-                    <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.text, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(v.comissaoSuprema)}</td>
-                    <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.success, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(v.comissaoVendedor)}</td>
+                    <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.text, fontWeight: 700, whiteSpace: "nowrap" }}>{fmtMoney(v.comissaoSuprema)}</td>
+                    <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.success, fontWeight: 800, whiteSpace: "nowrap" }}>{fmtMoney(v.comissaoVendedor)}</td>
                     <td style={{ padding: "10px 14px", textAlign: "center" }}>
                       {isAdmin ? (
                         <button
@@ -3535,10 +3538,10 @@ function ComissoesPage({ user }) {
                 })}
                 <tr style={{ borderTop: `2px solid ${COLORS.orange}40`, background: COLORS.bg }}>
                   <td colSpan={isAdmin ? 3 : 2} style={{ padding: "12px 14px", color: COLORS.white, fontWeight: 800, fontSize: 13 }}>TOTAL</td>
-                  <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.text, fontWeight: 800, fontSize: 13, whiteSpace: "nowrap" }}>{fmt(totalComissaoSuprema)}</td>
-                  <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.success, fontWeight: 800, fontSize: 14, whiteSpace: "nowrap" }}>{fmt(totalComissaoVendedor)}</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.text, fontWeight: 800, fontSize: 13, whiteSpace: "nowrap" }}>{fmtMoney(totalComissaoSuprema)}</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.success, fontWeight: 800, fontSize: 14, whiteSpace: "nowrap" }}>{fmtMoney(totalComissaoVendedor)}</td>
                   <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>
-                    A pagar: <strong style={{ color: "#F59E0B" }}>{fmt(totalAPagar)}</strong>
+                    A pagar: <strong style={{ color: "#F59E0B" }}>{fmtMoney(totalAPagar)}</strong>
                   </td>
                 </tr>
               </tbody>
