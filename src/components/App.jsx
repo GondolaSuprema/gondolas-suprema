@@ -1966,7 +1966,9 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
         // MPP China ganha uma coluna extra "Capacidade" (200KG / 500KG)
         (() => {
           const isMpp = filter === "mpp-china";
-          const grid = isMpp ? "1fr 90px auto auto" : "1fr auto auto";
+          // Layout MPP: Produto cresce 1.5fr, Capacidade ocupa 1fr (centralizada),
+          // Valor 110px, botao 100px — Capacidade fica visualmente entre nome e preco.
+          const grid = isMpp ? "1.5fr 1fr 110px 100px" : "1fr auto auto";
           return (
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.textDim, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
