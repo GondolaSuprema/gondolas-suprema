@@ -3406,8 +3406,11 @@ function ComissoesPage({ user }) {
     return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mesSel;
   };
 
+  // Comissao aparece no mes em que a venda foi CONCLUIDA (data do orcamento),
+  // nao no mes da entrega futura. Se a entrega for em outro mes, isso nao
+  // afeta o calculo da comissao do vendedor.
   const vendasFiltradas = vendas.filter(v => {
-    if (!noMes(v.dataEntrega || v.data)) return false;
+    if (!noMes(v.data)) return false;
     if (filtroVendedor !== "all" && v.vendedorId !== filtroVendedor) return false;
     if (filtroPagamento === "pago" && !v.comissaoPaga) return false;
     if (filtroPagamento === "apagar" && v.comissaoPaga) return false;
@@ -3514,7 +3517,7 @@ function ComissoesPage({ user }) {
                   const labelStatus = v.comissaoPaga ? "✓ Pago" : "A Pagar";
                   return (
                   <tr key={v.id} style={{ borderTop: `1px solid ${COLORS.border}`, opacity: v.comissaoPaga ? 0.7 : 1 }}>
-                    <td style={{ padding: "10px 14px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{fmtData(v.dataEntrega || v.data)}</td>
+                    <td style={{ padding: "10px 14px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{fmtData(v.data)}</td>
                     <td style={{ padding: "10px 14px", color: COLORS.text, fontWeight: 600 }}>
                       {v.empresa}
                       <div style={{ color: COLORS.textDim, fontSize: 10, fontWeight: 400 }}>{v.cidade}{v.uf ? "/" + v.uf : ""}{v.numeroPedido ? " · #" + v.numeroPedido : ""}</div>
