@@ -1982,13 +1982,12 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
           )}
           {filtered.map((p, idx) => {
             const cap = p.specs?.categoria || "";
-            const corCap = cap.includes("500") ? "#F87171" : (cap.includes("200") ? "#3B82F6" : COLORS.textMuted);
             return (
             <div key={p.id} style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", alignItems: "center" }}>
               <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, lineHeight: 1.3 }}>{p.name}</div>
               {isMpp && (
                 <div style={{ textAlign: "center" }}>
-                  <span style={{ background: corCap + "20", color: corCap, padding: "3px 10px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{cap || "—"}</span>
+                  <span style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "3px 10px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{cap || "—"}</span>
                 </div>
               )}
               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange, textAlign: "right", minWidth: 110 }}>{fmt(p.price)}</div>
@@ -5152,6 +5151,9 @@ export default function App() {
     supabase.from("produtos_mpp_china")
       .select("id, nome, preco_brasil, categoria, codigo, linha_planilha")
       .eq("ativo", true)
+      // Ordena pela ordem manual (linha_planilha) — mantem agrupamento da
+      // planilha original. Nulls vao pro fim, depois desempate alfabetico.
+      .order("linha_planilha", { ascending: true, nullsFirst: false })
       .order("nome", { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) setMppChinaProducts(data);
