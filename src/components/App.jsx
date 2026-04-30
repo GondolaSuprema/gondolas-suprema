@@ -1963,25 +1963,42 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
       </div>
       {filter === "outros" || filter === "mpp-china" ? (
         // Visualização em lista simples (Outros Produtos / MPP China)
+        // MPP China ganha uma coluna extra "Capacidade" (200KG / 500KG)
+        (() => {
+          const isMpp = filter === "mpp-china";
+          const grid = isMpp ? "1fr 90px auto auto" : "1fr auto auto";
+          return (
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.textDim, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.textDim, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
             <div>Produto</div>
+            {isMpp && <div style={{ textAlign: "center" }}>Capacidade</div>}
             <div style={{ textAlign: "right", minWidth: 110 }}>Valor Suprema</div>
             <div style={{ minWidth: 100 }}></div>
           </div>
           {filtered.length === 0 && !loadingOutros && (
             <div style={{ padding: "30px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>
-              {filter === "mpp-china" ? "🇨🇳 Nenhum produto MPP China cadastrado ainda. Em breve você poderá adicionar produtos aqui." : "Nenhum produto encontrado"}
+              {isMpp ? "🇨🇳 Nenhum produto MPP China cadastrado ainda. Em breve você poderá adicionar produtos aqui." : "Nenhum produto encontrado"}
             </div>
           )}
-          {filtered.map((p, idx) => (
-            <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", alignItems: "center" }}>
+          {filtered.map((p, idx) => {
+            const cap = p.specs?.categoria || "";
+            const corCap = cap.includes("500") ? "#F87171" : (cap.includes("200") ? "#3B82F6" : COLORS.textMuted);
+            return (
+            <div key={p.id} style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", alignItems: "center" }}>
               <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, lineHeight: 1.3 }}>{p.name}</div>
+              {isMpp && (
+                <div style={{ textAlign: "center" }}>
+                  <span style={{ background: corCap + "20", color: corCap, padding: "3px 10px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{cap || "—"}</span>
+                </div>
+              )}
               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange, textAlign: "right", minWidth: 110 }}>{fmt(p.price)}</div>
               <button onClick={() => onAdd(p)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "6px 12px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", minWidth: 100 }}>+ Orçamento</button>
             </div>
-          ))}
+            );
+          })}
         </div>
+          );
+        })()
       ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "mpp" || filter === "slim" || filter === "mdf" ? (
         // Visualização em lista para Gôndolas de Parede, Centro, Ponta, MPP, Slim e MDF
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
