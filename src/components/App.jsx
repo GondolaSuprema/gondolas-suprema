@@ -3756,14 +3756,21 @@ function GaugeChart({ value, max, name, color }) {
   );
 }
 
-function GraficosPage() {
+function GraficosPage({ user }) {
   const [allOrders, setAllOrders] = useState([]);
   const [mesSel, setMesSel] = useState("");
   const META = 100000;
 
+  // Vendedor (Adelmo) ve apenas os proprios dados; admin/gestor veem todos.
+  const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
+  const isVendedorComum = role === "vendedor";
+
   useEffect(() => {
+    if (!user) return;
     const load = async () => {
-      const { data } = await supabase.from("orcamentos").select("*").eq("status", "Concluído").order("data", { ascending: false });
+      let q = supabase.from("orcamentos").select("*").eq("status", "Concluído");
+      if (isVendedorComum) q = q.eq("vendedor_id", user.id);
+      const { data } = await q.order("data", { ascending: false });
       if (data) {
         setAllOrders(data.map(o => ({
           id: o.id, date: o.data, total: o.total || 0, vendedor: o.vendedor_nome, vendedorId: o.vendedor_id
@@ -3771,14 +3778,18 @@ function GraficosPage() {
       }
     };
     load();
-  }, []);
+  }, [user?.id, isVendedorComum]);
 
   const meses = [...new Set(allOrders.map(o => { const d = new Date(o.date); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }))].sort().reverse();
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
   const activeMes = mesSel || meses[0] || "";
   const cores = { v1: "#F5A623", v2: "#3B82F6", v3: "#10B981" };
 
-  const SELLERS = VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
+  // Admin/gestor: ranking entre os 3 vendedores
+  // Vendedor: so aparece o proprio (a query ja vem filtrada)
+  const SELLERS = isVendedorComum
+    ? VENDEDORES.filter(v => v.id === user.id)
+    : VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
 
   const vendedoresData = SELLERS.map(v => {
     const vendasMes = allOrders.filter(o => {
@@ -5089,7 +5100,11 @@ export default function App() {
     return m;
   }, [uniplusProducts]);
 
+  // Carrega catalogo Uniplus APENAS depois do usuario estar autenticado.
+  // Antes disso a sessao do supabase-js ainda eh anon e a RLS retorna []
+  // — bug que afetava Zanella e Adelmo recem-logados (ver issue 30/abr/2026).
   useEffect(() => {
+    if (!user) { setUniplusProducts([]); return; }
     supabase.from("produtos_uniplus")
       .select("id, nome, preco_brasil, categoria, linha_planilha")
       .eq("ativo", true)
@@ -5097,7 +5112,7 @@ export default function App() {
       .then(({ data, error }) => {
         if (!error && data) setUniplusProducts(data);
       });
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -5164,9 +5179,12 @@ export default function App() {
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "catalog" && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} uniplusPriceMap={uniplusPriceMap} />}
-      {page === "quote" && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
-      {page === "resumo" && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "catalog" && user && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "catalog" && !user && <Login onLogin={login} setPage={setPage} />}
+      {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "quote" && !user && <Login onLogin={login} setPage={setPage} />}
+      {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage />}
@@ -5179,7 +5197,7 @@ export default function App() {
       {page === "nf" && !canAccess(user, "nf") && <Login onLogin={login} setPage={setPage} />}
       {page === "conciliacao" && canAccess(user, "conciliacao") && <ConciliacaoPage />}
       {page === "conciliacao" && !canAccess(user, "conciliacao") && <Login onLogin={login} setPage={setPage} />}
-      {page === "graficos" && user && <GraficosPage />}
+      {page === "graficos" && user && <GraficosPage user={user} />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
       {page === "logistica" && !canAccess(user, "logistica") && <Login onLogin={login} setPage={setPage} />}
