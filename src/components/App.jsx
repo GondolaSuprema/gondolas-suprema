@@ -1780,6 +1780,27 @@ function canEditLogistica(user) {
   return role === "admin" || role === "gestor";
 }
 
+// ─── ORCAMENTOS RS-OCULTOS (regra de negocio do Ale) ───
+// Orcamentos do estado RS feitos pelo Alessandro (v1) sao "particulares":
+// nao aparecem em ADM / Graficos / DRE / Logistica para Adelmo e Zanella,
+// nao entram em relatorios consolidados, nao contabilizam no ranking.
+// So aparecem na aba Orcamentos do proprio Alessandro.
+//
+// Aceita tanto o formato cru do banco (cliente_estado, vendedor_id) quanto
+// o formato adaptado pra UI (client.estado, vendedorId).
+function isOrcamentoRsOculto(o) {
+  if (!o) return false;
+  const estado = String(o.cliente_estado || o.client?.estado || "").trim().toUpperCase();
+  const vendedorId = o.vendedor_id || o.vendedorId || "";
+  return estado === "RS" && vendedorId === "v1";
+}
+
+// Determina se o usuario atual deve ver os orcamentos RS-ocultos.
+// So o proprio Alessandro ve.
+function podeVerOrcamentosRsOcultos(user) {
+  return user?.id === "v1" || user?.email === "ale.thonsen@gmail.com";
+}
+
 const STATUS_ENTREGA_OPTIONS = ["Agendada", "Em Rota", "Entregue", "Atrasada", "Reagendada"];
 const STATUS_ENTREGA_COLORS = {
   "Agendada":   "#3B82F6",
@@ -2844,6 +2865,10 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                   <span style={{ color: COLORS.textDim, fontSize: 18, transition: "transform .2s", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
                   <div>
                     <span style={{ fontSize: 14, color: COLORS.white, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{o.client?.empresa || "Sem empresa"}</span>
+                    {/* Marcador "RS particular" — orcamentos RS do Ale ficam fora de ADM/DRE/Logistica/ranking */}
+                    {user.id === "v1" && String(o.client?.estado || "").trim().toUpperCase() === "RS" && (
+                      <span style={{ marginLeft: 8, background: "#8B5CF6" + "20", color: "#8B5CF6", padding: "2px 8px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }} title="Orçamento particular RS — não aparece em ADM, DRE, Logística nem ranking">🔒 RS</span>
+                    )}
                     <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
                       Vendedor: <strong style={{ color: COLORS.accent }}>{o.vendedor || user.name}</strong>
                       <span style={{ marginLeft: 8, color: COLORS.textDim }}>{new Date(o.date).toLocaleDateString("pt-BR")}</span>
@@ -3052,7 +3077,9 @@ function LogisticaPage({ user }) {
       }
       const { data } = await q.order("data_entrega", { ascending: true });
       if (data) {
-        setAllEntregas(data.map(o => ({
+        // Orcamentos RS-ocultos do Ale ficam fora da Logistica consolidada
+        const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
+        setAllEntregas(visiveis.map(o => ({
           id: o.id,
           empresa: o.cliente_empresa || "",
           cidade: o.cliente_cidade || "",
@@ -3239,7 +3266,7 @@ function LogisticaPage({ user }) {
 }
 
 // ─── ADMIN ───
-function AdminPage() {
+function AdminPage({ user }) {
   const [allOrders, setAllOrders] = useState([]);
   const [deletedCount, setDeletedCount] = useState({});
   const [filterVendedor, setFilterVendedor] = useState("all");
@@ -3316,7 +3343,10 @@ function AdminPage() {
     const loadAll = async () => {
       const { data } = await supabase.from("orcamentos").select("*").order("data", { ascending: false });
       if (data) {
-        setAllOrders(data.map(o => ({
+        // Orcamentos RS-ocultos do Ale ficam fora da visao consolidada da ADM,
+        // mesmo se o proprio Ale estiver na ADM (ele ve esses na aba Orcamentos).
+        const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
+        setAllOrders(visiveis.map(o => ({
           id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, status: o.status, items: o.items,
           vendedor: o.vendedor_nome, vendedorId: o.vendedor_id,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
@@ -3832,7 +3862,9 @@ function GraficosPage({ user }) {
       if (isVendedorComum) q = q.eq("vendedor_id", user.id);
       const { data } = await q.order("data", { ascending: false });
       if (data) {
-        setAllOrders(data.map(o => ({
+        // Remove orcamentos RS-ocultos do ranking/graficos consolidados
+        const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
+        setAllOrders(visiveis.map(o => ({
           id: o.id, date: o.data, total: o.total || 0, vendedor: o.vendedor_nome, vendedorId: o.vendedor_id
         })));
       }
@@ -4584,8 +4616,10 @@ function DrePage() {
   }, []);
 
   // Receita usa data_entrega (regime de competencia). Fallback: data do orcamento.
+  // Orcamentos RS-ocultos do Ale ficam fora da DRE consolidada.
   const calcularMes = (mes) => {
     const vendasMes = vendas.filter(o => {
+      if (isOrcamentoRsOculto(o)) return false;
       const ref = o.data_entrega || o.data;
       if (!ref) return false;
       const d = new Date(ref);
@@ -5259,7 +5293,7 @@ export default function App() {
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "adm" && canAccess(user, "adm") && <AdminPage />}
+      {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
       {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroPage />}
       {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
