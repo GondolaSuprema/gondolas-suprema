@@ -1444,6 +1444,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
               { k: "resumo", l: "Resumo" },
               { k: "orders", l: "Orçamentos" },
               { k: "graficos", l: "Gráficos" },
+              { k: "logistica", l: "Logística" },
               { k: "adm", l: "ADM" },
               { k: "financeiro", l: "Financeiro" },
               { k: "dre", l: "DRE" },
@@ -1734,9 +1735,9 @@ const VENDEDORES = [
 // Cada role lista exatamente quais abas de navegacao pode acessar.
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
-  admin:    ["client", "catalog", "resumo", "orders", "graficos", "adm", "financeiro", "dre", "nf", "conciliacao"],
-  gestor:   ["client", "catalog", "resumo", "orders", "graficos", "adm"],
-  vendedor: ["client", "catalog", "resumo", "orders", "graficos"],
+  admin:    ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  gestor:   ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
+  vendedor: ["client", "catalog", "resumo", "orders", "graficos", "logistica"],
 };
 
 // canAccess(user, "adm") => true/false
@@ -1746,6 +1747,46 @@ function canAccess(user, tab) {
   const role = user.role || (user.isAdmin ? "admin" : "vendedor");
   return (ROLE_PERMISSIONS[role] || []).includes(tab);
 }
+
+// ─── REGIOES DE ENTREGA (LOGISTICA) ───
+// Mapeamento cidade -> regiao para agrupamento. Cidades em UPPERCASE
+// e sem acento ja que vem do banco assim. Edite aqui pra ajustar.
+const REGIOES_ENTREGA = [
+  { nome: "Grande Florianópolis", uf: "SC", cidades: ["FLORIANOPOLIS", "FLORIANÓPOLIS", "SAO JOSE", "SÃO JOSÉ", "PALHOCA", "PALHOÇA", "BIGUACU", "BIGUAÇU", "MAJOR GERCINO", "TIJUCAS", "ANTONIO CARLOS", "ANTÔNIO CARLOS", "GOVERNADOR CELSO RAMOS", "SANTO AMARO", "SANTO AMARO DA IMPERATRIZ"] },
+  { nome: "Norte SC / Litoral Norte", uf: "SC", cidades: ["JOINVILLE", "ITAJAI", "ITAJAÍ", "BALNEARIO CAMBORIU", "BALNEÁRIO CAMBORIÚ", "ITAPEMA", "CAMBORIU", "CAMBORIÚ", "NAVEGANTES", "JARAGUA DO SUL", "JARAGUÁ DO SUL", "PENHA", "PIÇARRAS", "PICARRAS", "BARRA VELHA", "ITAPOA", "ITAPOÁ", "SAO FRANCISCO DO SUL", "SÃO FRANCISCO DO SUL"] },
+  { nome: "Vale do Itajaí", uf: "SC", cidades: ["BLUMENAU", "BRUSQUE", "INDAIAL", "RIO DO SUL", "TIMBO", "TIMBÓ", "POMERODE", "GASPAR", "ITUPORANGA"] },
+  { nome: "Sul Catarinense", uf: "SC", cidades: ["TUBARAO", "TUBARÃO", "CRICIUMA", "CRICIÚMA", "ARARANGUA", "ARARANGUÁ", "ICARA", "IÇARA", "IMBITUBA", "LAGUNA", "BRACO DO NORTE", "BRAÇO DO NORTE", "ORLEANS"] },
+  { nome: "Oeste Catarinense", uf: "SC", cidades: ["CHAPECO", "CHAPECÓ", "SAO MIGUEL DO OESTE", "SÃO MIGUEL DO OESTE", "CONCORDIA", "CONCÓRDIA", "XANXERE", "XANXERÊ", "JOACABA", "JOAÇABA"] },
+  { nome: "Serra Catarinense", uf: "SC", cidades: ["LAGES", "SAO JOAQUIM", "SÃO JOAQUIM", "BOM RETIRO", "URUBICI"] },
+  { nome: "Grande Porto Alegre", uf: "RS", cidades: ["PORTO ALEGRE", "CANOAS", "SAO LEOPOLDO", "SÃO LEOPOLDO", "NOVO HAMBURGO", "GRAVATAI", "GRAVATAÍ", "VIAMAO", "VIAMÃO", "CACHOEIRINHA", "ALVORADA", "ESTEIO", "SAPUCAIA DO SUL"] },
+  { nome: "Serra Gaúcha", uf: "RS", cidades: ["CAXIAS DO SUL", "BENTO GONCALVES", "BENTO GONÇALVES", "GARIBALDI", "CARLOS BARBOSA", "FARROUPILHA", "VERANOPOLIS", "VERANÓPOLIS", "FLORES DA CUNHA"] },
+];
+
+function getRegiao(cidade, uf) {
+  if (!cidade) return "Outras regiões";
+  const c = String(cidade).toUpperCase().trim();
+  for (const r of REGIOES_ENTREGA) {
+    if (r.cidades.includes(c)) return r.nome;
+  }
+  // Se nao matchou nenhuma cidade mas tem UF, agrupa em "Outras de SC/RS/etc"
+  return uf ? "Outras de " + String(uf).toUpperCase() : "Outras regiões";
+}
+
+// canEditLogistica(user) => admin e gestor podem editar; vendedor apenas le
+function canEditLogistica(user) {
+  if (!user) return false;
+  const role = user.role || (user.isAdmin ? "admin" : "vendedor");
+  return role === "admin" || role === "gestor";
+}
+
+const STATUS_ENTREGA_OPTIONS = ["Agendada", "Em Rota", "Entregue", "Atrasada", "Reagendada"];
+const STATUS_ENTREGA_COLORS = {
+  "Agendada":   "#3B82F6",
+  "Em Rota":    "#F5A623",
+  "Entregue":   "#10B981",
+  "Atrasada":   "#F87171",
+  "Reagendada": "#8B5CF6",
+};
 
 function Login({ onLogin, setPage }) {
   const [f, setF] = useState({ email: "", password: "" });
@@ -2430,7 +2471,14 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     }
     const info = "\n📋 CONCLUÍDO — Entrega: " + cd.data_entrega + " | Pedido: " + cd.numero_pedido + " | Pagamento: " + pagStr;
     const existingNotes = orders.find(o => o.id === concluidoId)?.notes || "";
-    await supabase.from("orcamentos").update({ status: "Concluído", notes: existingNotes + info }).eq("id", concluidoId);
+    await supabase.from("orcamentos").update({
+      status: "Concluído",
+      notes: existingNotes + info,
+      // Colunas dedicadas para a aba Logistica
+      data_entrega: cd.data_entrega || null,
+      numero_pedido: cd.numero_pedido || null,
+      status_entrega: cd.data_entrega ? "Agendada" : null,
+    }).eq("id", concluidoId);
     setOrders(orders.map(o => o.id === concluidoId ? { ...o, status: "Concluído", notes: (o.notes || "") + info } : o));
     setConcluidoId(null);
   };
@@ -2868,6 +2916,211 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── LOGISTICA ───
+function LogisticaPage({ user }) {
+  const [allEntregas, setAllEntregas] = useState([]);
+  const [filterPeriodo, setFilterPeriodo] = useState("proximos30");
+  const [filterRegiao, setFilterRegiao] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  const podeEditar = canEditLogistica(user);
+
+  useEffect(() => {
+    const load = async () => {
+      let q = supabase.from("orcamentos").select("*").not("data_entrega", "is", null);
+      // Vendedor (Adelmo) so ve as dele; admin/gestor ve tudo
+      const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
+      if (role === "vendedor") {
+        q = q.eq("vendedor_id", user.id);
+      }
+      const { data } = await q.order("data_entrega", { ascending: true });
+      if (data) {
+        setAllEntregas(data.map(o => ({
+          id: o.id,
+          empresa: o.cliente_empresa || "",
+          cidade: o.cliente_cidade || "",
+          uf: o.cliente_estado || "",
+          vendedor: o.vendedor_nome || "",
+          total: o.total || 0,
+          dataEntrega: o.data_entrega,
+          numeroPedido: o.numero_pedido || "",
+          statusEntrega: o.status_entrega || "Agendada",
+        })));
+      }
+    };
+    load();
+  }, [user]);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const inPeriodo = (dataStr) => {
+    if (!dataStr) return false;
+    const d = new Date(dataStr + "T00:00:00");
+    if (filterPeriodo === "all") return true;
+    if (filterPeriodo === "atrasadas") return d < today;
+    if (filterPeriodo === "hoje") return d.getTime() === today.getTime();
+    if (filterPeriodo === "proximos7") {
+      const lim = new Date(today); lim.setDate(lim.getDate() + 7);
+      return d >= today && d <= lim;
+    }
+    if (filterPeriodo === "proximos30") {
+      const lim = new Date(today); lim.setDate(lim.getDate() + 30);
+      return d >= today && d <= lim;
+    }
+    return true;
+  };
+
+  const filtered = allEntregas.filter(o => {
+    if (!inPeriodo(o.dataEntrega)) return false;
+    if (filterStatus !== "all" && o.statusEntrega !== filterStatus) return false;
+    if (filterRegiao !== "all" && getRegiao(o.cidade, o.uf) !== filterRegiao) return false;
+    return true;
+  });
+
+  const grouped = filtered.reduce((acc, o) => {
+    const r = getRegiao(o.cidade, o.uf);
+    if (!acc[r]) acc[r] = [];
+    acc[r].push(o);
+    return acc;
+  }, {});
+  const regioesOrdenadas = Object.keys(grouped).sort();
+
+  // Stats
+  const totalEntregas = filtered.length;
+  const atrasadas = allEntregas.filter(o => {
+    const d = new Date(o.dataEntrega + "T00:00:00");
+    return d < today && o.statusEntrega !== "Entregue";
+  }).length;
+  const proxima = allEntregas
+    .filter(o => o.dataEntrega && new Date(o.dataEntrega + "T00:00:00") >= today && o.statusEntrega !== "Entregue")
+    .sort((a, b) => a.dataEntrega.localeCompare(b.dataEntrega))[0];
+  const valorTotal = filtered.reduce((s, o) => s + (o.total || 0), 0);
+
+  const updateStatus = async (id, novoStatus) => {
+    await supabase.from("orcamentos").update({ status_entrega: novoStatus }).eq("id", id);
+    setAllEntregas(prev => prev.map(o => o.id === id ? { ...o, statusEntrega: novoStatus } : o));
+  };
+  const updateData = async (id, novaData) => {
+    await supabase.from("orcamentos").update({ data_entrega: novaData || null }).eq("id", id);
+    setAllEntregas(prev => prev.map(o => o.id === id ? { ...o, dataEntrega: novaData } : o));
+  };
+
+  const fmtData = (s) => {
+    if (!s) return "—";
+    const d = new Date(s + "T00:00:00");
+    return d.toLocaleDateString("pt-BR");
+  };
+  const sel = { padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" };
+  const statCard = (label, value, color, small) => (
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>{label}</div>
+      <div style={{ color: color, fontSize: small ? 18 : 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>📦 Logística</h1>
+      <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>
+        Cronograma de entregas agrupado por região
+        {!podeEditar && <span style={{ color: COLORS.textDim, fontStyle: "italic" }}> · somente leitura</span>}
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 20 }}>
+        {statCard("Entregas no Período", totalEntregas, COLORS.orange)}
+        {statCard("Atrasadas", atrasadas, atrasadas > 0 ? "#F87171" : COLORS.textMuted)}
+        {statCard("Próxima Entrega", proxima ? fmtData(proxima.dataEntrega) : "—", "#3B82F6", true)}
+        {statCard("Valor Total", fmt(valorTotal), COLORS.success, true)}
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
+        <select value={filterPeriodo} onChange={e => setFilterPeriodo(e.target.value)} style={sel}>
+          <option value="all">Todos os períodos</option>
+          <option value="atrasadas">Atrasadas</option>
+          <option value="hoje">Hoje</option>
+          <option value="proximos7">Próximos 7 dias</option>
+          <option value="proximos30">Próximos 30 dias</option>
+        </select>
+        <select value={filterRegiao} onChange={e => setFilterRegiao(e.target.value)} style={sel}>
+          <option value="all">Todas as regiões</option>
+          {[...REGIOES_ENTREGA.map(r => r.nome), "Outras de SC", "Outras de RS", "Outras regiões"].map(r => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={sel}>
+          <option value="all">Todos os status</option>
+          {STATUS_ENTREGA_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {regioesOrdenadas.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+          <p style={{ color: COLORS.textMuted, fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>Nenhuma entrega com os filtros atuais</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {regioesOrdenadas.map(regiao => {
+            const items = grouped[regiao];
+            return (
+              <div key={regiao} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "12px 16px", background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.accent, fontSize: 16, margin: 0 }}>📍 {regiao}</h3>
+                  <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{items.length} {items.length === 1 ? "entrega" : "entregas"}</span>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                    <thead>
+                      <tr style={{ background: COLORS.bg }}>
+                        <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Cliente</th>
+                        <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Cidade</th>
+                        <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Pedido</th>
+                        <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Valor</th>
+                        <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Data Entrega</th>
+                        <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map(o => {
+                        const cor = STATUS_ENTREGA_COLORS[o.statusEntrega] || COLORS.textMuted;
+                        return (
+                          <tr key={o.id} style={{ borderTop: `1px solid ${COLORS.border}` }}>
+                            <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>{o.empresa || "—"}</td>
+                            <td style={{ padding: "12px 14px", color: COLORS.textMuted }}>{o.cidade}{o.uf ? "/" + o.uf : ""}</td>
+                            <td style={{ padding: "12px 14px", color: COLORS.text, fontFamily: "monospace" }}>{o.numeroPedido || "—"}</td>
+                            <td style={{ padding: "12px 14px", color: COLORS.orange, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{fmt(o.total)}</td>
+                            <td style={{ padding: "12px 14px", color: COLORS.text }}>
+                              {podeEditar ? (
+                                <input type="date" value={o.dataEntrega || ""} onChange={(e) => updateData(o.id, e.target.value)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "4px 8px", borderRadius: 6, fontSize: 12, fontFamily: "'DM Sans', sans-serif", colorScheme: "dark" }} />
+                              ) : (
+                                fmtData(o.dataEntrega)
+                              )}
+                            </td>
+                            <td style={{ padding: "12px 14px" }}>
+                              {podeEditar ? (
+                                <select value={o.statusEntrega} onChange={(e) => updateStatus(o.id, e.target.value)} style={{ background: cor + "20", border: `1px solid ${cor}40`, color: cor, padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}>
+                                  {STATUS_ENTREGA_OPTIONS.map(s => <option key={s} value={s} style={{ background: COLORS.bg, color: COLORS.text }}>{s}</option>)}
+                                </select>
+                              ) : (
+                                <span style={{ background: cor + "20", color: cor, padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{o.statusEntrega}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -4793,6 +5046,8 @@ export default function App() {
       {page === "conciliacao" && !canAccess(user, "conciliacao") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
+      {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
+      {page === "logistica" && !canAccess(user, "logistica") && <Login onLogin={login} setPage={setPage} />}
     </div>
   );
 }
