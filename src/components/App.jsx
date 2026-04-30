@@ -1807,7 +1807,7 @@ const CATEGORIAS_SUGERIDAS = {
   DEDUCAO_RECEITA:    ["Simples Nacional (DAS)", "ICMS", "ICMS-ST", "Devoluções", "Cancelamentos"],
   CMV:                ["Fornecedores Gôndolas", "Fornecedores MDF", "Fornecedores Outros", "Mão-de-obra Produção", "Insumos"],
   DESPESA_VENDAS:     ["Comissões", "Tráfego Pago", "Ferramentas Comerciais", "Materiais de Venda"],
-  DESPESA_ADM:        ["Pró-labore", "Encargos Trabalhistas", "Honorários", "Infraestrutura", "Material de Escritório"],
+  DESPESA_ADM:        ["Pró-labore", "Encargos Trabalhistas", "Honorários", "Infraestrutura", "Software & TI", "Material de Escritório"],
   DESPESA_LOGISTICA:  ["Salários Operacionais", "Veículos", "Combustível", "Frete Terceirizado"],
   DESPESA_GERAL:      ["A classificar", "Outros"],
   DESPESA_FINANCEIRA: ["Tarifas Bancárias", "Juros Pagos", "IOF"],
@@ -1823,6 +1823,8 @@ function inferirTipoDespesa(nome) {
   if (n.startsWith("forn_mdf"))      return { tipo: "CMV", categoria: "Fornecedores MDF" };
   if (n.startsWith("forn_outros"))   return { tipo: "CMV", categoria: "Fornecedores Outros" };
   if (n.startsWith("forn_"))         return { tipo: "CMV", categoria: "Fornecedores Outros" };
+  // Gondolas S.A — fornecedor especifico de gondolas
+  if (n === "s.a" || n === "gondolas s.a" || n.startsWith("gondolas s.a")) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
   if (n.includes("simples") || n.startsWith("imposto_das") || n.startsWith("das_")) return { tipo: "DEDUCAO_RECEITA", categoria: "Simples Nacional (DAS)" };
   if (n.includes("icms"))            return { tipo: "DEDUCAO_RECEITA", categoria: "ICMS" };
   if (n.startsWith("salário") || n.startsWith("salario")) return { tipo: "DESPESA_LOGISTICA", categoria: "Salários Operacionais" };
@@ -1831,6 +1833,8 @@ function inferirTipoDespesa(nome) {
   if (n === "fgts" || n === "inss") return { tipo: "DESPESA_ADM", categoria: "Encargos Trabalhistas" };
   if (n.startsWith("contabilidade") || n.startsWith("advogad") || n.startsWith("honorário")) return { tipo: "DESPESA_ADM", categoria: "Honorários" };
   if (n.startsWith("aluguel") || n.startsWith("internet") || n.startsWith("energia") || n.startsWith("agua") || n.startsWith("água") || n.startsWith("telefone")) return { tipo: "DESPESA_ADM", categoria: "Infraestrutura" };
+  // Software, sistemas, IAs, hospedagem, dominios
+  if (n === "sistema" || n.startsWith("sistema") || n.startsWith("software") || n.startsWith("hospedagem") || n.startsWith("domínio") || n.startsWith("dominio") || n.startsWith("vercel") || n.startsWith("openai") || n.startsWith("anthropic") || n.startsWith("supabase") || n.startsWith("ia ") || n.includes(" ia ")) return { tipo: "DESPESA_ADM", categoria: "Software & TI" };
   if (n.startsWith("google ads") || n.startsWith("meta ads") || n.startsWith("facebook ads") || n.startsWith("instagram ads") || n.startsWith("tráfego")) return { tipo: "DESPESA_VENDAS", categoria: "Tráfego Pago" };
   if (n.startsWith("wasseler") || n.startsWith("crm")) return { tipo: "DESPESA_VENDAS", categoria: "Ferramentas Comerciais" };
   if (n.includes("comissão") || n.includes("comissao")) return { tipo: "DESPESA_VENDAS", categoria: "Comissões" };
