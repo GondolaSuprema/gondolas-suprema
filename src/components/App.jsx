@@ -1788,6 +1788,55 @@ const STATUS_ENTREGA_COLORS = {
   "Reagendada": "#8B5CF6",
 };
 
+// ─── CONTABILIDADE: TIPOS PARA DRE ───
+// Cada despesa tem um tipo contabil que define onde aparece na DRE.
+// Receitas vem da tabela orcamentos (status='Concluído'), nao de despesas.
+const TIPOS_DESPESA = [
+  { key: "DEDUCAO_RECEITA",     label: "Dedução da Receita",      grupo: "Deduções",         color: "#F59E0B" },
+  { key: "CMV",                 label: "Custo dos Produtos (CMV)", grupo: "CMV",              color: "#F87171" },
+  { key: "DESPESA_VENDAS",      label: "Despesa com Vendas",      grupo: "Operacional",      color: "#8B5CF6" },
+  { key: "DESPESA_ADM",         label: "Despesa Administrativa",  grupo: "Operacional",      color: "#8B5CF6" },
+  { key: "DESPESA_LOGISTICA",   label: "Despesa Logística",       grupo: "Operacional",      color: "#8B5CF6" },
+  { key: "DESPESA_GERAL",       label: "Despesa Geral",           grupo: "Operacional",      color: "#8B5CF6" },
+  { key: "DESPESA_FINANCEIRA",  label: "Despesa Financeira",      grupo: "Financeiro",       color: "#EC4899" },
+  { key: "RECEITA_FINANCEIRA",  label: "Receita Financeira",      grupo: "Financeiro",       color: "#10B981" },
+];
+
+// Categorias sugeridas por tipo (autocomplete pro select)
+const CATEGORIAS_SUGERIDAS = {
+  DEDUCAO_RECEITA:    ["Simples Nacional (DAS)", "ICMS", "ICMS-ST", "Devoluções", "Cancelamentos"],
+  CMV:                ["Fornecedores Gôndolas", "Fornecedores MDF", "Fornecedores Outros", "Mão-de-obra Produção", "Insumos"],
+  DESPESA_VENDAS:     ["Comissões", "Tráfego Pago", "Ferramentas Comerciais", "Materiais de Venda"],
+  DESPESA_ADM:        ["Pró-labore", "Encargos Trabalhistas", "Honorários", "Infraestrutura", "Material de Escritório"],
+  DESPESA_LOGISTICA:  ["Salários Operacionais", "Veículos", "Combustível", "Frete Terceirizado"],
+  DESPESA_GERAL:      ["A classificar", "Outros"],
+  DESPESA_FINANCEIRA: ["Tarifas Bancárias", "Juros Pagos", "IOF"],
+  RECEITA_FINANCEIRA: ["Rendimentos", "Juros Recebidos"],
+};
+
+// Heuristica para inferir tipo a partir do nome da despesa (usado ao criar
+// novas despesas no Financeiro pra ja sair classificada corretamente).
+function inferirTipoDespesa(nome) {
+  if (!nome) return { tipo: "DESPESA_GERAL", categoria: "A classificar" };
+  const n = String(nome).toLowerCase();
+  if (n.startsWith("forn_gondolas")) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
+  if (n.startsWith("forn_mdf"))      return { tipo: "CMV", categoria: "Fornecedores MDF" };
+  if (n.startsWith("forn_outros"))   return { tipo: "CMV", categoria: "Fornecedores Outros" };
+  if (n.startsWith("forn_"))         return { tipo: "CMV", categoria: "Fornecedores Outros" };
+  if (n.includes("simples") || n.startsWith("imposto_das") || n.startsWith("das_")) return { tipo: "DEDUCAO_RECEITA", categoria: "Simples Nacional (DAS)" };
+  if (n.includes("icms"))            return { tipo: "DEDUCAO_RECEITA", categoria: "ICMS" };
+  if (n.startsWith("salário") || n.startsWith("salario")) return { tipo: "DESPESA_LOGISTICA", categoria: "Salários Operacionais" };
+  if (n.includes("hr") || n.startsWith("carro") || n.startsWith("seguro") || n.includes("combust") || n.includes("manuten")) return { tipo: "DESPESA_LOGISTICA", categoria: "Veículos" };
+  if (n.includes("pgto sócio") || n.includes("pgto socio") || n.includes("pró-labore") || n.includes("pro-labore")) return { tipo: "DESPESA_ADM", categoria: "Pró-labore" };
+  if (n === "fgts" || n === "inss") return { tipo: "DESPESA_ADM", categoria: "Encargos Trabalhistas" };
+  if (n.startsWith("contabilidade") || n.startsWith("advogad") || n.startsWith("honorário")) return { tipo: "DESPESA_ADM", categoria: "Honorários" };
+  if (n.startsWith("aluguel") || n.startsWith("internet") || n.startsWith("energia") || n.startsWith("agua") || n.startsWith("água") || n.startsWith("telefone")) return { tipo: "DESPESA_ADM", categoria: "Infraestrutura" };
+  if (n.startsWith("google ads") || n.startsWith("meta ads") || n.startsWith("facebook ads") || n.startsWith("instagram ads") || n.startsWith("tráfego")) return { tipo: "DESPESA_VENDAS", categoria: "Tráfego Pago" };
+  if (n.startsWith("wasseler") || n.startsWith("crm")) return { tipo: "DESPESA_VENDAS", categoria: "Ferramentas Comerciais" };
+  if (n.includes("comissão") || n.includes("comissao")) return { tipo: "DESPESA_VENDAS", categoria: "Comissões" };
+  return { tipo: "DESPESA_GERAL", categoria: "A classificar" };
+}
+
 function Login({ onLogin, setPage }) {
   const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
@@ -3837,9 +3886,10 @@ function FinanceiroPage() {
     if (data && data.length > 0) {
       setDespesas(data);
     } else {
-      const novas = DESPESAS_FIXAS.map(nome => ({
-        id: genId(), nome, vencimento: null, valor: 0, status: "Em Aberto", mes, fixa: true
-      }));
+      const novas = DESPESAS_FIXAS.map(nome => {
+        const { tipo, categoria } = inferirTipoDespesa(nome);
+        return { id: genId(), nome, vencimento: null, valor: 0, status: "Em Aberto", mes, fixa: true, tipo, categoria };
+      });
       for (const d of novas) { await supabase.from("despesas").insert(d); }
       setDespesas(novas);
     }
@@ -3862,7 +3912,8 @@ function FinanceiroPage() {
   const adicionarDespesa = async (fixa) => {
     if (fixa) {
       if (!novaDespesa.trim()) return;
-      const nova = { id: genId(), nome: novaDespesa.trim(), vencimento: null, valor: 0, status: "Em Aberto", mes: mesSel, fixa: true };
+      const { tipo, categoria } = inferirTipoDespesa(novaDespesa.trim());
+      const nova = { id: genId(), nome: novaDespesa.trim(), vencimento: null, valor: 0, status: "Em Aberto", mes: mesSel, fixa: true, tipo, categoria };
       await supabase.from("despesas").insert(nova);
       setDespesas([...despesas, nova]);
       setNovaDespesa("");
@@ -3877,7 +3928,8 @@ function FinanceiroPage() {
     const m = vf.vencimento_mes || mesSel.split("-")[1];
     const d = vf.vencimento_dia || "01";
     const venc = y + "-" + m + "-" + d;
-    const nova = { id: genId(), nome, vencimento: venc, valor: Number(vf.valor) || 0, status: "Em Aberto", mes: mesSel, fixa: false };
+    const cls = inferirTipoDespesa(nome);
+    const nova = { id: genId(), nome, vencimento: venc, valor: Number(vf.valor) || 0, status: "Em Aberto", mes: mesSel, fixa: false, tipo: cls.tipo, categoria: cls.categoria };
     await supabase.from("despesas").insert(nova);
     setDespesas([...despesas, nova]);
     setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" });
@@ -3891,11 +3943,10 @@ function FinanceiroPage() {
     const dia = ff.data || "01";
     const mes = mesSel.split("-")[1];
     const venc = y + "-" + mes + "-" + String(dia).padStart(2, "0");
-    const nova = { id: genId(), nome: "forn_" + tipo, vencimento: venc, valor: Number(ff.valor) || 0, status: "Em Aberto", mes: mesSel, fixa: false };
-    // Store pedido and parcela in notes-like approach using nome
-    if (ff.pedido || ff.parcela) {
-      nova.nome = "forn_" + tipo + "|" + (ff.pedido || "") + "|" + (ff.parcela || "");
-    }
+    let nomeFinal = "forn_" + tipo;
+    if (ff.pedido || ff.parcela) nomeFinal = "forn_" + tipo + "|" + (ff.pedido || "") + "|" + (ff.parcela || "");
+    const cls = inferirTipoDespesa(nomeFinal);
+    const nova = { id: genId(), nome: nomeFinal, vencimento: venc, valor: Number(ff.valor) || 0, status: "Em Aberto", mes: mesSel, fixa: false, tipo: cls.tipo, categoria: cls.categoria };
     await supabase.from("despesas").insert(nova);
     setFornecedores([...fornecedores, nova]);
     setFornForm({ data: "", pedido: "", parcela: "", valor: "" });
@@ -3919,7 +3970,7 @@ function FinanceiroPage() {
     const y = mesSel.split("-")[0];
     const venc = y + "-" + mf.mes + "-" + mf.dia;
     const mesKey = y + "-" + mf.mes;
-    const nova = { id: genId(), nome: "forn_mdf||" + (mf.qtd || "1") + "|", vencimento: venc, valor: Number(mf.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false };
+    const nova = { id: genId(), nome: "forn_mdf||" + (mf.qtd || "1") + "|", vencimento: venc, valor: Number(mf.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false, tipo: "CMV", categoria: "Fornecedores MDF" };
     await supabase.from("despesas").insert(nova);
     setFornecedores([...fornecedores, nova]);
     setMdfForm({ dia: "", mes: "", qtd: "", valor: "" });
@@ -3932,7 +3983,7 @@ function FinanceiroPage() {
     const y = mesSel.split("-")[0];
     const venc = y + "-" + of2.mes + "-" + of2.dia;
     const mesKey = y + "-" + of2.mes;
-    const nova = { id: genId(), nome: "forn_outros|" + of2.fornecedor + "||", vencimento: venc, valor: Number(of2.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false };
+    const nova = { id: genId(), nome: "forn_outros|" + of2.fornecedor + "||", vencimento: venc, valor: Number(of2.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false, tipo: "CMV", categoria: "Fornecedores Outros" };
     await supabase.from("despesas").insert(nova);
     setFornecedores([...fornecedores, nova]);
     setOutrosForm({ dia: "", mes: "", fornecedor: "", valor: "" });
@@ -3962,7 +4013,9 @@ function FinanceiroPage() {
         valor: val,
         status: "Em Aberto",
         mes: mesKey,
-        fixa: false
+        fixa: false,
+        tipo: "CMV",
+        categoria: "Fornecedores Gôndolas",
       };
       novas.push(nova);
       await supabase.from("despesas").insert(nova);
@@ -4441,7 +4494,9 @@ function DrePage() {
   const [vendas, setVendas] = useState([]);
   const [despesas, setDespesas] = useState([]);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
-  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+  const [comparacao, setComparacao] = useState(true);
+  const mesNomes = { "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr", "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago", "09": "Set", "10": "Out", "11": "Nov", "12": "Dez" };
+  const mesNomesLongo = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
   useEffect(() => {
     const load = async () => {
@@ -4453,141 +4508,217 @@ function DrePage() {
     load();
   }, []);
 
-  const vendasMes = vendas.filter(o => { const d = new Date(o.data); return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mesSel; });
-  const despMes = despesas.filter(d => d.mes === mesSel && !d.nome.startsWith("forn_"));
-  const fornMes = despesas.filter(d => d.nome.startsWith("forn_") && d.vencimento && d.vencimento.startsWith(mesSel));
-  const fixasMes = despMes.filter(d => d.fixa);
-  const variaveisMes = despMes.filter(d => !d.fixa);
+  // Receita usa data_entrega (regime de competencia). Fallback: data do orcamento.
+  const calcularMes = (mes) => {
+    const vendasMes = vendas.filter(o => {
+      const ref = o.data_entrega || o.data;
+      if (!ref) return false;
+      const d = new Date(ref);
+      return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mes;
+    });
+    const noMes = (d) => d.vencimento && d.vencimento.startsWith(mes);
+    const porTipo = (tipo) => despesas.filter(d => d.tipo === tipo && noMes(d)).reduce((s, d) => s + (Number(d.valor) || 0), 0);
+    const itensTipo = (tipo) => despesas.filter(d => d.tipo === tipo && noMes(d) && (Number(d.valor) || 0) > 0).map(d => ({ nome: d.nome, categoria: d.categoria || "—", valor: Number(d.valor) || 0 }));
 
-  // RECEITA BRUTA
-  const receitaBruta = vendasMes.reduce((s, o) => s + (o.total || 0), 0);
-  const comissoes = vendasMes.reduce((s, o) => s + (o.comissao || 0), 0);
+    const receitaBruta = vendasMes.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    const comissoes    = vendasMes.reduce((s, o) => s + (Number(o.comissao) || 0), 0);
+    const deducoes = porTipo("DEDUCAO_RECEITA");
+    const receitaLiquida = receitaBruta - deducoes;
+    const cmv = porTipo("CMV");
+    const lucroBruto = receitaLiquida - cmv;
+    const despVendas    = porTipo("DESPESA_VENDAS") + comissoes;
+    const despAdm       = porTipo("DESPESA_ADM");
+    const despLogistica = porTipo("DESPESA_LOGISTICA");
+    const despGeral     = porTipo("DESPESA_GERAL");
+    const totalOp = despVendas + despAdm + despLogistica + despGeral;
+    const ebit = lucroBruto - totalOp;
+    const recFin  = porTipo("RECEITA_FINANCEIRA");
+    const despFin = porTipo("DESPESA_FINANCEIRA");
+    const resultadoFin = recFin - despFin;
+    const lucroLiquido = ebit + resultadoFin;
+    return {
+      mes,
+      receitaBruta, qtdVendas: vendasMes.length,
+      deducoes, receitaLiquida,
+      cmv, lucroBruto,
+      margemBruta: receitaBruta > 0 ? lucroBruto / receitaBruta * 100 : 0,
+      despVendas, despAdm, despLogistica, despGeral, totalOp, comissoes,
+      ebit, margemOp: receitaBruta > 0 ? ebit / receitaBruta * 100 : 0,
+      recFin, despFin, resultadoFin,
+      lucroLiquido, margemLiq: receitaBruta > 0 ? lucroLiquido / receitaBruta * 100 : 0,
+      itens: {
+        DEDUCAO_RECEITA:    itensTipo("DEDUCAO_RECEITA"),
+        CMV:                itensTipo("CMV"),
+        DESPESA_VENDAS:     itensTipo("DESPESA_VENDAS"),
+        DESPESA_ADM:        itensTipo("DESPESA_ADM"),
+        DESPESA_LOGISTICA:  itensTipo("DESPESA_LOGISTICA"),
+        DESPESA_GERAL:      itensTipo("DESPESA_GERAL"),
+        DESPESA_FINANCEIRA: itensTipo("DESPESA_FINANCEIRA"),
+        RECEITA_FINANCEIRA: itensTipo("RECEITA_FINANCEIRA"),
+      },
+    };
+  };
 
-  // CUSTO PRODUTOS (fornecedores)
-  const custoFornGondolas = despesas.filter(d => d.nome.startsWith("forn_gondolas") && d.vencimento && d.vencimento.startsWith(mesSel)).reduce((s, d) => s + (d.valor || 0), 0);
-  const custoFornMdf = despesas.filter(d => d.nome.startsWith("forn_mdf") && d.vencimento && d.vencimento.startsWith(mesSel)).reduce((s, d) => s + (d.valor || 0), 0);
-  const custoFornOutros = despesas.filter(d => d.nome.startsWith("forn_outros") && d.vencimento && d.vencimento.startsWith(mesSel)).reduce((s, d) => s + (d.valor || 0), 0);
-  const custoFornTotal = custoFornGondolas + custoFornMdf + custoFornOutros;
+  const offsetMes = (m, off) => {
+    const [y, mm] = m.split("-").map(Number);
+    const d = new Date(y, mm - 1 + off, 1);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+  };
+  const mesesParaComparar = comparacao ? [offsetMes(mesSel, -2), offsetMes(mesSel, -1), mesSel] : [mesSel];
+  const dados = mesesParaComparar.map(calcularMes);
+  const dadosAtual = dados[dados.length - 1];
+  const numCols = dados.length;
+  const colTemplate = "1.6fr " + Array(numCols).fill("1fr").join(" ");
+  const fmtNeg = (v) => v < 0 ? "- " + fmt(Math.abs(v)) : fmt(v);
 
-  // LUCRO BRUTO
-  const lucroBruto = receitaBruta - custoFornTotal;
-  const margemBruta = receitaBruta > 0 ? (lucroBruto / receitaBruta * 100) : 0;
-
-  // DESPESAS OPERACIONAIS
-  const totalFixas = fixasMes.reduce((s, d) => s + (d.valor || 0), 0);
-  const totalVariaveis = variaveisMes.reduce((s, d) => s + (d.valor || 0), 0);
-  const totalDespOp = totalFixas + totalVariaveis;
-
-  // RESULTADO OPERACIONAL (EBITDA)
-  const resultadoOp = lucroBruto - totalDespOp;
-  const margemOp = receitaBruta > 0 ? (resultadoOp / receitaBruta * 100) : 0;
-
-  // RESULTADO LÍQUIDO
-  const resultadoLiq = resultadoOp - comissoes;
-  const margemLiq = receitaBruta > 0 ? (resultadoLiq / receitaBruta * 100) : 0;
-
-  const row = (label, value, bold, color, indent, bg) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: indent ? "6px 16px 6px 32px" : "8px 16px", background: bg || "transparent", borderBottom: `1px solid ${COLORS.border}` }}>
-      <span style={{ color: bold ? COLORS.white : COLORS.textMuted, fontSize: bold ? 13 : 12, fontWeight: bold ? 700 : 400, fontFamily: "'DM Sans', sans-serif" }}>{label}</span>
-      <span style={{ color: color || (value >= 0 ? COLORS.text : COLORS.danger), fontSize: bold ? 14 : 12, fontWeight: bold ? 800 : 600, fontFamily: "'Playfair Display', serif" }}>{value < 0 ? "- " : ""}{fmt(Math.abs(value))}</span>
+  const linha = ({ label, valores, bold, color, indent, bg, italic, sign }) => (
+    <div style={{ display: "grid", gridTemplateColumns: colTemplate, alignItems: "center", padding: indent ? "5px 14px 5px 30px" : "8px 14px", background: bg || "transparent", borderBottom: `1px solid ${COLORS.border}` }}>
+      <span style={{ color: bold ? COLORS.white : (italic ? COLORS.textDim : COLORS.textMuted), fontSize: bold ? 12 : (italic ? 10 : 11), fontWeight: bold ? 700 : 400, fontFamily: "'DM Sans', sans-serif", fontStyle: italic ? "italic" : "normal" }}>{label}</span>
+      {valores.map((v, i) => {
+        const isLast = i === valores.length - 1;
+        return (
+          <span key={i} style={{ textAlign: "right", color: color || (v >= 0 ? COLORS.text : COLORS.danger), fontSize: bold ? 13 : (italic ? 10 : 11), fontWeight: bold ? 800 : 600, fontFamily: "'Playfair Display', serif", opacity: isLast ? 1 : 0.55 }}>
+            {sign === "minus" ? "(-) " : ""}{fmtNeg(v)}
+          </span>
+        );
+      })}
     </div>
   );
-
-  const pctRow = (label, pct, color) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 16px" }}>
+  const linhaPct = (label, pcts, color) => (
+    <div style={{ display: "grid", gridTemplateColumns: colTemplate, padding: "3px 14px" }}>
       <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{label}</span>
-      <span style={{ color: color || COLORS.textMuted, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{pct.toFixed(1)}%</span>
+      {pcts.map((p, i) => (
+        <span key={i} style={{ textAlign: "right", color: color || COLORS.textMuted, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: i === pcts.length - 1 ? 1 : 0.55 }}>{p.toFixed(1)}%</span>
+      ))}
     </div>
   );
-
   const separator = (label, color) => (
-    <div style={{ padding: "10px 16px", background: (color || COLORS.orange) + "10", borderBottom: `1px solid ${COLORS.border}` }}>
+    <div style={{ padding: "10px 14px", background: (color || COLORS.orange) + "10", borderBottom: `1px solid ${COLORS.border}` }}>
       <span style={{ color: color || COLORS.orange, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{label}</span>
     </div>
   );
+  const get = (campo) => dados.map(d => d[campo]);
 
   return (
-    <div style={{ maxWidth: 700, margin: "0 auto", padding: "28px 20px" }}>
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>DRE</h1>
-          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Demonstração do Resultado do Exercício</p>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Demonstração do Resultado do Exercício · {comparacao ? "comparação 3 meses" : "mês único"}</p>
         </div>
-        <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
-          {Array.from({ length: 12 }, (_, i) => {
-            const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
-            const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-            return <option key={v} value={v}>{mesNomes[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
-          })}
-        </select>
-      </div>
-
-      {/* Cards resumo */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, textAlign: "center" }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Receita</div>
-          <div style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(receitaBruta)}</div>
-        </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, textAlign: "center" }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Despesas</div>
-          <div style={{ color: "#F87171", fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalDespOp + custoFornTotal + comissoes)}</div>
-        </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${resultadoLiq >= 0 ? "#10B98140" : COLORS.danger + "40"}`, borderRadius: 10, padding: 14, textAlign: "center" }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Resultado</div>
-          <div style={{ color: resultadoLiq >= 0 ? "#10B981" : COLORS.danger, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{resultadoLiq < 0 ? "- " : ""}{fmt(Math.abs(resultadoLiq))}</div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button onClick={() => setComparacao(!comparacao)} style={{ background: comparacao ? COLORS.orange + "20" : COLORS.card, border: `1px solid ${comparacao ? COLORS.orange + "60" : COLORS.border}`, color: comparacao ? COLORS.orange : COLORS.textMuted, padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
+            {comparacao ? "Comparação 3M" : "Mês único"}
+          </button>
+          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+            {Array.from({ length: 18 }, (_, i) => {
+              const d = new Date(); d.setMonth(d.getMonth() - 9 + i);
+              const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+              return <option key={v} value={v}>{mesNomesLongo[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
+            })}
+          </select>
         </div>
       </div>
 
-      {/* DRE */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4 }}>Receita Líquida</div>
+          <div style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(dadosAtual.receitaLiquida)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>{dadosAtual.qtdVendas} vendas</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4 }}>Lucro Bruto</div>
+          <div style={{ color: dadosAtual.lucroBruto >= 0 ? "#10B981" : COLORS.danger, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmtNeg(dadosAtual.lucroBruto)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Margem {dadosAtual.margemBruta.toFixed(1)}%</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4 }}>EBIT (Operacional)</div>
+          <div style={{ color: dadosAtual.ebit >= 0 ? "#3B82F6" : COLORS.danger, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmtNeg(dadosAtual.ebit)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Margem {dadosAtual.margemOp.toFixed(1)}%</div>
+        </div>
+        <div style={{ background: COLORS.card, border: `1px solid ${dadosAtual.lucroLiquido >= 0 ? "#10B98140" : COLORS.danger + "40"}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4 }}>Lucro Líquido</div>
+          <div style={{ color: dadosAtual.lucroLiquido >= 0 ? "#10B981" : COLORS.danger, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmtNeg(dadosAtual.lucroLiquido)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Margem {dadosAtual.margemLiq.toFixed(1)}%</div>
+        </div>
+      </div>
+
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>DRE — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
+        <div style={{ display: "grid", gridTemplateColumns: colTemplate, padding: "12px 14px", background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}` }}>
+          <span style={{ color: COLORS.white, fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>DRE</span>
+          {dados.map(d => {
+            const [y, mm] = d.mes.split("-");
+            const isAtual = d.mes === mesSel;
+            return (
+              <span key={d.mes} style={{ textAlign: "right", color: isAtual ? COLORS.orange : COLORS.textMuted, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {mesNomes[mm]}/{y.slice(2)}{isAtual ? " ★" : ""}
+              </span>
+            );
+          })}
         </div>
 
-        {separator("Receitas", "#10B981")}
-        {row("Receita Bruta de Vendas", receitaBruta, true, COLORS.orange)}
-        {row("Vendas Concluídas (" + vendasMes.length + ")", receitaBruta, false, null, true)}
+        {separator("Receita", "#10B981")}
+        {linha({ label: "Receita Bruta de Vendas", valores: get("receitaBruta"), bold: true, color: COLORS.orange })}
+        {linha({ label: "Vendas concluídas no período (qtd)", valores: get("qtdVendas"), italic: true, indent: true, color: COLORS.textDim })}
 
-        {separator("Custo dos Produtos Vendidos (CPV)", "#F87171")}
-        {row("Gôndolas Brasil", -custoFornGondolas, false, COLORS.danger, true)}
-        {row("MDF", -custoFornMdf, false, COLORS.danger, true)}
-        {row("Outros Fornecedores", -custoFornOutros, false, COLORS.danger, true)}
-        {row("(-) Total CPV", -custoFornTotal, true, COLORS.danger)}
+        {separator("(-) Deduções da Receita", "#F59E0B")}
+        {linha({ label: "Impostos sobre vendas (DAS, ICMS)", valores: dados.map(d => -d.deducoes), color: COLORS.danger, indent: true, sign: "minus" })}
+        {linha({ label: "= Receita Líquida", valores: get("receitaLiquida"), bold: true, color: COLORS.text })}
 
-        {separator("Lucro Bruto", lucroBruto >= 0 ? "#10B981" : "#F87171")}
-        {row("Lucro Bruto", lucroBruto, true, lucroBruto >= 0 ? "#10B981" : COLORS.danger, false, lucroBruto >= 0 ? "#10B98108" : COLORS.danger + "08")}
-        {pctRow("Margem Bruta", margemBruta, lucroBruto >= 0 ? "#10B981" : COLORS.danger)}
+        {separator("(-) Custo dos Produtos Vendidos (CMV)", "#F87171")}
+        {linha({ label: "Fornecedores + Mão-de-obra produção", valores: dados.map(d => -d.cmv), color: COLORS.danger, indent: true, sign: "minus" })}
+        {linha({ label: "= Lucro Bruto", valores: get("lucroBruto"), bold: true, color: dadosAtual.lucroBruto >= 0 ? "#10B981" : COLORS.danger, bg: dadosAtual.lucroBruto >= 0 ? "#10B98108" : COLORS.danger + "08" })}
+        {linhaPct("Margem Bruta", dados.map(d => d.margemBruta), dadosAtual.lucroBruto >= 0 ? "#10B981" : COLORS.danger)}
 
-        {separator("Despesas Operacionais", "#8B5CF6")}
-        {row("Despesas Fixas", -totalFixas, false, COLORS.danger, true)}
-        {fixasMes.filter(d => d.valor > 0).map((d, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 16px 3px 48px", borderBottom: `1px solid ${COLORS.border}05` }}>
-            <span style={{ color: COLORS.textDim, fontSize: 10 }}>{d.nome}</span>
-            <span style={{ color: COLORS.textDim, fontSize: 10 }}>{fmt(d.valor)}</span>
-          </div>
-        ))}
-        {row("Despesas Variáveis", -totalVariaveis, false, COLORS.danger, true)}
-        {variaveisMes.filter(d => d.valor > 0).map((d, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 16px 3px 48px", borderBottom: `1px solid ${COLORS.border}05` }}>
-            <span style={{ color: COLORS.textDim, fontSize: 10 }}>{d.nome}</span>
-            <span style={{ color: COLORS.textDim, fontSize: 10 }}>{fmt(d.valor)}</span>
-          </div>
-        ))}
-        {row("(-) Total Despesas Operacionais", -totalDespOp, true, COLORS.danger)}
+        {separator("(-) Despesas Operacionais", "#8B5CF6")}
+        {linha({ label: "Despesas com Vendas (incl. comissões)", valores: dados.map(d => -d.despVendas), color: COLORS.danger, indent: true, sign: "minus" })}
+        {linha({ label: "Despesas Administrativas", valores: dados.map(d => -d.despAdm), color: COLORS.danger, indent: true, sign: "minus" })}
+        {linha({ label: "Despesas Logísticas", valores: dados.map(d => -d.despLogistica), color: COLORS.danger, indent: true, sign: "minus" })}
+        {dados.some(d => d.despGeral > 0) && linha({ label: "Despesas Gerais (a classificar)", valores: dados.map(d => -d.despGeral), color: COLORS.danger, indent: true, sign: "minus", italic: true })}
+        {linha({ label: "(=) Total Despesas Operacionais", valores: dados.map(d => -d.totalOp), bold: true, color: COLORS.danger })}
 
-        {separator("Resultado Operacional", resultadoOp >= 0 ? "#3B82F6" : "#F87171")}
-        {row("EBITDA", resultadoOp, true, resultadoOp >= 0 ? "#3B82F6" : COLORS.danger, false, resultadoOp >= 0 ? "#3B82F608" : COLORS.danger + "08")}
-        {pctRow("Margem Operacional", margemOp, resultadoOp >= 0 ? "#3B82F6" : COLORS.danger)}
+        {separator("Resultado Operacional", "#3B82F6")}
+        {linha({ label: "EBIT (antes do Resultado Financeiro)", valores: get("ebit"), bold: true, color: dadosAtual.ebit >= 0 ? "#3B82F6" : COLORS.danger, bg: dadosAtual.ebit >= 0 ? "#3B82F608" : COLORS.danger + "08" })}
+        {linhaPct("Margem Operacional", dados.map(d => d.margemOp), dadosAtual.ebit >= 0 ? "#3B82F6" : COLORS.danger)}
 
-        {separator("Deduções", "#F59E0B")}
-        {row("(-) Comissões de Vendas", -comissoes, false, COLORS.danger, true)}
+        {separator("(+/-) Resultado Financeiro", "#EC4899")}
+        {dados.some(d => d.recFin > 0) && linha({ label: "Receitas financeiras", valores: get("recFin"), color: "#10B981", indent: true })}
+        {dados.some(d => d.despFin > 0) && linha({ label: "Despesas financeiras", valores: dados.map(d => -d.despFin), color: COLORS.danger, indent: true, sign: "minus" })}
+        {linha({ label: "(=) Resultado Financeiro Líquido", valores: get("resultadoFin"), color: COLORS.textMuted, indent: true })}
 
-        {separator("Resultado Líquido", resultadoLiq >= 0 ? "#10B981" : "#F87171")}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", background: resultadoLiq >= 0 ? "#10B98112" : COLORS.danger + "12" }}>
-          <span style={{ color: COLORS.white, fontSize: 15, fontWeight: 800, fontFamily: "'DM Sans', sans-serif" }}>RESULTADO LÍQUIDO</span>
-          <span style={{ color: resultadoLiq >= 0 ? "#10B981" : COLORS.danger, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{resultadoLiq < 0 ? "- " : ""}{fmt(Math.abs(resultadoLiq))}</span>
+        {separator("Lucro Líquido", dadosAtual.lucroLiquido >= 0 ? "#10B981" : "#F87171")}
+        <div style={{ display: "grid", gridTemplateColumns: colTemplate, alignItems: "center", padding: "16px 14px", background: dadosAtual.lucroLiquido >= 0 ? "#10B98112" : COLORS.danger + "12" }}>
+          <span style={{ color: COLORS.white, fontSize: 14, fontWeight: 800, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Lucro Líquido</span>
+          {dados.map((d, i) => {
+            const isLast = i === dados.length - 1;
+            return (
+              <span key={i} style={{ textAlign: "right", color: d.lucroLiquido >= 0 ? "#10B981" : COLORS.danger, fontSize: isLast ? 18 : 14, fontWeight: 800, fontFamily: "'Playfair Display', serif", opacity: isLast ? 1 : 0.55 }}>
+                {fmtNeg(d.lucroLiquido)}
+              </span>
+            );
+          })}
         </div>
-        {pctRow("Margem Líquida", margemLiq, resultadoLiq >= 0 ? "#10B981" : COLORS.danger)}
+        {linhaPct("Margem Líquida", dados.map(d => d.margemLiq), dadosAtual.lucroLiquido >= 0 ? "#10B981" : COLORS.danger)}
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, marginBottom: 12 }}>Detalhamento — {mesNomesLongo[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+          {TIPOS_DESPESA.filter(t => (dadosAtual.itens[t.key] || []).length > 0).map(t => (
+            <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+              <div style={{ color: t.color, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>{t.label}</div>
+              {(dadosAtual.itens[t.key] || []).map((it, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: i < dadosAtual.itens[t.key].length - 1 ? `1px solid ${COLORS.border}40` : "none" }}>
+                  <div>
+                    <div style={{ color: COLORS.text, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{it.nome}</div>
+                    <div style={{ color: COLORS.textDim, fontSize: 9 }}>{it.categoria}</div>
+                  </div>
+                  <span style={{ color: COLORS.textMuted, fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{fmt(it.valor)}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
