@@ -2542,6 +2542,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   };
 
   const [sharingOrder, setSharingOrder] = useState(false);
+  const [downloadInfo, setDownloadInfo] = useState(null); // { fileName } pra exibir modal pos-download em desktop
   const handleWhatsApp = async (order) => {
     if (sharingOrder) return; // evita disparar 2x se clicar rapido
     setSharingOrder(true);
@@ -2549,7 +2550,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     if (!o) { setSharingOrder(false); return; }
     const cd = o.client || clientData || {};
     try {
-      await sharePDFWhatsApp({
+      const result = await sharePDFWhatsApp({
         orderNum: o.id.slice(0, 6).toUpperCase(),
         date: new Date(o.date).toLocaleDateString("pt-BR"),
         client: cd,
@@ -2559,6 +2560,12 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
         user: { name: o.vendedor_nome || o.vendedor || user.name, email: user.email },
         incluirParcelamento: !!parcelamentoOpts[o.id],
       });
+      // No desktop, sharePDFWhatsApp baixa o arquivo e retorna { method: "download" }.
+      // Mostramos modal com instrucoes pro vendedor (especialmente no Windows).
+      if (result && result.method === "download") {
+        const telefone = (cd.telefone || "").replace(/\D/g, "");
+        setDownloadInfo({ fileName: result.fileName, telefone });
+      }
     } catch(e) { console.error(e); }
     setSharingOrder(false);
   };
@@ -2721,6 +2728,43 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
               >
                 Copiar lista
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal pos-download (desktop) — instrucoes pra anexar PDF no WhatsApp Web */}
+      {downloadInfo && (
+        <div onClick={() => setDownloadInfo(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, maxWidth: 460, width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 28 }}>✅</span>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: 0 }}>PDF baixado!</h2>
+            </div>
+            <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 12px", marginBottom: 14, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif", wordBreak: "break-all" }}>
+              📄 <strong style={{ color: COLORS.text }}>{downloadInfo.fileName}</strong>
+              <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 3 }}>Salvo na pasta Downloads do seu computador</div>
+            </div>
+            <div style={{ color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginBottom: 16, lineHeight: 1.5 }}>
+              <strong style={{ color: COLORS.accent }}>Como enviar pelo WhatsApp:</strong>
+              <ol style={{ margin: "8px 0 0", paddingLeft: 22, color: COLORS.textMuted }}>
+                <li>Clique em <strong style={{ color: "#25D366" }}>"Abrir WhatsApp Web"</strong> abaixo</li>
+                <li>Selecione a conversa do cliente</li>
+                <li>Clique no <strong>📎 (clipe)</strong> e escolha <strong>"Documento"</strong></li>
+                <li>Selecione <em>{downloadInfo.fileName}</em> da pasta Downloads</li>
+                <li>Envie</li>
+              </ol>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a
+                href={downloadInfo.telefone ? `https://wa.me/55${downloadInfo.telefone}` : "https://web.whatsapp.com"}
+                target="_blank" rel="noopener noreferrer"
+                style={{ flex: 1, minWidth: 160, background: "#25D366", color: "#fff", border: "none", padding: "10px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "center", textDecoration: "none" }}
+              >📱 Abrir WhatsApp Web</a>
+              <button
+                onClick={() => setDownloadInfo(null)}
+                style={{ flex: 1, minWidth: 100, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "10px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+              >Fechar</button>
             </div>
           </div>
         </div>

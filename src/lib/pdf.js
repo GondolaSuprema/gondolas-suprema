@@ -402,29 +402,54 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   return doc;
 }
 
+// Detecta mobile (Android/iOS). No desktop o Web Share API existe mas o
+// dialog tem opcao "Copiar link" que copia URL temporaria do blob — nao
+// funciona pra colar no WhatsApp Web. Por isso priorizamos download direto
+// em desktop e instrucoes claras pro usuario.
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+// Forca download via <a download="..."> — mais confiavel que doc.save()
+// em alguns browsers Windows que abrem o PDF inline em vez de baixar.
+function forceDownload(blob, fileName) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
 export async function sharePDFWhatsApp(params) {
   var doc = await generatePDF(params);
   var blob = doc.output("blob");
   var clientName = (params.client && params.client.empresa ? params.client.empresa : params.orderNum || "novo").replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, "-").replace(/-+/g, "-");
   var fileName = "orcamento-" + clientName + ".pdf";
-  var file = new File([blob], fileName, { type: "application/pdf" });
 
-  // Tenta compartilhar via Web Share API (WhatsApp/iMessage/etc.) se o browser suportar arquivos
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+  // MOBILE: Web Share API com arquivo (abre seletor nativo do WhatsApp/etc.)
+  if (isMobileDevice()) {
     try {
-      await navigator.share({
-        title: "Orcamento " + (params.client && params.client.empresa ? params.client.empresa : "") + " - Gondolas Suprema",
-        files: [file],
-      });
-      return true; // Compartilhado com sucesso — nao baixa fallback pra evitar duplicacao
+      var file = new File([blob], fileName, { type: "application/pdf" });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: "Orcamento " + (params.client && params.client.empresa ? params.client.empresa : "") + " - Gondolas Suprema",
+          files: [file],
+        });
+        return { method: "share" };
+      }
     } catch (e) {
-      // Usuario cancelou o share — respeitar a escolha, nao baixar
-      if (e && e.name === "AbortError") return false;
-      // Outros erros (permissao, etc.) caem no fallback de download abaixo
+      if (e && e.name === "AbortError") return { method: "cancelled" };
+      // outros erros caem no fallback abaixo
     }
   }
 
-  // Fallback: download local quando o share nao esta disponivel ou falhou
-  doc.save(fileName);
-  return false;
+  // DESKTOP (ou fallback mobile sem suporte): forca download.
+  // Retorna info pra UI exibir instrucao "PDF baixado, abra o WhatsApp Web".
+  forceDownload(blob, fileName);
+  return { method: "download", fileName: fileName };
 }
