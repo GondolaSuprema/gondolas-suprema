@@ -3348,9 +3348,10 @@ function LogisticaPage({ user }) {
 // Cada vendedor (Adelmo, Joao) ve suas proprias comissoes de vendas concluidas.
 // Admin (Ale) ve consolidado de todos. Zanella (gestor) NAO tem acesso.
 // Comissao = valor gravado em orcamentos.comissao (markup que o vendedor aplicou).
-// Comissao do vendedor = comissao da Suprema (markup) - 20%, ou seja, 80% do markup.
+// Comissao do vendedor = 20% da comissao da Suprema (markup).
+// Suprema fica com 80%, vendedor recebe os 20%.
 // Apenas o Ale (admin) marca como "Pago" — vendedores apenas visualizam.
-const COMISSAO_VENDEDOR_FATOR = 0.80;
+const COMISSAO_VENDEDOR_FATOR = 0.20;
 
 function ComissoesPage({ user }) {
   const [vendas, setVendas] = useState([]);
@@ -3507,7 +3508,7 @@ function ComissoesPage({ user }) {
                   <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Cliente</th>
                   {isAdmin && <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Vendedor</th>}
                   <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Comissão Suprema</th>
-                  <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Comissão Vendedor<br/><span style={{ fontSize: 8, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(Suprema − 20%)</span></th>
+                  <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Comissão Vendedor<br/><span style={{ fontSize: 8, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(20% da Suprema)</span></th>
                   <th style={{ padding: "10px 14px", textAlign: "center", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Status</th>
                 </tr>
               </thead>
