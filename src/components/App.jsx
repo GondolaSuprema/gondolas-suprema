@@ -2960,6 +2960,18 @@ function AdminPage() {
     loadAll();
   }, []);
 
+  // Reatribuir orcamento a outro vendedor (so disponivel no ADM).
+  // Atualiza vendedor_id + vendedor_nome no banco e estado local.
+  const updateOrderVendedor = async (orderId, newVendedorId) => {
+    const v = VENDEDORES.find(x => x.id === newVendedorId);
+    if (!v) return;
+    await supabase.from("orcamentos").update({
+      vendedor_id: v.id,
+      vendedor_nome: v.name,
+    }).eq("id", orderId);
+    setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendedor: v.name, vendedorId: v.id } : o));
+  };
+
   const vendedores = [...new Set(allOrders.map(o => o.vendedor))];
   const cidades = [...new Set(allOrders.map(o => o.client?.cidade).filter(Boolean))];
 
@@ -3307,6 +3319,24 @@ function AdminPage() {
                   {o.client?.telefone && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>Tel: {o.client.telefone}</div>}
                   {o.client?.email && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>E-mail: {o.client.email}</div>}
                   {o.client?.endereco && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>End: {o.client.endereco}{o.client.bairro ? ", " + o.client.bairro : ""} — {o.client.cidade}{o.client.estado ? "/" + o.client.estado : ""}</div>}
+                  {/* Reatribuir vendedor (visivel apenas no ADM) */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 10px" }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor:</label>
+                    <select
+                      value={o.vendedorId || ""}
+                      onClick={e => e.stopPropagation()}
+                      onChange={(e) => { e.stopPropagation(); updateOrderVendedor(o.id, e.target.value); }}
+                      style={{ ...sel, padding: "6px 10px", fontSize: 12, flex: "0 0 auto" }}
+                    >
+                      {!VENDEDORES.find(v => v.id === o.vendedorId) && (
+                        <option value="">— sem vendedor —</option>
+                      )}
+                      {VENDEDORES.map(v => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Resumo financeiro do orcamento (visivel apenas no ADM) */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, margin: "4px 0 10px", padding: "10px 12px", background: COLORS.bg, borderRadius: 7, border: `1px solid ${COLORS.border}` }}>
                     <div>
