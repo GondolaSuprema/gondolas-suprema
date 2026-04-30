@@ -1726,9 +1726,10 @@ const VENDEDORES = [
   // O isAdmin aqui (no array) tem outro proposito: excluir nao-vendedores
   // dos rankings/agregacoes. Zanella e socio (nao vende) entao fica true.
   // O acesso real as abas usa user.role + ROLE_PERMISSIONS abaixo.
-  { id: "v1", name: "Alessandro Thonsen", email: "ale.thonsen@gmail.com",        isAdmin: true  },
-  { id: "v2", name: "Adelmo Martinello",  email: "adelmo_ade@yahoo.com.br",      isAdmin: false },
-  { id: "v3", name: "Willian Zanella",    email: "comercial@gondolasuprema.com", isAdmin: true  },
+  { id: "v1", name: "Alessandro Thonsen",   email: "ale.thonsen@gmail.com",            isAdmin: true  },
+  { id: "v2", name: "Adelmo Martinello",    email: "adelmo_ade@yahoo.com.br",          isAdmin: false },
+  { id: "v3", name: "Willian Zanella",      email: "comercial@gondolasuprema.com",     isAdmin: true  },
+  { id: "v4", name: "João Marcos Martins",  email: "joaomarcosmartinsmot@gmail.com",   isAdmin: false },
 ];
 
 // ─── PERMISSOES POR ROLE ───
@@ -1736,9 +1737,12 @@ const VENDEDORES = [
 // Cada role lista exatamente quais abas de navegacao pode acessar.
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
-  admin:    ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm", "financeiro", "dre", "nf", "conciliacao"],
-  gestor:   ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
-  vendedor: ["client", "catalog", "resumo", "orders", "graficos", "logistica"],
+  admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
+  vendedor:        ["client", "catalog", "resumo", "orders", "graficos", "logistica"],
+  // Vendedor basico: so as 4 abas operacionais. Sem graficos, sem logistica.
+  // Usado pelo Joao Marcos.
+  vendedor_basico: ["client", "catalog", "resumo", "orders"],
 };
 
 // canAccess(user, "adm") => true/false
@@ -3142,9 +3146,9 @@ function LogisticaPage({ user }) {
   useEffect(() => {
     const load = async () => {
       let q = supabase.from("orcamentos").select("*").not("data_entrega", "is", null);
-      // Vendedor (Adelmo) so ve as dele; admin/gestor ve tudo
+      // Admin/gestor ve tudo; demais (vendedor, vendedor_basico) so os proprios
       const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
-      if (role === "vendedor") {
+      if (role !== "admin" && role !== "gestor") {
         q = q.eq("vendedor_id", user.id);
       }
       const { data } = await q.order("data_entrega", { ascending: true });
@@ -3923,9 +3927,9 @@ function GraficosPage({ user }) {
   const [mesSel, setMesSel] = useState("");
   const META = 100000;
 
-  // Vendedor (Adelmo) ve apenas os proprios dados; admin/gestor veem todos.
+  // Admin e gestor veem todos; demais (vendedor, vendedor_basico) so os proprios.
   const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
-  const isVendedorComum = role === "vendedor";
+  const isVendedorComum = role !== "admin" && role !== "gestor";
 
   useEffect(() => {
     if (!user) return;
