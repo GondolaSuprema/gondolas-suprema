@@ -2054,8 +2054,9 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
                     <input
                       type="number" min="1"
                       value={qty}
-                      onChange={e => setProductQty(p.id, Number(e.target.value) || 1)}
-                      style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 36, height: 26, textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", padding: 0, MozAppearance: "textfield" }}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setProductQty(p.id, Math.max(1, Number(e.target.value) || 1))}
+                      style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 50, height: 26, textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", padding: 0, MozAppearance: "textfield" }}
                     />
                     <button onClick={() => setProductQty(p.id, qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 24, height: 26, borderRadius: "0 6px 6px 0", cursor: "pointer", fontSize: 13 }}>+</button>
                   </div>
@@ -2143,7 +2144,13 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Qtd:</span>
               <button onClick={() => upd(i, "qty", Math.max(1, it.qty - 1))} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 30, height: 30, borderRadius: "6px 0 0 6px", cursor: "pointer" }}>−</button>
-              <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 40, height: 30, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.white, fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{it.qty}</div>
+              <input
+                type="number" min="1"
+                value={it.qty}
+                onFocus={e => e.target.select()}
+                onChange={e => upd(i, "qty", Math.max(1, Number(e.target.value) || 1))}
+                style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 50, height: 30, textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", padding: 0, MozAppearance: "textfield" }}
+              />
               <button onClick={() => upd(i, "qty", it.qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 30, height: 30, borderRadius: "0 6px 6px 0", cursor: "pointer" }}>+</button>
             </div>
             {(it.product.variants || []).map(v => (
@@ -2996,18 +3003,39 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                       <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Itens ({editItems.length})</span>
                       <button onClick={() => { addMoreItems(o.id); cancelEdit(); }} style={{ background: "transparent", border: "none", color: COLORS.orange, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>+ Adicionar item</button>
                     </div>
-                    {editItems.map((it, i) => (
-                      <div key={i} style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div>
+                    {editItems.map((it, i) => {
+                      // Calcula preco unitario a partir do total/qty originais
+                      // pra recalcular total quando o usuario mudar a qty.
+                      const qtyAtual = Number(it.qty) || 1;
+                      const precoUnit = (Number(it.total) || 0) / qtyAtual;
+                      const setQty = (novaQty) => {
+                        const q = Math.max(1, Number(novaQty) || 1);
+                        setEditItems(editItems.map((x, j) => j === i ? { ...x, qty: q, total: precoUnit * q } : x));
+                      };
+                      return (
+                      <div key={i} style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 180 }}>
                           <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.name}</div>
-                          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{it.cat} · Qtd: {it.qty}</div>
+                          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{it.cat}</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ color: COLORS.text, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{fmt(it.total)}</span>
+                          <div style={{ display: "flex", alignItems: "center" }}>
+                            <button onClick={() => setQty(qtyAtual - 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 24, height: 26, borderRadius: "6px 0 0 6px", cursor: "pointer", fontSize: 13 }}>−</button>
+                            <input
+                              type="number" min="1"
+                              value={qtyAtual}
+                              onFocus={e => e.target.select()}
+                              onChange={e => setQty(e.target.value)}
+                              style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 44, height: 26, textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", padding: 0, MozAppearance: "textfield" }}
+                            />
+                            <button onClick={() => setQty(qtyAtual + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 24, height: 26, borderRadius: "0 6px 6px 0", cursor: "pointer", fontSize: 13 }}>+</button>
+                          </div>
+                          <span style={{ color: COLORS.text, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", minWidth: 80, textAlign: "right" }}>{fmt(precoUnit * qtyAtual)}</span>
                           <button onClick={() => setEditItems(editItems.filter((_, j) => j !== i))} style={{ background: COLORS.danger + "15", border: "none", color: COLORS.danger, padding: "4px 7px", borderRadius: 5, cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Edit Markup */}
