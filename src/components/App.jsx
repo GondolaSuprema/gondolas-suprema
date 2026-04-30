@@ -27,6 +27,7 @@ const CATEGORIES = [
   { key: "moveis", label: "Móveis" },
   { key: "mdf", label: "MDF" },
   { key: "outros", label: "Outros Produtos" },
+  { key: "mpp-china", label: "MPP China" },
 ];
 
 const VARIANTS_GONDOLA_PAREDE = [
@@ -1890,10 +1891,11 @@ function Login({ onLogin, setPage }) {
 }
 
 // ─── CATALOG ───
-function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
+function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mppChinaFromApp, uniplusPriceMap }) {
   const [filter, setFilter] = useState("gondolas-parede");
   const [search, setSearch] = useState("");
   const [outrosProdutos, setOutrosProdutos] = useState([]);
+  const [mppChinaProdutos, setMppChinaProdutos] = useState([]);
   const [loadingOutros, setLoadingOutros] = useState(false);
   const [variantSel, setVariantSel] = useState({}); // { [productId]: { altura: "1,37m", cor: "Branca" } }
   const [qtyByProduct, setQtyByProduct] = useState({});
@@ -1929,7 +1931,21 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
     setLoadingOutros(false);
   }, [uniplusFromApp]);
 
-  const todosProdutos = [...PRODUCTS, ...outrosProdutos];
+  // Adapta produtos MPP China pro mesmo formato do catalogo
+  useEffect(() => {
+    const adaptados = (mppChinaFromApp || []).map(r => ({
+      id: r.id,
+      name: r.nome,
+      category: "mpp-china",
+      icon: "🇨🇳",
+      price: Number(r.preco_brasil) || 0,
+      specs: { categoria: r.categoria || "MPP China", codigo: r.codigo || "" },
+      options: []
+    }));
+    setMppChinaProdutos(adaptados);
+  }, [mppChinaFromApp]);
+
+  const todosProdutos = [...PRODUCTS, ...outrosProdutos, ...mppChinaProdutos];
   const filtered = todosProdutos.filter(p => p.category === filter && p.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -1945,8 +1961,8 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
       <div style={{ color: COLORS.textDim, fontSize: 12, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" }}>
         {filtered.length} produto(s) encontrado(s){filter === "outros" && loadingOutros ? " — carregando..." : ""}
       </div>
-      {filter === "outros" ? (
-        // Visualização em lista para "Outros Produtos"
+      {filter === "outros" || filter === "mpp-china" ? (
+        // Visualização em lista simples (Outros Produtos / MPP China)
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.textDim, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
             <div>Produto</div>
@@ -1954,7 +1970,9 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, uniplusPriceMap }) {
             <div style={{ minWidth: 100 }}></div>
           </div>
           {filtered.length === 0 && !loadingOutros && (
-            <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
+            <div style={{ padding: "30px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>
+              {filter === "mpp-china" ? "🇨🇳 Nenhum produto MPP China cadastrado ainda. Em breve você poderá adicionar produtos aqui." : "Nenhum produto encontrado"}
+            </div>
           )}
           {filtered.map((p, idx) => (
             <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", alignItems: "center" }}>
@@ -5094,23 +5112,32 @@ export default function App() {
   const [markup, setMarkup] = useState(0);
   const [frete, setFrete] = useState(0);
   const [uniplusProducts, setUniplusProducts] = useState([]);
+  const [mppChinaProducts, setMppChinaProducts] = useState([]);
   const uniplusPriceMap = useMemo(() => {
     const m = {};
     uniplusProducts.forEach(p => { m[p.id] = Number(p.preco_brasil) || 0; });
+    mppChinaProducts.forEach(p => { m[p.id] = Number(p.preco_brasil) || 0; });
     return m;
-  }, [uniplusProducts]);
+  }, [uniplusProducts, mppChinaProducts]);
 
-  // Carrega catalogo Uniplus APENAS depois do usuario estar autenticado.
+  // Carrega catalogos APENAS depois do usuario estar autenticado.
   // Antes disso a sessao do supabase-js ainda eh anon e a RLS retorna []
   // — bug que afetava Zanella e Adelmo recem-logados (ver issue 30/abr/2026).
   useEffect(() => {
-    if (!user) { setUniplusProducts([]); return; }
+    if (!user) { setUniplusProducts([]); setMppChinaProducts([]); return; }
     supabase.from("produtos_uniplus")
       .select("id, nome, preco_brasil, categoria, linha_planilha")
       .eq("ativo", true)
       .order("nome", { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) setUniplusProducts(data);
+      });
+    supabase.from("produtos_mpp_china")
+      .select("id, nome, preco_brasil, categoria, codigo, linha_planilha")
+      .eq("ativo", true)
+      .order("nome", { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data) setMppChinaProducts(data);
       });
   }, [user?.id]);
 
@@ -5179,7 +5206,7 @@ export default function App() {
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "catalog" && user && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "catalog" && user && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} mppChinaProducts={mppChinaProducts} uniplusPriceMap={uniplusPriceMap} />}
       {page === "catalog" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
       {page === "quote" && !user && <Login onLogin={login} setPage={setPage} />}
