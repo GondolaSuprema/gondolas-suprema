@@ -3307,7 +3307,21 @@ function AdminPage() {
                   {o.client?.telefone && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>Tel: {o.client.telefone}</div>}
                   {o.client?.email && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>E-mail: {o.client.email}</div>}
                   {o.client?.endereco && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>End: {o.client.endereco}{o.client.bairro ? ", " + o.client.bairro : ""} — {o.client.cidade}{o.client.estado ? "/" + o.client.estado : ""}</div>}
-                  {o.frete > 0 && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>Frete: {fmt(o.frete)}</div>}
+                  {/* Resumo financeiro do orcamento (visivel apenas no ADM) */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, margin: "4px 0 10px", padding: "10px 12px", background: COLORS.bg, borderRadius: 7, border: `1px solid ${COLORS.border}` }}>
+                    <div>
+                      <div style={{ color: COLORS.textDim, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif", marginBottom: 2 }}>Custo</div>
+                      <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{fmt(Math.max(0, (o.total || 0) - (o.comissao || 0) - (o.frete || 0)))}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: COLORS.textDim, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif", marginBottom: 2 }}>Comissão</div>
+                      <div style={{ color: COLORS.success, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{fmt(o.comissao || 0)}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: COLORS.textDim, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif", marginBottom: 2 }}>Frete</div>
+                      <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{fmt(o.frete || 0)}</div>
+                    </div>
+                  </div>
                   {o.notes && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8, fontStyle: "italic" }}>Obs: {o.notes}</div>}
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {(o.items || []).map((it, j) => (
