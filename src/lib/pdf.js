@@ -25,6 +25,21 @@ function getVendedorTelefone(user) {
   return COMPANY.telefone;
 }
 
+// Remove anotacoes internas (status interno, info de conclusao) do campo
+// notes antes de exibir/exportar pro cliente. Mantem o conteudo original
+// no banco — apenas filtra na renderizacao.
+export function sanitizeNotesForCustomer(notes) {
+  if (!notes) return "";
+  var clean = String(notes)
+    // Linha de conclusao registrada no modal "Concluir Orcamento"
+    .replace(/\n?📋\s*CONCLUÍDO[^\n]*/g, "")
+    .replace(/\n?📋\s*CONCLUIDO[^\n]*/g, "")
+    // Status interno de venda (Em aberto/Vendido/Perdido etc)
+    .replace(/\n?🏷️\s*Status venda:[^\n]*/g, "");
+  // Limpa linhas vazias residuais e bordas
+  return clean.replace(/\n{2,}/g, "\n").trim();
+}
+
 const fmt = (v) =>
   v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -342,9 +357,10 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     paymentEndY += 4;
   }
 
-  // Notes
+  // Notes — filtra anotacoes internas (CONCLUÍDO, Status venda) antes de imprimir
   var notesY = paymentEndY + 4;
-  if (notes) {
+  var notesClean = sanitizeNotesForCustomer(notes);
+  if (notesClean) {
     doc.setFillColor(250, 250, 250);
     doc.roundedRect(margin, notesY, pageW - margin * 2, 16, 2, 2, "F");
     doc.setFontSize(8);
@@ -352,7 +368,7 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     doc.setTextColor(80);
     doc.text("Observacoes:", margin + 4, notesY + 5);
     doc.setFont(undefined, "normal");
-    doc.text(notes, margin + 4, notesY + 10, { maxWidth: pageW - margin * 2 - 8 });
+    doc.text(notesClean, margin + 4, notesY + 10, { maxWidth: pageW - margin * 2 - 8 });
   }
 
   // Footer

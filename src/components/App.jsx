@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { sharePDFWhatsApp } from "../lib/pdf";
+import { sharePDFWhatsApp, sanitizeNotesForCustomer } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
 
 const COLORS = {
@@ -1407,6 +1407,8 @@ function buildPaymentSection(total, comissao) {
 
 function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, notes, comissao }) {
   const tituloDestaque = clientCompany || (orderNum ? `#${orderNum}` : "");
+  // Filtra anotacoes internas (CONCLUÍDO, Status venda) antes de exibir pro cliente
+  const notesClean = sanitizeNotesForCustomer(notes);
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orçamento Gôndolas Suprema</title><style>${pdfStyles}</style></head><body>
 <img class="watermark" src="${LOGO_B64}" alt=""/>
 <div class="content">
@@ -1420,7 +1422,7 @@ ${items.map(i => `<tr><td class="foto-cell">${getIconHtml(i)}</td><td><strong>${
 <tr class="tr"><td colspan="5">TOTAL GERAL</td><td style="text-align:right;color:#F5A623">${total === 0 ? "Sob consulta" : fmt(total)}</td></tr>
 </tbody></table>
 ${buildPaymentSection(total, comissao)}
-${notes ? `<div class="n"><strong>Observações:</strong><br>${notes}</div>` : ""}
+${notesClean ? `<div class="n"><strong>Observações:</strong><br>${notesClean}</div>` : ""}
 <div class="ft">Orçamento válido por 15 dias • ${COMPANY.razao} • CNPJ: ${COMPANY.cnpj} • ${COMPANY.endereco} • ${COMPANY.telefone}</div>
 </div>
 </body></html>`;
