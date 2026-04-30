@@ -1446,6 +1446,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
               { k: "orders", l: "Orçamentos" },
               { k: "graficos", l: "Gráficos" },
               { k: "logistica", l: "Logística" },
+              { k: "comissoes", l: "Comissões" },
               { k: "adm", l: "ADM" },
               { k: "financeiro", l: "Financeiro" },
               { k: "dre", l: "DRE" },
@@ -1737,12 +1738,14 @@ const VENDEDORES = [
 // Cada role lista exatamente quais abas de navegacao pode acessar.
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
-  admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
+  admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  // gestor (Zanella) — explicitamente SEM comissoes (regra do Ale)
   gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
-  vendedor:        ["client", "catalog", "resumo", "orders", "graficos", "logistica"],
-  // Vendedor basico: so as 4 abas operacionais. Sem graficos, sem logistica.
-  // Usado pelo Joao Marcos.
-  vendedor_basico: ["client", "catalog", "resumo", "orders"],
+  // vendedor (Adelmo) ve graficos + logistica + suas proprias comissoes
+  vendedor:        ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes"],
+  // vendedor_basico (Joao) so o operacional + suas proprias comissoes
+  vendedor_basico: ["client", "catalog", "resumo", "orders", "comissoes"],
 };
 
 // canAccess(user, "adm") => true/false
@@ -3337,6 +3340,214 @@ function LogisticaPage({ user }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── COMISSOES ───
+// Cada vendedor (Adelmo, Joao) ve suas proprias comissoes de vendas concluidas.
+// Admin (Ale) ve consolidado de todos. Zanella (gestor) NAO tem acesso.
+// Comissao = valor gravado em orcamentos.comissao (markup que o vendedor aplicou).
+function ComissoesPage({ user }) {
+  const [vendas, setVendas] = useState([]);
+  const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
+  const [filtroVendedor, setFiltroVendedor] = useState("all");
+  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+
+  const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
+  const isAdminGestor = role === "admin"; // gestor nao tem acesso, so admin
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      let q = supabase.from("orcamentos").select("*").eq("status", "Concluído");
+      // Vendedor (Adelmo, Joao) ve so as proprias vendas
+      if (!isAdminGestor) q = q.eq("vendedor_id", user.id);
+      const { data } = await q.order("data", { ascending: false });
+      if (data) {
+        // Orcamentos RS-ocultos do Ale ficam fora das comissoes consolidadas
+        const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
+        setVendas(visiveis.map(o => ({
+          id: o.id,
+          data: o.data,
+          dataEntrega: o.data_entrega,
+          numeroPedido: o.numero_pedido || "",
+          empresa: o.cliente_empresa || "—",
+          cidade: o.cliente_cidade || "",
+          uf: o.cliente_estado || "",
+          vendedor: o.vendedor_nome || "—",
+          vendedorId: o.vendedor_id || "",
+          total: Number(o.total) || 0,
+          comissao: Number(o.comissao) || 0,
+          frete: Number(o.frete) || 0,
+        })));
+      }
+    };
+    load();
+  }, [user?.id, isAdminGestor]);
+
+  // Filtros
+  const noMes = (dataStr) => {
+    if (!dataStr) return false;
+    const d = new Date(dataStr);
+    return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mesSel;
+  };
+
+  const vendasFiltradas = vendas.filter(v => {
+    if (!noMes(v.dataEntrega || v.data)) return false;
+    if (filtroVendedor !== "all" && v.vendedorId !== filtroVendedor) return false;
+    return true;
+  });
+
+  const vendedoresUnicos = isAdminGestor
+    ? [...new Set(vendas.map(v => v.vendedorId).filter(Boolean))]
+        .map(vid => VENDEDORES.find(x => x.id === vid))
+        .filter(Boolean)
+    : [];
+
+  // Resumos
+  const totalComissoes = vendasFiltradas.reduce((s, v) => s + v.comissao, 0);
+  const totalVendas    = vendasFiltradas.reduce((s, v) => s + v.total, 0);
+  const qtdVendas      = vendasFiltradas.length;
+  const ticketMedio    = qtdVendas > 0 ? totalVendas / qtdVendas : 0;
+
+  // Por vendedor (so admin consolidado)
+  const porVendedor = isAdminGestor
+    ? vendasFiltradas.reduce((acc, v) => {
+        const k = v.vendedorId || "sem";
+        if (!acc[k]) acc[k] = { vendedor: v.vendedor, qtd: 0, total: 0, comissao: 0 };
+        acc[k].qtd += 1;
+        acc[k].total += v.total;
+        acc[k].comissao += v.comissao;
+        return acc;
+      }, {})
+    : {};
+
+  const fmtData = (s) => {
+    if (!s) return "—";
+    const d = new Date(s);
+    return d.toLocaleDateString("pt-BR");
+  };
+  const sel = { padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" };
+  const statCard = (label, value, color, small) => (
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>{label}</div>
+      <div style={{ color: color, fontSize: small ? 18 : 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>💰 Comissões</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+            {isAdminGestor ? "Consolidado de comissões de todos os vendedores" : "Suas comissões de vendas concluídas"}
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {isAdminGestor && (
+            <select value={filtroVendedor} onChange={e => setFiltroVendedor(e.target.value)} style={sel}>
+              <option value="all">Todos vendedores</option>
+              {vendedoresUnicos.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          )}
+          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={sel}>
+            {Array.from({ length: 18 }, (_, i) => {
+              const d = new Date(); d.setMonth(d.getMonth() - 9 + i);
+              const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+              return <option key={v} value={v}>{mesNomes[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
+            })}
+          </select>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 20 }}>
+        {statCard("Comissão Total", fmt(totalComissoes), COLORS.success)}
+        {statCard("Vendas Concluídas", qtdVendas, COLORS.orange)}
+        {statCard("Faturamento", fmt(totalVendas), COLORS.text, true)}
+        {statCard("Ticket Médio", fmt(ticketMedio), "#3B82F6", true)}
+      </div>
+
+      {/* Resumo por vendedor (so admin) */}
+      {isAdminGestor && Object.keys(porVendedor).length > 0 && (
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
+          <div style={{ padding: "12px 16px", background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}` }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 14, margin: 0 }}>Por Vendedor</h3>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+            <thead>
+              <tr>
+                <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Vendedor</th>
+                <th style={{ padding: "10px 14px", textAlign: "center", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Vendas</th>
+                <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Faturamento</th>
+                <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Comissão</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(porVendedor).map(([k, v]) => (
+                <tr key={k} style={{ borderTop: `1px solid ${COLORS.border}` }}>
+                  <td style={{ padding: "10px 14px", color: COLORS.text, fontWeight: 600 }}>{v.vendedor}</td>
+                  <td style={{ padding: "10px 14px", textAlign: "center", color: COLORS.text, fontWeight: 700 }}>{v.qtd}</td>
+                  <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textMuted }}>{fmt(v.total)}</td>
+                  <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.success, fontWeight: 700 }}>{fmt(v.comissao)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Tabela de vendas */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}` }}>
+          <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 14, margin: 0 }}>
+            Vendas concluídas em {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}
+          </h3>
+        </div>
+        {vendasFiltradas.length === 0 ? (
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>💰</div>
+            <p style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+              {qtdVendas === 0 ? "Nenhuma venda concluída neste mês" : "Nenhuma venda com os filtros atuais"}
+            </p>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Data</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Cliente</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Cidade</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Pedido</th>
+                  {isAdminGestor && <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Vendedor</th>}
+                  <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Total Venda</th>
+                  <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Comissão</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vendasFiltradas.map(v => (
+                  <tr key={v.id} style={{ borderTop: `1px solid ${COLORS.border}` }}>
+                    <td style={{ padding: "10px 14px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{fmtData(v.dataEntrega || v.data)}</td>
+                    <td style={{ padding: "10px 14px", color: COLORS.text, fontWeight: 600 }}>{v.empresa}</td>
+                    <td style={{ padding: "10px 14px", color: COLORS.textMuted }}>{v.cidade}{v.uf ? "/" + v.uf : ""}</td>
+                    <td style={{ padding: "10px 14px", color: COLORS.text, fontFamily: "monospace" }}>{v.numeroPedido || "—"}</td>
+                    {isAdminGestor && <td style={{ padding: "10px 14px", color: COLORS.accent, fontWeight: 500 }}>{v.vendedor}</td>}
+                    <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(v.total)}</td>
+                    <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.success, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(v.comissao)}</td>
+                  </tr>
+                ))}
+                <tr style={{ borderTop: `2px solid ${COLORS.orange}40`, background: COLORS.bg }}>
+                  <td colSpan={isAdminGestor ? 5 : 4} style={{ padding: "12px 14px", color: COLORS.white, fontWeight: 800, fontSize: 13 }}>TOTAL</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 800, fontSize: 13, whiteSpace: "nowrap" }}>{fmt(totalVendas)}</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.success, fontWeight: 800, fontSize: 14, whiteSpace: "nowrap" }}>{fmt(totalComissoes)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -5383,6 +5594,8 @@ export default function App() {
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
       {page === "logistica" && !canAccess(user, "logistica") && <Login onLogin={login} setPage={setPage} />}
+      {page === "comissoes" && canAccess(user, "comissoes") && <ComissoesPage user={user} />}
+      {page === "comissoes" && !canAccess(user, "comissoes") && <Login onLogin={login} setPage={setPage} />}
     </div>
   );
 }
