@@ -2397,6 +2397,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const [pecasModal, setPecasModal] = useState(null); // { lista: [...], naoExpandidos: [...] }
   const [pecasFeitas, setPecasFeitas] = useState({}); // { [uniplusId]: true } — marcacao "ja pedido"
   const [parcelamentoOpts, setParcelamentoOpts] = useState({}); // { [orderId]: bool } — incluir tabela de parcelamento por boleto no PDF/HTML
+  const [parcelamentoCartaoOpts, setParcelamentoCartaoOpts] = useState({}); // { [orderId]: bool } — incluir tabela de parcelamento por cartão (valores definidos depois)
 
   const togglePecaFeita = (id) => {
     setPecasFeitas(prev => {
@@ -3024,9 +3025,30 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                       }}
                     >{parcelamentoOpts[o.id] ? "✓" : ""}</button>
                     <div style={{ flex: 1 }}>
-                      <div style={{ color: parcelamentoOpts[o.id] ? "#10B981" : COLORS.text, fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>💳 Incluir parcelamento por boleto</div>
+                      <div style={{ color: parcelamentoOpts[o.id] ? "#10B981" : COLORS.text, fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>🧾 Incluir parcelamento por boleto</div>
                       <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 1 }}>
                         {parcelamentoOpts[o.id] ? "A tabela de parcelas (1x a 8x) será adicionada no orçamento." : "Sem parcelamento — orçamento envia só o total."}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Toggle: incluir tabela de parcelamento por cartao de credito (valores ainda nao definidos) */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "10px 12px", background: parcelamentoCartaoOpts[o.id] ? "#3B82F612" : COLORS.bg, border: `1px solid ${parcelamentoCartaoOpts[o.id] ? "#3B82F640" : COLORS.border}`, borderRadius: 8 }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setParcelamentoCartaoOpts(prev => ({ ...prev, [o.id]: !prev[o.id] })); }}
+                      title={parcelamentoCartaoOpts[o.id] ? "Cartão de crédito será incluído no orçamento" : "Clique para incluir cartão de crédito"}
+                      style={{
+                        background: parcelamentoCartaoOpts[o.id] ? "#3B82F6" : "transparent",
+                        border: `1.5px solid ${parcelamentoCartaoOpts[o.id] ? "#3B82F6" : COLORS.border}`,
+                        width: 22, height: 22, borderRadius: 5, cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        color: "#fff", fontSize: 13, fontWeight: 800, padding: 0, lineHeight: 1
+                      }}
+                    >{parcelamentoCartaoOpts[o.id] ? "✓" : ""}</button>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: parcelamentoCartaoOpts[o.id] ? "#3B82F6" : COLORS.text, fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>💳 Incluir parcelamento por cartão de crédito</div>
+                      <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 1 }}>
+                        {parcelamentoCartaoOpts[o.id] ? "Opção marcada — taxas serão configuradas em breve." : "Sem cartão — orçamento envia só o total."}
                       </div>
                     </div>
                   </div>
