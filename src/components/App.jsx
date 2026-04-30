@@ -3366,7 +3366,9 @@ function ComissoesPage({ user }) {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      let q = supabase.from("orcamentos").select("*").eq("status", "Concluído");
+      // Por padrao filtra comissoes excluidas (so vendas vivas).
+      // Admin pode mostrar excluidas com botao no topo.
+      let q = supabase.from("orcamentos").select("*").eq("status", "Concluído").eq("comissao_excluida", false);
       // Vendedor (Adelmo, Joao) ve so as proprias vendas
       if (!isAdmin) q = q.eq("vendedor_id", user.id);
       const { data } = await q.order("data", { ascending: false });
@@ -3398,6 +3400,16 @@ function ComissoesPage({ user }) {
     if (!isAdmin) return;
     await supabase.from("orcamentos").update({ comissao_paga: novoStatus }).eq("id", id);
     setVendas(prev => prev.map(v => v.id === id ? { ...v, comissaoPaga: novoStatus } : v));
+  };
+
+  // Confirma antes de excluir (so admin). Marca comissao_excluida=true,
+  // o orcamento original continua intacto na aba Orcamentos/ADM.
+  const [confirmExcluir, setConfirmExcluir] = useState(null);
+  const excluirComissao = async (id) => {
+    if (!isAdmin) return;
+    await supabase.from("orcamentos").update({ comissao_excluida: true }).eq("id", id);
+    setVendas(prev => prev.filter(v => v.id !== id));
+    setConfirmExcluir(null);
   };
 
   // Filtros
@@ -3527,15 +3539,24 @@ function ComissoesPage({ user }) {
                     <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.text, fontWeight: 700, whiteSpace: "nowrap" }}>{fmtMoney(v.comissaoSuprema)}</td>
                     <td style={{ padding: "10px 14px", textAlign: "right", color: COLORS.success, fontWeight: 800, whiteSpace: "nowrap" }}>{fmtMoney(v.comissaoVendedor)}</td>
                     <td style={{ padding: "10px 14px", textAlign: "center" }}>
-                      {isAdmin ? (
-                        <button
-                          onClick={() => togglePago(v.id, !v.comissaoPaga)}
-                          title="Clique para alternar"
-                          style={{ background: corStatus + "20", border: `1px solid ${corStatus}50`, color: corStatus, padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
-                        >{labelStatus}</button>
-                      ) : (
-                        <span style={{ background: corStatus + "20", color: corStatus, padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{labelStatus}</span>
-                      )}
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        {isAdmin ? (
+                          <button
+                            onClick={() => togglePago(v.id, !v.comissaoPaga)}
+                            title="Clique para alternar"
+                            style={{ background: corStatus + "20", border: `1px solid ${corStatus}50`, color: corStatus, padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
+                          >{labelStatus}</button>
+                        ) : (
+                          <span style={{ background: corStatus + "20", color: corStatus, padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{labelStatus}</span>
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={() => setConfirmExcluir(v)}
+                            title="Excluir esta comissão da listagem (não apaga o orçamento)"
+                            style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "4px 7px", borderRadius: 6, cursor: "pointer", fontSize: 12, lineHeight: 1, fontFamily: "'DM Sans', sans-serif" }}
+                          >🗑️</button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                   );
@@ -3553,6 +3574,32 @@ function ComissoesPage({ user }) {
           </div>
         )}
       </div>
+
+      {/* Modal de confirmacao de exclusao (so admin) */}
+      {confirmExcluir && (
+        <div onClick={() => setConfirmExcluir(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, maxWidth: 460, width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 28 }}>⚠️</span>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: 0 }}>Excluir comissão?</h2>
+            </div>
+            <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "12px 14px", marginBottom: 14, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
+              <div><strong style={{ color: COLORS.text }}>{confirmExcluir.empresa}</strong></div>
+              <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 3 }}>
+                Vendedor: <strong style={{ color: COLORS.accent }}>{confirmExcluir.vendedor}</strong> · Comissão: <strong style={{ color: COLORS.success }}>{fmtMoney(confirmExcluir.comissaoVendedor)}</strong>
+              </div>
+            </div>
+            <div style={{ color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginBottom: 16, lineHeight: 1.5 }}>
+              Essa comissão vai sair da listagem (Ale, Adelmo, João não verão mais).
+              <br/><span style={{ color: COLORS.textDim, fontSize: 11 }}>O orçamento original continua intacto na aba <strong>Orçamentos</strong> e no <strong>ADM</strong>.</span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirmExcluir(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "10px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+              <button onClick={() => excluirComissao(confirmExcluir.id)} style={{ flex: 1, background: COLORS.danger, border: "none", color: "#fff", padding: "10px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>🗑️ Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
