@@ -54,3 +54,20 @@ ios/
 *.apk
 *.aab
 local.properties
+
+# Flutter (scaffold gerado pelo build, mas mantemos lib/ e pubspec.yaml)
+mobile-flutter/.dart_tool/
+mobile-flutter/.flutter-plugins
+mobile-flutter/.flutter-plugins-dependencies
+mobile-flutter/.metadata
+mobile-flutter/build/
+mobile-flutter/android/
+mobile-flutter/ios/
+mobile-flutter/linux/
+mobile-flutter/macos/
+mobile-flutter/web/
+mobile-flutter/windows/
+mobile-flutter/test/
+mobile-flutter/pubspec.lock
+mobile-flutter/analysis_options.yaml
+mobile-flutter/.gitignore
