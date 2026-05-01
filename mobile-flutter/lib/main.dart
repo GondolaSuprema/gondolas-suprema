@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'services/supabase_service.dart';
 import 'theme.dart';
-import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await initSupabase();
   runApp(const GondolasApp());
 }
 
@@ -19,9 +16,7 @@ class GondolasApp extends StatelessWidget {
       title: 'Gôndolas Suprema',
       theme: buildAppTheme(),
       debugShowCheckedModeBanner: false,
-      home: supabase.auth.currentSession != null
-          ? const HomeScreen()
-          : const LoginScreen(),
+      home: const HomeScreen(),
     );
   }
 }

@@ -1,37 +1,29 @@
 # Gôndolas Suprema — App Mobile (Flutter)
 
-App nativo Flutter da Gôndolas Suprema. Conecta no **mesmo Supabase** que o site (https://gondolas-suprema.vercel.app).
+App mobile da Gôndolas Suprema. Carrega o site (https://gondolas-suprema.vercel.app) numa WebView nativa, com **drawer (menu sanduíche) Flutter** controlando a navegação.
 
-## Status atual
+## Funcionalidades
 
-- ✅ Login funcional (Supabase Auth) — usa os mesmos usuários do site
-- ✅ Drawer (menu sanduíche) com 11 itens
-- ✅ Tema escuro com paleta da marca (laranja `#F5A623`)
-- ✅ Permissão admin (vendedor não vê Financeiro/DRE/NFe/Conciliação/Gráficos/Admin)
-- ⏳ Telas internas — todas em **placeholder**, prontas pro programador implementar
+- ✅ **TODAS as funcionalidades do site** — orçamento, catálogo, financeiro, NF-e, gráficos, etc.
+- ✅ **Drawer (menu sanduíche)** com 11 itens — toca o ícone ≡ no canto superior esquerdo
+- ✅ **Login do site** funciona normalmente dentro da WebView (Supabase Auth)
+- ✅ **Atualização automática** — qualquer mudança no site reflete no app sem republicar
+- ✅ **Tema escuro** com paleta da marca
 
-## Telas a implementar (por prioridade sugerida)
+## Como o drawer navega
 
-1. **Catálogo** — listar produtos hardcoded + categoria "Outros Produtos" (tabela `produtos_uniplus` no Supabase)
-2. **Orçamento** — montar carrinho, calcular comissão, gerar PDF compartilhável
-3. **Pedidos** — listar com filtros, status entrega
-4. **Resumo** — métricas do mês
-5. **Financeiro / DRE / NFe / Conciliação / Gráficos / Admin** — réplicas das telas web
+Cada item do drawer roda um **JavaScript injetado na WebView** que clica no botão correspondente do menu interno do site (ex: "Catálogo", "Orçamento", "NF-e"). Se algum item não encontrar o botão, ele só permanece na página atual — não quebra.
 
 ## Estrutura
 
 ```
 mobile-flutter/
 ├── lib/
-│   ├── main.dart                    # Bootstrap + roteamento auth
-│   ├── theme.dart                   # Paleta + tema Material 3 escuro
-│   ├── services/
-│   │   └── supabase_service.dart    # Inicialização do Supabase
+│   ├── main.dart            # Bootstrap
+│   ├── theme.dart           # Paleta + tema escuro
 │   └── screens/
-│       ├── login_screen.dart        # ✅ Pronta
-│       ├── home_screen.dart         # ✅ Drawer + roteamento interno
-│       └── placeholder_screen.dart  # Tela genérica "Em desenvolvimento"
-└── pubspec.yaml
+│       └── home_screen.dart # WebView + Drawer
+└── pubspec.yaml             # webview_flutter + google_fonts
 ```
 
 ## Como rodar localmente (programador)
@@ -51,20 +43,22 @@ flutter build apk --release # gera APK release (precisa de keystore)
 
 ## Build automático no GitHub Actions
 
-Workflow `.github/workflows/build-flutter-apk.yml`:
+Workflow `.github/workflows/build-flutter-apk.yml` roda em todo push que mexer em `mobile-flutter/`. APK fica disponível em **Actions → Artifacts → gondolas-suprema-flutter-apk**.
 
-- Roda em **todo push** que mexa em `mobile-flutter/`
-- Gera scaffold Android + builda APK debug
-- Disponibiliza em **Actions → Artifacts** como `gondolas-suprema-flutter-apk`
+## Próximos passos pro programador (opcionais)
 
-## Configuração Supabase
-
-URL e publishable key estão em `lib/services/supabase_service.dart`. **Não precisam ficar em segredo** — RLS protege o acesso, e a publishable key é desenhada pra ser pública.
+1. **Adicionar features nativas** que a WebView não dá:
+   - Câmera pra fotografar produto e anexar no orçamento
+   - Scanner de código de barras
+   - Push notifications
+   - Compartilhamento nativo de PDF
+2. **Reescrever telas em Flutter nativo** progressivamente — começar pelo Catálogo (mais usado), substituir o WebView só nesse item do drawer
+3. **Login nativo** (opcional) — se quiser autenticação mais robusta, usar `supabase_flutter` antes da WebView e injetar o token
 
 ## Convivência com o app Capacitor
 
 Os dois apps coexistem no repo:
-- `android/` (gerado pelo Capacitor) — APK que abre o site numa WebView
-- `mobile-flutter/` — app nativo Flutter, em desenvolvimento
+- `android/` (gerado pelo Capacitor) — versão simples, só WebView fullscreen do site
+- `mobile-flutter/` — Flutter com drawer nativo + WebView, base pra evoluir nativamente
 
-Em produção, o programador pode escolher qual entregar pro time. Recomendado: usar **Capacitor enquanto Flutter não tiver paridade de telas**.
+Ambos consomem o mesmo backend Supabase + Vercel. Não há código duplicado de lógica de negócio.
