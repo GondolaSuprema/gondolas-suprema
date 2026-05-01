@@ -46,3 +46,11 @@ coverage/
 
 # Backups (manter local, nao versionar)
 backups/
+
+# Android / Capacitor (gerados pelo build)
+android/
+ios/
+.gradle/
+*.apk
+*.aab
+local.properties

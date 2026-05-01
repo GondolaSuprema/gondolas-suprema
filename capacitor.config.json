@@ -1,0 +1,13 @@
+{
+  "appId": "com.gondolasuprema.app",
+  "appName": "Gôndolas Suprema",
+  "webDir": "public",
+  "server": {
+    "url": "https://gondolas-suprema.vercel.app",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
