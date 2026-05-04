@@ -1759,8 +1759,9 @@ const ROLE_PERMISSIONS = {
   gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
   // vendedor (Adelmo) ve graficos + logistica + suas proprias comissoes
   vendedor:        ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes"],
-  // vendedor_basico (Joao) so o operacional + suas proprias comissoes
-  vendedor_basico: ["client", "catalog", "resumo", "orders", "comissoes"],
+  // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
+  // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
+  vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes"],
 };
 
 // canAccess(user, "adm") => true/false
@@ -1795,11 +1796,13 @@ function getRegiao(cidade, uf) {
   return uf ? "Outras de " + String(uf).toUpperCase() : "Outras regiões";
 }
 
-// canEditLogistica(user) => admin e gestor podem editar; vendedor apenas le
+// canEditLogistica(user) => admin (Ale), gestor (Zanella) e vendedor_basico
+// (Joao — motorista/montador) podem editar entregas. Vendedor (Adelmo)
+// continua só com leitura.
 function canEditLogistica(user) {
   if (!user) return false;
   const role = user.role || (user.isAdmin ? "admin" : "vendedor");
-  return role === "admin" || role === "gestor";
+  return role === "admin" || role === "gestor" || role === "vendedor_basico";
 }
 
 // ─── ORCAMENTOS RS-OCULTOS (regra de negocio do Ale) ───
@@ -3349,12 +3352,10 @@ function LogisticaPage({ user }) {
 
   useEffect(() => {
     const load = async () => {
-      let q = supabase.from("orcamentos").select("*").not("data_entrega", "is", null);
-      // Admin/gestor ve tudo; demais (vendedor, vendedor_basico) so os proprios
-      const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
-      if (role !== "admin" && role !== "gestor") {
-        q = q.eq("vendedor_id", user.id);
-      }
+      // Todos os usuarios veem TODAS as entregas (Logistica é visao consolidada
+      // de equipe — Ale, Zanella, Adelmo e Joao precisam ver a mesma agenda).
+      // Apenas a edicao continua restrita (canEditLogistica).
+      const q = supabase.from("orcamentos").select("*").not("data_entrega", "is", null);
       const { data } = await q.order("data_entrega", { ascending: true });
       if (data) {
         // Orcamentos RS-ocultos do Ale ficam fora da Logistica consolidada
