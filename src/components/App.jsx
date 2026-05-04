@@ -2923,7 +2923,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ color: COLORS.textDim, fontSize: 18, transition: "transform .2s", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
                   <div>
-                    <span style={{ fontSize: 14, color: COLORS.white, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{o.client?.empresa || "Sem empresa"}</span>
+                    <span style={{ fontSize: 14, color: COLORS.white, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{o.client?.empresa || o.client?.responsavel || "Sem cliente"}</span>
                     {/* Marcador "RS particular" — orcamentos RS do Ale ficam fora de ADM/DRE/Logistica/ranking */}
                     {user.id === "v1" && String(o.client?.estado || "").trim().toUpperCase() === "RS" && (
                       <span style={{ marginLeft: 8, background: "#8B5CF6" + "20", color: "#8B5CF6", padding: "2px 8px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }} title="Orçamento particular RS — não aparece em ADM, DRE, Logística nem ranking">🔒 RS</span>
