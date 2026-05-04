@@ -4727,16 +4727,52 @@ function FinanceiroPage() {
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
+  // Calcula a chave do mes anterior no formato YYYY-MM (ex: "2026-05" -> "2026-04")
+  const calcularMesAnterior = (mes) => {
+    const [ano, m] = mes.split("-").map(Number);
+    let novoMes = m - 1;
+    let novoAno = ano;
+    if (novoMes === 0) { novoMes = 12; novoAno = ano - 1; }
+    return novoAno + "-" + String(novoMes).padStart(2, "0");
+  };
+
   const carregarDespesas = async (mes) => {
     setLoading(true);
     const { data } = await supabase.from("despesas").select("*").eq("mes", mes).order("nome");
     if (data && data.length > 0) {
       setDespesas(data);
     } else {
-      const novas = DESPESAS_FIXAS.map(nome => {
-        const { tipo, categoria } = inferirTipoDespesa(nome);
-        return { id: genId(), nome, vencimento: null, valor: 0, status: "Em Aberto", mes, fixa: true, tipo, categoria };
-      });
+      // Mês ainda sem despesas — replica TODAS as despesas fixas do mês
+      // anterior (com os valores já preenchidos), pra evitar redigitação.
+      // Reseta status para "Em Aberto" e zera o vencimento (cada mês tem
+      // a sua data própria). Se não houver mês anterior, cai no template
+      // padrão de DESPESAS_FIXAS.
+      const mesAnt = calcularMesAnterior(mes);
+      const { data: anteriores } = await supabase.from("despesas")
+        .select("*")
+        .eq("mes", mesAnt)
+        .eq("fixa", true)
+        .order("nome");
+
+      let novas;
+      if (anteriores && anteriores.length > 0) {
+        novas = anteriores.map(d => ({
+          id: genId(),
+          nome: d.nome,
+          vencimento: null,
+          valor: Number(d.valor) || 0,
+          status: "Em Aberto",
+          mes,
+          fixa: true,
+          tipo: d.tipo,
+          categoria: d.categoria,
+        }));
+      } else {
+        novas = DESPESAS_FIXAS.map(nome => {
+          const { tipo, categoria } = inferirTipoDespesa(nome);
+          return { id: genId(), nome, vencimento: null, valor: 0, status: "Em Aberto", mes, fixa: true, tipo, categoria };
+        });
+      }
       for (const d of novas) { await supabase.from("despesas").insert(d); }
       setDespesas(novas);
     }
