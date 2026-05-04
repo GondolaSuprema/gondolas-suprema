@@ -4617,17 +4617,33 @@ function GraficosPage({ user }) {
 
   const totalEquipe = vendedoresData.reduce((s, v) => s + v.totalMes, 0);
 
+  // Total de vendas concluídas no mês ativo (para o contador do filtro)
+  const qtdVendasMes = vendedoresData.reduce((s, v) => s + v.qtdVendas, 0);
+
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Gráficos de Vendas</h1>
-          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Acompanhamento de metas por vendedor</p>
-        </div>
-        <select value={activeMes} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+      <div style={{ marginBottom: 16 }}>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Gráficos de Vendas</h1>
+        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+          Acompanhamento de metas por vendedor
+          <span style={{ color: COLORS.textDim, fontStyle: "italic" }}> · somente vendas concluídas</span>
+        </p>
+      </div>
+
+      {/* Filtro por mês — disponível pra todos os usuários */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>📅 Filtrar por mês:</span>
+        <select
+          value={activeMes}
+          onChange={e => setMesSel(e.target.value)}
+          style={{ padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", minWidth: 180 }}
+        >
           {meses.length === 0 && <option value="">Sem dados</option>}
           {meses.map(m => <option key={m} value={m}>{mesNomes[m.split("-")[1]]} {m.split("-")[0]}</option>)}
         </select>
+        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginLeft: "auto" }}>
+          {qtdVendasMes} {qtdVendasMes === 1 ? "venda concluída" : "vendas concluídas"}{activeMes && ` em ${mesNomes[activeMes.split("-")[1]]} ${activeMes.split("-")[0]}`}
+        </span>
       </div>
 
       {/* Meta da equipe */}
