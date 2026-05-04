@@ -1321,6 +1321,20 @@ function formatarCnpj(valor) {
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`;
 }
 
+// Formata CPF (000.000.000-00) ou CNPJ (00.000.000/0001-00) automaticamente
+// pelo número de dígitos digitados. Útil para campos que aceitam ambos.
+function formatarCnpjOuCpf(valor) {
+  const d = (valor || "").replace(/\D/g, "").slice(0, 14);
+  // Se tem até 11 dígitos, formata como CPF; acima disso, vira CNPJ
+  if (d.length <= 11) {
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9, 11)}`;
+  }
+  return formatarCnpj(d);
+}
+
 function formatarCelular(valor) {
   const d = (valor || "").replace(/\D/g, "").slice(0, 11);
   if (d.length === 0) return "";
@@ -1566,7 +1580,7 @@ function ClientPage({ clientData, setClientData, setPage }) {
   const handleSave = () => {
     const faltando = [];
     if (!form.empresa.trim()) faltando.push("Nome da Empresa");
-    if (!form.cnpj.trim()) faltando.push("CNPJ");
+    // CNPJ não é mais obrigatório aqui — passou a ser exigido só na conclusão do orçamento
     if (!form.telefone.trim()) faltando.push("Celular");
     if (!form.cidade.trim()) faltando.push("Cidade");
     if (faltando.length > 0) {
@@ -1615,21 +1629,22 @@ function ClientPage({ clientData, setClientData, setPage }) {
             <input {...noFill} placeholder="Ex: Supermercado Bom Preço" name="gs_empresa_nofill" value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} style={!form.empresa.trim() && erro ? inpErr : inp} />
           </div>
           <div>
-            <label style={labelStyle}>CNPJ *</label>
+            <label style={labelStyle}>CNPJ ou CPF <span style={{ color: COLORS.textDim, fontWeight: 400 }}>(opcional — obrigatório só na conclusão)</span></label>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 {...noFill}
-                placeholder="00.000.000/0001-00"
+                placeholder="00.000.000/0001-00 ou 000.000.000-00"
                 name="gs_cnpj_nofill"
                 value={form.cnpj}
-                onChange={e => setForm({ ...form, cnpj: formatarCnpj(e.target.value) })}
+                onChange={e => setForm({ ...form, cnpj: formatarCnpjOuCpf(e.target.value) })}
                 onFocus={(e) => e.target.removeAttribute("readonly")}
                 onBlur={() => {
                   const c = (form.cnpj || "").replace(/\D/g, "");
+                  // Auto-busca dados na Receita só se for CNPJ (14 dígitos)
                   if (c.length === 14 && !buscandoCnpj) buscarCnpj();
                 }}
                 maxLength={18}
-                style={!form.cnpj.trim() && erro ? { ...inpErr, flex: 1 } : { ...inp, flex: 1 }}
+                style={{ ...inp, flex: 1 }}
               />
               <button
                 type="button"
@@ -2393,6 +2408,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const [editFrete, setEditFrete] = useState(0);
   const [editMarkup, setEditMarkup] = useState(0);
   const [editNotes, setEditNotes] = useState("");
+  const [editClient, setEditClient] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "" });
   const [saving, setSaving] = useState(false);
   const [pecasModal, setPecasModal] = useState(null); // { lista: [...], naoExpandidos: [...] }
   const [pecasFeitas, setPecasFeitas] = useState({}); // { [uniplusId]: true } — marcacao "ja pedido"
@@ -2466,6 +2482,20 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     setEditItems(itensCusto);
     setEditFrete(o.frete || 0);
     setEditNotes(o.notes || "");
+    // Pre-preenche dados do cliente (editaveis no modo edit)
+    const c = o.client || {};
+    setEditClient({
+      empresa: c.empresa || "",
+      cnpj: c.cnpj || "",
+      responsavel: c.responsavel || "",
+      telefone: c.telefone || "",
+      email: c.email || "",
+      endereco: c.endereco || "",
+      bairro: c.bairro || "",
+      cidade: c.cidade || "",
+      estado: c.estado || "",
+      cep: c.cep || "",
+    });
     // Recuperar a margem do orcamento como percentual aplicado
     const subCusto = itensCusto.reduce((s, it) => s + (Number(it.total) || 0), 0);
     const markupAtual = subCusto > 0 ? Math.round(((Number(o.comissao) || 0) / subCusto) * 100) : 0;
@@ -2478,6 +2508,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     setEditFrete(0);
     setEditMarkup(0);
     setEditNotes("");
+    setEditClient({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "" });
   };
 
   const saveEdit = async (orderId) => {
@@ -2486,14 +2517,33 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     const comissao = subtotalCusto * (Number(editMarkup) || 0) / 100;
     const frete = Number(editFrete) || 0;
     const newTotal = subtotalCusto + comissao + frete;
+    // Normaliza cnpj (so digitos) e cep
+    const cnpjDigits = (editClient.cnpj || "").replace(/\D/g, "");
+    const cepDigits = (editClient.cep || "").replace(/\D/g, "");
+    const telDigits = (editClient.telefone || "").replace(/\D/g, "");
     await supabase.from("orcamentos").update({
       items: editItems,
       total: newTotal,
       frete,
       comissao,
       notes: editNotes,
+      // Dados do cliente (atualizados no modo edicao)
+      cliente_empresa: editClient.empresa || null,
+      cliente_cnpj: cnpjDigits || null,
+      cliente_responsavel: editClient.responsavel || null,
+      cliente_telefone: telDigits || null,
+      cliente_email: editClient.email || null,
+      cliente_endereco: editClient.endereco || null,
+      cliente_bairro: editClient.bairro || null,
+      cliente_cidade: editClient.cidade || null,
+      cliente_estado: editClient.estado || null,
+      cliente_cep: cepDigits || null,
     }).eq("id", orderId);
-    setOrders(orders.map(o => o.id === orderId ? { ...o, items: editItems, total: newTotal, frete, comissao, notes: editNotes } : o));
+    setOrders(orders.map(o => o.id === orderId ? {
+      ...o,
+      items: editItems, total: newTotal, frete, comissao, notes: editNotes,
+      client: { ...(o.client || {}), ...editClient, cnpj: cnpjDigits, cep: cepDigits, telefone: telDigits },
+    } : o));
     setSaving(false);
     cancelEdit();
   };
@@ -2581,12 +2631,15 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const sc = { "Aguardando Retorno": "#3B82F6", "Desistiu": "#F87171", "Sem Retorno": "#8B5CF6", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
   const statusOptions = ["Aguardando Retorno", "Desistiu", "Sem Retorno", "Fechou Concorrência", "Concluído"];
   const [concluidoId, setConcluidoId] = useState(null);
-  const [concluidoData, setConcluidoData] = useState({ data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
+  const [concluidoData, setConcluidoData] = useState({ cnpj: "", data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
 
   const updateStatus = async (orderId, newStatus) => {
     if (newStatus === "Concluído") {
+      // Pre-preenche CNPJ se ja estiver no orcamento; senao, vendedor vai digitar
+      const ord = orders.find(o => o.id === orderId);
+      const cnpjExistente = ord?.client?.cnpj || "";
       setConcluidoId(orderId);
-      setConcluidoData({ data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
+      setConcluidoData({ cnpj: cnpjExistente, data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
       return;
     }
     await supabase.from("orcamentos").update({ status: newStatus }).eq("id", orderId);
@@ -2609,12 +2662,17 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
+      // CNPJ obrigatorio na conclusao — atualiza no orcamento (caso nao tinha)
+      cliente_cnpj: cd.cnpj || null,
       // Colunas dedicadas para a aba Logistica
       data_entrega: cd.data_entrega || null,
       numero_pedido: cd.numero_pedido || null,
       status_entrega: cd.data_entrega ? "Agendada" : null,
     }).eq("id", concluidoId);
-    setOrders(orders.map(o => o.id === concluidoId ? { ...o, status: "Concluído", notes: (o.notes || "") + info } : o));
+    setOrders(orders.map(o => o.id === concluidoId
+      ? { ...o, status: "Concluído", notes: (o.notes || "") + info, client: { ...(o.client || {}), cnpj: cd.cnpj || "" } }
+      : o
+    ));
     setConcluidoId(null);
   };
 
@@ -2783,13 +2841,29 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
         const cd = concluidoData;
         const selStyle = { width: "100%", padding: "10px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
         const lblStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
-        const canSave = cd.data_entrega && cd.numero_pedido && cd.pag1 && (cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto" || cd.pag1_parcelas);
+        // Aceita CNPJ (14 dígitos) ou CPF (11 dígitos)
+        const cnpjDigits = (cd.cnpj || "").replace(/\D/g, "");
+        const cnpjOk = cnpjDigits.length === 14 || cnpjDigits.length === 11;
+        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && (cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto" || cd.pag1_parcelas);
         return (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#10B981", fontSize: 20, margin: "0 0 6px" }}>Concluir Orçamento</h2>
             <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Preencha os dados da conclusão</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={lblStyle}>CNPJ ou CPF *</label>
+                <input
+                  placeholder="00.000.000/0001-00 ou 000.000.000-00"
+                  value={cd.cnpj}
+                  onChange={e => setConcluidoData({ ...cd, cnpj: formatarCnpjOuCpf(e.target.value) })}
+                  maxLength={18}
+                  style={!cnpjOk && cd.cnpj ? { ...selStyle, borderColor: COLORS.danger } : selStyle}
+                />
+                {!cnpjOk && cd.cnpj && (
+                  <div style={{ color: COLORS.danger, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>CNPJ deve ter 14 dígitos ou CPF deve ter 11 dígitos.</div>
+                )}
+              </div>
               <div>
                 <label style={lblStyle}>Data de Entrega *</label>
                 <input type="date" value={cd.data_entrega} onChange={e => setConcluidoData({ ...cd, data_entrega: e.target.value })} style={selStyle} />
@@ -3068,6 +3142,53 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <h3 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 16, margin: 0 }}>Editando Orçamento</h3>
                     <button onClick={cancelEdit} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✕ Cancelar</button>
+                  </div>
+
+                  {/* Dados do Cliente (editaveis) */}
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+                    <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>👤 Dados do Cliente</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>Empresa</div>
+                        <input value={editClient.empresa} onChange={e => setEditClient({ ...editClient, empresa: e.target.value })} placeholder="Nome da empresa" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>CNPJ ou CPF</div>
+                        <input value={editClient.cnpj} onChange={e => setEditClient({ ...editClient, cnpj: formatarCnpjOuCpf(e.target.value) })} maxLength={18} placeholder="00.000.000/0001-00 ou 000.000.000-00" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>Responsável</div>
+                        <input value={editClient.responsavel} onChange={e => setEditClient({ ...editClient, responsavel: e.target.value })} placeholder="Nome do responsável" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>Celular</div>
+                        <input value={editClient.telefone} onChange={e => setEditClient({ ...editClient, telefone: formatarCelular(e.target.value) })} maxLength={14} placeholder="(00)00000-0000" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>E-mail</div>
+                        <input value={editClient.email} onChange={e => setEditClient({ ...editClient, email: e.target.value })} placeholder="email@cliente.com" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>Endereço</div>
+                        <input value={editClient.endereco} onChange={e => setEditClient({ ...editClient, endereco: e.target.value })} placeholder="Rua, número" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>Bairro</div>
+                        <input value={editClient.bairro} onChange={e => setEditClient({ ...editClient, bairro: e.target.value })} placeholder="Bairro" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>CEP</div>
+                        <input value={editClient.cep} onChange={e => setEditClient({ ...editClient, cep: e.target.value })} placeholder="00000-000" maxLength={9} style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>Cidade</div>
+                        <input value={editClient.cidade} onChange={e => setEditClient({ ...editClient, cidade: e.target.value })} placeholder="Cidade" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      <div>
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>Estado (UF)</div>
+                        <input value={editClient.estado} onChange={e => setEditClient({ ...editClient, estado: e.target.value.toUpperCase().slice(0, 2) })} placeholder="SC" maxLength={2} style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textTransform: "uppercase" }} />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Edit Items */}
