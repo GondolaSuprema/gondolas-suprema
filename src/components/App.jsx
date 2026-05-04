@@ -3165,8 +3165,11 @@ function LogisticaPage({ user }) {
   const [filterPeriodo, setFilterPeriodo] = useState("proximos30");
   const [filterRegiao, setFilterRegiao] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [confirmDelLog, setConfirmDelLog] = useState(null); // id do orcamento aguardando confirmacao
 
   const podeEditar = canEditLogistica(user);
+  // Mesmos roles que editam (admin/gestor = Alessandro/Zanella) tambem excluem
+  const podeExcluir = podeEditar;
 
   useEffect(() => {
     const load = async () => {
@@ -3250,6 +3253,11 @@ function LogisticaPage({ user }) {
     await supabase.from("orcamentos").update({ data_entrega: novaData || null }).eq("id", id);
     setAllEntregas(prev => prev.map(o => o.id === id ? { ...o, dataEntrega: novaData } : o));
   };
+  const excluirOrcamentoLog = async (id) => {
+    await supabase.from("orcamentos").delete().eq("id", id);
+    setAllEntregas(prev => prev.filter(o => o.id !== id));
+    setConfirmDelLog(null);
+  };
 
   const fmtData = (s) => {
     if (!s) return "—";
@@ -3324,6 +3332,7 @@ function LogisticaPage({ user }) {
                         <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Valor</th>
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Data Entrega</th>
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
+                        {podeExcluir && <th style={{ padding: "10px 14px", textAlign: "center", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, width: 60 }}>Ações</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -3351,6 +3360,30 @@ function LogisticaPage({ user }) {
                                 <span style={{ background: cor + "20", color: cor, padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{o.statusEntrega}</span>
                               )}
                             </td>
+                            {podeExcluir && (
+                              <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                                {confirmDelLog === o.id ? (
+                                  <div style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                                    <button
+                                      onClick={() => excluirOrcamentoLog(o.id)}
+                                      title="Confirmar exclusão"
+                                      style={{ background: COLORS.danger, border: "none", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+                                    >Sim</button>
+                                    <button
+                                      onClick={() => setConfirmDelLog(null)}
+                                      title="Cancelar"
+                                      style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "4px 8px", borderRadius: 6, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+                                    >✕</button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmDelLog(o.id)}
+                                    title="Excluir orçamento"
+                                    style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "4px 8px", borderRadius: 6, fontSize: 13, cursor: "pointer", lineHeight: 1 }}
+                                  >🗑️</button>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
