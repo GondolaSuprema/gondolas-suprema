@@ -3669,6 +3669,12 @@ function AdminPage({ user }) {
   const [filterDataAte, setFilterDataAte] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  // Edicao inline do orcamento direto da ADM (admin/gestor — Ale e Zanella)
+  const [editingId, setEditingId] = useState(null);
+  const [editFrete, setEditFrete] = useState(0);
+  const [editMarkup, setEditMarkup] = useState(0);
+  const [editNotes, setEditNotes] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const [mesSel, setMesSel] = useState("");
   const [vendaStatus, setVendaStatus] = useState({});
   const [emitindoNfe, setEmitindoNfe] = useState(null);
@@ -3760,6 +3766,61 @@ function AdminPage({ user }) {
       vendedor_nome: v.name,
     }).eq("id", orderId);
     setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendedor: v.name, vendedorId: v.id } : o));
+  };
+
+  // ─── Edicao inline (Ale/Zanella) ───
+  // Edita frete, markup% e notes preservando a estrutura de itens.
+  // Os items vem do banco com total ja com markup aplicado, entao precisamos
+  // calcular o subtotal puro de custo e reaplicar a margem nova ao salvar.
+  const startEditOrder = (o) => {
+    setEditingId(o.id);
+    setEditFrete(o.frete || 0);
+    setEditNotes(o.notes || "");
+    // Recupera markup atual a partir da relacao comissao / subtotal-custo
+    const items = o.items || [];
+    const somaItens = items.reduce((s, it) => s + (Number(it.total) || 0), 0);
+    const frete = Number(o.frete) || 0;
+    const totalSemFrete = (Number(o.total) || 0) - frete;
+    const comissao = Number(o.comissao) || 0;
+    const custoTotal = totalSemFrete - comissao;
+    const markupAtual = custoTotal > 0 ? Math.round((comissao / custoTotal) * 100) : 0;
+    setEditMarkup(markupAtual);
+  };
+  const cancelEditOrder = () => {
+    setEditingId(null);
+    setEditFrete(0);
+    setEditMarkup(0);
+    setEditNotes("");
+  };
+  const saveEditOrder = async (orderId) => {
+    setSavingEdit(true);
+    const o = allOrders.find(x => x.id === orderId);
+    if (!o) { setSavingEdit(false); return; }
+    const items = o.items || [];
+    // Subtotal de custo puro (remove markup atual de cada item antes de reaplicar)
+    const somaItens = items.reduce((s, it) => s + (Number(it.total) || 0), 0);
+    const freteAntigo = Number(o.frete) || 0;
+    const totalSemFreteAntigo = (Number(o.total) || 0) - freteAntigo;
+    const comissaoAntiga = Number(o.comissao) || 0;
+    const custoBase = Math.max(totalSemFreteAntigo - comissaoAntiga, 0);
+    // Aplica novo markup sobre custo base
+    const markup = Number(editMarkup) || 0;
+    const novaComissao = custoBase * markup / 100;
+    const frete = Number(editFrete) || 0;
+    // Reaplica markup proporcionalmente em cada item para que somem o novo total
+    const fator = somaItens > 0 ? (custoBase * (1 + markup / 100)) / somaItens : 1;
+    const novosItems = items.map(it => ({ ...it, total: (Number(it.total) || 0) * fator }));
+    const novoTotal = custoBase + novaComissao + frete;
+    await supabase.from("orcamentos").update({
+      items: novosItems,
+      total: novoTotal,
+      frete,
+      comissao: novaComissao,
+      notes: editNotes,
+    }).eq("id", orderId);
+    setAllOrders(prev => prev.map(x => x.id === orderId ? { ...x, items: novosItems, total: novoTotal, frete, comissao: novaComissao, notes: editNotes } : x));
+    setSavingEdit(false);
+    cancelEditOrder();
   };
 
   const vendedores = [...new Set(allOrders.map(o => o.vendedor))];
@@ -4154,14 +4215,42 @@ function AdminPage({ user }) {
                       </div>
                     ))}
                   </div>
-                  <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  {/* Modo de edicao inline (Ale/Zanella editam direto da ADM) */}
+                  {editingId === o.id && (
+                    <div style={{ marginTop: 14, padding: "14px 16px", background: "#3B82F608", border: `1px solid #3B82F640`, borderRadius: 10 }}>
+                      <h4 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 13, margin: "0 0 12px" }}>✏️ Editando orçamento</h4>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                        <div>
+                          <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$)</div>
+                          <input type="number" min="0" step="0.01" value={editFrete} onChange={e => setEditFrete(e.target.value)} style={{ width: "100%", padding: "8px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                        </div>
+                        <div>
+                          <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif" }}>Markup / Comissão (%)</div>
+                          <input type="number" min="0" step="1" value={editMarkup} onChange={e => setEditMarkup(e.target.value)} style={{ width: "100%", padding: "8px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif" }}>Observações</div>
+                        <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={3} style={{ width: "100%", padding: "8px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", resize: "vertical" }} />
+                      </div>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        <button onClick={(e) => { e.stopPropagation(); cancelEditOrder(); }} disabled={savingEdit} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: savingEdit ? "not-allowed" : "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                        <button onClick={(e) => { e.stopPropagation(); saveEditOrder(o.id); }} disabled={savingEdit} style={{ background: "#3B82F6", border: "none", color: "#fff", padding: "7px 16px", borderRadius: 7, cursor: savingEdit ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{savingEdit ? "Salvando..." : "💾 Salvar"}</button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                    {editingId !== o.id && confirmDel !== o.id && (
+                      <button onClick={(e) => { e.stopPropagation(); startEditOrder(o); }} style={{ background: "#3B82F615", border: `1px solid #3B82F640`, color: "#3B82F6", padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>✏️ Editar</button>
+                    )}
                     {confirmDel === o.id ? (
                       <>
                         <span style={{ color: COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif", alignSelf: "center" }}>Tem certeza?</span>
                         <button onClick={async (e) => { e.stopPropagation(); await supabase.from("orcamentos").delete().eq("id", o.id); setAllOrders(allOrders.filter(x => x.id !== o.id)); setConfirmDel(null); setExpanded(null); }} style={{ background: COLORS.danger, border: "none", color: "#fff", padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Sim, excluir</button>
                         <button onClick={(e) => { e.stopPropagation(); setConfirmDel(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                       </>
-                    ) : (
+                    ) : editingId !== o.id && (
                       <button onClick={(e) => { e.stopPropagation(); setConfirmDel(o.id); }} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🗑️ Excluir orçamento</button>
                     )}
                   </div>
