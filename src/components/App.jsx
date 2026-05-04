@@ -3663,10 +3663,17 @@ function ComissoesPage({ user }) {
 function AdminPage({ user }) {
   const [allOrders, setAllOrders] = useState([]);
   const [deletedCount, setDeletedCount] = useState({});
+  // "filter*" = rascunho (o que o usuario esta digitando/selecionando);
+  // "applied*" = filtros efetivamente aplicados (so muda ao clicar Filtrar).
+  // Enquanto nada for aplicado, a lista exibe TUDO.
   const [filterVendedor, setFilterVendedor] = useState("all");
   const [filterCidade, setFilterCidade] = useState("all");
   const [filterDataDe, setFilterDataDe] = useState("");
   const [filterDataAte, setFilterDataAte] = useState("");
+  const [appliedVendedor, setAppliedVendedor] = useState("all");
+  const [appliedCidade, setAppliedCidade] = useState("all");
+  const [appliedDataDe, setAppliedDataDe] = useState("");
+  const [appliedDataAte, setAppliedDataAte] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   // Edicao inline do orcamento direto da ADM (admin/gestor — Ale e Zanella)
@@ -3827,12 +3834,26 @@ function AdminPage({ user }) {
   const cidades = [...new Set(allOrders.map(o => o.client?.cidade).filter(Boolean))];
 
   const filtered = allOrders.filter(o => {
-    if (filterVendedor !== "all" && o.vendedor !== filterVendedor) return false;
-    if (filterCidade !== "all" && o.client?.cidade !== filterCidade) return false;
-    if (filterDataDe) { const d = new Date(o.date); const de = new Date(filterDataDe); if (d < de) return false; }
-    if (filterDataAte) { const d = new Date(o.date); const ate = new Date(filterDataAte + "T23:59:59"); if (d > ate) return false; }
+    if (appliedVendedor !== "all" && o.vendedor !== appliedVendedor) return false;
+    if (appliedCidade !== "all" && o.client?.cidade !== appliedCidade) return false;
+    if (appliedDataDe) { const d = new Date(o.date); const de = new Date(appliedDataDe); if (d < de) return false; }
+    if (appliedDataAte) { const d = new Date(o.date); const ate = new Date(appliedDataAte + "T23:59:59"); if (d > ate) return false; }
     return true;
   });
+
+  // Helpers para o botao Filtrar / Limpar
+  const filtrosRascunhoPreenchidos = filterVendedor !== "all" || filterCidade !== "all" || !!filterDataDe || !!filterDataAte;
+  const filtrosAplicados = appliedVendedor !== "all" || appliedCidade !== "all" || !!appliedDataDe || !!appliedDataAte;
+  const aplicarFiltros = () => {
+    setAppliedVendedor(filterVendedor);
+    setAppliedCidade(filterCidade);
+    setAppliedDataDe(filterDataDe);
+    setAppliedDataAte(filterDataAte);
+  };
+  const limparFiltros = () => {
+    setFilterVendedor("all"); setFilterCidade("all"); setFilterDataDe(""); setFilterDataAte("");
+    setAppliedVendedor("all"); setAppliedCidade("all"); setAppliedDataDe(""); setAppliedDataAte("");
+  };
 
   const totalGeral = filtered.reduce((s, o) => s + (o.total || 0), 0);
   const sc = { "Aguardando Retorno": "#3B82F6", "Desistiu": "#F87171", "Sem Retorno": "#8B5CF6", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
@@ -3945,8 +3966,20 @@ function AdminPage({ user }) {
         <input type="date" value={filterDataDe} onChange={e => setFilterDataDe(e.target.value)} style={sel} />
         <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Até:</span>
         <input type="date" value={filterDataAte} onChange={e => setFilterDataAte(e.target.value)} style={sel} />
-        {(filterVendedor !== "all" || filterCidade !== "all" || filterDataDe || filterDataAte) && (
-          <button onClick={() => { setFilterVendedor("all"); setFilterCidade("all"); setFilterDataDe(""); setFilterDataAte(""); }} style={{ background: "transparent", border: `1px solid ${COLORS.danger}`, color: COLORS.danger, padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Limpar filtros</button>
+        <button
+          onClick={aplicarFiltros}
+          disabled={!filtrosRascunhoPreenchidos}
+          style={{
+            background: filtrosRascunhoPreenchidos ? COLORS.orange : "transparent",
+            border: `1px solid ${filtrosRascunhoPreenchidos ? COLORS.orange : COLORS.border}`,
+            color: filtrosRascunhoPreenchidos ? "#fff" : COLORS.textDim,
+            padding: "6px 16px", borderRadius: 6,
+            cursor: filtrosRascunhoPreenchidos ? "pointer" : "not-allowed",
+            fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif"
+          }}
+        >🔎 Filtrar</button>
+        {filtrosAplicados && (
+          <button onClick={limparFiltros} style={{ background: "transparent", border: `1px solid ${COLORS.danger}`, color: COLORS.danger, padding: "6px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Limpar filtros</button>
         )}
       </div>
 
