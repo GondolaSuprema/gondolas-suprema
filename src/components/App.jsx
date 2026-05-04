@@ -1936,10 +1936,25 @@ function Login({ onLogin, setPage }) {
   );
 }
 
+// Detecta se a tela é mobile (< 720px). Escuta resize pra reagir a giros de
+// celular/tablet. Em SSR (sem window) começa false e atualiza no mount.
+function useIsMobile(breakpoint = 720) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const check = () => setIsMobile(window.innerWidth < breakpoint);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 // ─── CATALOG ───
 function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mppChinaFromApp, uniplusPriceMap }) {
   const [filter, setFilter] = useState("gondolas-parede");
   const [search, setSearch] = useState("");
+  const isMobile = useIsMobile();
   const [outrosProdutos, setOutrosProdutos] = useState([]);
   const [mppChinaProdutos, setMppChinaProdutos] = useState([]);
   const [loadingOutros, setLoadingOutros] = useState(false);
@@ -2017,12 +2032,14 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
           const grid = isMpp ? "1.5fr 1fr 110px 100px" : "1fr auto auto";
           return (
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.textDim, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
-            <div>Produto</div>
-            {isMpp && <div style={{ textAlign: "center" }}>Capacidade</div>}
-            <div style={{ textAlign: "right", minWidth: 110 }}>Valor Suprema</div>
-            <div style={{ minWidth: 100 }}></div>
-          </div>
+          {!isMobile && (
+            <div style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.textDim, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
+              <div>Produto</div>
+              {isMpp && <div style={{ textAlign: "center" }}>Capacidade</div>}
+              <div style={{ textAlign: "right", minWidth: 110 }}>Valor Suprema</div>
+              <div style={{ minWidth: 100 }}></div>
+            </div>
+          )}
           {filtered.length === 0 && !loadingOutros && (
             <div style={{ padding: "30px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>
               {isMpp ? "🇨🇳 Nenhum produto MPP China cadastrado ainda. Em breve você poderá adicionar produtos aqui." : "Nenhum produto encontrado"}
@@ -2030,6 +2047,23 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
           )}
           {filtered.map((p, idx) => {
             const cap = p.specs?.categoria || "";
+            // Mobile: card empilhado em 2 linhas (nome+preço / capacidade+botão)
+            if (isMobile) {
+              return (
+                <div key={p.id} style={{ padding: "12px 14px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, lineHeight: 1.3 }}>{p.name}</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: p.price === 0 ? COLORS.textDim : COLORS.orange, whiteSpace: "nowrap", flexShrink: 0 }}>{fmt(p.price)}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    {isMpp ? (
+                      <span style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{cap || "—"}</span>
+                    ) : <span />}
+                    <button onClick={() => onAdd(p)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Orçamento</button>
+                  </div>
+                </div>
+              );
+            }
             return (
             <div key={p.id} style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", alignItems: "center" }}>
               <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, lineHeight: 1.3 }}>{p.name}</div>
@@ -2057,6 +2091,50 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
             const qty = getProductQty(p);
             const computedPrice = computeProductPrice(p, sel, [0], uniplusPriceMap);
             const pillStyle = (active) => ({ background: active ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${active ? COLORS.orange : COLORS.border}`, color: active ? COLORS.orange : COLORS.textMuted, padding: "3px 9px", borderRadius: 14, cursor: "pointer", fontSize: 10.5, fontFamily: "'DM Sans', sans-serif", fontWeight: active ? 600 : 400, whiteSpace: "nowrap", lineHeight: 1.2 });
+            // No mobile (< 720px) o layout empilha em 3 linhas pra evitar
+            // sobreposição de texto/preço. No desktop mantém em 1 linha
+            // horizontal (padrão original).
+            if (isMobile) {
+              return (
+                <div key={p.id} style={{ padding: "12px 14px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexDirection: "column", gap: 10 }}>
+                  {/* Linha 1: nome + preço */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.3 }} title={p.name}>{p.name}</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: computedPrice === 0 ? COLORS.textDim : COLORS.orange, whiteSpace: "nowrap", flexShrink: 0 }}>{computedPrice === 0 ? "Sob consulta" : fmt(computedPrice)}</div>
+                  </div>
+                  {/* Linha 2: variantes (com wrap) */}
+                  {(p.variants || []).length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      {(p.variants || []).map(v => (
+                        <div key={v.key} style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                          <span style={{ color: COLORS.textDim, fontSize: 10.5, fontFamily: "'DM Sans', sans-serif", marginRight: 2 }}>{v.label}:</span>
+                          {v.options.map(op => (
+                            <button key={op} onClick={() => setProductVariant(p.id, v.key, op)} style={pillStyle(sel[v.key] === op)}>
+                              {sel[v.key] === op ? "✓ " : ""}{op}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Linha 3: qty + botão */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <button onClick={() => setProductQty(p.id, qty - 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 32, height: 32, borderRadius: "6px 0 0 6px", cursor: "pointer", fontSize: 14 }}>−</button>
+                      <input
+                        type="number" min="1"
+                        value={qty}
+                        onFocus={e => e.target.select()}
+                        onChange={e => setProductQty(p.id, Math.max(1, Number(e.target.value) || 1))}
+                        style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderLeft: "none", borderRight: "none", width: 50, height: 32, textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", padding: 0, MozAppearance: "textfield" }}
+                      />
+                      <button onClick={() => setProductQty(p.id, qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 32, height: 32, borderRadius: "0 6px 6px 0", cursor: "pointer", fontSize: 14 }}>+</button>
+                    </div>
+                    <button onClick={() => onAdd(p, sel, qty)} style={{ flex: 1, background: COLORS.orange, color: "#000", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Orçamento</button>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div key={p.id} style={{ padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "nowrap", alignItems: "center", gap: 14, minWidth: 0 }}>
                 <div style={{ flex: "0 1 220px", minWidth: 0, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={p.name}>{p.name}</div>
