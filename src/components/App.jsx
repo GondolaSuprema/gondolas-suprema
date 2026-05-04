@@ -2403,6 +2403,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const [orders, setOrders] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  // Filtro por mês (formato YYYY-MM ou "all")
+  const [filterMes, setFilterMes] = useState("all");
   const [editingId, setEditingId] = useState(null);
   const [editItems, setEditItems] = useState([]);
   const [editFrete, setEditFrete] = useState(0);
@@ -2710,9 +2712,52 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     </div>
   );
 
+  // Lista de meses disponíveis nos orçamentos (mais recente primeiro)
+  const mesesDisponiveis = (() => {
+    const set = new Set();
+    orders.forEach(o => {
+      if (!o.date) return;
+      const d = new Date(o.date);
+      if (isNaN(d.getTime())) return;
+      set.add(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+    });
+    return Array.from(set).sort().reverse();
+  })();
+  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+  const formatarMes = (m) => {
+    const [ano, mes] = m.split("-");
+    return `${mesNomes[mes]} ${ano}`;
+  };
+  const ordersFiltrados = filterMes === "all"
+    ? orders
+    : orders.filter(o => {
+        if (!o.date) return false;
+        const d = new Date(o.date);
+        if (isNaN(d.getTime())) return false;
+        const chave = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+        return chave === filterMes;
+      });
+
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
       <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 20px" }}>Orçamentos</h1>
+
+      {/* Filtro por mês — disponível pra todos os usuários */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>📅 Filtrar por mês:</span>
+        <select
+          value={filterMes}
+          onChange={e => setFilterMes(e.target.value)}
+          style={{ padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", minWidth: 180 }}
+        >
+          <option value="all">Todos os meses</option>
+          {mesesDisponiveis.map(m => <option key={m} value={m}>{formatarMes(m)}</option>)}
+        </select>
+        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginLeft: "auto" }}>
+          {ordersFiltrados.length} {ordersFiltrados.length === 1 ? "orçamento" : "orçamentos"}
+          {filterMes !== "all" && ` em ${formatarMes(filterMes)}`}
+        </span>
+      </div>
 
       {/* Modal Lista de Peças (UniPlus) */}
       {pecasModal && (
@@ -2986,8 +3031,18 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
         );
       })()}
 
+      {ordersFiltrados.length === 0 && filterMes !== "all" && (
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "32px 20px", textAlign: "center" }}>
+          <div style={{ fontSize: 36, marginBottom: 8 }}>📅</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+            Nenhum orçamento em {formatarMes(filterMes)}.
+          </div>
+          <button onClick={() => setFilterMes("all")} style={{ marginTop: 12, background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.accent, padding: "6px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Mostrar todos</button>
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {orders.map(o => {
+        {ordersFiltrados.map(o => {
           const isOpen = expanded === o.id;
           const isConfirming = confirmDel === o.id;
           return (
