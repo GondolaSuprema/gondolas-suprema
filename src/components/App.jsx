@@ -3844,12 +3844,10 @@ function AdminPage({ user }) {
   // Enquanto nada for aplicado, a lista exibe TUDO.
   const [filterVendedor, setFilterVendedor] = useState("all");
   const [filterCidade, setFilterCidade] = useState("all");
-  const [filterDataDe, setFilterDataDe] = useState("");
-  const [filterDataAte, setFilterDataAte] = useState("");
+  const [filterMes, setFilterMes] = useState("all"); // YYYY-MM ou "all"
   const [appliedVendedor, setAppliedVendedor] = useState("all");
   const [appliedCidade, setAppliedCidade] = useState("all");
-  const [appliedDataDe, setAppliedDataDe] = useState("");
-  const [appliedDataAte, setAppliedDataAte] = useState("");
+  const [appliedMes, setAppliedMes] = useState("all");
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   // Edicao inline do orcamento direto da ADM (admin/gestor — Ale e Zanella)
@@ -4012,26 +4010,40 @@ function AdminPage({ user }) {
   const vendedores = [...new Set(allOrders.map(o => o.vendedor))];
   const cidades = [...new Set(allOrders.map(o => o.client?.cidade).filter(Boolean))];
 
+  const chaveMes = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+  };
+
   const filtered = allOrders.filter(o => {
     if (appliedVendedor !== "all" && o.vendedor !== appliedVendedor) return false;
     if (appliedCidade !== "all" && o.client?.cidade !== appliedCidade) return false;
-    if (appliedDataDe) { const d = new Date(o.date); const de = new Date(appliedDataDe); if (d < de) return false; }
-    if (appliedDataAte) { const d = new Date(o.date); const ate = new Date(appliedDataAte + "T23:59:59"); if (d > ate) return false; }
+    if (appliedMes !== "all" && chaveMes(o.date) !== appliedMes) return false;
     return true;
   });
 
+  // Lista de meses disponíveis nos orçamentos (mais recente primeiro)
+  const mesesDisponiveis = Array.from(new Set(allOrders.map(o => chaveMes(o.date)).filter(Boolean))).sort().reverse();
+  const mesNomesAdm = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+  const formatarMesAdm = (m) => {
+    if (!m || m === "all") return "";
+    const [ano, mes] = m.split("-");
+    return `${mesNomesAdm[mes]} ${ano}`;
+  };
+
   // Helpers para o botao Filtrar / Limpar
-  const filtrosRascunhoPreenchidos = filterVendedor !== "all" || filterCidade !== "all" || !!filterDataDe || !!filterDataAte;
-  const filtrosAplicados = appliedVendedor !== "all" || appliedCidade !== "all" || !!appliedDataDe || !!appliedDataAte;
+  const filtrosRascunhoPreenchidos = filterVendedor !== "all" || filterCidade !== "all" || filterMes !== "all";
+  const filtrosAplicados = appliedVendedor !== "all" || appliedCidade !== "all" || appliedMes !== "all";
   const aplicarFiltros = () => {
     setAppliedVendedor(filterVendedor);
     setAppliedCidade(filterCidade);
-    setAppliedDataDe(filterDataDe);
-    setAppliedDataAte(filterDataAte);
+    setAppliedMes(filterMes);
   };
   const limparFiltros = () => {
-    setFilterVendedor("all"); setFilterCidade("all"); setFilterDataDe(""); setFilterDataAte("");
-    setAppliedVendedor("all"); setAppliedCidade("all"); setAppliedDataDe(""); setAppliedDataAte("");
+    setFilterVendedor("all"); setFilterCidade("all"); setFilterMes("all");
+    setAppliedVendedor("all"); setAppliedCidade("all"); setAppliedMes("all");
   };
 
   const totalGeral = filtered.reduce((s, o) => s + (o.total || 0), 0);
@@ -4141,10 +4153,10 @@ function AdminPage({ user }) {
           <option value="all">Todas as cidades</option>
           {cidades.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>De:</span>
-        <input type="date" value={filterDataDe} onChange={e => setFilterDataDe(e.target.value)} style={sel} />
-        <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Até:</span>
-        <input type="date" value={filterDataAte} onChange={e => setFilterDataAte(e.target.value)} style={sel} />
+        <select value={filterMes} onChange={e => setFilterMes(e.target.value)} style={sel}>
+          <option value="all">Todos os meses</option>
+          {mesesDisponiveis.map(m => <option key={m} value={m}>{formatarMesAdm(m)}</option>)}
+        </select>
         <button
           onClick={aplicarFiltros}
           disabled={!filtrosRascunhoPreenchidos}
