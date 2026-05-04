@@ -5539,9 +5539,45 @@ function ConciliacaoPage() {
 }
 
 // ─── APP ───
+// SHA do commit atual (injetado pela Vercel no build). Usado pelo polling
+// de auto-reload: quando o servidor passar a responder com um SHA diferente
+// deste, todas as abas abertas recarregam sozinhas. Forca os usuarios a
+// pegar a versao nova sem precisar dar refresh manual.
+const APP_VERSION = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "dev";
+
 export default function App() {
   const [page, setPage] = useState("login");
   const [user, setUser] = useState(null);
+
+  // Auto-reload: a cada 2 min compara a versao do bundle (APP_VERSION) com
+  // a versao retornada pelo servidor (/api/version). Se diferentes, o
+  // usuario esta com um bundle antigo — recarrega pra pegar o novo.
+  // Tambem reage ao tab voltar a ter foco (visibilitychange/focus).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelado = false;
+    const checar = async () => {
+      try {
+        const r = await fetch("/api/version", { cache: "no-store" });
+        if (!r.ok) return;
+        const { version } = await r.json();
+        if (!cancelado && version && APP_VERSION !== "dev" && version !== APP_VERSION) {
+          window.location.reload();
+        }
+      } catch {}
+    };
+    checar();
+    const intervalo = setInterval(checar, 120000); // 2 min
+    const onFocus = () => checar();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      cancelado = true;
+      clearInterval(intervalo);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, []);
   const [cart, setCart] = useState([]);
   const EMPTY_CLIENT = { empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" };
   const [clientData, setClientData] = useState(EMPTY_CLIENT);
