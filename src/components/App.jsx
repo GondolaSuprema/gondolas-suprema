@@ -3866,6 +3866,9 @@ function AdminPage({ user }) {
   const [cancelandoNfe, setCancelandoNfe] = useState(null);
   const [cancelJustificativa, setCancelJustificativa] = useState("");
   const [cancelRef, setCancelRef] = useState("");
+  // Confirmação de exclusão na tabela "Vendas Concluídas" (somente admin/Alessandro)
+  const [confirmDelVenda, setConfirmDelVenda] = useState(null);
+  const isAdminOnly = (user?.role || (user?.isAdmin ? "admin" : "vendedor")) === "admin";
 
   const emitirNfe = async (ordem) => {
     setConfirmEmitir(null);
@@ -4307,6 +4310,7 @@ function AdminPage({ user }) {
                       <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</th>
                       <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
                       <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>NF-e</th>
+                      {isAdminOnly && <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Ações</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -4338,6 +4342,34 @@ function AdminPage({ user }) {
                               <button onClick={() => setCancelandoNfe(o.id)} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "3px 6px", borderRadius: 6, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Cancelar</button>
                             </div>
                           </td>
+                          {isAdminOnly && (
+                            <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                              {confirmDelVenda === o.id ? (
+                                <div style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                                  <button
+                                    onClick={async () => {
+                                      await supabase.from("orcamentos").delete().eq("id", o.id);
+                                      setAllOrders(allOrders.filter(x => x.id !== o.id));
+                                      setConfirmDelVenda(null);
+                                    }}
+                                    title="Confirmar exclusão da venda"
+                                    style={{ background: COLORS.danger, border: "none", color: "#fff", padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+                                  >Sim</button>
+                                  <button
+                                    onClick={() => setConfirmDelVenda(null)}
+                                    title="Cancelar"
+                                    style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "3px 6px", borderRadius: 6, fontSize: 9, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+                                  >✕</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDelVenda(o.id)}
+                                  title="Excluir venda"
+                                  style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "3px 7px", borderRadius: 6, fontSize: 11, cursor: "pointer", lineHeight: 1 }}
+                                >🗑️</button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
