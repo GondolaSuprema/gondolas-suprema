@@ -28,6 +28,7 @@ const CATEGORIES = [
   { key: "mdf", label: "MDF" },
   { key: "outros", label: "Outros Produtos" },
   { key: "mpp-china", label: "MPP China" },
+  { key: "fabrica", label: "Fábrica" },
 ];
 
 const VARIANTS_GONDOLA_PAREDE = [
@@ -1961,6 +1962,8 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
   const [loadingOutros, setLoadingOutros] = useState(false);
   const [variantSel, setVariantSel] = useState({}); // { [productId]: { altura: "1,37m", cor: "Branca" } }
   const [qtyByProduct, setQtyByProduct] = useState({});
+  // Form da aba "Fábrica" — produtos sob medida adicionados na hora pelo vendedor
+  const [fabricaForm, setFabricaForm] = useState({ nome: "", quantidade: "1", valorCusto: "", valorComissao: "" });
 
   const getProductVariantSel = (p) => {
     const sel = variantSel[p.id] || {};
@@ -2021,9 +2024,120 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
         ))}
       </div>
       <div style={{ color: COLORS.textDim, fontSize: 12, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" }}>
-        {filtered.length} produto(s) encontrado(s){filter === "outros" && loadingOutros ? " — carregando..." : ""}
+        {filter === "fabrica" ? "Produto sob medida — preencha os campos abaixo" : `${filtered.length} produto(s) encontrado(s)${filter === "outros" && loadingOutros ? " — carregando..." : ""}`}
       </div>
-      {filter === "outros" || filter === "mpp-china" ? (
+      {filter === "fabrica" ? (
+        // ─── ABA FÁBRICA — produtos sob medida cadastrados na hora ───
+        // Vendedor preenche os campos e o produto é criado e adicionado
+        // direto ao orçamento. Não persiste em tabela do Supabase — é um
+        // item avulso por orçamento.
+        (() => {
+          const qtd = Math.max(1, Number(fabricaForm.quantidade) || 1);
+          const custo = Number(fabricaForm.valorCusto) || 0;
+          const comissao = Number(fabricaForm.valorComissao) || 0;
+          const valorTotal = custo * qtd + comissao;
+          const podeAdicionar = fabricaForm.nome.trim().length > 0 && (custo > 0 || comissao > 0);
+          const inp = { width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+          const lbl = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
+          const adicionar = () => {
+            if (!podeAdicionar) return;
+            // Cria produto avulso. price = (custo*qtd + comissão) embutido,
+            // qty=1 no carrinho pra evitar recálculo errado se o vendedor
+            // mudar a quantidade depois.
+            const id = "fabrica-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+            const produto = {
+              id,
+              name: fabricaForm.nome.trim(),
+              category: "fabrica",
+              icon: "🏭",
+              price: valorTotal,
+              specs: {
+                "qtd interna": String(qtd),
+                "custo unit": fmt(custo),
+                "comissão": fmt(comissao),
+              },
+              options: [],
+            };
+            onAdd(produto, null, 1);
+            setFabricaForm({ nome: "", quantidade: "1", valorCusto: "", valorComissao: "" });
+          };
+          return (
+            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 24, maxWidth: 600 }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: "0 0 4px" }}>🏭 Produto sob medida — Fábrica</h3>
+              <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "0 0 18px", fontFamily: "'DM Sans', sans-serif" }}>Cadastre um produto fabricado especialmente para este orçamento. Os valores aparecerão direto no orçamento.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label style={lbl}>Nome do produto *</label>
+                  <input
+                    placeholder="Ex: Mesa sob medida 2,00m x 1,00m"
+                    value={fabricaForm.nome}
+                    onChange={e => setFabricaForm({ ...fabricaForm, nome: e.target.value })}
+                    style={inp}
+                  />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={lbl}>Quantidade *</label>
+                    <input
+                      type="number" min="1" step="1"
+                      value={fabricaForm.quantidade}
+                      onChange={e => setFabricaForm({ ...fabricaForm, quantidade: e.target.value })}
+                      style={inp}
+                    />
+                  </div>
+                  <div>
+                    <label style={lbl}>Valor de Custo (unit) *</label>
+                    <input
+                      type="number" min="0" step="0.01" placeholder="0,00"
+                      value={fabricaForm.valorCusto}
+                      onChange={e => setFabricaForm({ ...fabricaForm, valorCusto: e.target.value })}
+                      style={inp}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Valor de Comissão (R$ total)</label>
+                  <input
+                    type="number" min="0" step="0.01" placeholder="0,00"
+                    value={fabricaForm.valorComissao}
+                    onChange={e => setFabricaForm({ ...fabricaForm, valorComissao: e.target.value })}
+                    style={inp}
+                  />
+                  <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
+                    Markup que o vendedor cobra além do custo. Some no total final.
+                  </div>
+                </div>
+                <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}15, ${COLORS.orange}05)`, border: `1px solid ${COLORS.orange}40`, borderRadius: 10, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, fontFamily: "'DM Sans', sans-serif" }}>Valor Total</div>
+                    <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>
+                      {qtd}× custo {fmt(custo)} + comissão {fmt(comissao)}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: valorTotal > 0 ? COLORS.orange : COLORS.textDim }}>
+                    {valorTotal > 0 ? fmt(valorTotal) : "R$ 0,00"}
+                  </div>
+                </div>
+                <button
+                  onClick={adicionar}
+                  disabled={!podeAdicionar}
+                  style={{
+                    background: podeAdicionar ? COLORS.orange : COLORS.textDim,
+                    color: "#000",
+                    border: "none",
+                    padding: "12px 20px",
+                    borderRadius: 9,
+                    fontWeight: 700,
+                    fontSize: 14,
+                    cursor: podeAdicionar ? "pointer" : "not-allowed",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >+ Adicionar ao Orçamento</button>
+              </div>
+            </div>
+          );
+        })()
+      ) : filter === "outros" || filter === "mpp-china" ? (
         // Visualização em lista simples (Outros Produtos / MPP China)
         // MPP China ganha uma coluna extra "Capacidade" (200KG / 500KG)
         (() => {
