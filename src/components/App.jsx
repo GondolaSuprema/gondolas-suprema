@@ -3267,6 +3267,11 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                       <span style={{ marginLeft: 8, color: COLORS.textDim }}>{new Date(o.date).toLocaleDateString("pt-BR")}</span>
                       <span style={{ marginLeft: 8, color: COLORS.textDim }}>{o.items.length} {o.items.length === 1 ? "item" : "itens"}</span>
                     </div>
+                    {o.client?.telefone && (
+                      <div style={{ fontSize: 11, color: "#10B981", fontFamily: "'DM Sans', sans-serif", marginTop: 3, fontWeight: 600 }}>
+                        📱 {formatarCelular(o.client.telefone)}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
