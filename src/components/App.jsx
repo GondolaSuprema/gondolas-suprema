@@ -1757,9 +1757,9 @@ const ROLE_PERMISSIONS = {
   admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
   // gestor (Zanella) — explicitamente SEM comissoes (regra do Ale)
   gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
-  // vendedor (Adelmo) ve graficos + suas proprias comissoes (sem logistica
-  // — Logistica é visao de equipe operacional: Ale, Zanella e Joao)
-  vendedor:        ["client", "catalog", "resumo", "orders", "graficos", "comissoes"],
+  // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
+  // por canEditLogistica) + suas proprias comissoes
+  vendedor:        ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes"],
   // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
   // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes"],
