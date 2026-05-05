@@ -3683,8 +3683,13 @@ function ComissoesPage({ user }) {
       if (!isAdmin) q = q.eq("vendedor_id", user.id);
       const { data } = await q.order("data", { ascending: false });
       if (data) {
-        // Orcamentos RS-ocultos do Ale ficam fora das comissoes consolidadas
-        const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
+        // Comissão é só pra Adelmo (v2) e João (v4). Alessandro (v1) e
+        // Zanella (v3) são sócios e não entram no cálculo de comissão —
+        // suas vendas ficam fora desta aba mesmo quando concluídas.
+        const VENDEDORES_COM_COMISSAO = ["v2", "v4"];
+        const visiveis = data
+          .filter(o => !isOrcamentoRsOculto(o))
+          .filter(o => VENDEDORES_COM_COMISSAO.includes(o.vendedor_id));
         setVendas(visiveis.map(o => ({
           id: o.id,
           data: o.data,
