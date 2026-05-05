@@ -6176,10 +6176,14 @@ export default function App() {
   // — bug que afetava Zanella e Adelmo recem-logados (ver issue 30/abr/2026).
   useEffect(() => {
     if (!user) { setUniplusProducts([]); setMppChinaProducts([]); return; }
+    // .range(0, 9999) sobe o limite default do Supabase (1000) para 10k —
+    // a tabela tem ~1.300+ produtos hoje e cresce com o tempo. Sem isso, os
+    // produtos depois da linha 1000 sumiam do catálogo.
     supabase.from("produtos_uniplus")
       .select("id, nome, preco_brasil, categoria, linha_planilha")
       .eq("ativo", true)
       .order("nome", { ascending: true })
+      .range(0, 9999)
       .then(({ data, error }) => {
         if (!error && data) setUniplusProducts(data);
       });
@@ -6190,6 +6194,7 @@ export default function App() {
       // planilha original. Nulls vao pro fim, depois desempate alfabetico.
       .order("linha_planilha", { ascending: true, nullsFirst: false })
       .order("nome", { ascending: true })
+      .range(0, 9999)
       .then(({ data, error }) => {
         if (!error && data) setMppChinaProducts(data);
       });
