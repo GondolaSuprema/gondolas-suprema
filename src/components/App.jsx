@@ -57,409 +57,409 @@ const VARIANTS_SLIM_SA = [
 const PRODUCT_RECIPES = {
   // Parede Inicial c/ Bandeja - 1,37m - Branca
   "100|1,37m|Branca": [
-    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
-    ["diversos-75", 2],   // COLUNA COMPLEMENTAR P/ 1,37M BRANCO
-    ["diversos-126", 4],  // PAINEL 90*34CM BRANCO
-    ["diversos-66", 1],   // BANDEJA 40*90CM BRANCA
-    ["diversos-64", 3],   // BANDEJA 30*90CM BRANCA
-    ["diversos-83", 3],   // PAR SLG 30CM BRANCO
-    ["diversos-402", 4],  // PORTA ETIQUETA 895MM LARANJA
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR P/ 1,37M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],  // PAINEL 90*34CM BRANCO
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],   // BANDEJA 40*90CM BRANCA
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 3],   // BANDEJA 30*90CM BRANCA
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 3],   // PAR SLG 30CM BRANCO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],  // PORTA ETIQUETA 895MM LARANJA
   ],
   // Parede Continuação c/ Bandeja - 1,37m - Branca
   "101|1,37m|Branca": [
-    ["diversos-81", 1],
-    ["diversos-75", 1],
-    ["diversos-126", 4],
-    ["diversos-66", 1],
-    ["diversos-64", 3],
-    ["diversos-83", 3],
-    ["diversos-402", 4],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 3],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 3],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
   ],
   // Parede Inicial c/ Bandeja - 1,70m - Branca
   "100|1,70m|Branca": [
-    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
-    ["diversos-77", 2],   // COLUNA COMPLEMENTAR P/ 1,70M BRANCO
-    ["diversos-126", 5],  // PAINEL 90*34CM BRANCO
-    ["diversos-66", 1],   // BANDEJA 40*90CM BRANCA
-    ["diversos-64", 4],   // BANDEJA 30*90CM BRANCA
-    ["diversos-83", 4],   // PAR SLG 30CM BRANCO
-    ["diversos-402", 5],  // PORTA ETIQUETA 895MM LARANJA
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR P/ 1,70M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],  // PAINEL 90*34CM BRANCO
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],   // BANDEJA 40*90CM BRANCA
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 4],   // BANDEJA 30*90CM BRANCA
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 4],   // PAR SLG 30CM BRANCO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],  // PORTA ETIQUETA 895MM LARANJA
   ],
   // Parede Continuação c/ Bandeja - 1,70m - Branca (1 coluna a menos que a Inicial)
   "101|1,70m|Branca": [
-    ["diversos-81", 1],
-    ["diversos-77", 1],
-    ["diversos-126", 5],
-    ["diversos-66", 1],
-    ["diversos-64", 4],
-    ["diversos-83", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
   // Parede Inicial c/ Bandeja - 2,00m - Branca
   "100|2,00m|Branca": [
-    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
-    ["diversos-79", 2],   // COLUNA COMPLEMENTAR P/ 2,02M BRANCO
-    ["diversos-126", 6],  // PAINEL 90*34CM BRANCO
-    ["diversos-66", 1],   // BANDEJA 40*90CM BRANCA
-    ["diversos-64", 4],   // BANDEJA 30*90CM BRANCA
-    ["diversos-83", 4],   // PAR SLG 30CM BRANCO
-    ["diversos-402", 5],  // PORTA ETIQUETA 895MM LARANJA
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR P/ 2,02M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],  // PAINEL 90*34CM BRANCO
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],   // BANDEJA 40*90CM BRANCA
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 4],   // BANDEJA 30*90CM BRANCA
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 4],   // PAR SLG 30CM BRANCO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],  // PORTA ETIQUETA 895MM LARANJA
   ],
   // Parede Continuação c/ Bandeja - 2,00m - Branca (1 coluna a menos que a Inicial)
   "101|2,00m|Branca": [
-    ["diversos-81", 1],
-    ["diversos-79", 1],
-    ["diversos-126", 6],
-    ["diversos-66", 1],
-    ["diversos-64", 4],
-    ["diversos-83", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
 
   // ── PRETAS (mesma estrutura das brancas, componentes pretos) ──
   // Parede Inicial c/ Bandeja - 1,37m - Preta
   "100|1,37m|Preta": [
-    ["diversos-82", 2],   // COLUNA PAREDE 1,06M PRETO
-    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
-    ["diversos-127", 4],  // PAINEL 90*34CM PRETO
-    ["diversos-67", 1],   // BANDEJA 40*90CM PRETA
-    ["diversos-65", 3],   // BANDEJA 30*90CM PRETA
-    ["diversos-84", 3],   // PAR SLG 30CM PRETO
-    ["diversos-402", 4],  // PORTA ETIQUETA (sem cor)
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M PRETO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],  // PAINEL 90*34CM PRETO
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],   // BANDEJA 40*90CM PRETA
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 3],   // BANDEJA 30*90CM PRETA
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 3],   // PAR SLG 30CM PRETO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],  // PORTA ETIQUETA (sem cor)
   ],
   // Parede Continuação c/ Bandeja - 1,37m - Preta
   "101|1,37m|Preta": [
-    ["diversos-82", 1],
-    ["diversos-76", 1],
-    ["diversos-127", 4],
-    ["diversos-67", 1],
-    ["diversos-65", 3],
-    ["diversos-84", 3],
-    ["diversos-402", 4],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 3],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 3],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
   ],
   // Parede Inicial c/ Bandeja - 1,70m - Preta
   "100|1,70m|Preta": [
-    ["diversos-82", 2],
-    ["diversos-78", 2],   // COLUNA COMPLEMENTAR 1,70M PRETO
-    ["diversos-127", 5],
-    ["diversos-67", 1],
-    ["diversos-65", 4],
-    ["diversos-84", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,70M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
   // Parede Continuação c/ Bandeja - 1,70m - Preta
   "101|1,70m|Preta": [
-    ["diversos-82", 1],
-    ["diversos-78", 1],
-    ["diversos-127", 5],
-    ["diversos-67", 1],
-    ["diversos-65", 4],
-    ["diversos-84", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
   // Parede Inicial c/ Bandeja - 2,00m - Preta
   "100|2,00m|Preta": [
-    ["diversos-82", 2],
-    ["diversos-80", 2],   // COLUNA COMPLEMENTAR 2,02M PRETO
-    ["diversos-127", 6],
-    ["diversos-67", 1],
-    ["diversos-65", 4],
-    ["diversos-84", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 2,02M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
   // Parede Continuação c/ Bandeja - 2,00m - Preta
   "101|2,00m|Preta": [
-    ["diversos-82", 1],
-    ["diversos-80", 1],
-    ["diversos-127", 6],
-    ["diversos-67", 1],
-    ["diversos-65", 4],
-    ["diversos-84", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
 
   // ── PAREDE C/ GANCHO ──
   // Parede Inicial c/ Gancho - 1,37m - Branca
   "102|1,37m|Branca": [
-    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BRANCO
-    ["diversos-75", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
-    ["diversos-126", 4],  // PAINEL 90*34CM BRANCO
-    ["diversos-66", 1],   // BANDEJA 40*90CM BRANCA (base mantida)
-    ["diversos-64", 1],   // BANDEJA 30*90CM BRANCA (era 3, tirou 2)
-    ["diversos-83", 1],   // PAR SLG 30CM BRANCO (era 3, tirou 2)
-    ["diversos-402", 2],  // PORTA ETIQUETA (era 4, tirou 2)
-    ["diversos-145", 2],  // RÉGUA 90CM BRANCO
-    ["diversos-172", 10], // GANCHO SIMPLES 25CM BRANCO (5 por régua)
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M BRANCO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],  // PAINEL 90*34CM BRANCO
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],   // BANDEJA 40*90CM BRANCA (base mantida)
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],   // BANDEJA 30*90CM BRANCA (era 3, tirou 2)
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],   // PAR SLG 30CM BRANCO (era 3, tirou 2)
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA (era 4, tirou 2)
+    ["nome:amapa-fit-regua-90cm-branco-un", 2],  // RÉGUA 90CM BRANCO
+    ["nome:amapa-gancho-simples-25cm-branco", 10], // GANCHO SIMPLES 25CM BRANCO (5 por régua)
   ],
   // Parede Continuação c/ Gancho - 1,37m - Branca (1 coluna a menos)
   "103|1,37m|Branca": [
-    ["diversos-81", 1],
-    ["diversos-75", 1],
-    ["diversos-126", 4],
-    ["diversos-66", 1],
-    ["diversos-64", 1],
-    ["diversos-83", 1],
-    ["diversos-402", 2],
-    ["diversos-145", 2],
-    ["diversos-172", 10],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-90cm-branco-un", 2],
+    ["nome:amapa-gancho-simples-25cm-branco", 10],
   ],
   // Parede Inicial c/ Gancho - 1,70m - Branca
   "102|1,70m|Branca": [
-    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BRANCO
-    ["diversos-77", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
-    ["diversos-126", 5],  // PAINEL 90*34CM BRANCO (4+1)
-    ["diversos-66", 1],   // BANDEJA 40*90CM BRANCA
-    ["diversos-64", 1],   // BANDEJA 30*90CM BRANCA
-    ["diversos-83", 1],   // PAR SLG 30CM BRANCO
-    ["diversos-402", 2],  // PORTA ETIQUETA
-    ["diversos-145", 3],  // RÉGUA 90CM BRANCO (2+1)
-    ["diversos-172", 15], // GANCHO SIMPLES 25CM BRANCO (10+5)
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M BRANCO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],  // PAINEL 90*34CM BRANCO (4+1)
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],   // BANDEJA 40*90CM BRANCA
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],   // BANDEJA 30*90CM BRANCA
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],   // PAR SLG 30CM BRANCO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA
+    ["nome:amapa-fit-regua-90cm-branco-un", 3],  // RÉGUA 90CM BRANCO (2+1)
+    ["nome:amapa-gancho-simples-25cm-branco", 15], // GANCHO SIMPLES 25CM BRANCO (10+5)
   ],
   // Parede Continuação c/ Gancho - 1,70m - Branca (1 coluna a menos)
   "103|1,70m|Branca": [
-    ["diversos-81", 1],
-    ["diversos-77", 1],
-    ["diversos-126", 5],
-    ["diversos-66", 1],
-    ["diversos-64", 1],
-    ["diversos-83", 1],
-    ["diversos-402", 2],
-    ["diversos-145", 3],
-    ["diversos-172", 15],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-90cm-branco-un", 3],
+    ["nome:amapa-gancho-simples-25cm-branco", 15],
   ],
   // Parede Inicial c/ Gancho - 2,00m - Branca
   "102|2,00m|Branca": [
-    ["diversos-81", 2],
-    ["diversos-79", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
-    ["diversos-126", 6],  // PAINEL (5+1)
-    ["diversos-66", 1],
-    ["diversos-64", 1],
-    ["diversos-83", 1],
-    ["diversos-402", 2],
-    ["diversos-145", 3],  // REGUA (igual 1,70m)
-    ["diversos-172", 15], // GANCHO (igual 1,70m)
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],  // PAINEL (5+1)
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-90cm-branco-un", 3],  // REGUA (igual 1,70m)
+    ["nome:amapa-gancho-simples-25cm-branco", 15], // GANCHO (igual 1,70m)
   ],
   // Parede Continuação c/ Gancho - 2,00m - Branca (1 coluna a menos)
   "103|2,00m|Branca": [
-    ["diversos-81", 1],
-    ["diversos-79", 1],
-    ["diversos-126", 6],
-    ["diversos-66", 1],
-    ["diversos-64", 1],
-    ["diversos-83", 1],
-    ["diversos-402", 2],
-    ["diversos-145", 3],
-    ["diversos-172", 15],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-90cm-branco-un", 3],
+    ["nome:amapa-gancho-simples-25cm-branco", 15],
   ],
 
   // ── PAREDE C/ GANCHO PRETA (mesma estrutura, componentes pretos) ──
   // Parede Inicial c/ Gancho - 1,37m - Preta
   "102|1,37m|Preta": [
-    ["diversos-82", 2],   // COLUNA PAREDE 1,06M PRETO
-    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
-    ["diversos-127", 4],  // PAINEL PRETO
-    ["diversos-67", 1],   // BANDEJA 40*90 PRETA
-    ["diversos-65", 1],   // BANDEJA 30*90 PRETA
-    ["diversos-84", 1],   // PAR SLG PRETO
-    ["diversos-402", 2],  // PORTA ETIQUETA
-    ["diversos-146", 2],  // RÉGUA 90CM PRETO
-    ["diversos-173", 10], // GANCHO 25CM PRETO
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M PRETO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],  // PAINEL PRETO
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],   // BANDEJA 40*90 PRETA
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],   // BANDEJA 30*90 PRETA
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],   // PAR SLG PRETO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA
+    ["nome:amapa-fit-regua-90cm-preto-un", 2],  // RÉGUA 90CM PRETO
+    ["nome:amapa-gancho-simples-25cm-preto", 10], // GANCHO 25CM PRETO
   ],
   // Parede Continuação c/ Gancho - 1,37m - Preta
   "103|1,37m|Preta": [
-    ["diversos-82", 1],
-    ["diversos-76", 1],
-    ["diversos-127", 4],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-146", 2],
-    ["diversos-173", 10],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-90cm-preto-un", 2],
+    ["nome:amapa-gancho-simples-25cm-preto", 10],
   ],
   // Parede Inicial c/ Gancho - 1,70m - Preta
   "102|1,70m|Preta": [
-    ["diversos-82", 2],
-    ["diversos-78", 2],   // COLUNA COMPLEMENTAR 1,70M PRETO
-    ["diversos-127", 5],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-146", 3],
-    ["diversos-173", 15],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,70M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-90cm-preto-un", 3],
+    ["nome:amapa-gancho-simples-25cm-preto", 15],
   ],
   // Parede Continuação c/ Gancho - 1,70m - Preta
   "103|1,70m|Preta": [
-    ["diversos-82", 1],
-    ["diversos-78", 1],
-    ["diversos-127", 5],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-146", 3],
-    ["diversos-173", 15],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-90cm-preto-un", 3],
+    ["nome:amapa-gancho-simples-25cm-preto", 15],
   ],
   // Parede Inicial c/ Gancho - 2,00m - Preta
   "102|2,00m|Preta": [
-    ["diversos-82", 2],
-    ["diversos-80", 2],   // COLUNA COMPLEMENTAR 2,02M PRETO
-    ["diversos-127", 6],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-146", 3],
-    ["diversos-173", 15],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 2,02M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-90cm-preto-un", 3],
+    ["nome:amapa-gancho-simples-25cm-preto", 15],
   ],
   // Parede Continuação c/ Gancho - 2,00m - Preta
   "103|2,00m|Preta": [
-    ["diversos-82", 1],
-    ["diversos-80", 1],
-    ["diversos-127", 6],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-146", 3],
-    ["diversos-173", 15],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-90cm-preto-un", 3],
+    ["nome:amapa-gancho-simples-25cm-preto", 15],
   ],
 
   // ── PAREDE C/ CESTO (estrutura do Gancho, sem ganchos, reguas trocadas por cestos) ──
   // Parede Inicial c/ Cesto - 1,37m - Branca
   "104|1,37m|Branca": [
-    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BRANCO
-    ["diversos-75", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
-    ["diversos-126", 4],  // PAINEL BRANCO
-    ["diversos-66", 1],   // BANDEJA 40*90 BRANCA
-    ["diversos-64", 1],   // BANDEJA 30*90 BRANCA
-    ["diversos-83", 1],   // PAR SLG BRANCO
-    ["diversos-402", 2],  // PORTA ETIQUETA
-    ["diversos-124", 2],  // CESTO 2 DIVISORIAS BRANCO
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M BRANCO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],  // PAINEL BRANCO
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],   // BANDEJA 40*90 BRANCA
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],   // BANDEJA 30*90 BRANCA
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],   // PAR SLG BRANCO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 2],  // CESTO 2 DIVISORIAS BRANCO
   ],
   // Parede Continuação c/ Cesto - 1,37m - Branca
   "105|1,37m|Branca": [
-    ["diversos-81", 1],
-    ["diversos-75", 1],
-    ["diversos-126", 4],
-    ["diversos-66", 1],
-    ["diversos-64", 1],
-    ["diversos-83", 1],
-    ["diversos-402", 2],
-    ["diversos-124", 2],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 2],
   ],
   // Parede Inicial c/ Cesto - 1,70m - Branca
   "104|1,70m|Branca": [
-    ["diversos-81", 2],
-    ["diversos-77", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
-    ["diversos-126", 5],
-    ["diversos-66", 1],
-    ["diversos-64", 1],
-    ["diversos-83", 1],
-    ["diversos-402", 2],
-    ["diversos-124", 3],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 3],
   ],
   // Parede Continuação c/ Cesto - 1,70m - Branca
   "105|1,70m|Branca": [
-    ["diversos-81", 1],
-    ["diversos-77", 1],
-    ["diversos-126", 5],
-    ["diversos-66", 1],
-    ["diversos-64", 1],
-    ["diversos-83", 1],
-    ["diversos-402", 2],
-    ["diversos-124", 3],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 3],
   ],
   // Parede Inicial c/ Cesto - 2,00m - Branca
   "104|2,00m|Branca": [
-    ["diversos-81", 2],
-    ["diversos-79", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
-    ["diversos-126", 6],
-    ["diversos-66", 1],
-    ["diversos-64", 1],
-    ["diversos-83", 1],
-    ["diversos-402", 2],
-    ["diversos-124", 3],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 3],
   ],
   // Parede Continuação c/ Cesto - 2,00m - Branca
   "105|2,00m|Branca": [
-    ["diversos-81", 1],
-    ["diversos-79", 1],
-    ["diversos-126", 6],
-    ["diversos-66", 1],
-    ["diversos-64", 1],
-    ["diversos-83", 1],
-    ["diversos-402", 2],
-    ["diversos-124", 3],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 3],
   ],
 
   // ── PAREDE C/ CESTO PRETA ──
   // Parede Inicial c/ Cesto - 1,37m - Preta
   "104|1,37m|Preta": [
-    ["diversos-82", 2],   // COLUNA PAREDE 1,06M PRETO
-    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
-    ["diversos-127", 4],  // PAINEL PRETO
-    ["diversos-67", 1],   // BANDEJA 40*90 PRETA
-    ["diversos-65", 1],   // BANDEJA 30*90 PRETA
-    ["diversos-84", 1],   // PAR SLG PRETO
-    ["diversos-402", 2],  // PORTA ETIQUETA
-    ["diversos-125", 2],  // CESTO 2 DIVISORIAS PRETO
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M PRETO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],  // PAINEL PRETO
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],   // BANDEJA 40*90 PRETA
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],   // BANDEJA 30*90 PRETA
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],   // PAR SLG PRETO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 2],  // CESTO 2 DIVISORIAS PRETO
   ],
   // Parede Continuação c/ Cesto - 1,37m - Preta
   "105|1,37m|Preta": [
-    ["diversos-82", 1],
-    ["diversos-76", 1],
-    ["diversos-127", 4],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-125", 2],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 2],
   ],
   // Parede Inicial c/ Cesto - 1,70m - Preta
   "104|1,70m|Preta": [
-    ["diversos-82", 2],
-    ["diversos-78", 2],
-    ["diversos-127", 5],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-125", 3],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 3],
   ],
   // Parede Continuação c/ Cesto - 1,70m - Preta
   "105|1,70m|Preta": [
-    ["diversos-82", 1],
-    ["diversos-78", 1],
-    ["diversos-127", 5],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-125", 3],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 3],
   ],
   // Parede Inicial c/ Cesto - 2,00m - Preta
   "104|2,00m|Preta": [
-    ["diversos-82", 2],
-    ["diversos-80", 2],
-    ["diversos-127", 6],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-125", 3],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 3],
   ],
   // Parede Continuação c/ Cesto - 2,00m - Preta
   "105|2,00m|Preta": [
-    ["diversos-82", 1],
-    ["diversos-80", 1],
-    ["diversos-127", 6],
-    ["diversos-67", 1],
-    ["diversos-65", 1],
-    ["diversos-84", 1],
-    ["diversos-402", 2],
-    ["diversos-125", 3],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 3],
   ],
 
   // ═══════════════════════════════════════════════════════════════════
@@ -474,411 +474,411 @@ const PRODUCT_RECIPES = {
   // ── CENTRO C/ BANDEJA BRANCA ──
   // Centro Inicial c/ Bandeja - 1,37m - Branca
   "200|1,37m|Branca": [
-    ["diversos-73", 2],   // COLUNA CENTRO 1,06M BASE 40CM BRANCO
-    ["diversos-75", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
-    ["diversos-126", 4],  // PAINEL 90*34CM BRANCO (mesma qtd da Parede)
-    ["diversos-66", 2],   // BANDEJA 40*90CM BRANCA (dobrada)
-    ["diversos-64", 6],   // BANDEJA 30*90CM BRANCA (dobrada)
-    ["diversos-83", 6],   // PAR SLG 30CM BRANCO (dobrado)
-    ["diversos-402", 8],  // PORTA ETIQUETA 895MM LARANJA (dobrado)
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 2],   // COLUNA CENTRO 1,06M BASE 40CM BRANCO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],  // PAINEL 90*34CM BRANCO (mesma qtd da Parede)
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],   // BANDEJA 40*90CM BRANCA (dobrada)
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 6],   // BANDEJA 30*90CM BRANCA (dobrada)
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 6],   // PAR SLG 30CM BRANCO (dobrado)
+    ["nome:fit-porta-etiqueta-895mm-laranja", 8],  // PORTA ETIQUETA 895MM LARANJA (dobrado)
   ],
   // Centro Continuação c/ Bandeja - 1,37m - Branca
   "201|1,37m|Branca": [
-    ["diversos-73", 1],
-    ["diversos-75", 1],
-    ["diversos-126", 4],
-    ["diversos-66", 2],
-    ["diversos-64", 6],
-    ["diversos-83", 6],
-    ["diversos-402", 8],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 6],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 8],
   ],
   // Centro Inicial c/ Bandeja - 1,70m - Branca
   "200|1,70m|Branca": [
-    ["diversos-73", 2],
-    ["diversos-77", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
-    ["diversos-126", 5],
-    ["diversos-66", 2],
-    ["diversos-64", 8],
-    ["diversos-83", 8],
-    ["diversos-402", 10],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 8],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 10],
   ],
   // Centro Continuação c/ Bandeja - 1,70m - Branca
   "201|1,70m|Branca": [
-    ["diversos-73", 1],
-    ["diversos-77", 1],
-    ["diversos-126", 5],
-    ["diversos-66", 2],
-    ["diversos-64", 8],
-    ["diversos-83", 8],
-    ["diversos-402", 10],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 8],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 10],
   ],
   // Centro Inicial c/ Bandeja - 2,00m - Branca
   "200|2,00m|Branca": [
-    ["diversos-73", 2],
-    ["diversos-79", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
-    ["diversos-126", 6],
-    ["diversos-66", 2],
-    ["diversos-64", 8],
-    ["diversos-83", 8],
-    ["diversos-402", 10],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 8],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 10],
   ],
   // Centro Continuação c/ Bandeja - 2,00m - Branca
   "201|2,00m|Branca": [
-    ["diversos-73", 1],
-    ["diversos-79", 1],
-    ["diversos-126", 6],
-    ["diversos-66", 2],
-    ["diversos-64", 8],
-    ["diversos-83", 8],
-    ["diversos-402", 10],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 8],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 10],
   ],
 
   // ── CENTRO C/ BANDEJA PRETA ──
   // Centro Inicial c/ Bandeja - 1,37m - Preta
   "200|1,37m|Preta": [
-    ["diversos-74", 2],   // COLUNA CENTRO 1,06M BASE 40CM PRETO
-    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
-    ["diversos-127", 4],  // PAINEL 90*34CM PRETO
-    ["diversos-67", 2],   // BANDEJA 40*90 PRETA
-    ["diversos-65", 6],   // BANDEJA 30*90 PRETA
-    ["diversos-84", 6],   // PAR SLG PRETO
-    ["diversos-402", 8],  // PORTA ETIQUETA (sem cor)
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 2],   // COLUNA CENTRO 1,06M BASE 40CM PRETO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],  // PAINEL 90*34CM PRETO
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],   // BANDEJA 40*90 PRETA
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 6],   // BANDEJA 30*90 PRETA
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 6],   // PAR SLG PRETO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 8],  // PORTA ETIQUETA (sem cor)
   ],
   // Centro Continuação c/ Bandeja - 1,37m - Preta
   "201|1,37m|Preta": [
-    ["diversos-74", 1],
-    ["diversos-76", 1],
-    ["diversos-127", 4],
-    ["diversos-67", 2],
-    ["diversos-65", 6],
-    ["diversos-84", 6],
-    ["diversos-402", 8],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 6],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 8],
   ],
   // Centro Inicial c/ Bandeja - 1,70m - Preta
   "200|1,70m|Preta": [
-    ["diversos-74", 2],
-    ["diversos-78", 2],   // COLUNA COMPLEMENTAR 1,70M PRETO
-    ["diversos-127", 5],
-    ["diversos-67", 2],
-    ["diversos-65", 8],
-    ["diversos-84", 8],
-    ["diversos-402", 10],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,70M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 8],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 10],
   ],
   // Centro Continuação c/ Bandeja - 1,70m - Preta
   "201|1,70m|Preta": [
-    ["diversos-74", 1],
-    ["diversos-78", 1],
-    ["diversos-127", 5],
-    ["diversos-67", 2],
-    ["diversos-65", 8],
-    ["diversos-84", 8],
-    ["diversos-402", 10],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 8],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 10],
   ],
   // Centro Inicial c/ Bandeja - 2,00m - Preta
   "200|2,00m|Preta": [
-    ["diversos-74", 2],
-    ["diversos-80", 2],   // COLUNA COMPLEMENTAR 2,02M PRETO
-    ["diversos-127", 6],
-    ["diversos-67", 2],
-    ["diversos-65", 8],
-    ["diversos-84", 8],
-    ["diversos-402", 10],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 2,02M PRETO
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 8],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 10],
   ],
   // Centro Continuação c/ Bandeja - 2,00m - Preta
   "201|2,00m|Preta": [
-    ["diversos-74", 1],
-    ["diversos-80", 1],
-    ["diversos-127", 6],
-    ["diversos-67", 2],
-    ["diversos-65", 8],
-    ["diversos-84", 8],
-    ["diversos-402", 10],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 8],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 10],
   ],
 
   // ── CENTRO C/ GANCHO BRANCO ──
   // Estrutura do Bandeja c/ menos bandejas (1×40 + 2×30 dobrado), + réguas e ganchos dobrados
   // Centro Inicial c/ Gancho - 1,37m - Branca
   "202|1,37m|Branca": [
-    ["diversos-73", 2],
-    ["diversos-75", 2],
-    ["diversos-126", 4],
-    ["diversos-66", 2],   // BANDEJA 40 base (dobrada)
-    ["diversos-64", 2],   // BANDEJA 30 (1 dobrada → 2)
-    ["diversos-83", 2],   // PAR SLG (1 dobrado → 2)
-    ["diversos-402", 4],  // PORTA ETIQUETA (2 dobrado → 4)
-    ["diversos-145", 4],  // RÉGUA 90CM BRANCO (2 dobradas → 4)
-    ["diversos-172", 20], // GANCHO SIMPLES 25CM BRANCO (10 dobrado → 20)
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],   // BANDEJA 40 base (dobrada)
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],   // BANDEJA 30 (1 dobrada → 2)
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],   // PAR SLG (1 dobrado → 2)
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],  // PORTA ETIQUETA (2 dobrado → 4)
+    ["nome:amapa-fit-regua-90cm-branco-un", 4],  // RÉGUA 90CM BRANCO (2 dobradas → 4)
+    ["nome:amapa-gancho-simples-25cm-branco", 20], // GANCHO SIMPLES 25CM BRANCO (10 dobrado → 20)
   ],
   // Centro Continuação c/ Gancho - 1,37m - Branca
   "203|1,37m|Branca": [
-    ["diversos-73", 1],
-    ["diversos-75", 1],
-    ["diversos-126", 4],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-145", 4],
-    ["diversos-172", 20],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-branco-un", 4],
+    ["nome:amapa-gancho-simples-25cm-branco", 20],
   ],
   // Centro Inicial c/ Gancho - 1,70m - Branca
   "202|1,70m|Branca": [
-    ["diversos-73", 2],
-    ["diversos-77", 2],
-    ["diversos-126", 5],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-145", 6],  // 3 dobradas → 6
-    ["diversos-172", 30], // 15 dobrado → 30
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-branco-un", 6],  // 3 dobradas → 6
+    ["nome:amapa-gancho-simples-25cm-branco", 30], // 15 dobrado → 30
   ],
   // Centro Continuação c/ Gancho - 1,70m - Branca
   "203|1,70m|Branca": [
-    ["diversos-73", 1],
-    ["diversos-77", 1],
-    ["diversos-126", 5],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-145", 6],
-    ["diversos-172", 30],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-branco-un", 6],
+    ["nome:amapa-gancho-simples-25cm-branco", 30],
   ],
   // Centro Inicial c/ Gancho - 2,00m - Branca
   "202|2,00m|Branca": [
-    ["diversos-73", 2],
-    ["diversos-79", 2],
-    ["diversos-126", 6],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-145", 6],
-    ["diversos-172", 30],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-branco-un", 6],
+    ["nome:amapa-gancho-simples-25cm-branco", 30],
   ],
   // Centro Continuação c/ Gancho - 2,00m - Branca
   "203|2,00m|Branca": [
-    ["diversos-73", 1],
-    ["diversos-79", 1],
-    ["diversos-126", 6],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-145", 6],
-    ["diversos-172", 30],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-branco-un", 6],
+    ["nome:amapa-gancho-simples-25cm-branco", 30],
   ],
 
   // ── CENTRO C/ GANCHO PRETO ──
   // Centro Inicial c/ Gancho - 1,37m - Preta
   "202|1,37m|Preta": [
-    ["diversos-74", 2],
-    ["diversos-76", 2],
-    ["diversos-127", 4],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-146", 4],  // RÉGUA 90CM PRETO (dobrada)
-    ["diversos-173", 20], // GANCHO 25CM PRETO (dobrado)
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-preto-un", 4],  // RÉGUA 90CM PRETO (dobrada)
+    ["nome:amapa-gancho-simples-25cm-preto", 20], // GANCHO 25CM PRETO (dobrado)
   ],
   // Centro Continuação c/ Gancho - 1,37m - Preta
   "203|1,37m|Preta": [
-    ["diversos-74", 1],
-    ["diversos-76", 1],
-    ["diversos-127", 4],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-146", 4],
-    ["diversos-173", 20],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-preto-un", 4],
+    ["nome:amapa-gancho-simples-25cm-preto", 20],
   ],
   // Centro Inicial c/ Gancho - 1,70m - Preta
   "202|1,70m|Preta": [
-    ["diversos-74", 2],
-    ["diversos-78", 2],
-    ["diversos-127", 5],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-146", 6],
-    ["diversos-173", 30],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-preto-un", 6],
+    ["nome:amapa-gancho-simples-25cm-preto", 30],
   ],
   // Centro Continuação c/ Gancho - 1,70m - Preta
   "203|1,70m|Preta": [
-    ["diversos-74", 1],
-    ["diversos-78", 1],
-    ["diversos-127", 5],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-146", 6],
-    ["diversos-173", 30],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-preto-un", 6],
+    ["nome:amapa-gancho-simples-25cm-preto", 30],
   ],
   // Centro Inicial c/ Gancho - 2,00m - Preta
   "202|2,00m|Preta": [
-    ["diversos-74", 2],
-    ["diversos-80", 2],
-    ["diversos-127", 6],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-146", 6],
-    ["diversos-173", 30],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-preto-un", 6],
+    ["nome:amapa-gancho-simples-25cm-preto", 30],
   ],
   // Centro Continuação c/ Gancho - 2,00m - Preta
   "203|2,00m|Preta": [
-    ["diversos-74", 1],
-    ["diversos-80", 1],
-    ["diversos-127", 6],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-146", 6],
-    ["diversos-173", 30],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-regua-90cm-preto-un", 6],
+    ["nome:amapa-gancho-simples-25cm-preto", 30],
   ],
 
   // ── CENTRO C/ CESTO BRANCO ──
   // Estrutura do Gancho sem ganchos/réguas, com cestos dobrados
   // Centro Inicial c/ Cesto - 1,37m - Branca
   "204|1,37m|Branca": [
-    ["diversos-73", 2],
-    ["diversos-75", 2],
-    ["diversos-126", 4],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-124", 4],  // CESTO 2 DIVISORIAS BRANCO (2 dobrado → 4)
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 4],  // CESTO 2 DIVISORIAS BRANCO (2 dobrado → 4)
   ],
   // Centro Continuação c/ Cesto - 1,37m - Branca
   "205|1,37m|Branca": [
-    ["diversos-73", 1],
-    ["diversos-75", 1],
-    ["diversos-126", 4],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-124", 4],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 4],
   ],
   // Centro Inicial c/ Cesto - 1,70m - Branca
   "204|1,70m|Branca": [
-    ["diversos-73", 2],
-    ["diversos-77", 2],
-    ["diversos-126", 5],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-124", 6],  // 3 dobrado → 6
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 6],  // 3 dobrado → 6
   ],
   // Centro Continuação c/ Cesto - 1,70m - Branca
   "205|1,70m|Branca": [
-    ["diversos-73", 1],
-    ["diversos-77", 1],
-    ["diversos-126", 5],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-124", 6],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 6],
   ],
   // Centro Inicial c/ Cesto - 2,00m - Branca
   "204|2,00m|Branca": [
-    ["diversos-73", 2],
-    ["diversos-79", 2],
-    ["diversos-126", 6],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-124", 6],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 6],
   ],
   // Centro Continuação c/ Cesto - 2,00m - Branca
   "205|2,00m|Branca": [
-    ["diversos-73", 1],
-    ["diversos-79", 1],
-    ["diversos-126", 6],
-    ["diversos-66", 2],
-    ["diversos-64", 2],
-    ["diversos-83", 2],
-    ["diversos-402", 4],
-    ["diversos-124", 6],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 6],
   ],
 
   // ── CENTRO C/ CESTO PRETO ──
   // Centro Inicial c/ Cesto - 1,37m - Preta
   "204|1,37m|Preta": [
-    ["diversos-74", 2],
-    ["diversos-76", 2],
-    ["diversos-127", 4],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-125", 4],  // CESTO 2 DIVISORIAS PRETO (dobrado)
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 4],  // CESTO 2 DIVISORIAS PRETO (dobrado)
   ],
   // Centro Continuação c/ Cesto - 1,37m - Preta
   "205|1,37m|Preta": [
-    ["diversos-74", 1],
-    ["diversos-76", 1],
-    ["diversos-127", 4],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-125", 4],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 4],
   ],
   // Centro Inicial c/ Cesto - 1,70m - Preta
   "204|1,70m|Preta": [
-    ["diversos-74", 2],
-    ["diversos-78", 2],
-    ["diversos-127", 5],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-125", 6],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 6],
   ],
   // Centro Continuação c/ Cesto - 1,70m - Preta
   "205|1,70m|Preta": [
-    ["diversos-74", 1],
-    ["diversos-78", 1],
-    ["diversos-127", 5],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-125", 6],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 6],
   ],
   // Centro Inicial c/ Cesto - 2,00m - Preta
   "204|2,00m|Preta": [
-    ["diversos-74", 2],
-    ["diversos-80", 2],
-    ["diversos-127", 6],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-125", 6],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 6],
   ],
   // Centro Continuação c/ Cesto - 2,00m - Preta
   "205|2,00m|Preta": [
-    ["diversos-74", 1],
-    ["diversos-80", 1],
-    ["diversos-127", 6],
-    ["diversos-67", 2],
-    ["diversos-65", 2],
-    ["diversos-84", 2],
-    ["diversos-402", 4],
-    ["diversos-125", 6],
+    ["nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 6],
   ],
 
   // ═══════════════════════════════════════════════════════════════════
@@ -893,64 +893,64 @@ const PRODUCT_RECIPES = {
 
   // Ponta c/ Bandeja - 1,37m - Branca
   "300|1,37m|Branca": [
-    ["diversos-81", 2],   // COLUNA PAREDE 1,06M BRANCO
-    ["diversos-75", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
-    ["diversos-133", 4],  // PAINEL PONTA 78*34 BRANCO
-    ["diversos-90", 1],   // BANDEJA PONTA 40*78 BRANCA
-    ["diversos-69", 3],   // BANDEJA PONTA 30*78 BRANCA
-    ["diversos-83", 3],   // PAR SLG 30CM BRANCO
-    ["diversos-402", 4],  // PORTA ETIQUETA
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M BRANCO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,37M BRANCO
+    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 4],  // PAINEL PONTA 78*34 BRANCO
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],   // BANDEJA PONTA 40*78 BRANCA
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 3],   // BANDEJA PONTA 30*78 BRANCA
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 3],   // PAR SLG 30CM BRANCO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],  // PORTA ETIQUETA
   ],
   // Ponta c/ Bandeja - 1,70m - Branca
   "300|1,70m|Branca": [
-    ["diversos-81", 2],
-    ["diversos-77", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
-    ["diversos-133", 5],
-    ["diversos-90", 1],
-    ["diversos-69", 4],
-    ["diversos-83", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,70M BRANCO
+    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 5],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
   // Ponta c/ Bandeja - 2,00m - Branca
   "300|2,00m|Branca": [
-    ["diversos-81", 2],
-    ["diversos-79", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
-    ["diversos-133", 6],
-    ["diversos-90", 1],
-    ["diversos-69", 4],
-    ["diversos-83", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 2,02M BRANCO
+    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 6],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
 
   // Ponta c/ Bandeja - 1,37m - Preta
   "300|1,37m|Preta": [
-    ["diversos-82", 2],   // COLUNA PAREDE 1,06M PRETO
-    ["diversos-76", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
-    ["diversos-134", 4],  // PAINEL PONTA 78*34 PRETO
-    ["diversos-91", 1],   // BANDEJA PONTA 40*78 PRETA
-    ["diversos-70", 3],   // BANDEJA PONTA 30*78 PRETA
-    ["diversos-84", 3],   // PAR SLG 30CM PRETO
-    ["diversos-402", 4],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M PRETO
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 1,37M PRETO
+    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 4],  // PAINEL PONTA 78*34 PRETO
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],   // BANDEJA PONTA 40*78 PRETA
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 3],   // BANDEJA PONTA 30*78 PRETA
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 3],   // PAR SLG 30CM PRETO
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
   ],
   // Ponta c/ Bandeja - 1,70m - Preta
   "300|1,70m|Preta": [
-    ["diversos-82", 2],
-    ["diversos-78", 2],
-    ["diversos-134", 5],
-    ["diversos-91", 1],
-    ["diversos-70", 4],
-    ["diversos-84", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 5],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
   // Ponta c/ Bandeja - 2,00m - Preta
   "300|2,00m|Preta": [
-    ["diversos-82", 2],
-    ["diversos-80", 2],
-    ["diversos-134", 6],
-    ["diversos-91", 1],
-    ["diversos-70", 4],
-    ["diversos-84", 4],
-    ["diversos-402", 5],
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 6],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 5],
   ],
 
   // ═══════════════════════════════════════════════════════════════════
@@ -963,68 +963,68 @@ const PRODUCT_RECIPES = {
 
   // ── MPP 2000×1200×800 INICIAL S/MDF (id 400) ──
   "400|1200mm|3": [
-    ["diversos-196", 2],   // MONTANTE 2000×800
-    ["diversos-218", 3],   // PAR LONGARINA 1200MM
-    ["diversos-499", 6],   // TRANSVERSINA 800MM (2/par × 3 pares)
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 2],   // MONTANTE 2000×800
+    ["nome:amapa-par-longarina-z-mpp-500kg-1200mm-laranja", 3],   // PAR LONGARINA 1200MM
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 6],   // TRANSVERSINA 800MM (2/par × 3 pares)
   ],
   "400|1200mm|4": [
-    ["diversos-196", 2],
-    ["diversos-218", 4],
-    ["diversos-499", 8],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1200mm-laranja", 4],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 8],
   ],
   "400|1200mm|5": [
-    ["diversos-196", 2],
-    ["diversos-218", 5],
-    ["diversos-499", 10],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1200mm-laranja", 5],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 10],
   ],
   // ── MPP 2000×1800×800 INICIAL S/MDF (id 400) ──
   "400|1800mm|3": [
-    ["diversos-196", 2],
-    ["diversos-219", 3],   // PAR LONGARINA 1800MM
-    ["diversos-499", 9],   // TRANSVERSINA 800MM (3/par × 3 pares)
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1800mm-laranja", 3],   // PAR LONGARINA 1800MM
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 9],   // TRANSVERSINA 800MM (3/par × 3 pares)
   ],
   "400|1800mm|4": [
-    ["diversos-196", 2],
-    ["diversos-219", 4],
-    ["diversos-499", 12],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1800mm-laranja", 4],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 12],
   ],
   "400|1800mm|5": [
-    ["diversos-196", 2],
-    ["diversos-219", 5],
-    ["diversos-499", 15],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1800mm-laranja", 5],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 15],
   ],
 
   // ── MPP 2000×1200×800 CONTINUAÇÃO S/MDF (id 401) ──
   "401|1200mm|3": [
-    ["diversos-196", 1],
-    ["diversos-218", 3],
-    ["diversos-499", 6],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1200mm-laranja", 3],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 6],
   ],
   "401|1200mm|4": [
-    ["diversos-196", 1],
-    ["diversos-218", 4],
-    ["diversos-499", 8],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1200mm-laranja", 4],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 8],
   ],
   "401|1200mm|5": [
-    ["diversos-196", 1],
-    ["diversos-218", 5],
-    ["diversos-499", 10],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1200mm-laranja", 5],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 10],
   ],
   // ── MPP 2000×1800×800 CONTINUAÇÃO S/MDF (id 401) ──
   "401|1800mm|3": [
-    ["diversos-196", 1],
-    ["diversos-219", 3],
-    ["diversos-499", 9],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1800mm-laranja", 3],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 9],
   ],
   "401|1800mm|4": [
-    ["diversos-196", 1],
-    ["diversos-219", 4],
-    ["diversos-499", 12],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1800mm-laranja", 4],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 12],
   ],
   "401|1800mm|5": [
-    ["diversos-196", 1],
-    ["diversos-219", 5],
-    ["diversos-499", 15],
+    ["nome:amapa-montante-mpp-500kg-2000x800mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-mpp-500kg-1800mm-laranja", 5],
+    ["nome:amapa-transversina-lateral-de-800mm-laranja", 15],
   ],
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1038,106 +1038,106 @@ const PRODUCT_RECIPES = {
 
   // ── SLIM INICIAL AMAPA (id 500) — C+L ──
   "500|1200mm|4|C+L": [
-    ["diversos-205", 2],
-    ["diversos-221", 4],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 4],
   ],
   "500|1200mm|5|C+L": [
-    ["diversos-205", 2],
-    ["diversos-221", 5],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 5],
   ],
   "500|1800mm|4|C+L": [
-    ["diversos-205", 2],
-    ["diversos-223", 4],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 4],
   ],
   "500|1800mm|5|C+L": [
-    ["diversos-205", 2],
-    ["diversos-223", 5],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 5],
   ],
   "500|1200mm|6|C+L": [
-    ["diversos-205", 2],
-    ["diversos-221", 6],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 6],
   ],
   "500|1800mm|6|C+L": [
-    ["diversos-205", 2],
-    ["diversos-223", 6],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 6],
   ],
 
   // ── SLIM INICIAL AMAPA (id 500) — BRANCO ──
   "500|1200mm|4|Branco": [
-    ["diversos-204", 2],
-    ["diversos-221", 4],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 4],
   ],
   "500|1200mm|5|Branco": [
-    ["diversos-204", 2],
-    ["diversos-221", 5],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 5],
   ],
   "500|1800mm|4|Branco": [
-    ["diversos-204", 2],
-    ["diversos-223", 4],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 4],
   ],
   "500|1800mm|5|Branco": [
-    ["diversos-204", 2],
-    ["diversos-223", 5],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 5],
   ],
   "500|1200mm|6|Branco": [
-    ["diversos-204", 2],
-    ["diversos-221", 6],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 6],
   ],
   "500|1800mm|6|Branco": [
-    ["diversos-204", 2],
-    ["diversos-223", 6],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 6],
   ],
 
   // ── SLIM CONTINUAÇÃO AMAPA (id 501) — C+L ──
   "501|1200mm|4|C+L": [
-    ["diversos-205", 1],
-    ["diversos-221", 4],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 4],
   ],
   "501|1200mm|5|C+L": [
-    ["diversos-205", 1],
-    ["diversos-221", 5],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 5],
   ],
   "501|1800mm|4|C+L": [
-    ["diversos-205", 1],
-    ["diversos-223", 4],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 4],
   ],
   "501|1800mm|5|C+L": [
-    ["diversos-205", 1],
-    ["diversos-223", 5],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 5],
   ],
   "501|1200mm|6|C+L": [
-    ["diversos-205", 1],
-    ["diversos-221", 6],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 6],
   ],
   "501|1800mm|6|C+L": [
-    ["diversos-205", 1],
-    ["diversos-223", 6],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-cinza-cristal", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 6],
   ],
 
   // ── SLIM CONTINUAÇÃO AMAPA (id 501) — BRANCO ──
   "501|1200mm|4|Branco": [
-    ["diversos-204", 1],
-    ["diversos-221", 4],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 4],
   ],
   "501|1200mm|5|Branco": [
-    ["diversos-204", 1],
-    ["diversos-221", 5],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 5],
   ],
   "501|1800mm|4|Branco": [
-    ["diversos-204", 1],
-    ["diversos-223", 4],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 4],
   ],
   "501|1800mm|5|Branco": [
-    ["diversos-204", 1],
-    ["diversos-223", 5],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 5],
   ],
   "501|1200mm|6|Branco": [
-    ["diversos-204", 1],
-    ["diversos-221", 6],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 6],
   ],
   "501|1800mm|6|Branco": [
-    ["diversos-204", 1],
-    ["diversos-223", 6],
+    ["nome:amapa-montante-slim-250kg-2000x600mm-branco", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 6],
   ],
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1149,54 +1149,54 @@ const PRODUCT_RECIPES = {
 
   // ── SLIM SA+AMAPA INICIAL (id 502) — C+L ──
   "502|1200mm|4|C+L": [
-    ["diversos-458", 2],
-    ["diversos-221", 4],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 4],
   ],
   "502|1200mm|5|C+L": [
-    ["diversos-458", 2],
-    ["diversos-221", 5],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 5],
   ],
   "502|1200mm|6|C+L": [
-    ["diversos-458", 2],
-    ["diversos-221", 6],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 6],
   ],
   "502|1800mm|4|C+L": [
-    ["diversos-458", 2],
-    ["diversos-223", 4],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 4],
   ],
   "502|1800mm|5|C+L": [
-    ["diversos-458", 2],
-    ["diversos-223", 5],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 5],
   ],
   "502|1800mm|6|C+L": [
-    ["diversos-458", 2],
-    ["diversos-223", 6],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 2],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 6],
   ],
 
   // ── SLIM SA+AMAPA CONTINUAÇÃO (id 503) — C+L ──
   "503|1200mm|4|C+L": [
-    ["diversos-458", 1],
-    ["diversos-221", 4],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 4],
   ],
   "503|1200mm|5|C+L": [
-    ["diversos-458", 1],
-    ["diversos-221", 5],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 5],
   ],
   "503|1200mm|6|C+L": [
-    ["diversos-458", 1],
-    ["diversos-221", 6],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1200mm-laranja", 6],
   ],
   "503|1800mm|4|C+L": [
-    ["diversos-458", 1],
-    ["diversos-223", 4],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 4],
   ],
   "503|1800mm|5|C+L": [
-    ["diversos-458", 1],
-    ["diversos-223", 5],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 5],
   ],
   "503|1800mm|6|C+L": [
-    ["diversos-458", 1],
-    ["diversos-223", 6],
+    ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 1],
+    ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 6],
   ],
 };
 
@@ -2507,10 +2507,19 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     });
   };
 
-  // Mapa { uniplusId -> nome } montado dos produtos sincronizados via Supabase
+  // Mapa { uniplusId -> nome } montado dos produtos sincronizados via Supabase.
+  // Indexa também por chave estável "nome:<slug>" pra suportar receitas que
+  // referenciam produtos pelo nome (não pelo row_number, que é instável).
   const uniplusNomes = useMemo(() => {
     const m = {};
-    uniplusProducts.forEach(p => { m[p.id] = p.nome; });
+    const slug = (s) => (s || "").toString().toUpperCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/\s+/g, " ").trim()
+      .replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+    uniplusProducts.forEach(p => {
+      if (p.id) m[p.id] = p.nome;
+      if (p.nome) m["nome:" + slug(p.nome)] = p.nome;
+    });
     return m;
   }, [uniplusProducts]);
 
@@ -6139,10 +6148,26 @@ export default function App() {
   const [frete, setFrete] = useState(0);
   const [uniplusProducts, setUniplusProducts] = useState([]);
   const [mppChinaProducts, setMppChinaProducts] = useState([]);
+  // Indexa preços por id (legado) E por nome normalizado (forma estável).
+  // PRODUCT_RECIPES passou a referenciar produtos pelo nome (slug normalizado),
+  // assim reordenar a planilha não quebra mais as receitas — só renomear
+  // afeta. computeProductPrice tenta resolver primeiro como nome, depois id.
   const uniplusPriceMap = useMemo(() => {
     const m = {};
-    uniplusProducts.forEach(p => { m[p.id] = Number(p.preco_brasil) || 0; });
-    mppChinaProducts.forEach(p => { m[p.id] = Number(p.preco_brasil) || 0; });
+    const normalize = (s) => (s || "").toString().toUpperCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/\s+/g, " ").trim();
+    const slug = (s) => normalize(s).replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+    uniplusProducts.forEach(p => {
+      const preco = Number(p.preco_brasil) || 0;
+      if (p.id) m[p.id] = preco;          // chave legada por id
+      if (p.nome) m["nome:" + slug(p.nome)] = preco; // chave estável por nome
+    });
+    mppChinaProducts.forEach(p => {
+      const preco = Number(p.preco_brasil) || 0;
+      if (p.id) m[p.id] = preco;
+      if (p.nome) m["nome:" + slug(p.nome)] = preco;
+    });
     return m;
   }, [uniplusProducts, mppChinaProducts]);
 
