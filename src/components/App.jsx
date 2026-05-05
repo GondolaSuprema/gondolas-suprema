@@ -4174,13 +4174,12 @@ function AdminPage({ user }) {
               </tr>
             </thead>
             <tbody>
-              {/* Mostra TODOS os vendedores cadastrados (incluindo Ale e
-                  Zanella, que tem isAdmin: true no array — antes a tabela
-                  filtrava !v.isAdmin e agregava ambos sob "Alessandro
-                  Thonsen (ADM)", o que escondia as vendas do Zanella). */}
+              {/* Mostra TODOS os vendedores cadastrados sempre (Ale, Adelmo,
+                  Zanella, João), mesmo sem orçamentos no período — o Ale
+                  pediu pra ver todos. Orçamentos RS-particulares do Ale
+                  continuam fora (filtrados antes em loadAll). */}
               {VENDEDORES.map(v => {
                 const vo = allOrders.filter(o => o.vendedorId === v.id);
-                if (vo.length === 0) return null; // Não mostra vendedor sem orçamentos
                 return (
                   <tr key={v.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                     <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>{v.name}</td>
