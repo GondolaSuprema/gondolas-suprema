@@ -2601,6 +2601,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const [confirmDel, setConfirmDel] = useState(null);
   // Filtro por mês (formato YYYY-MM ou "all")
   const [filterMes, setFilterMes] = useState("all");
+  // Modal de anotações internas — { orderId, texto }
+  const [anotacoesModal, setAnotacoesModal] = useState(null);
+  const [savingAnotacoes, setSavingAnotacoes] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editItems, setEditItems] = useState([]);
   const [editFrete, setEditFrete] = useState(0);
@@ -2760,13 +2763,23 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
       const { data } = await supabase.from("orcamentos").select("*").eq("vendedor_id", user.id).order("data", { ascending: false });
       if (data) {
         setOrders(data.map(o => ({
-          id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, status: o.status, items: o.items, vendedor: o.vendedor_nome,
+          id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, anotacoes: o.anotacoes || "", status: o.status, items: o.items, vendedor: o.vendedor_nome,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
         })));
       }
     };
     loadOrders();
   }, [user.id]);
+
+  const salvarAnotacoes = async () => {
+    if (!anotacoesModal) return;
+    setSavingAnotacoes(true);
+    const { orderId, texto } = anotacoesModal;
+    await supabase.from("orcamentos").update({ anotacoes: texto || null }).eq("id", orderId);
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, anotacoes: texto || "" } : o));
+    setSavingAnotacoes(false);
+    setAnotacoesModal(null);
+  };
 
   const deleteOrder = async (orderId) => {
     await supabase.from("orcamentos").delete().eq("id", orderId);
@@ -3086,6 +3099,62 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
         </div>
       )}
 
+      {/* Modal Anotações Internas — bloco de notas do vendedor sobre o orçamento.
+          Não aparece no PDF do cliente (campo separado de notes). */}
+      {anotacoesModal && (() => {
+        const ord = orders.find(o => o.id === anotacoesModal.orderId);
+        const cliente = ord?.client?.empresa || ord?.client?.responsavel || "Sem cliente";
+        return (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 540, maxWidth: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 12 }}>
+                <div>
+                  <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 20, margin: "0 0 4px" }}>📝 Bloco de Notas</h2>
+                  <p style={{ color: COLORS.textMuted, fontSize: 12, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+                    Anotações sobre <strong style={{ color: COLORS.text }}>{cliente}</strong> · só você vê (não vai no PDF)
+                  </p>
+                </div>
+                <button onClick={() => setAnotacoesModal(null)} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>✕</button>
+              </div>
+              <textarea
+                value={anotacoesModal.texto}
+                onChange={e => setAnotacoesModal({ ...anotacoesModal, texto: e.target.value })}
+                placeholder="Ex: Cliente pediu pra retornar segunda-feira... | Negociar desconto de 5% no fechamento... | Aguardando aprovação interna..."
+                rows={10}
+                autoFocus
+                style={{
+                  width: "100%",
+                  background: COLORS.bg,
+                  border: `1px solid ${COLORS.border}`,
+                  borderRadius: 10,
+                  color: COLORS.text,
+                  padding: "12px 14px",
+                  fontSize: 13,
+                  fontFamily: "'DM Sans', sans-serif",
+                  resize: "vertical",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  marginBottom: 14,
+                  minHeight: 180,
+                }}
+              />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => setAnotacoesModal(null)}
+                  disabled={savingAnotacoes}
+                  style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: savingAnotacoes ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
+                >Cancelar</button>
+                <button
+                  onClick={salvarAnotacoes}
+                  disabled={savingAnotacoes}
+                  style={{ flex: 1, background: "#F59E0B", color: "#000", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: savingAnotacoes ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
+                >{savingAnotacoes ? "Salvando..." : "💾 Salvar"}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Modal Concluído */}
       {concluidoId && (() => {
         const cd = concluidoData;
@@ -3275,6 +3344,26 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setAnotacoesModal({ orderId: o.id, texto: o.anotacoes || "" }); }}
+                    title={o.anotacoes ? "Ver/editar anotações" : "Adicionar anotação"}
+                    style={{
+                      position: "relative",
+                      background: o.anotacoes ? "#F59E0B20" : "transparent",
+                      border: `1px solid ${o.anotacoes ? "#F59E0B60" : COLORS.border}`,
+                      color: o.anotacoes ? "#F59E0B" : COLORS.textMuted,
+                      padding: "5px 9px",
+                      borderRadius: 7,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      lineHeight: 1,
+                    }}
+                  >
+                    📝
+                    {o.anotacoes && (
+                      <span style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: "#F59E0B", border: `1.5px solid ${COLORS.card}` }} />
+                    )}
+                  </button>
                   <select value={o.status || "Aguardando Retorno"} onClick={e => e.stopPropagation()} onChange={e => updateStatus(o.id, e.target.value)} style={{ background: (sc[o.status] || "#888") + "20", color: sc[o.status] || "#888", border: `1px solid ${(sc[o.status] || "#888")}40`, padding: "4px 8px", borderRadius: 16, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none", appearance: "auto" }}>
                     {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
