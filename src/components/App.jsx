@@ -3508,8 +3508,16 @@ function LogisticaPage({ user }) {
     await supabase.from("orcamentos").update({ data_entrega: novaData || null }).eq("id", id);
     setAllEntregas(prev => prev.map(o => o.id === id ? { ...o, dataEntrega: novaData } : o));
   };
+  // Remove a entrega APENAS da Logística — não apaga o orçamento.
+  // Zera data_entrega e status_entrega; o orçamento continua existindo
+  // nas abas Orçamentos, ADM, Comissões etc. A query desta página filtra
+  // por "data_entrega IS NOT NULL", então setar null é o suficiente pra
+  // sumir daqui.
   const excluirOrcamentoLog = async (id) => {
-    await supabase.from("orcamentos").delete().eq("id", id);
+    await supabase.from("orcamentos").update({
+      data_entrega: null,
+      status_entrega: null,
+    }).eq("id", id);
     setAllEntregas(prev => prev.filter(o => o.id !== id));
     setConfirmDelLog(null);
   };
@@ -3621,7 +3629,7 @@ function LogisticaPage({ user }) {
                                   <div style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
                                     <button
                                       onClick={() => excluirOrcamentoLog(o.id)}
-                                      title="Confirmar exclusão"
+                                      title="Remover entrega da Logística (orçamento permanece)"
                                       style={{ background: COLORS.danger, border: "none", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
                                     >Sim</button>
                                     <button
@@ -3633,7 +3641,7 @@ function LogisticaPage({ user }) {
                                 ) : (
                                   <button
                                     onClick={() => setConfirmDelLog(o.id)}
-                                    title="Excluir orçamento"
+                                    title="Remover desta lista (não apaga o orçamento)"
                                     style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "4px 8px", borderRadius: 6, fontSize: 13, cursor: "pointer", lineHeight: 1 }}
                                   >🗑️</button>
                                 )}
