@@ -3946,6 +3946,9 @@ function AdminPage({ user }) {
   // Confirmação de exclusão na tabela "Vendas Concluídas" (somente admin/Alessandro)
   const [confirmDelVenda, setConfirmDelVenda] = useState(null);
   const isAdminOnly = (user?.role || (user?.isAdmin ? "admin" : "vendedor")) === "admin";
+  // Filtro de mês dedicado do Relatório por Vendedor (independente do filtro
+  // geral abaixo). "all" = todos os meses
+  const [relatorioMes, setRelatorioMes] = useState("all");
 
   const emitirNfe = async (ordem) => {
     setConfirmEmitir(null);
@@ -4156,8 +4159,15 @@ function AdminPage({ user }) {
 
       {/* Relatório por Vendedor */}
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
-        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}` }}>
+        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: 0 }}>Relatório por Vendedor</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>📅 Mês:</span>
+            <select value={relatorioMes} onChange={e => setRelatorioMes(e.target.value)} style={{ padding: "6px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+              <option value="all">Todos os meses</option>
+              {mesesDisponiveis.map(m => <option key={m} value={m}>{formatarMesAdm(m)}</option>)}
+            </select>
+          </div>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
@@ -4177,10 +4187,15 @@ function AdminPage({ user }) {
               {/* Mostra TODOS os vendedores cadastrados sempre (Ale, Adelmo,
                   Zanella, João), mesmo sem orçamentos no período — o Ale
                   pediu pra ver todos. Orçamentos RS-particulares do Ale
-                  continuam fora (filtrados antes em loadAll). */}
-              {VENDEDORES.map(v => {
-                const vo = allOrders.filter(o => o.vendedorId === v.id);
-                return (
+                  continuam fora (filtrados antes em loadAll).
+                  Aplica o filtro de mês selecionado no header do Relatório. */}
+              {(() => {
+                const ordersDoRelatorio = relatorioMes === "all"
+                  ? allOrders
+                  : allOrders.filter(o => chaveMes(o.date) === relatorioMes);
+                return VENDEDORES.map(v => {
+                  const vo = ordersDoRelatorio.filter(o => o.vendedorId === v.id);
+                  return (
                   <tr key={v.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                     <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>{v.name}</td>
                     <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 14 }}>{vo.length}</td>
@@ -4192,11 +4207,16 @@ function AdminPage({ user }) {
                     <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(vo.reduce((s, o) => s + (o.total || 0), 0))}</td>
                   </tr>
                 );
-              })}
+                });
+              })()}
               {/* Orçamentos sem vendedor identificado (vendedorId não bate
-                  com nenhum cadastro) — só aparece se houver registros assim. */}
+                  com nenhum cadastro) — só aparece se houver registros assim,
+                  considerando o filtro de mês selecionado. */}
               {(() => {
-                const semVendedor = allOrders.filter(o => !VENDEDORES.some(v => v.id === o.vendedorId));
+                const ordersDoRelatorio = relatorioMes === "all"
+                  ? allOrders
+                  : allOrders.filter(o => chaveMes(o.date) === relatorioMes);
+                const semVendedor = ordersDoRelatorio.filter(o => !VENDEDORES.some(v => v.id === o.vendedorId));
                 if (semVendedor.length === 0) return null;
                 return (
                   <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
@@ -4211,16 +4231,24 @@ function AdminPage({ user }) {
                   </tr>
                 );
               })()}
-              <tr style={{ background: COLORS.bg }}>
-                <td style={{ padding: "12px 14px", color: COLORS.white, fontWeight: 700 }}>TOTAL</td>
-                <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.white, fontWeight: 800, fontSize: 14 }}>{allOrders.length}</td>
-                <td style={{ padding: "12px 14px", textAlign: "center", color: "#3B82F6", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Aguardando Retorno").length}</td>
-                <td style={{ padding: "12px 14px", textAlign: "center", color: "#10B981", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Concluído").length}</td>
-                <td style={{ padding: "12px 14px", textAlign: "center", color: "#F87171", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Desistiu").length}</td>
-                <td style={{ padding: "12px 14px", textAlign: "center", color: "#8B5CF6", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Sem Retorno").length}</td>
-                <td style={{ padding: "12px 14px", textAlign: "center", color: "#34D399", fontWeight: 800 }}>{allOrders.filter(o => o.status === "Fechou Concorrência").length}</td>
-                <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalGeral)}</td>
-              </tr>
+              {(() => {
+                const ordersTotal = relatorioMes === "all"
+                  ? allOrders
+                  : allOrders.filter(o => chaveMes(o.date) === relatorioMes);
+                const totalRel = ordersTotal.reduce((s, o) => s + (o.total || 0), 0);
+                return (
+                  <tr style={{ background: COLORS.bg }}>
+                    <td style={{ padding: "12px 14px", color: COLORS.white, fontWeight: 700 }}>TOTAL{relatorioMes !== "all" ? ` — ${formatarMesAdm(relatorioMes)}` : ""}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.white, fontWeight: 800, fontSize: 14 }}>{ordersTotal.length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#3B82F6", fontWeight: 800 }}>{ordersTotal.filter(o => o.status === "Aguardando Retorno").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#10B981", fontWeight: 800 }}>{ordersTotal.filter(o => o.status === "Concluído").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#F87171", fontWeight: 800 }}>{ordersTotal.filter(o => o.status === "Desistiu").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#8B5CF6", fontWeight: 800 }}>{ordersTotal.filter(o => o.status === "Sem Retorno").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#34D399", fontWeight: 800 }}>{ordersTotal.filter(o => o.status === "Fechou Concorrência").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalRel)}</td>
+                  </tr>
+                );
+              })()}
             </tbody>
           </table>
         </div>
