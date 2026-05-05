@@ -4174,8 +4174,13 @@ function AdminPage({ user }) {
               </tr>
             </thead>
             <tbody>
-              {VENDEDORES.filter(v => !v.isAdmin).map(v => {
+              {/* Mostra TODOS os vendedores cadastrados (incluindo Ale e
+                  Zanella, que tem isAdmin: true no array — antes a tabela
+                  filtrava !v.isAdmin e agregava ambos sob "Alessandro
+                  Thonsen (ADM)", o que escondia as vendas do Zanella). */}
+              {VENDEDORES.map(v => {
                 const vo = allOrders.filter(o => o.vendedorId === v.id);
+                if (vo.length === 0) return null; // Não mostra vendedor sem orçamentos
                 return (
                   <tr key={v.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                     <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>{v.name}</td>
@@ -4189,20 +4194,21 @@ function AdminPage({ user }) {
                   </tr>
                 );
               })}
-              {/* Admin's own orders if any */}
+              {/* Orçamentos sem vendedor identificado (vendedorId não bate
+                  com nenhum cadastro) — só aparece se houver registros assim. */}
               {(() => {
-                const adminOrders = allOrders.filter(o => !VENDEDORES.filter(v => !v.isAdmin).some(v => v.id === o.vendedorId));
-                if (adminOrders.length === 0) return null;
+                const semVendedor = allOrders.filter(o => !VENDEDORES.some(v => v.id === o.vendedorId));
+                if (semVendedor.length === 0) return null;
                 return (
                   <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                    <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>Alessandro Thonsen (ADM)</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 14 }}>{adminOrders.length}</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#3B82F6", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Aguardando Retorno").length}</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#10B981", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Concluído").length}</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#F87171", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Desistiu").length}</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#8B5CF6", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Sem Retorno").length}</td>
-                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#34D399", fontWeight: 700 }}>{adminOrders.filter(o => o.status === "Fechou Concorrência").length}</td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(adminOrders.reduce((s, o) => s + (o.total || 0), 0))}</td>
+                    <td style={{ padding: "12px 14px", color: COLORS.textMuted, fontWeight: 600, fontStyle: "italic" }}>Sem vendedor</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.white, fontWeight: 700, fontSize: 14 }}>{semVendedor.length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#3B82F6", fontWeight: 700 }}>{semVendedor.filter(o => o.status === "Aguardando Retorno").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#10B981", fontWeight: 700 }}>{semVendedor.filter(o => o.status === "Concluído").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#F87171", fontWeight: 700 }}>{semVendedor.filter(o => o.status === "Desistiu").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#8B5CF6", fontWeight: 700 }}>{semVendedor.filter(o => o.status === "Sem Retorno").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "center", color: "#34D399", fontWeight: 700 }}>{semVendedor.filter(o => o.status === "Fechou Concorrência").length}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(semVendedor.reduce((s, o) => s + (o.total || 0), 0))}</td>
                   </tr>
                 );
               })()}
