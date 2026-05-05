@@ -6176,28 +6176,43 @@ export default function App() {
   // — bug que afetava Zanella e Adelmo recem-logados (ver issue 30/abr/2026).
   useEffect(() => {
     if (!user) { setUniplusProducts([]); setMppChinaProducts([]); return; }
-    // .range(0, 9999) sobe o limite default do Supabase (1000) para 10k —
-    // a tabela tem ~1.300+ produtos hoje e cresce com o tempo. Sem isso, os
-    // produtos depois da linha 1000 sumiam do catálogo.
-    supabase.from("produtos_uniplus")
-      .select("id, nome, preco_brasil, categoria, linha_planilha")
-      .eq("ativo", true)
-      .order("nome", { ascending: true })
-      .range(0, 9999)
-      .then(({ data, error }) => {
-        if (!error && data) setUniplusProducts(data);
-      });
-    supabase.from("produtos_mpp_china")
-      .select("id, nome, preco_brasil, categoria, codigo, linha_planilha")
-      .eq("ativo", true)
-      // Ordena pela ordem manual (linha_planilha) — mantem agrupamento da
-      // planilha original. Nulls vao pro fim, depois desempate alfabetico.
-      .order("linha_planilha", { ascending: true, nullsFirst: false })
-      .order("nome", { ascending: true })
-      .range(0, 9999)
-      .then(({ data, error }) => {
-        if (!error && data) setMppChinaProducts(data);
-      });
+    // O Supabase Cloud tem `db-max-rows: 1000` no PostgREST que CAPA qualquer
+    // SELECT a 1000 linhas — independente de .range() ou .limit() do client.
+    // Como a tabela já tem 1300+ produtos, precisamos paginar manualmente.
+    const PAGE = 1000;
+    const fetchAllUniplus = async () => {
+      const acc = [];
+      for (let from = 0; from < 100000; from += PAGE) {
+        const { data, error } = await supabase.from("produtos_uniplus")
+          .select("id, nome, preco_brasil, categoria, linha_planilha")
+          .eq("ativo", true)
+          .order("nome", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        acc.push(...data);
+        if (data.length < PAGE) break;
+      }
+      setUniplusProducts(acc);
+    };
+    const fetchAllMppChina = async () => {
+      const acc = [];
+      for (let from = 0; from < 100000; from += PAGE) {
+        const { data, error } = await supabase.from("produtos_mpp_china")
+          .select("id, nome, preco_brasil, categoria, codigo, linha_planilha")
+          .eq("ativo", true)
+          // Ordena pela ordem manual (linha_planilha) — mantem agrupamento da
+          // planilha original. Nulls vao pro fim, depois desempate alfabetico.
+          .order("linha_planilha", { ascending: true, nullsFirst: false })
+          .order("nome", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        acc.push(...data);
+        if (data.length < PAGE) break;
+      }
+      setMppChinaProducts(acc);
+    };
+    fetchAllUniplus();
+    fetchAllMppChina();
   }, [user?.id]);
 
   useEffect(() => {
