@@ -223,12 +223,15 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   doc.setTextColor(60);
   doc.text("PRODUTOS:", margin, 74);
 
+  // Esconde "China" só no PDF do cliente (mantem o nome original no banco e nas telas internas)
+  var cleanForPdf = function(s) { return (s || "").replace(/\bchina\b/gi, "").replace(/\s+/g, " ").trim(); };
+
   // Table
   var tableData = itemsWithIcons.map(function(it) {
     return [
       "",
-      it.name || "",
-      it.cat || "",
+      cleanForPdf(it.name),
+      cleanForPdf(it.cat),
       String(it.qty),
       it.opts && it.opts.length ? it.opts.join(", ") : "-",
       fmt(it.total),

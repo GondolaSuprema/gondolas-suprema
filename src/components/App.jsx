@@ -1425,6 +1425,8 @@ function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, 
   const tituloDestaque = clientCompany || (orderNum ? `#${orderNum}` : "");
   // Filtra anotacoes internas (CONCLUÍDO, Status venda) antes de exibir pro cliente
   const notesClean = sanitizeNotesForCustomer(notes);
+  // Esconde "China" só no PDF do cliente (mantem o nome original no banco e nas telas internas)
+  const cleanForPdf = (s) => (s || "").replace(/\bchina\b/gi, "").replace(/\s+/g, " ").trim();
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orçamento Gôndolas Suprema</title><style>${pdfStyles}</style></head><body>
 <img class="watermark" src="${LOGO_B64}" alt=""/>
 <div class="content">
@@ -1434,7 +1436,7 @@ function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, 
   <div class="info"><strong style="font-size:16px;color:#333">ORÇAMENTO</strong>${tituloDestaque ? `<br><span style="color:#F5A623;font-weight:700;font-size:13px">${tituloDestaque}</span>` : ""}<br>Data: ${date}${clientCnpj ? `<br><strong>CNPJ:</strong> ${clientCnpj}` : ""}${clientName ? `<br><strong>Responsável:</strong> ${clientName}` : ""}${clientPhone ? `<br><strong>Tel:</strong> ${clientPhone}` : ""}${clientEmail ? `<br><strong>E-mail:</strong> ${clientEmail}` : ""}${clientEndereco ? `<br><strong>End:</strong> ${clientEndereco}` : ""}</div>
 </div>
 <table><thead><tr><th>Foto</th><th>Produto</th><th>Categoria</th><th>Qtd</th><th>Opcionais</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>
-${items.map(i => `<tr><td class="foto-cell">${getIconHtml(i)}</td><td><strong>${i.name}</strong></td><td>${i.cat || ""}</td><td>${i.qty}</td><td>${i.opts?.length ? i.opts.join(", ") : "—"}</td><td style="text-align:right">${fmt(i.total)}</td></tr>`).join("")}
+${items.map(i => `<tr><td class="foto-cell">${getIconHtml(i)}</td><td><strong>${cleanForPdf(i.name)}</strong></td><td>${cleanForPdf(i.cat)}</td><td>${i.qty}</td><td>${i.opts?.length ? i.opts.join(", ") : "—"}</td><td style="text-align:right">${fmt(i.total)}</td></tr>`).join("")}
 <tr class="tr"><td colspan="5">TOTAL GERAL</td><td style="text-align:right;color:#F5A623">${total === 0 ? "Sob consulta" : fmt(total)}</td></tr>
 </tbody></table>
 ${incluirParcelamento ? buildPaymentSection(total, comissao) : ""}
