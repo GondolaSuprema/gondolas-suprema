@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { sharePDFWhatsApp, sanitizeNotesForCustomer } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
 
@@ -2656,6 +2656,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const [editMarkup, setEditMarkup] = useState(0);
   const [editNotes, setEditNotes] = useState("");
   const [editClient, setEditClient] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "" });
+  const [editBuscandoCnpj, setEditBuscandoCnpj] = useState(false);
+  const [editCnpjMsg, setEditCnpjMsg] = useState({ tipo: "", texto: "" }); // tipo: "ok" | "erro" | ""
+  const ultimoCnpjConsultadoRef = useRef("");
   const [saving, setSaving] = useState(false);
   const [pecasModal, setPecasModal] = useState(null); // { lista: [...], naoExpandidos: [...] }
   const [pecasFeitas, setPecasFeitas] = useState({}); // { [uniplusId]: true } — marcacao "ja pedido"
@@ -2731,6 +2734,45 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     return { lista, naoExpandidos };
   };
 
+  const buscarCnpjEdit = async (cnpjBruto) => {
+    const cnpjLimpo = (cnpjBruto || "").replace(/\D/g, "");
+    if (cnpjLimpo.length !== 14) return;
+    if (cnpjLimpo === ultimoCnpjConsultadoRef.current) return; // ja consultou esse mesmo CNPJ
+    setEditCnpjMsg({ tipo: "", texto: "" });
+    setEditBuscandoCnpj(true);
+    try {
+      const resp = await fetch(`/api/consultar-cnpj/${cnpjLimpo}`, { cache: "no-store" });
+      const d = await resp.json().catch(() => ({}));
+      if (!resp.ok || d?.success === false) {
+        if (resp.status === 404) setEditCnpjMsg({ tipo: "erro", texto: "CNPJ não encontrado na Receita." });
+        else setEditCnpjMsg({ tipo: "erro", texto: d?.mensagem || "Falha ao consultar CNPJ." });
+        return;
+      }
+      ultimoCnpjConsultadoRef.current = cnpjLimpo;
+      // Sobrescreve com dados da Receita; mantem campos que ela nao retorna (responsavel, etc.)
+      setEditClient(prev => ({
+        ...prev,
+        empresa:  d.razao_social || d.nome_fantasia || prev.empresa,
+        email:    d.email      || prev.email,
+        telefone: d.telefone ? formatarCelular(d.telefone) : prev.telefone,
+        endereco: d.logradouro || prev.endereco,
+        bairro:   d.bairro     || prev.bairro,
+        cep:      d.cep        || prev.cep,
+        cidade:   d.municipio  || prev.cidade,
+        estado:   d.uf         || prev.estado,
+      }));
+      const faltando = [];
+      if (!d.logradouro) faltando.push("rua");
+      if (!d.email) faltando.push("e-mail");
+      if (faltando.length > 0) setEditCnpjMsg({ tipo: "ok", texto: `Dados atualizados. Receita não tem ${faltando.join(", ")} — preencha manualmente.` });
+      else setEditCnpjMsg({ tipo: "ok", texto: "Dados do cliente atualizados pela Receita." });
+    } catch (e) {
+      setEditCnpjMsg({ tipo: "erro", texto: "Falha de rede ao consultar o CNPJ." });
+    } finally {
+      setEditBuscandoCnpj(false);
+    }
+  };
+
   const startEdit = (o) => {
     setEditingId(o.id);
     // Decompor itens pra garantir que a edicao sempre comece com CUSTO puro
@@ -2739,6 +2781,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     setEditFrete(o.frete || 0);
     setEditDesconto(o.desconto || 0);
     setEditNotes(o.notes || "");
+    // Reseta o cache de CNPJ consultado (cada orcamento tem seu CNPJ; nao bloquear nova consulta)
+    ultimoCnpjConsultadoRef.current = (o.client?.cnpj || "").replace(/\D/g, "");
+    setEditCnpjMsg({ tipo: "", texto: "" });
     // Pre-preenche dados do cliente (editaveis no modo edit)
     const c = o.client || {};
     setEditClient({
@@ -2768,6 +2813,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     setEditMarkup(0);
     setEditNotes("");
     setEditClient({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "" });
+    setEditCnpjMsg({ tipo: "", texto: "" });
+    ultimoCnpjConsultadoRef.current = "";
   };
 
   const saveEdit = async (orderId) => {
@@ -3567,8 +3614,23 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                         <input value={editClient.empresa} onChange={e => setEditClient({ ...editClient, empresa: e.target.value })} placeholder="Nome da empresa" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
                       </div>
                       <div>
-                        <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>CNPJ ou CPF</div>
-                        <input value={editClient.cnpj} onChange={e => setEditClient({ ...editClient, cnpj: formatarCnpjOuCpf(e.target.value) })} maxLength={18} placeholder="00.000.000/0001-00 ou 000.000.000-00" style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                          <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>CNPJ ou CPF</span>
+                          {editBuscandoCnpj && <span style={{ color: COLORS.orange, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>🔍 buscando...</span>}
+                        </div>
+                        <input
+                          value={editClient.cnpj}
+                          onChange={e => setEditClient({ ...editClient, cnpj: formatarCnpjOuCpf(e.target.value) })}
+                          onBlur={e => buscarCnpjEdit(e.target.value)}
+                          maxLength={18}
+                          placeholder="00.000.000/0001-00 ou 000.000.000-00"
+                          style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}
+                        />
+                        {editCnpjMsg.texto && (
+                          <div style={{ marginTop: 4, fontSize: 10, fontFamily: "'DM Sans', sans-serif", color: editCnpjMsg.tipo === "erro" ? COLORS.danger : COLORS.success }}>
+                            {editCnpjMsg.tipo === "erro" ? "⚠️ " : "✓ "}{editCnpjMsg.texto}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>Responsável</div>
