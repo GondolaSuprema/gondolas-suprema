@@ -2323,7 +2323,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
 }
 
 // ─── QUOTE ───
-function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap }) {
+function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId, editingOrderInfo, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap }) {
   const [notes, setNotes] = useState("");
   const upd = (i, f, v) => { const c = [...items]; c[i] = { ...c[i], [f]: v }; setItems(c); };
   const togOpt = (i, oi) => { const c = [...items]; c[i] = { ...c[i], selOpts: [oi] }; setItems(c); };
@@ -2354,7 +2354,10 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
       {editingOrderId && (
         <div style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}30`, borderRadius: 10, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: "'DM Sans', sans-serif" }}>
-          <span style={{ color: COLORS.orange, fontSize: 13 }}>Adicionando itens ao orçamento <strong>#{editingOrderId.slice(0, 6)}</strong></span>
+          <span style={{ color: COLORS.orange, fontSize: 13 }}>
+            ➕ Acrescentando itens ao orçamento <strong>#{editingOrderInfo?.num || editingOrderId.slice(0, 6).toUpperCase()}</strong>
+            {editingOrderInfo?.empresa ? ` — ${editingOrderInfo.empresa}` : ""}
+          </span>
           <button onClick={() => { setEditingOrderId(null); setItems([]); setPage("orders"); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
         </div>
       )}
@@ -2446,7 +2449,7 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
 }
 
 // ─── RESUMO ───
-function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, setItems, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap }) {
+function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, editingOrderInfo, setEditingOrderInfo, setItems, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap, bumpOrdersRefresh }) {
   const [notes, setNotes] = useState("");
 
   const itemPrice = it => computeProductPrice(it.product, it.selVariants, it.selOpts, uniplusPriceMap);
@@ -2538,6 +2541,8 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
     setMarkup(0);
     setFrete(0);
     setDesconto(0);
+    if (setEditingOrderInfo) setEditingOrderInfo(null);
+    if (bumpOrdersRefresh) bumpOrdersRefresh(); // Forca a tela "Orcamentos" a recarregar do banco
     setPage("orders");
   };
 
@@ -2552,8 +2557,35 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
-      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 6px" }}>Resumo do Orçamento</h1>
-      <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Confira os produtos, adicione margem e frete</p>
+      {editingOrderId && editingOrderInfo ? (
+        <>
+          <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}25, ${COLORS.orange}10)`, border: `1.5px solid ${COLORS.orange}`, borderRadius: 12, padding: "14px 18px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+              <span style={{ fontSize: 22 }}>➕</span>
+              <div>
+                <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Acrescentando itens ao orçamento</div>
+                <div style={{ color: COLORS.white, fontSize: 15, fontWeight: 700, fontFamily: "'Playfair Display', serif", marginTop: 2 }}>
+                  #{editingOrderInfo.num}{editingOrderInfo.empresa ? ` — ${editingOrderInfo.empresa}` : ""}
+                </div>
+                <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>
+                  Orçamento atual: {editingOrderInfo.qtdItens} item(ns) • Total {fmt(editingOrderInfo.totalAtual)} → será somado aos itens abaixo
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => { setEditingOrderId(null); if (setEditingOrderInfo) setEditingOrderInfo(null); setItems([]); setMarkup(0); setFrete(0); setDesconto(0); setPage("orders"); }}
+              style={{ background: "transparent", border: `1px solid ${COLORS.textMuted}40`, color: COLORS.textMuted, padding: "6px 14px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}
+            >Cancelar</button>
+          </div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 22, margin: "0 0 6px" }}>Itens novos sendo adicionados</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Os produtos abaixo serão somados ao orçamento #{editingOrderInfo.num}. Margem e frete originais são preservados.</p>
+        </>
+      ) : (
+        <>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 6px" }}>Resumo do Orçamento</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Confira os produtos, adicione margem e frete</p>
+        </>
+      )}
 
       {/* Lista de produtos */}
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
@@ -2640,7 +2672,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
 }
 
 // ─── ORDERS ───
-function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplusProducts = [] }) {
+function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEditingOrderInfo, refreshKey = 0, uniplusProducts = [] }) {
   const [orders, setOrders] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
@@ -2868,7 +2900,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
       }
     };
     loadOrders();
-  }, [user.id]);
+  }, [user.id, refreshKey]);
 
   const salvarAnotacoes = async () => {
     if (!anotacoesModal) return;
@@ -2888,7 +2920,16 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   };
 
   const addMoreItems = (orderId) => {
+    const o = orders.find(x => x.id === orderId);
     setEditingOrderId(orderId);
+    if (setEditingOrderInfo && o) {
+      setEditingOrderInfo({
+        num: orderId.slice(0, 6).toUpperCase(),
+        empresa: o.client?.empresa || o.vendedor || "",
+        qtdItens: (o.items || []).length,
+        totalAtual: Number(o.total) || 0,
+      });
+    }
     setCart([]);
     setPage("catalog");
   };
@@ -6495,6 +6536,8 @@ export default function App() {
   const EMPTY_CLIENT = { empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" };
   const [clientData, setClientData] = useState(EMPTY_CLIENT);
   const [editingOrderId, setEditingOrderId] = useState(null);
+  const [editingOrderInfo, setEditingOrderInfo] = useState(null); // { num, empresa, qtdItens, totalAtual } — mostrado no banner do Resumo
+  const [ordersRefreshKey, setOrdersRefreshKey] = useState(0); // incrementado apos salvar pra forcar reload da lista
   const [markup, setMarkup] = useState(0);
   const [frete, setFrete] = useState(0);
   const [desconto, setDesconto] = useState(0);
@@ -6635,11 +6678,11 @@ export default function App() {
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "catalog" && user && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} mppChinaProducts={mppChinaProducts} uniplusPriceMap={uniplusPriceMap} />}
       {page === "catalog" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
       {page === "quote" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} setEditingOrderInfo={setEditingOrderInfo} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} bumpOrdersRefresh={() => setOrdersRefreshKey(k => k + 1)} />}
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} uniplusProducts={uniplusProducts} />}
+      {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
