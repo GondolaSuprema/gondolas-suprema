@@ -2336,10 +2336,17 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
   const itemPrice = it => computeProductPrice(it.product, it.selVariants, it.selOpts, uniplusPriceMap);
   const itemTotal = it => itemPrice(it) * it.qty;
   const total = items.reduce((s, i) => s + itemTotal(i), 0);
-  // Desconto eh aplicado no SUBTOTAL DE CUSTO, antes de comissao e frete.
-  const baseComDesconto = Math.max(0, total - (Number(desconto) || 0));
-  const totalComissao = baseComDesconto * (markup || 0) / 100;
-  const totalFinal = baseComDesconto + totalComissao + (frete || 0);
+  // Modo "acrescentando ao orcamento existente": usa markup/frete/desconto do ORIGINAL
+  // pra mostrar o total combinado certinho. Senao usa os do state (orcamento novo).
+  const acrescentando = !!(editingOrderId && editingOrderInfo);
+  const subAntigo = acrescentando ? (editingOrderInfo.subtotalAntigo || 0) : 0;
+  const pctMk = acrescentando ? (editingOrderInfo.pctMarkup || 0) : ((markup || 0) / 100);
+  const desc = acrescentando ? (editingOrderInfo.descontoAtual || 0) : (Number(desconto) || 0);
+  const fr = acrescentando ? (editingOrderInfo.freteAtual || 0) : (Number(frete) || 0);
+  const subtotalCombinado = subAntigo + total;
+  const baseComDesconto = Math.max(0, subtotalCombinado - desc);
+  const totalComissao = baseComDesconto * pctMk;
+  const totalFinal = baseComDesconto + totalComissao + fr;
 
   if (!items.length) return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 20px", textAlign: "center" }}>
@@ -2412,35 +2419,53 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
       <button onClick={() => setPage("catalog")} style={{ width: "100%", background: COLORS.card, border: `2px dashed ${COLORS.border}`, color: COLORS.orange, padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 12, transition: "all .2s" }}>+ Adicionar mais produtos</button>
       <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
 
-      {/* Desconto (aplicado no custo, antes da comissao e frete) */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
-        <input type="number" min="0" value={desconto || ""} onChange={e => setDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.danger, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
-        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{desconto > 0 ? `Custo após desconto: ${fmt(baseComDesconto)}` : "Sem desconto"}</span>
-      </div>
-
-      {/* Comissão */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
-        <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
-        <div style={{ marginLeft: "auto", textAlign: "right" }}>
-          <div style={{ color: COLORS.success, fontSize: 16, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalComissao)}</div>
-          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre custo c/ desconto" : "Sem comissão"}</div>
+      {acrescentando ? (
+        <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}10, ${COLORS.orange}05)`, border: `1px dashed ${COLORS.orange}40`, borderRadius: 12, padding: "14px 18px", marginTop: 14, fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ color: COLORS.orange, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Valores preservados do orçamento original</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12, color: COLORS.textMuted }}>
+            <span>Margem: <strong style={{ color: COLORS.success }}>{(pctMk * 100).toFixed(2).replace(".",",")}%</strong></span>
+            <span>Desconto: <strong style={{ color: desc > 0 ? COLORS.danger : COLORS.textDim }}>{fmt(desc)}</strong></span>
+            <span>Frete: <strong style={{ color: fr > 0 ? COLORS.text : COLORS.textDim }}>{fmt(fr)}</strong></span>
+          </div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 8 }}>Pra alterar margem/desconto/frete, use o botão Editar no card do orçamento.</div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Desconto (aplicado no custo, antes da comissao e frete) */}
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
+            <input type="number" min="0" value={desconto || ""} onChange={e => setDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.danger, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+            <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{desconto > 0 ? `Custo após desconto: ${fmt(baseComDesconto)}` : "Sem desconto"}</span>
+          </div>
 
-      {/* Frete */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
-        <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
-        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{frete > 0 ? "Frete incluso no total" : "Sem frete"}</span>
-      </div>
+          {/* Comissão */}
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
+            <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+            <div style={{ marginLeft: "auto", textAlign: "right" }}>
+              <div style={{ color: COLORS.success, fontSize: 16, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalComissao)}</div>
+              <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre custo c/ desconto" : "Sem comissão"}</div>
+            </div>
+          </div>
+
+          {/* Frete */}
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
+            <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+            <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{frete > 0 ? "Frete incluso no total" : "Sem frete"}</span>
+          </div>
+        </>
+      )}
 
       <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}12, ${COLORS.orange}06)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 12, padding: "18px 22px", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total do orçamento (Custo − Desconto + Comissão + Frete)</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{acrescentando ? "Novo total do orçamento (atual + itens acrescentados)" : "Total do orçamento (Custo − Desconto + Comissão + Frete)"}</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: totalFinal === 0 ? COLORS.textDim : COLORS.orange }}>{totalFinal === 0 ? "Valores sob consulta" : fmt(totalFinal)}</div>
-          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{items.length} produto(s) · {items.reduce((s, i) => s + i.qty, 0)} un · Subtotal {fmt(total)}{desconto > 0 ? ` − desconto ${fmt(desconto)}` : ""}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>
+            {acrescentando
+              ? `${editingOrderInfo.qtdItens} item(ns) atual + ${items.length} novo(s) · subtotal combinado ${fmt(subtotalCombinado)}`
+              : `${items.length} produto(s) · ${items.reduce((s, i) => s + i.qty, 0)} un · Subtotal ${fmt(total)}${desconto > 0 ? ` − desconto ${fmt(desconto)}` : ""}`}
+          </div>
         </div>
         <button onClick={() => setPage("resumo")} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "12px 24px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Ver Resumo →</button>
       </div>
@@ -2456,13 +2481,21 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
   const itemBase = it => itemPrice(it) * it.qty;
 
   const subtotalProdutos = items.reduce((s, i) => s + itemBase(i), 0);
+  // Modo "acrescentando ao orcamento existente": preserva markup%/desconto/frete originais
+  const acrescentando = !!(editingOrderId && editingOrderInfo);
+  const subAntigo = acrescentando ? (editingOrderInfo.subtotalAntigo || 0) : 0;
+  const pctMk = acrescentando ? (editingOrderInfo.pctMarkup || 0) : ((markup || 0) / 100);
   // Desconto aplicado no SUBTOTAL DE CUSTO, antes de comissao e frete.
-  const descontoNum = Math.min(Math.max(0, Number(desconto) || 0), subtotalProdutos);
-  const subtotalComDesconto = subtotalProdutos - descontoNum;
-  const itemComissao = it => itemBase(it) * markup / 100; // exibicao por item (preview)
+  const descontoNum = acrescentando
+    ? (editingOrderInfo.descontoAtual || 0)
+    : Math.min(Math.max(0, Number(desconto) || 0), subtotalProdutos);
+  const subtotalCombinado = subAntigo + subtotalProdutos;
+  const subtotalComDesconto = Math.max(0, subtotalCombinado - descontoNum);
+  const freteEfetivo = acrescentando ? (editingOrderInfo.freteAtual || 0) : (Number(frete) || 0);
+  const itemComissao = it => itemBase(it) * (acrescentando ? pctMk * 100 : (markup || 0)) / 100; // preview por item
   const itemFinal = it => itemBase(it) + itemComissao(it);
-  const totalComissao = subtotalComDesconto * (markup || 0) / 100;
-  const totalFinal = subtotalComDesconto + totalComissao + (frete || 0);
+  const totalComissao = subtotalComDesconto * pctMk;
+  const totalFinal = subtotalComDesconto + totalComissao + freteEfetivo;
 
   const [saving, setSaving] = useState(false);
   const save = async () => {
@@ -2614,53 +2647,71 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
         </div>
       </div>
 
-      {/* Desconto (aplicado no custo, antes da comissao e frete) */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
-        <input type="number" min="0" value={desconto || ""} onChange={e => setDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.danger, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
-        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{descontoNum > 0 ? `Custo após desconto: ${fmt(subtotalComDesconto)}` : "Sem desconto"}</span>
-      </div>
-
-      {/* Comissão */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
-        <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
-        <div style={{ marginLeft: "auto", textAlign: "right" }}>
-          <div style={{ color: COLORS.success, fontSize: 16, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalComissao)}</div>
-          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre custo c/ desconto" : "Sem comissão"}</div>
+      {acrescentando ? (
+        <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}10, ${COLORS.orange}05)`, border: `1px dashed ${COLORS.orange}40`, borderRadius: 12, padding: "14px 18px", marginTop: 14, fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ color: COLORS.orange, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Valores preservados do orçamento original</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12, color: COLORS.textMuted }}>
+            <span>Margem: <strong style={{ color: COLORS.success }}>{(pctMk * 100).toFixed(2).replace(".",",")}%</strong></span>
+            <span>Desconto: <strong style={{ color: descontoNum > 0 ? COLORS.danger : COLORS.textDim }}>{fmt(descontoNum)}</strong></span>
+            <span>Frete: <strong style={{ color: freteEfetivo > 0 ? COLORS.text : COLORS.textDim }}>{fmt(freteEfetivo)}</strong></span>
+          </div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 8 }}>Pra alterar margem/desconto/frete, use o botão Editar no card do orçamento.</div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Desconto (aplicado no custo, antes da comissao e frete) */}
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
+            <input type="number" min="0" value={desconto || ""} onChange={e => setDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.danger, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+            <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{descontoNum > 0 ? `Custo após desconto: ${fmt(subtotalComDesconto)}` : "Sem desconto"}</span>
+          </div>
 
-      {/* Frete */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
-        <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
-        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{frete > 0 ? "Frete incluso no total" : "Sem frete"}</span>
-      </div>
+          {/* Comissão */}
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
+            <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+            <div style={{ marginLeft: "auto", textAlign: "right" }}>
+              <div style={{ color: COLORS.success, fontSize: 16, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalComissao)}</div>
+              <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre custo c/ desconto" : "Sem comissão"}</div>
+            </div>
+          </div>
+
+          {/* Frete */}
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
+            <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+            <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{frete > 0 ? "Frete incluso no total" : "Sem frete"}</span>
+          </div>
+        </>
+      )}
 
       {/* Observações */}
       <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
 
       {/* Total final */}
       <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}15, ${COLORS.orange}05)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 12, padding: "20px 22px", marginTop: 14 }}>
+        {acrescentando && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Custo do orçamento atual</span>
+          <span style={{ color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{fmt(subAntigo)}</span>
+        </div>}
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Produtos</span>
+          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{acrescentando ? "+ Itens novos" : "Produtos"}</span>
           <span style={{ color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{fmt(subtotalProdutos)}</span>
         </div>
         {descontoNum > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
           <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Desconto</span>
           <span style={{ color: COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>− {fmt(descontoNum)}</span>
         </div>}
-        {markup > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Comissão ({markup}%)</span>
+        {(acrescentando ? pctMk > 0 : markup > 0) && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Comissão ({((acrescentando ? pctMk * 100 : markup)).toFixed(2).replace(".",",")}%)</span>
           <span style={{ color: COLORS.success, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ {fmt(totalComissao)}</span>
         </div>}
-        {frete > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+        {(acrescentando ? freteEfetivo > 0 : frete > 0) && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
           <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Frete</span>
-          <span style={{ color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ {fmt(frete)}</span>
+          <span style={{ color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ {fmt(freteEfetivo)}</span>
         </div>}
         <div style={{ borderTop: `1px solid ${COLORS.orange}30`, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: COLORS.white, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>TOTAL FINAL</span>
+          <span style={{ color: COLORS.white, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{acrescentando ? "NOVO TOTAL DO ORÇAMENTO" : "TOTAL FINAL"}</span>
           <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 800, color: COLORS.orange }}>{fmt(totalFinal)}</span>
         </div>
       </div>
@@ -2923,11 +2974,20 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     const o = orders.find(x => x.id === orderId);
     setEditingOrderId(orderId);
     if (setEditingOrderInfo && o) {
+      // Calcula markup% original a partir do banco (mesma logica do save)
+      const subtotalAntigo = (o.items || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
+      const descAtual = Number(o.desconto) || 0;
+      const baseAntiga = Math.max(0, subtotalAntigo - descAtual);
+      const pctMarkup = baseAntiga > 0 ? (Number(o.comissao) || 0) / baseAntiga : 0;
       setEditingOrderInfo({
         num: orderId.slice(0, 6).toUpperCase(),
         empresa: o.client?.empresa || o.vendedor || "",
         qtdItens: (o.items || []).length,
         totalAtual: Number(o.total) || 0,
+        subtotalAntigo,             // custo dos itens existentes
+        pctMarkup,                  // ex: 0.2 = 20%
+        freteAtual: Number(o.frete) || 0,
+        descontoAtual: descAtual,
       });
     }
     setCart([]);
