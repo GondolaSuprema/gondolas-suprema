@@ -226,15 +226,20 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   // Esconde "China" só no PDF do cliente (mantem o nome original no banco e nas telas internas)
   var cleanForPdf = function(s) { return (s || "").replace(/\bchina\b/gi, "").replace(/\s+/g, " ").trim(); };
 
+  // Distribui comissao (e frete) proporcionalmente em cada item, pra soma dos subtotais bater com o TOTAL
+  var subtotalBase = (itemsWithIcons || []).reduce(function(s, it) { return s + (Number(it.total) || 0); }, 0);
+  var fator = (subtotalBase > 0 && total > 0) ? (total / subtotalBase) : 1;
+
   // Table
   var tableData = itemsWithIcons.map(function(it) {
+    var subtotalItem = (Number(it.total) || 0) * fator;
     return [
       "",
       cleanForPdf(it.name),
       cleanForPdf(it.cat),
       String(it.qty),
       it.opts && it.opts.length ? it.opts.join(", ") : "-",
-      fmt(it.total),
+      fmt(subtotalItem),
     ];
   });
 
