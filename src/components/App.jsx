@@ -1303,14 +1303,17 @@ function getItemCusto(item, order) {
   const orderTotal = Number(order.total) || 0;
   const orderComissao = Number(order.comissao) || 0;
   const orderFrete = Number(order.frete) || 0;
-  const totalSemFrete = orderTotal - orderFrete;
+  const orderDesconto = Number(order.desconto) || 0;
+  // Total salvo = (subtotalCusto - desconto) + comissao + frete
+  // => subtotalCusto esperado = total + desconto - comissao - frete
+  const subtotalEsperado = orderTotal + orderDesconto - orderComissao - orderFrete;
   const somaItens = (order.items || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
-  const itensTeemComissao = Math.abs(somaItens - totalSemFrete) < 1 && orderComissao > 0;
-  if (!itensTeemComissao) return itemTotal;
-  const custoTotal = totalSemFrete - orderComissao;
-  if (custoTotal <= 0) return itemTotal;
-  const fator = custoTotal / somaItens;
-  return itemTotal * fator;
+  // Se a soma dos itens ja bate com o custo (caso normal: items salvos em CUSTO PURO),
+  // retorna o valor direto.
+  if (subtotalEsperado <= 0 || somaItens <= 0) return itemTotal;
+  if (Math.abs(somaItens - subtotalEsperado) < 1) return itemTotal;
+  // Senao, items tem comissao embutida (legado): aplica fator pra extrair so o custo.
+  return itemTotal * subtotalEsperado / somaItens;
 }
 
 function formatarCnpj(valor) {
@@ -2320,7 +2323,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
 }
 
 // ─── QUOTE ───
-function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId, markup, setMarkup, frete, setFrete, uniplusPriceMap }) {
+function Quote({ items, setItems, user, setPage, clientData, editingOrderId, setEditingOrderId, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap }) {
   const [notes, setNotes] = useState("");
   const upd = (i, f, v) => { const c = [...items]; c[i] = { ...c[i], [f]: v }; setItems(c); };
   const togOpt = (i, oi) => { const c = [...items]; c[i] = { ...c[i], selOpts: [oi] }; setItems(c); };
@@ -2333,8 +2336,10 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
   const itemPrice = it => computeProductPrice(it.product, it.selVariants, it.selOpts, uniplusPriceMap);
   const itemTotal = it => itemPrice(it) * it.qty;
   const total = items.reduce((s, i) => s + itemTotal(i), 0);
-  const totalComissao = total * (markup || 0) / 100;
-  const totalFinal = total + totalComissao + (frete || 0);
+  // Desconto eh aplicado no SUBTOTAL DE CUSTO, antes de comissao e frete.
+  const baseComDesconto = Math.max(0, total - (Number(desconto) || 0));
+  const totalComissao = baseComDesconto * (markup || 0) / 100;
+  const totalFinal = baseComDesconto + totalComissao + (frete || 0);
 
   if (!items.length) return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 20px", textAlign: "center" }}>
@@ -2404,13 +2409,20 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
       <button onClick={() => setPage("catalog")} style={{ width: "100%", background: COLORS.card, border: `2px dashed ${COLORS.border}`, color: COLORS.orange, padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 12, transition: "all .2s" }}>+ Adicionar mais produtos</button>
       <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
 
+      {/* Desconto (aplicado no custo, antes da comissao e frete) */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
+        <input type="number" min="0" value={desconto || ""} onChange={e => setDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.danger, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{desconto > 0 ? `Custo após desconto: ${fmt(baseComDesconto)}` : "Sem desconto"}</span>
+      </div>
+
       {/* Comissão */}
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
         <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
         <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
         <div style={{ marginLeft: "auto", textAlign: "right" }}>
           <div style={{ color: COLORS.success, fontSize: 16, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalComissao)}</div>
-          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre produtos" : "Sem comissão"}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre custo c/ desconto" : "Sem comissão"}</div>
         </div>
       </div>
 
@@ -2423,9 +2435,9 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
 
       <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}12, ${COLORS.orange}06)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 12, padding: "18px 22px", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total do orçamento (Custo + Comissão + Frete)</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total do orçamento (Custo − Desconto + Comissão + Frete)</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: totalFinal === 0 ? COLORS.textDim : COLORS.orange }}>{totalFinal === 0 ? "Valores sob consulta" : fmt(totalFinal)}</div>
-          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{items.length} produto(s) · {items.reduce((s, i) => s + i.qty, 0)} un · Subtotal {fmt(total)}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{items.length} produto(s) · {items.reduce((s, i) => s + i.qty, 0)} un · Subtotal {fmt(total)}{desconto > 0 ? ` − desconto ${fmt(desconto)}` : ""}</div>
         </div>
         <button onClick={() => setPage("resumo")} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "12px 24px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Ver Resumo →</button>
       </div>
@@ -2434,17 +2446,20 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
 }
 
 // ─── RESUMO ───
-function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, setItems, markup, setMarkup, frete, setFrete, uniplusPriceMap }) {
+function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, setItems, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap }) {
   const [notes, setNotes] = useState("");
 
   const itemPrice = it => computeProductPrice(it.product, it.selVariants, it.selOpts, uniplusPriceMap);
   const itemBase = it => itemPrice(it) * it.qty;
-  const itemComissao = it => itemBase(it) * markup / 100;
-  const itemFinal = it => itemBase(it) + itemComissao(it);
 
   const subtotalProdutos = items.reduce((s, i) => s + itemBase(i), 0);
-  const totalComissao = items.reduce((s, i) => s + itemComissao(i), 0);
-  const totalFinal = subtotalProdutos + totalComissao + frete;
+  // Desconto aplicado no SUBTOTAL DE CUSTO, antes de comissao e frete.
+  const descontoNum = Math.min(Math.max(0, Number(desconto) || 0), subtotalProdutos);
+  const subtotalComDesconto = subtotalProdutos - descontoNum;
+  const itemComissao = it => itemBase(it) * markup / 100; // exibicao por item (preview)
+  const itemFinal = it => itemBase(it) + itemComissao(it);
+  const totalComissao = subtotalComDesconto * (markup || 0) / 100;
+  const totalFinal = subtotalComDesconto + totalComissao + (frete || 0);
 
   const [saving, setSaving] = useState(false);
   const save = async () => {
@@ -2470,11 +2485,22 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
         const { data: existing } = await supabase.from("orcamentos").select("*").eq("id", editingOrderId).single();
         if (existing) {
           const updatedItems = [...(existing.items || []), ...newItems];
-          const updatedTotal = updatedItems.reduce((s, i) => s + i.total, 0) + frete;
+          const descAtual = Number(existing.desconto) || 0;
+          // Recupera markup% original: pct = comissao / (subtotalAntigo - desconto)
+          const subtotalAntigo = (existing.items || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
+          const baseAntiga = Math.max(0, subtotalAntigo - descAtual);
+          const pctMarkup = baseAntiga > 0 ? (Number(existing.comissao) || 0) / baseAntiga : 0;
+          // Recalcula com o novo subtotal (preservando desconto e markup% originais)
+          const novoSubtotal = updatedItems.reduce((s, i) => s + (Number(i.total) || 0), 0);
+          const novaBase = Math.max(0, novoSubtotal - descAtual);
+          const novaComissao = novaBase * pctMarkup;
+          const novoFrete = (Number(existing.frete) || 0) + (Number(frete) || 0);
+          const updatedTotal = novaBase + novaComissao + novoFrete;
           await supabase.from("orcamentos").update({
             items: updatedItems,
             total: updatedTotal,
-            frete: (existing.frete || 0) + frete,
+            frete: novoFrete,
+            comissao: novaComissao,
             data: new Date().toISOString(),
             notes: notes ? (existing.notes ? existing.notes + "\n" + notes : notes) : existing.notes,
           }).eq("id", editingOrderId);
@@ -2501,6 +2527,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           total: totalFinal,
           frete,
           comissao: totalComissao,
+          desconto: descontoNum,
           notes,
           status: "Aguardando Retorno",
         });
@@ -2510,6 +2537,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
     setItems([]);
     setMarkup(0);
     setFrete(0);
+    setDesconto(0);
     setPage("orders");
   };
 
@@ -2554,13 +2582,20 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
         </div>
       </div>
 
+      {/* Desconto (aplicado no custo, antes da comissao e frete) */}
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
+        <input type="number" min="0" value={desconto || ""} onChange={e => setDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.danger, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{descontoNum > 0 ? `Custo após desconto: ${fmt(subtotalComDesconto)}` : "Sem desconto"}</span>
+      </div>
+
       {/* Comissão */}
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
         <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
         <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
         <div style={{ marginLeft: "auto", textAlign: "right" }}>
           <div style={{ color: COLORS.success, fontSize: 16, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalComissao)}</div>
-          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre produtos" : "Sem comissão"}</div>
+          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{markup > 0 ? markup + "% sobre custo c/ desconto" : "Sem comissão"}</div>
         </div>
       </div>
 
@@ -2580,6 +2615,10 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Produtos</span>
           <span style={{ color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{fmt(subtotalProdutos)}</span>
         </div>
+        {descontoNum > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Desconto</span>
+          <span style={{ color: COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>− {fmt(descontoNum)}</span>
+        </div>}
         {markup > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
           <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Comissão ({markup}%)</span>
           <span style={{ color: COLORS.success, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ {fmt(totalComissao)}</span>
@@ -2613,6 +2652,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const [editingId, setEditingId] = useState(null);
   const [editItems, setEditItems] = useState([]);
   const [editFrete, setEditFrete] = useState(0);
+  const [editDesconto, setEditDesconto] = useState(0);
   const [editMarkup, setEditMarkup] = useState(0);
   const [editNotes, setEditNotes] = useState("");
   const [editClient, setEditClient] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "" });
@@ -2697,6 +2737,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     const itensCusto = (o.items || []).map(it => ({ ...it, total: getItemCusto(it, o) }));
     setEditItems(itensCusto);
     setEditFrete(o.frete || 0);
+    setEditDesconto(o.desconto || 0);
     setEditNotes(o.notes || "");
     // Pre-preenche dados do cliente (editaveis no modo edit)
     const c = o.client || {};
@@ -2712,9 +2753,10 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
       estado: c.estado || "",
       cep: c.cep || "",
     });
-    // Recuperar a margem do orcamento como percentual aplicado
+    // Recuperar a margem do orcamento como percentual aplicado (sobre custo COM desconto)
     const subCusto = itensCusto.reduce((s, it) => s + (Number(it.total) || 0), 0);
-    const markupAtual = subCusto > 0 ? Math.round(((Number(o.comissao) || 0) / subCusto) * 100) : 0;
+    const baseComDesc = Math.max(0, subCusto - (Number(o.desconto) || 0));
+    const markupAtual = baseComDesc > 0 ? Math.round(((Number(o.comissao) || 0) / baseComDesc) * 100) : 0;
     setEditMarkup(markupAtual);
   };
 
@@ -2722,6 +2764,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     setEditingId(null);
     setEditItems([]);
     setEditFrete(0);
+    setEditDesconto(0);
     setEditMarkup(0);
     setEditNotes("");
     setEditClient({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "" });
@@ -2730,9 +2773,11 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
   const saveEdit = async (orderId) => {
     setSaving(true);
     const subtotalCusto = editItems.reduce((s, it) => s + (Number(it.total) || 0), 0);
-    const comissao = subtotalCusto * (Number(editMarkup) || 0) / 100;
+    const desconto = Math.min(Math.max(0, Number(editDesconto) || 0), subtotalCusto);
+    const baseComDesconto = subtotalCusto - desconto;
+    const comissao = baseComDesconto * (Number(editMarkup) || 0) / 100;
     const frete = Number(editFrete) || 0;
-    const newTotal = subtotalCusto + comissao + frete;
+    const newTotal = baseComDesconto + comissao + frete;
     // Normaliza cnpj (so digitos) e cep
     const cnpjDigits = (editClient.cnpj || "").replace(/\D/g, "");
     const cepDigits = (editClient.cep || "").replace(/\D/g, "");
@@ -2742,6 +2787,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
       total: newTotal,
       frete,
       comissao,
+      desconto,
       notes: editNotes,
       // Dados do cliente (atualizados no modo edicao)
       cliente_empresa: editClient.empresa || null,
@@ -2757,7 +2803,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
     }).eq("id", orderId);
     setOrders(orders.map(o => o.id === orderId ? {
       ...o,
-      items: editItems, total: newTotal, frete, comissao, notes: editNotes,
+      items: editItems, total: newTotal, frete, comissao, desconto, notes: editNotes,
       client: { ...(o.client || {}), ...editClient, cnpj: cnpjDigits, cep: cepDigits, telefone: telDigits },
     } : o));
     setSaving(false);
@@ -3403,7 +3449,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                   {(() => {
                     const valorComissao = Number(o.comissao) || 0;
                     const valorFrete = Number(o.frete) || 0;
-                    const valorCusto = (Number(o.total) || 0) - valorComissao - valorFrete;
+                    const valorDesconto = Number(o.desconto) || 0;
+                    // Total = (Custo - Desconto) + Comissao + Frete  =>  Custo = Total + Desconto - Comissao - Frete
+                    const valorCusto = (Number(o.total) || 0) + valorDesconto - valorComissao - valorFrete;
                     const linhaStyle = { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", fontFamily: "'DM Sans', sans-serif" };
                     const labelStyle = { color: COLORS.textMuted, fontSize: 12 };
                     const valorStyle = { color: COLORS.text, fontSize: 13, fontWeight: 600 };
@@ -3413,6 +3461,12 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                           <span style={labelStyle}>Valor Custo</span>
                           <span style={valorStyle}>{fmtMoney(valorCusto)}</span>
                         </div>
+                        {valorDesconto > 0 && (
+                          <div style={linhaStyle}>
+                            <span style={labelStyle}>− Desconto</span>
+                            <span style={{ ...valorStyle, color: COLORS.danger }}>{fmtMoney(valorDesconto)}</span>
+                          </div>
+                        )}
                         <div style={linhaStyle}>
                           <span style={labelStyle}>+ Valor Comissão</span>
                           <span style={{ ...valorStyle, color: valorComissao > 0 ? COLORS.success : COLORS.textDim }}>{fmtMoney(valorComissao)}</span>
@@ -3592,11 +3646,18 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                     })}
                   </div>
 
+                  {/* Edit Desconto */}
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
+                    <input type="number" min="0" value={editDesconto || ""} onChange={e => setEditDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 100, padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.danger, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+                    <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{editDesconto > 0 ? "Aplicado antes da comissão" : "Sem desconto"}</span>
+                  </div>
+
                   {/* Edit Markup */}
                   <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Aplicar margem (%):</span>
                     <input type="number" min="0" max="500" value={editMarkup || ""} onChange={e => setEditMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 70, padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
-                    <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{editMarkup > 0 ? "+" + editMarkup + "% sobre cada item" : "Sem margem extra"}</span>
+                    <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{editMarkup > 0 ? "+" + editMarkup + "% sobre custo c/ desconto" : "Sem margem extra"}</span>
                   </div>
 
                   {/* Edit Frete */}
@@ -3609,24 +3670,38 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, uniplus
                   <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Observações..." rows={2} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "10px 14px", fontSize: 12, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginBottom: 14 }} />
 
                   {/* Edit Total Preview */}
-                  <div style={{ background: `linear-gradient(135deg, #3B82F615, #3B82F605)`, border: "1px solid #3B82F630", borderRadius: 10, padding: "12px 16px", marginBottom: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Subtotal itens</span>
-                      <span style={{ color: COLORS.text, fontSize: 11 }}>{fmt(editItems.reduce((s, it) => s + (it.total || 0), 0))}</span>
-                    </div>
-                    {editMarkup > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Margem ({editMarkup}%)</span>
-                      <span style={{ color: COLORS.success, fontSize: 11 }}>+{fmt(editItems.reduce((s, it) => s + (it.total || 0), 0) * editMarkup / 100)}</span>
-                    </div>}
-                    {editFrete > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Frete</span>
-                      <span style={{ color: COLORS.text, fontSize: 11 }}>+{fmt(editFrete)}</span>
-                    </div>}
-                    <div style={{ borderTop: "1px solid #3B82F630", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: COLORS.white, fontSize: 13, fontWeight: 700 }}>NOVO TOTAL</span>
-                      <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 800, color: "#3B82F6" }}>{fmt((editMarkup > 0 ? editItems.reduce((s, it) => s + (it.total || 0) + (it.total || 0) * editMarkup / 100, 0) : editItems.reduce((s, it) => s + (it.total || 0), 0)) + editFrete)}</span>
-                    </div>
-                  </div>
+                  {(() => {
+                    const subCusto = editItems.reduce((s, it) => s + (Number(it.total) || 0), 0);
+                    const desc = Math.min(Math.max(0, Number(editDesconto) || 0), subCusto);
+                    const baseDesc = subCusto - desc;
+                    const com = baseDesc * (Number(editMarkup) || 0) / 100;
+                    const fr = Number(editFrete) || 0;
+                    const novoTotal = baseDesc + com + fr;
+                    return (
+                      <div style={{ background: `linear-gradient(135deg, #3B82F615, #3B82F605)`, border: "1px solid #3B82F630", borderRadius: 10, padding: "12px 16px", marginBottom: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Subtotal itens</span>
+                          <span style={{ color: COLORS.text, fontSize: 11 }}>{fmt(subCusto)}</span>
+                        </div>
+                        {desc > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Desconto</span>
+                          <span style={{ color: COLORS.danger, fontSize: 11 }}>−{fmt(desc)}</span>
+                        </div>}
+                        {editMarkup > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Margem ({editMarkup}%)</span>
+                          <span style={{ color: COLORS.success, fontSize: 11 }}>+{fmt(com)}</span>
+                        </div>}
+                        {fr > 0 && <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ color: COLORS.textMuted, fontSize: 11 }}>Frete</span>
+                          <span style={{ color: COLORS.text, fontSize: 11 }}>+{fmt(fr)}</span>
+                        </div>}
+                        <div style={{ borderTop: "1px solid #3B82F630", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ color: COLORS.white, fontSize: 13, fontWeight: 700 }}>NOVO TOTAL</span>
+                          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 800, color: "#3B82F6" }}>{fmt(novoTotal)}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Save Edit */}
                   <button onClick={() => saveEdit(o.id)} disabled={saving} style={{ width: "100%", background: saving ? COLORS.textDim : "#3B82F6", color: "#fff", border: "none", padding: "12px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: saving ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif" }}>{saving ? "Salvando..." : "Salvar Alterações"}</button>
@@ -6360,6 +6435,7 @@ export default function App() {
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [markup, setMarkup] = useState(0);
   const [frete, setFrete] = useState(0);
+  const [desconto, setDesconto] = useState(0);
   const [uniplusProducts, setUniplusProducts] = useState([]);
   const [mppChinaProducts, setMppChinaProducts] = useState([]);
   // Indexa preços por id (legado) E por nome normalizado (forma estável).
@@ -6470,6 +6546,7 @@ export default function App() {
     setCart([]);
     setMarkup(0);
     setFrete(0);
+    setDesconto(0);
     setUser(null);
     setPage("login");
   };
@@ -6496,9 +6573,9 @@ export default function App() {
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "catalog" && user && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} mppChinaProducts={mppChinaProducts} uniplusPriceMap={uniplusPriceMap} />}
       {page === "catalog" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
       {page === "quote" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
