@@ -4861,10 +4861,18 @@ function AdminPage({ user }) {
 
       {/* Relatório Vendas Concluídas por Mês */}
       {(() => {
-        const concluidos = allOrders.filter(o => o.status === "Concluído");
+        // Respeita os filtros principais (vendedor + cidade) na tabela Vendas Concluidas.
+        // Mes: usa o filtro principal se aplicado, senao o select interno.
+        const concluidos = allOrders.filter(o => {
+          if (o.status !== "Concluído") return false;
+          if (appliedVendedor !== "all" && o.vendedor !== appliedVendedor) return false;
+          if (appliedCidade !== "all" && (o.client?.cidade || "") !== appliedCidade) return false;
+          return true;
+        });
         const meses = [...new Set(concluidos.map(o => { const d = new Date(o.date); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }))].sort().reverse();
         const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
-        const activeMes = mesSel || meses[0] || "";
+        // Filtro de mes principal tem prioridade sobre o select interno
+        const activeMes = (appliedMes !== "all" ? appliedMes : mesSel) || meses[0] || "";
 
         const updateVendaStatus = async (orderId, newSt) => {
           setVendaStatus(prev => ({ ...prev, [orderId]: newSt }));
