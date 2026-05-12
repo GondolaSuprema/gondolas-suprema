@@ -3536,9 +3536,14 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                       <span style={{ marginLeft: 8, color: COLORS.textDim }}>{new Date(o.date).toLocaleDateString("pt-BR")}</span>
                       <span style={{ marginLeft: 8, color: COLORS.textDim }}>{o.items.length} {o.items.length === 1 ? "item" : "itens"}</span>
                     </div>
-                    {o.client?.telefone && (
-                      <div style={{ fontSize: 11, color: "#10B981", fontFamily: "'DM Sans', sans-serif", marginTop: 3, fontWeight: 600 }}>
-                        📱 {formatarCelular(o.client.telefone)}
+                    {(o.client?.telefone || o.client?.cidade) && (
+                      <div style={{ fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 3, fontWeight: 600, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                        {o.client?.telefone && (
+                          <span style={{ color: "#10B981" }}>📱 {formatarCelular(o.client.telefone)}</span>
+                        )}
+                        {o.client?.cidade && (
+                          <span style={{ color: COLORS.textMuted }}>📍 {o.client.cidade}{o.client?.estado ? `/${o.client.estado}` : ""}</span>
+                        )}
                       </div>
                     )}
                   </div>
