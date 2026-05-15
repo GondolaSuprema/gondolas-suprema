@@ -1358,7 +1358,7 @@ const COMPANY = {
   site: "www.gondolasuprema.com",
 };
 
-const pdfStyles = `@page{size:A4;margin:20mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Helvetica,Arial,sans-serif;padding:36px;color:#1a1a1a;max-width:800px;margin:auto;position:relative}.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.06;z-index:0;pointer-events:none;width:400px;height:auto}.content{position:relative;z-index:1}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F5A623;padding-bottom:18px;margin-bottom:24px}.logo-area{display:flex;align-items:center;gap:12px}.logo-area img{height:60px}.logo-text{font-size:10px;color:#666;line-height:1.5;margin-top:4px}.info{text-align:right;font-size:11px;color:#666;line-height:1.6}table{width:100%;border-collapse:collapse;margin:12px 0}th{background:#f5f5f5;text-align:left;padding:8px 10px;font-size:11px;border-bottom:2px solid #ddd;color:#555;text-transform:uppercase;letter-spacing:.5px}td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;vertical-align:middle}.tr td{font-weight:700;font-size:14px;border-top:2px solid #333;border-bottom:none;padding-top:12px}.n{background:#fafafa;padding:14px;border-radius:6px;margin:16px 0;font-size:12px;color:#555}.ft{margin-top:32px;padding-top:12px;border-top:1px solid #eee;font-size:10px;color:#999;text-align:center}.foto-cell{width:54px;text-align:center}.foto-cell img{width:46px;height:46px;object-fit:contain;border-radius:4px;background:#fafafa}.pgto-title{font-size:13px;font-weight:700;color:#333;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.5px}.pgto-info{font-size:12px;color:#555;margin:2px 0}.pgto-table th{font-size:10px;text-align:center}.pgto-table td{text-align:center;font-size:11px}.pgto-obs{font-size:11px;color:#888;font-style:italic;margin-top:8px}tbody tr:nth-child(even){background:#fbfbfb}.resumo{width:100%;margin:0 0 8px}.resumo .row{display:flex;justify-content:space-between;align-items:center;padding:10px;font-size:12px;color:#555;border-bottom:1px solid #eee}.resumo .row span:last-child{font-weight:700;color:#1a1a1a;font-size:13px}.resumo .grand{display:flex;justify-content:space-between;align-items:center;padding:12px 10px;border-top:2px solid #333}.resumo .grand .lbl{font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#1a1a1a}.resumo .grand .val{font-size:18px;font-weight:800;font-family:Georgia,'Times New Roman',serif;color:#F5A623}.resumo .frete-note{font-size:10px;color:#999;text-align:right;padding:6px 10px 0;font-style:italic}@media print{body{padding:0}.watermark{position:fixed;opacity:0.06}.resumo{box-shadow:none}}`;
+const pdfStyles = `@page{size:A4;margin:20mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Helvetica,Arial,sans-serif;padding:36px;color:#1a1a1a;max-width:800px;margin:auto;position:relative}.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.06;z-index:0;pointer-events:none;width:400px;height:auto}.content{position:relative;z-index:1}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F5A623;padding-bottom:18px;margin-bottom:24px}.logo-area{display:flex;align-items:center;gap:12px}.logo-area img{height:60px}.logo-text{font-size:10px;color:#666;line-height:1.5;margin-top:4px}.info{text-align:right;font-size:11px;color:#666;line-height:1.6}table{width:100%;border-collapse:collapse;margin:12px 0}th{background:#f5f5f5;text-align:left;padding:8px 10px;font-size:11px;border-bottom:2px solid #ddd;color:#555;text-transform:uppercase;letter-spacing:.5px}td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;vertical-align:middle}.tr td{font-weight:700;font-size:14px;border-top:2px solid #333;border-bottom:none;padding-top:12px}.n{background:#fafafa;padding:14px;border-radius:6px;margin:16px 0;font-size:12px;color:#555}.ft{margin-top:32px;padding-top:12px;border-top:1px solid #eee;font-size:10px;color:#999;text-align:center}.foto-cell{width:54px;text-align:center}.foto-cell img{width:46px;height:46px;object-fit:contain;border-radius:4px;background:#fafafa}.pgto-title{font-size:13px;font-weight:700;color:#333;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.5px}.pgto-info{font-size:12px;color:#555;margin:2px 0}.pgto-table th{font-size:10px;text-align:center}.pgto-table td{text-align:center;font-size:11px}.pgto-obs{font-size:11px;color:#888;font-style:italic;margin-top:8px}.pgto-2col td,.pgto-2col th{font-size:10px;padding:5px 7px}.pgto-table .gap{width:16px;background:transparent;border-left:none;border-right:none}tbody tr:nth-child(even){background:#fbfbfb}.resumo{width:100%;margin:0 0 8px}.resumo .row{display:flex;justify-content:space-between;align-items:center;padding:10px;font-size:12px;color:#555;border-bottom:1px solid #eee}.resumo .row span:last-child{font-weight:700;color:#1a1a1a;font-size:13px}.resumo .grand{display:flex;justify-content:space-between;align-items:center;padding:12px 10px;border-top:2px solid #333}.resumo .grand .lbl{font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#1a1a1a}.resumo .grand .val{font-size:18px;font-weight:800;font-family:Georgia,'Times New Roman',serif;color:#F5A623}.resumo .frete-note{font-size:10px;color:#999;text-align:right;padding:6px 10px 0;font-style:italic}@media print{body{padding:0}.watermark{position:fixed;opacity:0.06}.resumo{box-shadow:none}}`;
 
 const ICON_FILE_MAP = {
   "parede-branca": "parede-branca.jpeg",
@@ -1439,15 +1439,25 @@ const CARTAO_TAXAS_HTML = [
 
 function buildCardSection(total) {
   if (!total || total <= 0) return "";
-  const linhas = CARTAO_TAXAS_HTML.map(({ parcelas, taxa }) => {
+  const ops = CARTAO_TAXAS_HTML.map(({ parcelas, taxa }) => {
     const totalCobrado = total / (1 - taxa);
-    const valorParcela = totalCobrado / parcelas;
-    return `<tr><td><strong>${parcelas}x</strong></td><td>${fmt(valorParcela)}</td><td>${fmt(totalCobrado)}</td></tr>`;
-  }).join("");
+    return { parcelas, valorParcela: totalCobrado / parcelas, totalCobrado };
+  });
+  // Divide em 2 blocos lado a lado pra economizar altura no orçamento
+  const meio = Math.ceil(ops.length / 2);
+  const esq = ops.slice(0, meio);
+  const dir = ops.slice(meio);
+  const cel = (o) => o
+    ? `<td><strong>${o.parcelas}x</strong></td><td>${fmt(o.valorParcela)}</td><td>${fmt(o.totalCobrado)}</td>`
+    : `<td></td><td></td><td></td>`;
+  const linhas = esq.map((o, i) =>
+    `<tr>${cel(o)}<td class="gap"></td>${cel(dir[i])}</tr>`
+  ).join("");
+  const th = `<th>Parc.</th><th>Valor parcela</th><th>Total</th>`;
   return `
     <div class="pgto-title">Opções de Pagamento — Cartão de Crédito</div>
-    <table class="pgto-table">
-      <thead><tr><th>Parcelas</th><th>Valor da parcela</th><th>Total no cartão</th></tr></thead>
+    <table class="pgto-table pgto-2col">
+      <thead><tr>${th}<th class="gap"></th>${th}</tr></thead>
       <tbody>${linhas}</tbody>
     </table>
     <div class="pgto-obs">*Parcelamento no cartão sujeito às taxas da operadora.</div>

@@ -435,31 +435,39 @@ export async function generatePDF({ orderNum, date, client, items, total, frete,
     doc.setTextColor(30);
     doc.text("OPCOES DE PAGAMENTO - CARTAO DE CREDITO", margin, cartaoTitleY);
 
-    var bodyCartao = calcularOpcoesCartao(total).map(function (op) {
-      return [
-        op.parcelas + "x",
-        fmt(op.valorParcela),
-        fmt(op.totalCobrado),
-      ];
+    var opsCartao = calcularOpcoesCartao(total);
+    var meioC = Math.ceil(opsCartao.length / 2);
+    var esqC = opsCartao.slice(0, meioC);
+    var dirC = opsCartao.slice(meioC);
+    var celC = function (op) {
+      return op
+        ? [op.parcelas + "x", fmt(op.valorParcela), fmt(op.totalCobrado)]
+        : ["", "", ""];
+    };
+    var bodyCartao = esqC.map(function (op, i) {
+      return celC(op).concat(celC(dirC[i]));
     });
 
     doc.autoTable({
       startY: cartaoTitleY + 4,
-      head: [["Parcelas", "Valor da parcela", "Total no cartao"]],
+      head: [["Parc.", "Valor parcela", "Total", "Parc.", "Valor parcela", "Total"]],
       body: bodyCartao,
       theme: "grid",
       headStyles: {
         fillColor: [245, 245, 245],
         textColor: [80, 80, 80],
         fontStyle: "bold",
-        fontSize: 8,
+        fontSize: 7.5,
         halign: "center",
       },
-      bodyStyles: { fontSize: 8, textColor: [40, 40, 40], halign: "center" },
+      bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40], halign: "center" },
       columnStyles: {
-        0: { cellWidth: 30, fontStyle: "bold", halign: "center" },
-        1: { cellWidth: 75, halign: "right" },
-        2: { cellWidth: 75, halign: "right" },
+        0: { cellWidth: 18, fontStyle: "bold", halign: "center" },
+        1: { cellWidth: 36, halign: "right" },
+        2: { cellWidth: 36, halign: "right" },
+        3: { cellWidth: 18, fontStyle: "bold", halign: "center" },
+        4: { cellWidth: 36, halign: "right" },
+        5: { cellWidth: 36, halign: "right" },
       },
       margin: { left: margin, right: margin },
     });
