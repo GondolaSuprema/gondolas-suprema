@@ -4483,6 +4483,8 @@ function AdminPage({ user }) {
   const [appliedVendedor, setAppliedVendedor] = useState("all");
   const [appliedCidade, setAppliedCidade] = useState("all");
   const [appliedMes, setAppliedMes] = useState("all");
+  // Busca livre por nome do cliente / nº do orçamento (aplica na hora)
+  const [buscaNome, setBuscaNome] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   // Edicao inline do orcamento direto da ADM (admin/gestor — Ale e Zanella)
@@ -4683,10 +4685,18 @@ function AdminPage({ user }) {
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
   };
 
+  const buscaNorm = buscaNome.trim().toLowerCase();
   const filtered = allOrders.filter(o => {
     if (appliedVendedor !== "all" && o.vendedor !== appliedVendedor) return false;
     if (appliedCidade !== "all" && o.client?.cidade !== appliedCidade) return false;
     if (appliedMes !== "all" && chaveMes(o.date) !== appliedMes) return false;
+    if (buscaNorm) {
+      const alvo = [
+        o.client?.empresa, o.client?.responsavel, o.vendedor,
+        o.client?.cidade, o.id, (o.id || "").slice(0, 6),
+      ].filter(Boolean).join(" ").toLowerCase();
+      if (!alvo.includes(buscaNorm)) return false;
+    }
     return true;
   });
 
@@ -5096,6 +5106,21 @@ function AdminPage({ user }) {
           </div>
         ) : null;
       })()}
+
+      {/* Busca por nome do cliente / nº do orçamento */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0 14px", position: "relative" }}>
+        <span style={{ position: "absolute", left: 12, color: COLORS.textDim, fontSize: 14, pointerEvents: "none" }}>🔍</span>
+        <input
+          type="text"
+          value={buscaNome}
+          onChange={e => setBuscaNome(e.target.value)}
+          placeholder="Buscar orçamento por nome do cliente, cidade, vendedor ou nº…"
+          style={{ width: "100%", padding: "11px 14px 11px 36px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}
+        />
+        {buscaNome && (
+          <button onClick={() => setBuscaNome("")} style={{ position: "absolute", right: 10, background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16, lineHeight: 1 }} title="Limpar busca">×</button>
+        )}
+      </div>
 
       {/* Lista */}
       {filtered.length === 0 ? (
