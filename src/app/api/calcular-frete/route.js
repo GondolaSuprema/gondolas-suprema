@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 // Custo por km rodado = 7,69 / 11 ≈ R$ 0,699.
 // Considera IDA E VOLTA (o veículo entrega e retorna pra Palhoça).
 // Para ajustar no futuro, mude só estas constantes.
-const PRECO_DIESEL = 7.69;     // R$ por litro
+const PRECO_DIESEL = 8.50;     // R$ por litro
 const KM_POR_LITRO = 11;       // km que o veículo faz por litro
 const IDA_E_VOLTA = true;      // multiplica a distância por 2 (vai e volta)
 
