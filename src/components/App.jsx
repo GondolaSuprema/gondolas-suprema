@@ -1424,6 +1424,36 @@ function buildPaymentSection(total, comissao) {
   `;
 }
 
+// Cartão de crédito (Mercado Pago Point). taxa = taxa total decimal
+// validada contra o simulador oficial. Gross-up: cobra-se total/(1-taxa)
+// pra que a Suprema receba o valor cheio do orçamento.
+const CARTAO_TAXAS_HTML = [
+  { parcelas: 2,  taxa: 0.0404 }, { parcelas: 3,  taxa: 0.0489 },
+  { parcelas: 4,  taxa: 0.0574 }, { parcelas: 5,  taxa: 0.0659 },
+  { parcelas: 6,  taxa: 0.0744 }, { parcelas: 7,  taxa: 0.0897 },
+  { parcelas: 8,  taxa: 0.0982 }, { parcelas: 9,  taxa: 0.1067 },
+  { parcelas: 10, taxa: 0.1152 }, { parcelas: 11, taxa: 0.1237 },
+  { parcelas: 12, taxa: 0.1322 }, { parcelas: 14, taxa: 0.1527 },
+  { parcelas: 16, taxa: 0.1697 }, { parcelas: 18, taxa: 0.1867 },
+];
+
+function buildCardSection(total) {
+  if (!total || total <= 0) return "";
+  const linhas = CARTAO_TAXAS_HTML.map(({ parcelas, taxa }) => {
+    const totalCobrado = total / (1 - taxa);
+    const valorParcela = totalCobrado / parcelas;
+    return `<tr><td><strong>${parcelas}x</strong></td><td>${fmt(valorParcela)}</td><td>${fmt(totalCobrado)}</td></tr>`;
+  }).join("");
+  return `
+    <div class="pgto-title">Opções de Pagamento — Cartão de Crédito</div>
+    <table class="pgto-table">
+      <thead><tr><th>Parcelas</th><th>Valor da parcela</th><th>Total no cartão</th></tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+    <div class="pgto-obs">*Parcelamento no cartão sujeito às taxas da operadora.</div>
+  `;
+}
+
 function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, frete, notes, comissao, incluirParcelamento }) {
   const tituloDestaque = clientCompany || (orderNum ? `#${orderNum}` : "");
   // Observações NÃO entram no PDF do cliente — campo é só p/ uso interno.
@@ -1460,6 +1490,7 @@ ${total === 0
 <div class="grand"><span class="lbl">Total à vista</span><span class="val">${fmt(total)}</span></div>`)}
 </div>
 ${incluirParcelamento ? buildPaymentSection(total, comissao) : ""}
+${incluirParcelamento ? buildCardSection(total) : ""}
 <div class="ft">Orçamento válido por 15 dias • ${COMPANY.razao} • CNPJ: ${COMPANY.cnpj} • ${COMPANY.endereco} • ${COMPANY.telefone}</div>
 </div>
 </body></html>`;

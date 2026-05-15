@@ -92,6 +92,35 @@ function calcularOpcoesPagamento(total, entrada) {
   });
 }
 
+// Cartão de crédito (Mercado Pago Point, "na hora", parcelado vendedor).
+// `taxa` = taxa total decimal já validada contra o simulador oficial
+// (taxa por venda escalonada + 0,85% por parcela). Gross-up: pra receber
+// o valor cheio, cobra-se total / (1 - taxa).
+const CARTAO_TAXAS = [
+  { parcelas: 2,  taxa: 0.0404 },
+  { parcelas: 3,  taxa: 0.0489 },
+  { parcelas: 4,  taxa: 0.0574 },
+  { parcelas: 5,  taxa: 0.0659 },
+  { parcelas: 6,  taxa: 0.0744 },
+  { parcelas: 7,  taxa: 0.0897 },
+  { parcelas: 8,  taxa: 0.0982 },
+  { parcelas: 9,  taxa: 0.1067 },
+  { parcelas: 10, taxa: 0.1152 },
+  { parcelas: 11, taxa: 0.1237 },
+  { parcelas: 12, taxa: 0.1322 },
+  { parcelas: 14, taxa: 0.1527 },
+  { parcelas: 16, taxa: 0.1697 },
+  { parcelas: 18, taxa: 0.1867 },
+];
+
+function calcularOpcoesCartao(total) {
+  return CARTAO_TAXAS.map(({ parcelas, taxa }) => {
+    const totalCobrado = total / (1 - taxa);
+    const valorParcela = totalCobrado / parcelas;
+    return { parcelas, taxa, valorParcela, totalCobrado };
+  });
+}
+
 async function loadIcons() {
   const map = {};
   for (const key of ICON_KEYS) {
@@ -395,6 +424,51 @@ export async function generatePDF({ orderNum, date, client, items, total, frete,
     doc.setFont(undefined, "italic");
     doc.setTextColor(120);
     doc.text("*obs: Mediante analise de credito", margin, paymentEndY);
+    paymentEndY += 4;
+  }
+
+  // ─── Opções de pagamento no CARTÃO DE CRÉDITO ───
+  if (incluirParcelamento && total > 0) {
+    var cartaoTitleY = paymentEndY + 8;
+    doc.setFontSize(10);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(30);
+    doc.text("OPCOES DE PAGAMENTO - CARTAO DE CREDITO", margin, cartaoTitleY);
+
+    var bodyCartao = calcularOpcoesCartao(total).map(function (op) {
+      return [
+        op.parcelas + "x",
+        fmt(op.valorParcela),
+        fmt(op.totalCobrado),
+      ];
+    });
+
+    doc.autoTable({
+      startY: cartaoTitleY + 4,
+      head: [["Parcelas", "Valor da parcela", "Total no cartao"]],
+      body: bodyCartao,
+      theme: "grid",
+      headStyles: {
+        fillColor: [245, 245, 245],
+        textColor: [80, 80, 80],
+        fontStyle: "bold",
+        fontSize: 8,
+        halign: "center",
+      },
+      bodyStyles: { fontSize: 8, textColor: [40, 40, 40], halign: "center" },
+      columnStyles: {
+        0: { cellWidth: 30, fontStyle: "bold", halign: "center" },
+        1: { cellWidth: 75, halign: "right" },
+        2: { cellWidth: 75, halign: "right" },
+      },
+      margin: { left: margin, right: margin },
+    });
+
+    paymentEndY = doc.lastAutoTable.finalY + 4;
+    doc.setFontSize(8);
+    doc.setFont(undefined, "italic");
+    doc.setTextColor(120);
+    doc.text("*Parcelamento no cartao sujeito as taxas da operadora.", margin, paymentEndY);
     paymentEndY += 4;
   }
 
