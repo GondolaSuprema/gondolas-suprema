@@ -2488,6 +2488,34 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
 // ─── RESUMO ───
 function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, editingOrderInfo, setEditingOrderInfo, setItems, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap, bumpOrdersRefresh }) {
   const [notes, setNotes] = useState("");
+  // Cálculo automático de frete por distância (Palhoça → cidade do cliente)
+  const [freteCalc, setFreteCalc] = useState({ loading: false, tipo: "", texto: "" });
+  const calcularFrete = async () => {
+    const cd = clientData || {};
+    const cidade = (cd.cidade || "").trim();
+    const uf = (cd.estado || "").trim();
+    if (!cidade) {
+      setFreteCalc({ loading: false, tipo: "erro", texto: "Cadastre a cidade do cliente primeiro (aba Cliente)." });
+      return;
+    }
+    setFreteCalc({ loading: true, tipo: "", texto: "Calculando distância…" });
+    try {
+      const resp = await fetch(`/api/calcular-frete?cidade=${encodeURIComponent(cidade)}&uf=${encodeURIComponent(uf)}`, { cache: "no-store" });
+      const d = await resp.json().catch(() => ({}));
+      if (!resp.ok || d?.success === false) {
+        setFreteCalc({ loading: false, tipo: "erro", texto: d?.mensagem || "Não foi possível calcular o frete." });
+        return;
+      }
+      setFrete(d.frete);
+      setFreteCalc({
+        loading: false,
+        tipo: "ok",
+        texto: `${d.distancia_km} km até ${d.destino} (ida e volta ${d.km_cobrados} km × R$ ${d.custo_por_km.toFixed(3)}/km) → ${d.frete.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+      });
+    } catch (e) {
+      setFreteCalc({ loading: false, tipo: "erro", texto: "Falha de rede ao calcular o frete." });
+    }
+  };
 
   const itemPrice = it => computeProductPrice(it.product, it.selVariants, it.selOpts, uniplusPriceMap);
   const itemBase = it => itemPrice(it) * it.qty;
@@ -2708,7 +2736,20 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
             <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
+            <button
+              type="button"
+              onClick={calcularFrete}
+              disabled={freteCalc.loading}
+              style={{ background: freteCalc.loading ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "9px 16px", borderRadius: 7, fontWeight: 700, fontSize: 13, cursor: freteCalc.loading ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif" }}
+            >
+              {freteCalc.loading ? "Calculando…" : "📍 Calcular frete"}
+            </button>
             <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{frete > 0 ? "Frete incluso no total" : "Sem frete"}</span>
+            {freteCalc.texto && (
+              <div style={{ width: "100%", fontSize: 11, fontFamily: "'DM Sans', sans-serif", color: freteCalc.tipo === "erro" ? COLORS.danger : freteCalc.tipo === "ok" ? COLORS.success : COLORS.textMuted }}>
+                {freteCalc.tipo === "ok" ? "✓ " : freteCalc.tipo === "erro" ? "⚠ " : ""}{freteCalc.texto}
+              </div>
+            )}
           </div>
         </>
       )}
