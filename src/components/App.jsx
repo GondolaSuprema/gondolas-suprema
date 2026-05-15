@@ -1454,7 +1454,7 @@ function buildCardSection(total) {
   `;
 }
 
-function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, frete, notes, comissao, incluirParcelamento }) {
+function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, frete, notes, comissao, incluirParcelamento, incluirCartao }) {
   const tituloDestaque = clientCompany || (orderNum ? `#${orderNum}` : "");
   // Observações NÃO entram no PDF do cliente — campo é só p/ uso interno.
   // Esconde "China" só no PDF do cliente (mantem o nome original no banco e nas telas internas)
@@ -1490,7 +1490,7 @@ ${total === 0
 <div class="grand"><span class="lbl">Total à vista</span><span class="val">${fmt(total)}</span></div>`)}
 </div>
 ${incluirParcelamento ? buildPaymentSection(total, comissao) : ""}
-${incluirParcelamento ? buildCardSection(total) : ""}
+${incluirCartao ? buildCardSection(total) : ""}
 <div class="ft">Orçamento válido por 15 dias • ${COMPANY.razao} • CNPJ: ${COMPANY.cnpj} • ${COMPANY.endereco} • ${COMPANY.telefone}</div>
 </div>
 </body></html>`;
@@ -3192,6 +3192,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       frete: order.frete || 0,
       comissao: order.comissao || 0,
       incluirParcelamento: !!parcelamentoOpts[order.id],
+      incluirCartao: !!parcelamentoCartaoOpts[order.id],
     });
   };
 
@@ -3225,6 +3226,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         // Telefone do header sai do vendedor que fez o orcamento (fallback: usuario logado)
         user: { name: o.vendedor_nome || o.vendedor || user.name, email: user.email },
         incluirParcelamento: !!parcelamentoOpts[o.id],
+        incluirCartao: !!parcelamentoCartaoOpts[o.id],
       });
       // No desktop, sharePDFWhatsApp baixa o arquivo e retorna { method: "download" }.
       // Mostramos modal com instrucoes pro vendedor (especialmente no Windows).
@@ -3877,7 +3879,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                     <div style={{ flex: 1 }}>
                       <div style={{ color: parcelamentoCartaoOpts[o.id] ? "#3B82F6" : COLORS.text, fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>💳 Incluir parcelamento por cartão de crédito</div>
                       <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 1 }}>
-                        {parcelamentoCartaoOpts[o.id] ? "Opção marcada — taxas serão configuradas em breve." : "Sem cartão — orçamento envia só o total."}
+                        {parcelamentoCartaoOpts[o.id] ? "A tabela de parcelas (2x a 18x) será adicionada no orçamento." : "Sem cartão — orçamento envia só o total."}
                       </div>
                     </div>
                   </div>

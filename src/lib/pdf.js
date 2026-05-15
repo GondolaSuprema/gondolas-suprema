@@ -143,7 +143,7 @@ async function loadIcons() {
   return map;
 }
 
-export async function generatePDF({ orderNum, date, client, items, total, frete, notes, comissao, user, incluirParcelamento }) {
+export async function generatePDF({ orderNum, date, client, items, total, frete, notes, comissao, user, incluirParcelamento, incluirCartao }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -428,7 +428,7 @@ export async function generatePDF({ orderNum, date, client, items, total, frete,
   }
 
   // ─── Opções de pagamento no CARTÃO DE CRÉDITO ───
-  if (incluirParcelamento && total > 0) {
+  if (incluirCartao && total > 0) {
     var cartaoTitleY = paymentEndY + 8;
     doc.setFontSize(10);
     doc.setFont(undefined, "bold");
