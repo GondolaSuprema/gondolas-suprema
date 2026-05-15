@@ -1405,19 +1405,31 @@ function buildPaymentSection(total, comissao) {
   const entrada = Number(comissao) || 0;
   if (!total || total <= entrada) return "";
   const saldo = total - entrada;
-  const linhas = TABELA_JUROS_BOLETO_HTML.map(({ parcelas, juros }) => {
+  const ops = TABELA_JUROS_BOLETO_HTML.map(({ parcelas, juros }) => {
     const totalParcelado = saldo * (1 + juros);
-    const valorParcela = totalParcelado / parcelas;
-    const totalGeral = entrada + totalParcelado;
-    const acrescimo = juros === 0 ? "Sem juros" : "+" + (juros * 100).toFixed(1).replace(".", ",") + "%";
-    return `<tr><td><strong>${parcelas}x</strong></td><td>${fmt(valorParcela)}</td><td>${acrescimo}</td><td>${fmt(totalParcelado)}</td><td>${fmt(totalGeral)}</td></tr>`;
-  }).join("");
+    return {
+      parcelas,
+      valorParcela: totalParcelado / parcelas,
+      totalGeral: entrada + totalParcelado,
+      acrescimo: juros === 0 ? "Sem juros" : "+" + (juros * 100).toFixed(1).replace(".", ",") + "%",
+    };
+  });
+  const meio = Math.ceil(ops.length / 2);
+  const esq = ops.slice(0, meio);
+  const dir = ops.slice(meio);
+  const cel = (o) => o
+    ? `<td><strong>${o.parcelas}x</strong></td><td>${fmt(o.valorParcela)}</td><td>${o.acrescimo}</td><td>${fmt(o.totalGeral)}</td>`
+    : `<td></td><td></td><td></td><td></td>`;
+  const linhas = esq.map((o, i) =>
+    `<tr>${cel(o)}<td class="gap"></td>${cel(dir[i])}</tr>`
+  ).join("");
+  const th = `<th>Parc.</th><th>Valor parcela</th><th>Acréscimo</th><th>Total</th>`;
   return `
     <div class="pgto-title">Opções de Pagamento — Boleto</div>
     ${entrada > 0 ? `<div class="pgto-info"><strong>Entrada (à vista):</strong> ${fmt(entrada)}</div>` : ""}
     <div class="pgto-info"><strong>Saldo a parcelar:</strong> ${fmt(saldo)}</div>
-    <table class="pgto-table">
-      <thead><tr><th>Parcelas</th><th>Valor da parcela</th><th>Acréscimo</th><th>Total parcelado</th><th>Total geral</th></tr></thead>
+    <table class="pgto-table pgto-2col">
+      <thead><tr>${th}<th class="gap"></th>${th}</tr></thead>
       <tbody>${linhas}</tbody>
     </table>
     <div class="pgto-obs">*obs: Mediante análise de crédito</div>

@@ -385,36 +385,40 @@ export async function generatePDF({ orderNum, date, client, items, total, frete,
     }
 
     var tabelaStartY = paymentTitleY + (entrada > 0 ? 13 : 8);
-    var bodyData = opcoes.map(function (op) {
+    var celB = function (op) {
+      if (!op) return ["", "", "", ""];
       var jurosLabel = op.juros === 0 ? "Sem juros" : "+" + (op.juros * 100).toFixed(1).replace(".", ",") + "%";
-      return [
-        op.parcelas + "x",
-        fmt(op.valorParcela),
-        jurosLabel,
-        fmt(op.totalParcelado),
-        fmt(op.totalGeral),
-      ];
+      return [op.parcelas + "x", fmt(op.valorParcela), jurosLabel, fmt(op.totalGeral)];
+    };
+    var meioB = Math.ceil(opcoes.length / 2);
+    var esqB = opcoes.slice(0, meioB);
+    var dirB = opcoes.slice(meioB);
+    var bodyData = esqB.map(function (op, i) {
+      return celB(op).concat(celB(dirB[i]));
     });
 
     doc.autoTable({
       startY: tabelaStartY,
-      head: [["Parcelas", "Valor da parcela", "Acrescimo", "Total parcelado", "Total geral"]],
+      head: [["Parc.", "Valor parcela", "Acrescimo", "Total", "Parc.", "Valor parcela", "Acrescimo", "Total"]],
       body: bodyData,
       theme: "grid",
       headStyles: {
         fillColor: [245, 245, 245],
         textColor: [80, 80, 80],
         fontStyle: "bold",
-        fontSize: 8,
+        fontSize: 7.5,
         halign: "center",
       },
-      bodyStyles: { fontSize: 8, textColor: [40, 40, 40], halign: "center" },
+      bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40], halign: "center" },
       columnStyles: {
-        0: { cellWidth: 18, fontStyle: "bold" },
-        1: { cellWidth: 35, halign: "right" },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 35, halign: "right" },
-        4: { cellWidth: 37, halign: "right" },
+        0: { cellWidth: 15, fontStyle: "bold" },
+        1: { cellWidth: 27, halign: "right" },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 26, halign: "right" },
+        4: { cellWidth: 15, fontStyle: "bold" },
+        5: { cellWidth: 27, halign: "right" },
+        6: { cellWidth: 22 },
+        7: { cellWidth: 26, halign: "right" },
       },
       margin: { left: margin, right: margin },
     });
