@@ -2825,7 +2825,28 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
 
       const receita = key && PRODUCT_RECIPES[key];
       if (!receita) {
-        const nome = orig?.name || it.name || it.product?.name || "(sem nome)";
+        // Não é um conjunto com receita. Antes de marcar como "sem receita",
+        // verifica se o item JÁ É uma peça UniPlus avulsa (ex: "Outros Produtos").
+        // Nesse caso ele entra direto na lista 1:1, somando com as peças que
+        // vierem do desmembramento das gôndolas/MPP.
+        const slugPeca = (s) => (s || "").toString().toUpperCase()
+          .normalize("NFD").replace(/[̀-ͯ]/g, "")
+          .replace(/\s+/g, " ").trim()
+          .replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+        const nomeItem = orig?.name || it.name || it.product?.name || "";
+        const candidatos = [
+          it.product?.id,
+          it.product_id,
+          orig?.id,
+          nomeItem && ("nome:" + slugPeca(nomeItem)),
+        ].filter(Boolean);
+        const pid = candidatos.find(c => uniplusNomes[c]);
+        if (pid) {
+          if (!peças[pid]) peças[pid] = 0;
+          peças[pid] += qtd;
+          return;
+        }
+        const nome = nomeItem || "(sem nome)";
         naoExpandidos.push({ nome, qty: qtd, opts: it.opts || [] });
         return;
       }
