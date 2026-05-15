@@ -2501,17 +2501,20 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
   const [erroDados, setErroDados] = useState("");
   const save = async () => {
     if (!user || saving) return;
-    // Exige dados mínimos do cliente antes de gerar o orçamento.
-    // Vale tanto pra orçamento novo quanto pra acréscimo em existente.
     const cd = clientData || {};
-    const faltando = [];
-    if (!String(cd.empresa || "").trim()) faltando.push("Nome do Cliente");
-    const telDigits = String(cd.telefone || "").replace(/\D/g, "");
-    if (telDigits.length < 10 || telDigits.length > 11) faltando.push("Celular (DDD + número)");
-    if (!String(cd.cidade || "").trim()) faltando.push("Cidade");
-    if (faltando.length > 0) {
-      setErroDados("Faltam dados do cliente: " + faltando.join(", ") + ". Clique abaixo para preencher.");
-      return;
+    // Exige dados mínimos do cliente APENAS para orçamento novo.
+    // Ao acrescentar produtos em orçamento existente (editingOrderId)
+    // o cliente já foi cadastrado antes — não barra.
+    if (!editingOrderId) {
+      const faltando = [];
+      if (!String(cd.empresa || "").trim()) faltando.push("Nome do Cliente");
+      const telDigits = String(cd.telefone || "").replace(/\D/g, "");
+      if (telDigits.length < 10 || telDigits.length > 11) faltando.push("Celular (DDD + número)");
+      if (!String(cd.cidade || "").trim()) faltando.push("Cidade");
+      if (faltando.length > 0) {
+        setErroDados("Faltam dados do cliente: " + faltando.join(", ") + ". Clique abaixo para preencher.");
+        return;
+      }
     }
     setErroDados("");
     setSaving(true);
