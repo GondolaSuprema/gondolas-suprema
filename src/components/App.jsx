@@ -4481,6 +4481,8 @@ function AdminPage({ user }) {
   const [vendaStatus, setVendaStatus] = useState({});
   // Feedback da troca de vendedor: { orderId, tipo: "ok"|"erro", texto }
   const [vendedorChangeMsg, setVendedorChangeMsg] = useState(null);
+  // Feedback da troca de status: { orderId, tipo: "ok"|"erro", texto }
+  const [statusChangeMsg, setStatusChangeMsg] = useState(null);
   const [emitindoNfe, setEmitindoNfe] = useState(null);
   const [nfeResult, setNfeResult] = useState(null);
   const [confirmEmitir, setConfirmEmitir] = useState(null);
@@ -4584,6 +4586,22 @@ function AdminPage({ user }) {
     setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendedor: v.name, vendedorId: v.id } : o));
     setVendedorChangeMsg({ orderId, tipo: "ok", texto: `Reatribuído para ${v.name}` });
     setTimeout(() => setVendedorChangeMsg(curr => curr?.orderId === orderId ? null : curr), 3000);
+  };
+
+  // Trocar status do orcamento direto no ADM (admin/gestor — Ale e Zanella).
+  // Conclusão completa (com data de entrega/pedido p/ Logística) continua
+  // sendo feita pela aba Orçamentos; aqui grava apenas o status.
+  const updateOrderStatus = async (orderId, novoStatus) => {
+    if (!novoStatus) return;
+    const { error } = await supabase.from("orcamentos").update({ status: novoStatus }).eq("id", orderId);
+    if (error) {
+      setStatusChangeMsg({ orderId, tipo: "erro", texto: `Falha: ${error.message}` });
+      setTimeout(() => setStatusChangeMsg(curr => curr?.orderId === orderId ? null : curr), 5000);
+      return;
+    }
+    setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: novoStatus } : o));
+    setStatusChangeMsg({ orderId, tipo: "ok", texto: `Status: ${novoStatus}` });
+    setTimeout(() => setStatusChangeMsg(curr => curr?.orderId === orderId ? null : curr), 3000);
   };
 
   // ─── Edicao inline (Ale/Zanella) ───
@@ -5125,6 +5143,26 @@ function AdminPage({ user }) {
                     {vendedorChangeMsg?.orderId === o.id && (
                       <span style={{ color: vendedorChangeMsg.tipo === "ok" ? COLORS.success : COLORS.danger, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
                         {vendedorChangeMsg.tipo === "ok" ? "✓ " : "⚠ "}{vendedorChangeMsg.texto}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Trocar status (visivel apenas no ADM — Ale e Zanella) */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 10px", flexWrap: "wrap" }}>
+                    <label style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Status:</label>
+                    <select
+                      value={o.status || "Aguardando Retorno"}
+                      onClick={e => e.stopPropagation()}
+                      onChange={(e) => { e.stopPropagation(); updateOrderStatus(o.id, e.target.value); }}
+                      style={{ ...sel, padding: "6px 10px", fontSize: 12, flex: "0 0 auto" }}
+                    >
+                      {Object.keys(sc).map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    {statusChangeMsg?.orderId === o.id && (
+                      <span style={{ color: statusChangeMsg.tipo === "ok" ? COLORS.success : COLORS.danger, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+                        {statusChangeMsg.tipo === "ok" ? "✓ " : "⚠ "}{statusChangeMsg.texto}
                       </span>
                     )}
                   </div>
