@@ -1424,15 +1424,19 @@ function buildPaymentSection(total, comissao) {
   `;
 }
 
-function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, notes, comissao, incluirParcelamento }) {
+function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, frete, notes, comissao, incluirParcelamento }) {
   const tituloDestaque = clientCompany || (orderNum ? `#${orderNum}` : "");
   // Filtra anotacoes internas (CONCLUÍDO, Status venda) antes de exibir pro cliente
   const notesClean = sanitizeNotesForCustomer(notes);
   // Esconde "China" só no PDF do cliente (mantem o nome original no banco e nas telas internas)
   const cleanForPdf = (s) => (s || "").replace(/\bchina\b/gi, "").replace(/\s+/g, " ").trim();
   // Distribui comissao (e frete) proporcionalmente em cada item, pra soma dos subtotais bater com o TOTAL
+  const freteNum = Number(frete) || 0;
+  const totalSemFrete = Math.max(0, (Number(total) || 0) - freteNum);
   const subtotalBase = (items || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
-  const fator = (subtotalBase > 0 && total > 0) ? (total / subtotalBase) : 1;
+  // Distribui só comissão/desconto proporcionalmente nos itens — o frete
+  // sai como linha própria pra ficar discriminado pro cliente.
+  const fator = (subtotalBase > 0 && totalSemFrete > 0) ? (totalSemFrete / subtotalBase) : 1;
   const subtotalDoItem = (i) => (Number(i.total) || 0) * fator;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Orçamento Gôndolas Suprema</title><style>${pdfStyles}</style></head><body>
 <img class="watermark" src="${LOGO_B64}" alt=""/>
@@ -1444,7 +1448,13 @@ function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, 
 </div>
 <table><thead><tr><th>Foto</th><th>Produto</th><th>Categoria</th><th>Qtd</th><th>Opcionais</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>
 ${items.map(i => `<tr><td class="foto-cell">${getIconHtml(i)}</td><td><strong>${cleanForPdf(i.name)}</strong></td><td>${cleanForPdf(i.cat)}</td><td>${i.qty}</td><td>${i.opts?.length ? i.opts.join(", ") : "—"}</td><td style="text-align:right">${fmt(subtotalDoItem(i))}</td></tr>`).join("")}
-<tr class="tr"><td colspan="5">TOTAL GERAL</td><td style="text-align:right;color:#F5A623">${total === 0 ? "Sob consulta" : fmt(total)}</td></tr>
+${total === 0
+  ? `<tr class="tr"><td colspan="5">TOTAL GERAL</td><td style="text-align:right;color:#F5A623">Sob consulta</td></tr>`
+  : (freteNum > 0
+    ? `<tr><td colspan="5" style="text-align:right">Subtotal dos produtos</td><td style="text-align:right">${fmt(totalSemFrete)}</td></tr>
+<tr><td colspan="5" style="text-align:right">Frete</td><td style="text-align:right">${fmt(freteNum)}</td></tr>
+<tr class="tr"><td colspan="5">TOTAL GERAL (com frete)</td><td style="text-align:right;color:#F5A623">${fmt(total)}</td></tr>`
+    : `<tr class="tr"><td colspan="5">TOTAL GERAL</td><td style="text-align:right;color:#F5A623">${fmt(total)}</td></tr>`)}
 </tbody></table>
 ${incluirParcelamento ? buildPaymentSection(total, comissao) : ""}
 ${notesClean ? `<div class="n"><strong>Observações:</strong><br>${notesClean}</div>` : ""}
@@ -3065,6 +3075,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       clientCnpj: cd.cnpj, clientEndereco: cd.endereco && cd.cidade ? `${cd.endereco}${cd.bairro ? `, ${cd.bairro}` : ""} — ${cd.cidade}${cd.estado ? `/${cd.estado}` : ""}` : "",
       clientEmail: cd.email,
       items: order.items, total: order.total, notes: order.notes,
+      frete: order.frete || 0,
       comissao: order.comissao || 0,
       incluirParcelamento: !!parcelamentoOpts[order.id],
     });
