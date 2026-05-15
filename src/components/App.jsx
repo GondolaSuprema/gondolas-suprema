@@ -2500,7 +2500,13 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
     }
     setFreteCalc({ loading: true, tipo: "", texto: "Calculando distância…" });
     try {
-      const resp = await fetch(`/api/calcular-frete?cidade=${encodeURIComponent(cidade)}&uf=${encodeURIComponent(uf)}`, { cache: "no-store" });
+      const qs = new URLSearchParams({
+        cidade, uf,
+        endereco: (cd.endereco || "").trim(),
+        numero: (cd.numero || "").trim(),
+        bairro: (cd.bairro || "").trim(),
+      }).toString();
+      const resp = await fetch(`/api/calcular-frete?${qs}`, { cache: "no-store" });
       const d = await resp.json().catch(() => ({}));
       if (!resp.ok || d?.success === false) {
         setFreteCalc({ loading: false, tipo: "erro", texto: d?.mensagem || "Não foi possível calcular o frete." });
@@ -2510,7 +2516,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
       setFreteCalc({
         loading: false,
         tipo: "ok",
-        texto: `${d.distancia_km} km até ${d.destino} (ida e volta ${d.km_cobrados} km × R$ ${d.custo_por_km.toFixed(3)}/km) → ${d.frete.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+        texto: `${d.distancia_km} km até ${d.destino} (${d.precisao === "endereço" ? "endereço exato" : "centro da cidade"}) · ida e volta ${d.km_cobrados} km × R$ ${d.custo_por_km.toFixed(3)}/km → ${d.frete.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
       });
     } catch (e) {
       setFreteCalc({ loading: false, tipo: "erro", texto: "Falha de rede ao calcular o frete." });
@@ -2825,7 +2831,13 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     }
     setFreteCalcEdit({ loading: true, tipo: "", texto: "Calculando distância…" });
     try {
-      const resp = await fetch(`/api/calcular-frete?cidade=${encodeURIComponent(cidade)}&uf=${encodeURIComponent(uf)}`, { cache: "no-store" });
+      const qs = new URLSearchParams({
+        cidade, uf,
+        endereco: (cd.endereco || "").trim(),
+        numero: (cd.numero || "").trim(),
+        bairro: (cd.bairro || "").trim(),
+      }).toString();
+      const resp = await fetch(`/api/calcular-frete?${qs}`, { cache: "no-store" });
       const d = await resp.json().catch(() => ({}));
       if (!resp.ok || d?.success === false) {
         setFreteCalcEdit({ loading: false, tipo: "erro", texto: d?.mensagem || "Não foi possível calcular o frete." });
@@ -2835,7 +2847,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       setFreteCalcEdit({
         loading: false,
         tipo: "ok",
-        texto: `${d.distancia_km} km até ${d.destino} (ida e volta ${d.km_cobrados} km × R$ ${d.custo_por_km.toFixed(3)}/km) → ${d.frete.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+        texto: `${d.distancia_km} km até ${d.destino} (${d.precisao === "endereço" ? "endereço exato" : "centro da cidade"}) · ida e volta ${d.km_cobrados} km × R$ ${d.custo_por_km.toFixed(3)}/km → ${d.frete.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
       });
     } catch (e) {
       setFreteCalcEdit({ loading: false, tipo: "erro", texto: "Falha de rede ao calcular o frete." });

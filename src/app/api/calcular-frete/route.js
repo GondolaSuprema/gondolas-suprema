@@ -10,16 +10,33 @@ const PRECO_DIESEL = 8.50;     // R$ por litro
 const KM_POR_LITRO = 11;       // km que o veículo faz por litro
 const IDA_E_VOLTA = true;      // multiplica a distância por 2 (vai e volta)
 
-// Origem fixa: Palhoça/SC (sede da Gôndolas Suprema)
-const ORIGEM = { lat: -27.6455, lon: -48.6678, nome: "Palhoça/SC" };
+// Origem fixa: barracão da Gôndolas Suprema
+// R. José Cosme Pamplona, 1700 — Bela Vista, Palhoça/SC, CEP 88132-700
+const ORIGEM = { lat: -27.6556041, lon: -48.6792553, nome: "Palhoça/SC (barracão)" };
 
 const custoPorKm = PRECO_DIESEL / KM_POR_LITRO;
 
-// GET /api/calcular-frete?cidade=Criciuma&uf=SC
+// Geocoding via Nominatim (OpenStreetMap). Retorna {lat,lon} ou null.
+async function geocode(query) {
+  const q = encodeURIComponent(query);
+  const resp = await fetch(
+    `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=br`,
+    { headers: { "User-Agent": "GondolasSuprema/1.0 (orcamentos)" }, cache: "no-store" }
+  );
+  if (!resp.ok) throw new Error(`Nominatim status ${resp.status}`);
+  const arr = await resp.json();
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+  return { lat: parseFloat(arr[0].lat), lon: parseFloat(arr[0].lon) };
+}
+
+// GET /api/calcular-frete?cidade=Criciuma&uf=SC&endereco=...&numero=...&bairro=...
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const cidade = (searchParams.get("cidade") || "").trim();
   const uf = (searchParams.get("uf") || "").trim();
+  const endereco = (searchParams.get("endereco") || "").trim();
+  const numero = (searchParams.get("numero") || "").trim();
+  const bairro = (searchParams.get("bairro") || "").trim();
 
   if (!cidade) {
     return Response.json(
@@ -28,28 +45,40 @@ export async function GET(request) {
     );
   }
 
-  // 1) Geocoding da cidade do cliente via Nominatim (OpenStreetMap)
+  // 1) Geocoding do destino:
+  //    - Se tem endereço completo (rua), tenta o endereço exato (mais preciso).
+  //    - Se o endereço não for encontrado, ou não houver endereço, cai pra cidade.
   let destino;
   try {
-    const q = encodeURIComponent(`${cidade}${uf ? ", " + uf : ""}, Brasil`);
-    const geoResp = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=br`,
-      { headers: { "User-Agent": "GondolasSuprema/1.0 (orcamentos)" }, cache: "no-store" }
-    );
-    if (!geoResp.ok) {
-      return Response.json(
-        { success: false, mensagem: `Falha ao localizar a cidade (status ${geoResp.status}).` },
-        { status: 502 }
-      );
+    const partesEndereco = [
+      endereco && numero ? `${endereco}, ${numero}` : endereco,
+      bairro,
+      cidade,
+      uf,
+      "Brasil",
+    ].filter(Boolean);
+    const queryCidade = `${cidade}${uf ? ", " + uf : ""}, Brasil`;
+
+    let ponto = null;
+    let precisao = "cidade";
+    if (endereco) {
+      ponto = await geocode(partesEndereco.join(", "));
+      if (ponto) precisao = "endereço";
     }
-    const arr = await geoResp.json();
-    if (!Array.isArray(arr) || arr.length === 0) {
+    if (!ponto) {
+      ponto = await geocode(queryCidade);
+      precisao = "cidade";
+    }
+    if (!ponto) {
       return Response.json(
         { success: false, mensagem: `Cidade "${cidade}${uf ? "/" + uf : ""}" não encontrada no mapa. Verifique o nome.` },
         { status: 404 }
       );
     }
-    destino = { lat: parseFloat(arr[0].lat), lon: parseFloat(arr[0].lon), nome: `${cidade}${uf ? "/" + uf : ""}` };
+    const nomeDestino = precisao === "endereço"
+      ? `${endereco}${numero ? ", " + numero : ""} — ${cidade}${uf ? "/" + uf : ""}`
+      : `${cidade}${uf ? "/" + uf : ""}`;
+    destino = { lat: ponto.lat, lon: ponto.lon, nome: nomeDestino, precisao };
   } catch (e) {
     return Response.json(
       { success: false, mensagem: "Falha ao consultar o mapa: " + (e?.message || "erro desconhecido") },
@@ -96,6 +125,7 @@ export async function GET(request) {
     success: true,
     origem: ORIGEM.nome,
     destino: destino.nome,
+    precisao: destino.precisao,
     distancia_km: Math.round(distanciaKm * 10) / 10,
     ida_e_volta: IDA_E_VOLTA,
     km_cobrados: Math.round(kmCobrados * 10) / 10,
