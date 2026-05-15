@@ -4417,6 +4417,8 @@ function AdminPage({ user }) {
   const [savingEdit, setSavingEdit] = useState(false);
   const [mesSel, setMesSel] = useState("");
   const [vendaStatus, setVendaStatus] = useState({});
+  // Feedback da troca de vendedor: { orderId, tipo: "ok"|"erro", texto }
+  const [vendedorChangeMsg, setVendedorChangeMsg] = useState(null);
   const [emitindoNfe, setEmitindoNfe] = useState(null);
   const [nfeResult, setNfeResult] = useState(null);
   const [confirmEmitir, setConfirmEmitir] = useState(null);
@@ -4504,14 +4506,22 @@ function AdminPage({ user }) {
 
   // Reatribuir orcamento a outro vendedor (so disponivel no ADM).
   // Atualiza vendedor_id + vendedor_nome no banco e estado local.
+  // Captura erro do Supabase (ex: RLS bloqueando) para que falha nao passe em silencio.
   const updateOrderVendedor = async (orderId, newVendedorId) => {
     const v = VENDEDORES.find(x => x.id === newVendedorId);
     if (!v) return;
-    await supabase.from("orcamentos").update({
+    const { error } = await supabase.from("orcamentos").update({
       vendedor_id: v.id,
       vendedor_nome: v.name,
     }).eq("id", orderId);
+    if (error) {
+      setVendedorChangeMsg({ orderId, tipo: "erro", texto: `Falha: ${error.message}` });
+      setTimeout(() => setVendedorChangeMsg(curr => curr?.orderId === orderId ? null : curr), 5000);
+      return;
+    }
     setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendedor: v.name, vendedorId: v.id } : o));
+    setVendedorChangeMsg({ orderId, tipo: "ok", texto: `Reatribuído para ${v.name}` });
+    setTimeout(() => setVendedorChangeMsg(curr => curr?.orderId === orderId ? null : curr), 3000);
   };
 
   // ─── Edicao inline (Ale/Zanella) ───
@@ -5008,6 +5018,17 @@ function AdminPage({ user }) {
                   <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>#{o.id.slice(0, 6).toUpperCase()} · {new Date(o.date).toLocaleDateString("pt-BR")} · {o.items?.length || 0} itens</div>
                   <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{o.client?.empresa || "Sem empresa"}</div>
                   <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Vendedor: <strong style={{ color: COLORS.accent }}>{o.vendedor}</strong>{o.client?.cidade ? " · " + o.client.cidade + (o.client.estado ? "/" + o.client.estado : "") : ""}</div>
+                  {o.client?.telefone && (() => {
+                    const d = String(o.client.telefone).replace(/\D/g, "");
+                    const tel = d.length === 11 ? `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
+                      : d.length === 10 ? `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
+                      : o.client.telefone;
+                    return (
+                      <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>
+                        📞 <a href={`https://wa.me/55${d}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: COLORS.accent, textDecoration: "none" }}>{tel}</a>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ textAlign: "right" }}>
@@ -5039,6 +5060,11 @@ function AdminPage({ user }) {
                         <option key={v.id} value={v.id}>{v.name}</option>
                       ))}
                     </select>
+                    {vendedorChangeMsg?.orderId === o.id && (
+                      <span style={{ color: vendedorChangeMsg.tipo === "ok" ? COLORS.success : COLORS.danger, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+                        {vendedorChangeMsg.tipo === "ok" ? "✓ " : "⚠ "}{vendedorChangeMsg.texto}
+                      </span>
+                    )}
                   </div>
 
                   {/* Resumo financeiro do orcamento (visivel apenas no ADM) */}
