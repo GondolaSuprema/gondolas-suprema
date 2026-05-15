@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { sharePDFWhatsApp, sanitizeNotesForCustomer } from "../lib/pdf";
+import { sharePDFWhatsApp } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
 
 const COLORS = {
@@ -1426,8 +1426,7 @@ function buildPaymentSection(total, comissao) {
 
 function buildPdfPage({ orderNum, date, clientName, clientCompany, clientPhone, clientCnpj, clientEndereco, clientEmail, items, total, frete, notes, comissao, incluirParcelamento }) {
   const tituloDestaque = clientCompany || (orderNum ? `#${orderNum}` : "");
-  // Filtra anotacoes internas (CONCLUÍDO, Status venda) antes de exibir pro cliente
-  const notesClean = sanitizeNotesForCustomer(notes);
+  // Observações NÃO entram no PDF do cliente — campo é só p/ uso interno.
   // Esconde "China" só no PDF do cliente (mantem o nome original no banco e nas telas internas)
   const cleanForPdf = (s) => (s || "").replace(/\bchina\b/gi, "").replace(/\s+/g, " ").trim();
   // Distribui comissao (e frete) proporcionalmente em cada item, pra soma dos subtotais bater com o TOTAL
@@ -1461,7 +1460,6 @@ ${total === 0
 <div class="grand"><span class="lbl">Total à vista</span><span class="val">${fmt(total)}</span></div>`)}
 </div>
 ${incluirParcelamento ? buildPaymentSection(total, comissao) : ""}
-${notesClean ? `<div class="n"><strong>Observações:</strong><br>${notesClean}</div>` : ""}
 <div class="ft">Orçamento válido por 15 dias • ${COMPANY.razao} • CNPJ: ${COMPANY.cnpj} • ${COMPANY.endereco} • ${COMPANY.telefone}</div>
 </div>
 </body></html>`;

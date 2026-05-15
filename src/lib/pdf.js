@@ -398,19 +398,7 @@ export async function generatePDF({ orderNum, date, client, items, total, frete,
     paymentEndY += 4;
   }
 
-  // Notes — filtra anotacoes internas (CONCLUÍDO, Status venda) antes de imprimir
-  var notesY = paymentEndY + 4;
-  var notesClean = sanitizeNotesForCustomer(notes);
-  if (notesClean) {
-    doc.setFillColor(250, 250, 250);
-    doc.roundedRect(margin, notesY, pageW - margin * 2, 16, 2, 2, "F");
-    doc.setFontSize(8);
-    doc.setFont(undefined, "bold");
-    doc.setTextColor(80);
-    doc.text("Observacoes:", margin + 4, notesY + 5);
-    doc.setFont(undefined, "normal");
-    doc.text(notesClean, margin + 4, notesY + 10, { maxWidth: pageW - margin * 2 - 8 });
-  }
+  // Observações NÃO entram no PDF do cliente — campo é só p/ uso interno.
 
   // Footer
   var footerY = 282;
