@@ -3110,6 +3110,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         date: new Date(o.date).toLocaleDateString("pt-BR"),
         client: cd,
         items: o.items, total: o.total, notes: o.notes,
+        frete: o.frete || 0,
         comissao: o.comissao || 0,
         // Telefone do header sai do vendedor que fez o orcamento (fallback: usuario logado)
         user: { name: o.vendedor_nome || o.vendedor || user.name, email: user.email },

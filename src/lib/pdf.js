@@ -114,7 +114,7 @@ async function loadIcons() {
   return map;
 }
 
-export async function generatePDF({ orderNum, date, client, items, total, notes, comissao, user, incluirParcelamento }) {
+export async function generatePDF({ orderNum, date, client, items, total, frete, notes, comissao, user, incluirParcelamento }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -226,9 +226,12 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
   // Esconde "China" só no PDF do cliente (mantem o nome original no banco e nas telas internas)
   var cleanForPdf = function(s) { return (s || "").replace(/\bchina\b/gi, "").replace(/\s+/g, " ").trim(); };
 
-  // Distribui comissao (e frete) proporcionalmente em cada item, pra soma dos subtotais bater com o TOTAL
+  // Distribui só comissão/desconto nos itens — o frete sai discriminado
+  // numa linha própria, não diluído nos produtos.
+  var freteNum = Number(frete) || 0;
+  var totalSemFrete = Math.max(0, (Number(total) || 0) - freteNum);
   var subtotalBase = (itemsWithIcons || []).reduce(function(s, it) { return s + (Number(it.total) || 0); }, 0);
-  var fator = (subtotalBase > 0 && total > 0) ? (total / subtotalBase) : 1;
+  var fator = (subtotalBase > 0 && totalSemFrete > 0) ? (totalSemFrete / subtotalBase) : 1;
 
   // Table
   var tableData = itemsWithIcons.map(function(it) {
@@ -286,27 +289,57 @@ export async function generatePDF({ orderNum, date, client, items, total, notes,
     },
   });
 
-  // Total row
-  var finalY = doc.lastAutoTable.finalY + 4;
-  doc.setDrawColor(30);
-  doc.setLineWidth(0.5);
-  doc.line(margin, finalY, pageW - margin, finalY);
-
-  doc.setFontSize(12);
-  doc.setFont(undefined, "bold");
-  doc.setTextColor(30);
-  doc.text("TOTAL GERAL", margin, finalY + 7);
-  doc.setTextColor(245, 166, 35);
-  doc.text(total === 0 ? "Sob consulta" : fmt(total), pageW - margin, finalY + 7, { align: "right" });
+  // Resumo (linhas de pagina inteira): subtotal, frete e total a vista
+  var finalY = doc.lastAutoTable.finalY + 6;
+  var bottomY;
+  if (total === 0) {
+    doc.setDrawColor(30); doc.setLineWidth(0.5);
+    doc.line(margin, finalY, pageW - margin, finalY);
+    doc.setFontSize(12); doc.setFont(undefined, "bold"); doc.setTextColor(30);
+    doc.text("TOTAL", margin, finalY + 7);
+    doc.setTextColor(245, 166, 35);
+    doc.text("Sob consulta", pageW - margin, finalY + 7, { align: "right" });
+    bottomY = finalY + 7;
+  } else if (freteNum > 0) {
+    doc.setFontSize(10); doc.setFont(undefined, "normal"); doc.setTextColor(90);
+    doc.text("Subtotal dos produtos", margin, finalY + 5);
+    doc.setTextColor(30); doc.setFont(undefined, "bold");
+    doc.text(fmt(totalSemFrete), pageW - margin, finalY + 5, { align: "right" });
+    doc.setFont(undefined, "normal"); doc.setTextColor(90);
+    doc.text("Frete e entrega", margin, finalY + 12);
+    doc.setTextColor(30); doc.setFont(undefined, "bold");
+    doc.text(fmt(freteNum), pageW - margin, finalY + 12, { align: "right" });
+    doc.setDrawColor(30); doc.setLineWidth(0.5);
+    doc.line(margin, finalY + 16, pageW - margin, finalY + 16);
+    doc.setFontSize(12); doc.setFont(undefined, "bold"); doc.setTextColor(30);
+    doc.text("TOTAL A VISTA (COM FRETE)", margin, finalY + 23);
+    doc.setTextColor(245, 166, 35);
+    doc.text(fmt(total), pageW - margin, finalY + 23, { align: "right" });
+    doc.setFontSize(8); doc.setFont(undefined, "italic"); doc.setTextColor(150);
+    doc.text("Entrega e montagem inclusas no valor do frete", pageW - margin, finalY + 28, { align: "right" });
+    bottomY = finalY + 28;
+  } else {
+    doc.setFontSize(10); doc.setFont(undefined, "normal"); doc.setTextColor(90);
+    doc.text("Subtotal dos produtos", margin, finalY + 5);
+    doc.setTextColor(30); doc.setFont(undefined, "bold");
+    doc.text(fmt(total), pageW - margin, finalY + 5, { align: "right" });
+    doc.setDrawColor(30); doc.setLineWidth(0.5);
+    doc.line(margin, finalY + 9, pageW - margin, finalY + 9);
+    doc.setFontSize(12); doc.setFont(undefined, "bold"); doc.setTextColor(30);
+    doc.text("TOTAL A VISTA", margin, finalY + 16);
+    doc.setTextColor(245, 166, 35);
+    doc.text(fmt(total), pageW - margin, finalY + 16, { align: "right" });
+    bottomY = finalY + 16;
+  }
 
   // Opcoes de pagamento (Boleto) — so aparece se vendedor marcou no toggle
-  var paymentEndY = finalY + 12;
+  var paymentEndY = bottomY + 5;
   var entrada = Number(comissao) || 0;
   if (incluirParcelamento && total > 0 && total > entrada) {
     var saldo = total - entrada;
     var opcoes = calcularOpcoesPagamento(total, entrada);
 
-    var paymentTitleY = finalY + 16;
+    var paymentTitleY = bottomY + 8;
     doc.setFontSize(10);
     doc.setFont(undefined, "bold");
     doc.setTextColor(30);
