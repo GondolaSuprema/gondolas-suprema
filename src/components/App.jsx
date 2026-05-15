@@ -2498,10 +2498,23 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
   const totalFinal = subtotalComDesconto + totalComissao + freteEfetivo;
 
   const [saving, setSaving] = useState(false);
+  const [erroDados, setErroDados] = useState("");
   const save = async () => {
     if (!user || saving) return;
-    setSaving(true);
+    // Exige dados mínimos do cliente antes de gerar o orçamento.
+    // Vale tanto pra orçamento novo quanto pra acréscimo em existente.
     const cd = clientData || {};
+    const faltando = [];
+    if (!String(cd.empresa || "").trim()) faltando.push("Nome do Cliente");
+    const telDigits = String(cd.telefone || "").replace(/\D/g, "");
+    if (telDigits.length < 10 || telDigits.length > 11) faltando.push("Celular (DDD + número)");
+    if (!String(cd.cidade || "").trim()) faltando.push("Cidade");
+    if (faltando.length > 0) {
+      setErroDados("Faltam dados do cliente: " + faltando.join(", ") + ". Clique abaixo para preencher.");
+      return;
+    }
+    setErroDados("");
+    setSaving(true);
     const newItems = items.map(i => {
       const optsFromOptions = (i.selOpts || []).map(oi => (i.product.options || [])[oi]?.label).filter(Boolean);
       const optsFromVariants = i.selVariants ? Object.entries(i.selVariants).map(([k, v]) => v) : [];
@@ -2715,6 +2728,14 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 800, color: COLORS.orange }}>{fmt(totalFinal)}</span>
         </div>
       </div>
+
+      {/* Aviso de dados obrigatórios do cliente faltando */}
+      {erroDados && (
+        <div style={{ marginTop: 16, background: COLORS.danger + "15", border: `1px solid ${COLORS.danger}55`, borderRadius: 10, padding: "12px 14px" }}>
+          <div style={{ color: COLORS.danger, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: 10 }}>⚠ {erroDados}</div>
+          <button onClick={() => setPage("client")} style={{ width: "100%", background: COLORS.danger, color: "#fff", border: "none", padding: "12px", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Preencher dados do cliente</button>
+        </div>
+      )}
 
       {/* Botão salvar */}
       <button onClick={save} disabled={saving} style={{ width: "100%", background: saving ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: saving ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 16 }}>{saving ? "Salvando..." : editingOrderId ? "Adicionar ao Orçamento" : "Salvar Orçamento"}</button>
