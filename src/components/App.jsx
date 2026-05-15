@@ -2817,10 +2817,24 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         ? recipeKeyForProduct(orig, sel)
         : null;
 
-      // Fallback: monta key com it.opts (array preservado em ordem das variants)
+      // Fallback: monta key com it.opts. A ordem salva em it.opts depende
+      // de em qual sequência o vendedor clicou as variantes — NÃO é
+      // confiável. Tenta a ordem como veio e, se não bater, reordena
+      // conforme orig.variants (cada valor casado com a variante cujas
+      // options o contêm).
       if (!key && orig && orig.id != null && Array.isArray(it.opts) && it.opts.length) {
         const candidate = [orig.id, ...it.opts].join("|");
-        if (PRODUCT_RECIPES[candidate]) key = candidate;
+        if (PRODUCT_RECIPES[candidate]) {
+          key = candidate;
+        } else if (Array.isArray(orig.variants) && orig.variants.length) {
+          const ordenado = orig.variants.map(v =>
+            it.opts.find(o => (v.options || []).includes(o))
+          );
+          if (ordenado.every(Boolean)) {
+            const c2 = [orig.id, ...ordenado].join("|");
+            if (PRODUCT_RECIPES[c2]) key = c2;
+          }
+        }
       }
 
       const receita = key && PRODUCT_RECIPES[key];
@@ -2834,11 +2848,14 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
           .replace(/\s+/g, " ").trim()
           .replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
         const nomeItem = orig?.name || it.name || it.product?.name || "";
+        // Prioriza a chave canônica "nome:slug" — é a MESMA que as receitas
+        // usam — pra que a peça avulsa SOME com a vinda do desmembramento
+        // (em vez de virar uma linha duplicada por id diferente).
         const candidatos = [
+          nomeItem && ("nome:" + slugPeca(nomeItem)),
           it.product?.id,
           it.product_id,
           orig?.id,
-          nomeItem && ("nome:" + slugPeca(nomeItem)),
         ].filter(Boolean);
         const pid = candidatos.find(c => uniplusNomes[c]);
         if (pid) {
