@@ -5515,9 +5515,10 @@ function GraficosPage({ user }) {
   const [mesSel, setMesSel] = useState("");
   const META = 100000;
 
-  // Admin e gestor veem todos; demais (vendedor, vendedor_basico) so os proprios.
+  // Admin, gestor e vendedor (Adelmo) veem todos; só vendedor_basico
+  // (João) vê apenas os próprios.
   const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
-  const isVendedorComum = role !== "admin" && role !== "gestor";
+  const isVendedorComum = role === "vendedor_basico";
 
   useEffect(() => {
     if (!user) return;
