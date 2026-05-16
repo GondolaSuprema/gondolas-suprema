@@ -1833,8 +1833,9 @@ const ROLE_PERMISSIONS = {
   // gestor (Zanella) — explicitamente SEM comissoes (regra do Ale)
   gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
-  // por canEditLogistica) + suas proprias comissoes
-  vendedor:        ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes"],
+  // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
+  // (acoes de escrita escondidas via canEditAdm)
+  vendedor:        ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm"],
   // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
   // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes"],
@@ -4657,6 +4658,11 @@ function AdminPage({ user }) {
   // Confirmação de exclusão na tabela "Vendas Concluídas" (somente admin/Alessandro)
   const [confirmDelVenda, setConfirmDelVenda] = useState(null);
   const isAdminOnly = (user?.role || (user?.isAdmin ? "admin" : "vendedor")) === "admin";
+  // Quem pode EDITAR na ADM: admin (Ale) e gestor (Zanella). Vendedor
+  // (Adelmo) tem ADM somente leitura — todas as ações de escrita
+  // (editar, excluir, trocar vendedor/status, NF) ficam escondidas.
+  const _admRole = user?.role || (user?.isAdmin ? "admin" : "vendedor");
+  const canEditAdm = _admRole === "admin" || _admRole === "gestor";
   // Filtro de mês dedicado do Relatório por Vendedor (independente do filtro
   // geral abaixo). "all" = todos os meses
   const [relatorioMes, setRelatorioMes] = useState("all");
@@ -5184,7 +5190,7 @@ function AdminPage({ user }) {
                       <th style={{ padding: "10px 12px", textAlign: "right", color: "#10B981", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Lucro/Comissão</th>
                       <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</th>
                       <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
-                      <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>NF-e</th>
+                      {canEditAdm && <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>NF-e</th>}
                       {isAdminOnly && <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Ações</th>}
                     </tr>
                   </thead>
@@ -5200,13 +5206,18 @@ function AdminPage({ user }) {
                           <td style={{ padding: "10px 12px", textAlign: "right", color: "#10B981", fontWeight: 700 }}>{fmt(o.comissao || 0)}</td>
                           <td style={{ padding: "10px 12px", color: COLORS.accent, fontWeight: 500 }}>{o.vendedor || "-"}</td>
                           <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                            <select value={vs} onChange={e => updateVendaStatus(o.id, e.target.value)} style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
-                              <option value="Em Aberto">Em Aberto</option>
-                              <option value="Pago">Pago</option>
-                              <option value="Gerar NF">Gerar NF</option>
-                              <option value="Concluído">Concluído</option>
-                            </select>
+                            {canEditAdm ? (
+                              <select value={vs} onChange={e => updateVendaStatus(o.id, e.target.value)} style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                                <option value="Em Aberto">Em Aberto</option>
+                                <option value="Pago">Pago</option>
+                                <option value="Gerar NF">Gerar NF</option>
+                                <option value="Concluído">Concluído</option>
+                              </select>
+                            ) : (
+                              <span style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{vs}</span>
+                            )}
                           </td>
+                          {canEditAdm && (
                           <td style={{ padding: "10px 8px", textAlign: "center" }}>
                             <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
                               {emitindoNfe === o.id ? (
@@ -5217,6 +5228,7 @@ function AdminPage({ user }) {
                               <button onClick={() => setCancelandoNfe(o.id)} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "3px 6px", borderRadius: 6, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Cancelar</button>
                             </div>
                           </td>
+                          )}
                           {isAdminOnly && (
                             <td style={{ padding: "10px 8px", textAlign: "center" }}>
                               {confirmDelVenda === o.id ? (
@@ -5303,7 +5315,7 @@ function AdminPage({ user }) {
                     <span style={{ background: sc[o.status] || sc["Aguardando Retorno"], color: "#000", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status || "Aguardando Retorno"}</span>
                     <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: COLORS.orange, marginTop: 4 }}>{fmt(o.total || 0)}</div>
                   </div>
-                  <button onClick={async (e) => { e.stopPropagation(); if (window.confirm("Excluir este orçamento?")) { await supabase.from("orcamentos").delete().eq("id", o.id); setAllOrders(allOrders.filter(x => x.id !== o.id)); }}} style={{ background: COLORS.danger + "15", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "8px", borderRadius: 7, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>🗑️</button>
+                  {canEditAdm && <button onClick={async (e) => { e.stopPropagation(); if (window.confirm("Excluir este orçamento?")) { await supabase.from("orcamentos").delete().eq("id", o.id); setAllOrders(allOrders.filter(x => x.id !== o.id)); }}} style={{ background: COLORS.danger + "15", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "8px", borderRadius: 7, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>🗑️</button>}
                 </div>
               </div>
               {expanded === o.id && (
@@ -5312,7 +5324,8 @@ function AdminPage({ user }) {
                   {o.client?.telefone && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>Tel: {o.client.telefone}</div>}
                   {o.client?.email && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>E-mail: {o.client.email}</div>}
                   {o.client?.endereco && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>End: {o.client.endereco}{o.client.bairro ? ", " + o.client.bairro : ""} — {o.client.cidade}{o.client.estado ? "/" + o.client.estado : ""}</div>}
-                  {/* Reatribuir vendedor (visivel apenas no ADM) */}
+                  {/* Reatribuir vendedor + trocar status: só admin/gestor (Adelmo = leitura) */}
+                  {canEditAdm && (<>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 10px" }}>
                     <label style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor:</label>
                     <select
@@ -5354,6 +5367,7 @@ function AdminPage({ user }) {
                       </span>
                     )}
                   </div>
+                  </>)}
 
                   {/* Resumo financeiro do orcamento (visivel apenas no ADM) */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, margin: "4px 0 10px", padding: "10px 12px", background: COLORS.bg, borderRadius: 7, border: `1px solid ${COLORS.border}` }}>
@@ -5407,7 +5421,7 @@ function AdminPage({ user }) {
                     </div>
                   )}
 
-                  <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                  <div style={{ marginTop: 12, display: canEditAdm ? "flex" : "none", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
                     {editingId !== o.id && confirmDel !== o.id && (
                       <button onClick={(e) => { e.stopPropagation(); startEditOrder(o); }} style={{ background: "#3B82F615", border: `1px solid #3B82F640`, color: "#3B82F6", padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>✏️ Editar</button>
                     )}
