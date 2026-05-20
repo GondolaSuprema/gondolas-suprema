@@ -1422,12 +1422,12 @@ function buildPaymentSection(total, comissao) {
   const esq = ops.slice(0, meio);
   const dir = ops.slice(meio);
   const cel = (o) => o
-    ? `<td><strong>${o.parcelas}x</strong></td><td>${fmt(o.valorParcela)}</td><td>${o.acrescimo}</td><td>${fmt(o.totalGeral)}</td>`
-    : `<td></td><td></td><td></td><td></td>`;
+    ? `<td><strong>${o.parcelas}x</strong></td><td>${fmt(o.valorParcela)}</td><td>${fmt(o.totalGeral)}</td>`
+    : `<td></td><td></td><td></td>`;
   const linhas = esq.map((o, i) =>
     `<tr>${cel(o)}<td class="gap"></td>${cel(dir[i])}</tr>`
   ).join("");
-  const th = `<th>Parc.</th><th>Valor parcela</th><th>Acréscimo</th><th>Total</th>`;
+  const th = `<th>Parc.</th><th>Valor parcela</th><th>Total</th>`;
   return `
     <div class="pgto-title">Opções de Pagamento — Boleto</div>
     ${entrada > 0 ? `<div class="pgto-info"><strong>Entrada (à vista):</strong> ${fmt(entrada)}</div>` : ""}
