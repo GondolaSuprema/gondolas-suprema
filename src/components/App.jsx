@@ -4136,6 +4136,10 @@ function LogisticaPage({ user }) {
           empresa: o.cliente_empresa || "",
           cidade: o.cliente_cidade || "",
           uf: o.cliente_estado || "",
+          endereco: o.cliente_endereco || "",
+          numero: o.cliente_numero || "",
+          bairro: o.cliente_bairro || "",
+          cep: o.cliente_cep || "",
           vendedor: o.vendedor_nome || "",
           total: o.total || 0,
           dataEntrega: o.data_entrega,
@@ -4319,7 +4323,30 @@ function LogisticaPage({ user }) {
                         return (
                           <tr key={o.id} style={{ borderTop: `1px solid ${COLORS.border}` }}>
                             <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>{o.empresa || "—"}</td>
-                            <td style={{ padding: "12px 14px", color: COLORS.textMuted }}>{o.cidade}{o.uf ? "/" + o.uf : ""}</td>
+                            <td style={{ padding: "12px 14px", color: COLORS.textMuted }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                <span>{o.cidade}{o.uf ? "/" + o.uf : ""}</span>
+                                {(() => {
+                                  const partes = [
+                                    o.endereco && o.numero ? `${o.endereco}, ${o.numero}` : o.endereco,
+                                    o.bairro,
+                                    o.cidade,
+                                    o.uf,
+                                  ].filter(Boolean);
+                                  if (partes.length === 0) return null;
+                                  const wazeUrl = `https://waze.com/ul?q=${encodeURIComponent(partes.join(", "))}&navigate=yes`;
+                                  return (
+                                    <a
+                                      href={wazeUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title={`Abrir rota no Waze: ${partes.join(", ")}`}
+                                      style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#33ccff15", border: "1px solid #33ccff40", color: "#33ccff", padding: "3px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700, textDecoration: "none", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
+                                    >🚗 Waze</a>
+                                  );
+                                })()}
+                              </div>
+                            </td>
                             <td style={{ padding: "12px 14px", color: COLORS.text, fontFamily: "monospace" }}>{o.numeroPedido || "—"}</td>
                             <td style={{ padding: "12px 14px", color: COLORS.orange, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{fmt(o.total)}</td>
                             <td style={{ padding: "12px 14px", color: COLORS.text }}>
