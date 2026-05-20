@@ -4116,6 +4116,10 @@ function LogisticaPage({ user }) {
   const [filterRegiao, setFilterRegiao] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [confirmDelLog, setConfirmDelLog] = useState(null); // id do orcamento aguardando confirmacao
+  // Modal de itens desmembrados ao clicar no nome do cliente
+  const [pecasModal, setPecasModal] = useState(null); // { entrega, lista, naoExpandidos }
+  // Produtos UniPlus pra resolver nomes das peças no desmembramento
+  const [uniplusProducts, setUniplusProducts] = useState([]);
 
   const podeEditar = canEditLogistica(user);
   // Mesmos roles que editam (admin/gestor = Alessandro/Zanella) tambem excluem
@@ -4145,11 +4149,94 @@ function LogisticaPage({ user }) {
           dataEntrega: o.data_entrega,
           numeroPedido: o.numero_pedido || "",
           statusEntrega: o.status_entrega || "Agendada",
+          items: o.items || [],
         })));
       }
     };
     load();
   }, [user]);
+
+  // Carrega produtos UniPlus para resolver nomes de peças no desmembramento
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("produtos_uniplus").select("id, nome").eq("ativo", true);
+      if (data) setUniplusProducts(data);
+    };
+    load();
+  }, []);
+
+  const uniplusNomes = useMemo(() => {
+    const m = {};
+    const slug = (s) => (s || "").toString().toUpperCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/\s+/g, " ").trim()
+      .replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+    uniplusProducts.forEach(p => {
+      if (p.id) m[p.id] = p.nome;
+      if (p.nome) m["nome:" + slug(p.nome)] = p.nome;
+    });
+    return m;
+  }, [uniplusProducts]);
+
+  // Desmembra itens do orçamento em peças UniPlus (mesma lógica usada
+  // no modal "Peças para o Pedido" da aba Orçamentos).
+  const gerarListaPecasEntrega = (items) => {
+    const pecas = {};
+    const naoExpandidos = [];
+    const slugPeca = (s) => (s || "").toString().toUpperCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/\s+/g, " ").trim()
+      .replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+    (items || []).forEach(it => {
+      const qtd = Number(it.qty) || 0;
+      const orig =
+        (it.product?.id != null && PRODUCTS.find(p => p.id === it.product.id)) ||
+        (it.product_id != null && PRODUCTS.find(p => p.id === it.product_id)) ||
+        (it.name && PRODUCTS.find(p => p.name === it.name)) ||
+        it.product || null;
+      let key = null;
+      if (orig && orig.id != null && Array.isArray(it.opts) && it.opts.length) {
+        const candidate = [orig.id, ...it.opts].join("|");
+        if (PRODUCT_RECIPES[candidate]) {
+          key = candidate;
+        } else if (Array.isArray(orig.variants) && orig.variants.length) {
+          const ordenado = orig.variants.map(v => it.opts.find(o => (v.options || []).includes(o)));
+          if (ordenado.every(Boolean)) {
+            const c2 = [orig.id, ...ordenado].join("|");
+            if (PRODUCT_RECIPES[c2]) key = c2;
+          }
+        }
+      }
+      const receita = key && PRODUCT_RECIPES[key];
+      if (!receita) {
+        // Tenta como peça UniPlus avulsa (mesma chave que as receitas)
+        const nomeItem = orig?.name || it.name || it.product?.name || "";
+        const candidatos = [
+          nomeItem && ("nome:" + slugPeca(nomeItem)),
+          it.product?.id, it.product_id, orig?.id,
+        ].filter(Boolean);
+        const pid = candidatos.find(c => uniplusNomes[c]);
+        if (pid) {
+          pecas[pid] = (pecas[pid] || 0) + qtd;
+          return;
+        }
+        naoExpandidos.push({ nome: nomeItem || "(sem nome)", qty: qtd, opts: it.opts || [] });
+        return;
+      }
+      receita.forEach(([uniplusId, qtdPorUnidade]) => {
+        pecas[uniplusId] = (pecas[uniplusId] || 0) + qtdPorUnidade * qtd;
+      });
+    });
+    const lista = Object.entries(pecas)
+      .map(([id, qty]) => ({ id, nome: uniplusNomes[id] || id, qty }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    return { lista, naoExpandidos };
+  };
+
+  const abrirPecasEntrega = (entrega) => {
+    const { lista, naoExpandidos } = gerarListaPecasEntrega(entrega.items);
+    setPecasModal({ entrega, lista, naoExpandidos });
+  };
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -4322,7 +4409,13 @@ function LogisticaPage({ user }) {
                         const cor = STATUS_ENTREGA_COLORS[o.statusEntrega] || COLORS.textMuted;
                         return (
                           <tr key={o.id} style={{ borderTop: `1px solid ${COLORS.border}` }}>
-                            <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>{o.empresa || "—"}</td>
+                            <td style={{ padding: "12px 14px", color: COLORS.text, fontWeight: 600 }}>
+                              <button
+                                onClick={() => abrirPecasEntrega(o)}
+                                title="Clique para ver os itens desmembrados do pedido"
+                                style={{ background: "transparent", border: "none", color: COLORS.text, fontWeight: 600, fontSize: 12, fontFamily: "'DM Sans', sans-serif", padding: 0, cursor: "pointer", textDecoration: "underline", textDecorationColor: COLORS.accent + "60", textUnderlineOffset: 3, textAlign: "left" }}
+                              >{o.empresa || "—"}</button>
+                            </td>
                             <td style={{ padding: "12px 14px", color: COLORS.textMuted }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                                 <span>{o.cidade}{o.uf ? "/" + o.uf : ""}</span>
@@ -4398,6 +4491,58 @@ function LogisticaPage({ user }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal: itens desmembrados do pedido (ao clicar no nome do cliente) */}
+      {pecasModal && (
+        <div onClick={() => setPecasModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 640, maxWidth: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 12 }}>
+              <div>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.accent, fontSize: 18, margin: 0 }}>📦 Itens do Pedido — {pecasModal.entrega.empresa || "Cliente"}</h2>
+                <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "4px 0 0", fontFamily: "'DM Sans', sans-serif" }}>
+                  {pecasModal.entrega.numeroPedido ? `Pedido ${pecasModal.entrega.numeroPedido} · ` : ""}
+                  Entrega: {pecasModal.entrega.dataEntrega ? fmtData(pecasModal.entrega.dataEntrega) : "—"}
+                  {" · "}{pecasModal.lista.length} peça(s) para descarga
+                </p>
+              </div>
+              <button onClick={() => setPecasModal(null)} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Fechar</button>
+            </div>
+            <div style={{ overflowY: "auto", border: `1px solid ${COLORS.border}`, borderRadius: 10 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                <thead>
+                  <tr style={{ background: COLORS.bg, position: "sticky", top: 0 }}>
+                    <th style={{ textAlign: "left", padding: "10px 12px", color: COLORS.textMuted, fontWeight: 600, borderBottom: `1px solid ${COLORS.border}` }}>Peça</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", color: COLORS.textMuted, fontWeight: 600, borderBottom: `1px solid ${COLORS.border}`, width: 80 }}>Qtd</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pecasModal.lista.length === 0 && pecasModal.naoExpandidos.length === 0 && (
+                    <tr><td colSpan={2} style={{ padding: 16, textAlign: "center", color: COLORS.textMuted }}>Pedido sem itens.</td></tr>
+                  )}
+                  {pecasModal.lista.map((p, idx) => (
+                    <tr key={p.id} style={{ borderBottom: idx < pecasModal.lista.length - 1 ? `1px solid ${COLORS.border}` : "none" }}>
+                      <td style={{ padding: "8px 12px", color: COLORS.text }}>{p.nome}</td>
+                      <td style={{ padding: "8px 12px", color: COLORS.accent, textAlign: "right", fontWeight: 700 }}>{p.qty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {pecasModal.naoExpandidos.length > 0 && (
+              <div style={{ marginTop: 12, padding: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8 }}>
+                <div style={{ color: COLORS.danger, fontSize: 11, fontWeight: 600, marginBottom: 6, fontFamily: "'DM Sans', sans-serif" }}>
+                  ⚠ Sem receita (não puderam ser destrinchados):
+                </div>
+                {pecasModal.naoExpandidos.map((it, i) => (
+                  <div key={i} style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+                    • {it.qty}× {it.nome}{it.opts.length ? ` (${it.opts.join(", ")})` : ""}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
