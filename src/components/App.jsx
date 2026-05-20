@@ -1391,14 +1391,18 @@ function getIconHtml(item) {
 }
 
 const TABELA_JUROS_BOLETO_HTML = [
-  { parcelas: 1, juros: 0 },
-  { parcelas: 2, juros: 0 },
-  { parcelas: 3, juros: 0 },
-  { parcelas: 4, juros: 0.015 },
-  { parcelas: 5, juros: 0.030 },
-  { parcelas: 6, juros: 0.045 },
-  { parcelas: 7, juros: 0.060 },
-  { parcelas: 8, juros: 0.075 },
+  { parcelas: 1,  juros: 0.022 },
+  { parcelas: 2,  juros: 0.033 },
+  { parcelas: 3,  juros: 0.044 },
+  { parcelas: 4,  juros: 0.055 },
+  { parcelas: 5,  juros: 0.066 },
+  { parcelas: 6,  juros: 0.077 },
+  { parcelas: 7,  juros: 0.088 },
+  { parcelas: 8,  juros: 0.100 },
+  { parcelas: 9,  juros: 0.110 },
+  { parcelas: 10, juros: 0.120 },
+  { parcelas: 11, juros: 0.130 },
+  { parcelas: 12, juros: 0.140 },
 ];
 
 function buildPaymentSection(total, comissao) {
@@ -3758,7 +3762,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                     <label style={lblStyle}>Parcelas *</label>
                     <select value={cd.pag1_parcelas} onChange={e => setConcluidoData({ ...cd, pag1_parcelas: e.target.value })} style={selStyle}>
                       <option value="">Selecione...</option>
-                      {Array.from({ length: 8 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
+                      {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
                     </select>
                   </div>
                 )}
@@ -3794,7 +3798,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                     <label style={lblStyle}>Parcelas *</label>
                     <select value={cd.pag2_parcelas} onChange={e => setConcluidoData({ ...cd, pag2_parcelas: e.target.value })} style={selStyle}>
                       <option value="">Selecione...</option>
-                      {Array.from({ length: 8 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
+                      {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
                     </select>
                   </div>
                 )}
@@ -3979,7 +3983,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                     <div style={{ flex: 1 }}>
                       <div style={{ color: parcelamentoOpts[o.id] ? "#10B981" : COLORS.text, fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>🧾 Incluir parcelamento por boleto</div>
                       <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 1 }}>
-                        {parcelamentoOpts[o.id] ? "A tabela de parcelas (1x a 8x) será adicionada no orçamento." : "Sem parcelamento — orçamento envia só o total."}
+                        {parcelamentoOpts[o.id] ? "A tabela de parcelas (1x a 12x) será adicionada no orçamento." : "Sem parcelamento — orçamento envia só o total."}
                       </div>
                     </div>
                   </div>

@@ -67,14 +67,18 @@ function getProductIconKey(item) {
 }
 
 const TABELA_JUROS_BOLETO = [
-  { parcelas: 1, juros: 0 },
-  { parcelas: 2, juros: 0 },
-  { parcelas: 3, juros: 0 },
-  { parcelas: 4, juros: 0.015 },
-  { parcelas: 5, juros: 0.030 },
-  { parcelas: 6, juros: 0.045 },
-  { parcelas: 7, juros: 0.060 },
-  { parcelas: 8, juros: 0.075 },
+  { parcelas: 1,  juros: 0.022 },
+  { parcelas: 2,  juros: 0.033 },
+  { parcelas: 3,  juros: 0.044 },
+  { parcelas: 4,  juros: 0.055 },
+  { parcelas: 5,  juros: 0.066 },
+  { parcelas: 6,  juros: 0.077 },
+  { parcelas: 7,  juros: 0.088 },
+  { parcelas: 8,  juros: 0.100 },
+  { parcelas: 9,  juros: 0.110 },
+  { parcelas: 10, juros: 0.120 },
+  { parcelas: 11, juros: 0.130 },
+  { parcelas: 12, juros: 0.140 },
 ];
 
 function calcularOpcoesPagamento(total, entrada) {
