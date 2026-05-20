@@ -1,2 +1,27 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { max-width: 100vw; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
 body { font-family: 'DM Sans', sans-serif; background: #0A0E18; }
+
+/* Navbar: em telas pequenas, permite rolagem horizontal só do menu de abas
+   em vez de estourar a tela inteira. Em desktop continua como antes. */
+nav > div:first-child > div:nth-child(2) {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+nav > div:first-child > div:nth-child(2)::-webkit-scrollbar { display: none; }
+
+/* Em telas pequenas (<= 640px), reduz padding lateral pra ganhar espaço útil */
+@media (max-width: 640px) {
+  nav { padding: 0 12px !important; }
+  input, select, textarea, button { font-size: 14px; }
+}
+
+/* Inputs no iOS não devem dar zoom quando focados — exige fonte >= 16px nos inputs */
+@media (max-width: 640px) {
+  input[type="text"], input[type="email"], input[type="tel"],
+  input[type="number"], input[type="password"], input[type="date"],
+  textarea, select {
+    font-size: 16px !important;
+  }
+}

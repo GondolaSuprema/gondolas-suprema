@@ -5,6 +5,15 @@ export const metadata = {
   description: 'Sistema de orçamentos da Gôndolas Suprema',
 };
 
+// Viewport pra mobile (iOS/Android) — sem isso o navegador renderiza
+// como desktop espremido, estourando a tela horizontalmente.
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#0A0E18',
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
