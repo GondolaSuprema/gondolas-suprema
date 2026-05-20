@@ -2937,6 +2937,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   const [confirmDel, setConfirmDel] = useState(null);
   // Filtro por mês (formato YYYY-MM ou "all")
   const [filterMes, setFilterMes] = useState("all");
+  // Busca livre por nome do cliente / nº do orçamento
+  const [buscaNome, setBuscaNome] = useState("");
   // Modal de anotações internas — { orderId, texto }
   const [anotacoesModal, setAnotacoesModal] = useState(null);
   const [savingAnotacoes, setSavingAnotacoes] = useState(false);
@@ -3430,15 +3432,25 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     const [ano, mes] = m.split("-");
     return `${mesNomes[mes]} ${ano}`;
   };
-  const ordersFiltrados = filterMes === "all"
-    ? orders
-    : orders.filter(o => {
-        if (!o.date) return false;
-        const d = new Date(o.date);
-        if (isNaN(d.getTime())) return false;
-        const chave = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-        return chave === filterMes;
-      });
+  const buscaNorm = buscaNome.trim().toLowerCase();
+  const ordersFiltrados = orders.filter(o => {
+    if (filterMes !== "all") {
+      if (!o.date) return false;
+      const d = new Date(o.date);
+      if (isNaN(d.getTime())) return false;
+      const chave = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+      if (chave !== filterMes) return false;
+    }
+    if (buscaNorm) {
+      const alvo = [
+        o.client?.empresa, o.client?.responsavel,
+        o.client?.cidade, o.client?.cnpj,
+        o.id, (o.id || "").slice(0, 6),
+      ].filter(Boolean).join(" ").toLowerCase();
+      if (!alvo.includes(buscaNorm)) return false;
+    }
+    return true;
+  });
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
@@ -3459,6 +3471,21 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
           {ordersFiltrados.length} {ordersFiltrados.length === 1 ? "orçamento" : "orçamentos"}
           {filterMes !== "all" && ` em ${formatarMes(filterMes)}`}
         </span>
+      </div>
+
+      {/* Busca livre por nome do cliente / nº do orçamento */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, position: "relative" }}>
+        <span style={{ position: "absolute", left: 12, color: COLORS.textDim, fontSize: 14, pointerEvents: "none" }}>🔍</span>
+        <input
+          type="text"
+          value={buscaNome}
+          onChange={e => setBuscaNome(e.target.value)}
+          placeholder="Buscar por nome do cliente, cidade, CNPJ ou nº…"
+          style={{ width: "100%", padding: "11px 14px 11px 36px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}
+        />
+        {buscaNome && (
+          <button onClick={() => setBuscaNome("")} style={{ position: "absolute", right: 10, background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16, lineHeight: 1 }} title="Limpar busca">×</button>
+        )}
       </div>
 
       {/* Modal Lista de Peças (UniPlus) */}
