@@ -1520,44 +1520,115 @@ ${incluirCartao ? buildCardSection(total) : ""}
 
 // ─── NAV ───
 function Nav({ page, setPage, user, onLogout, cartCount }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detecta mobile via media query (cliente only). Atualiza no resize.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    if (mq.addEventListener) mq.addEventListener("change", update);
+    else mq.addListener(update); // Safari antigo
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", update);
+      else mq.removeListener(update);
+    };
+  }, []);
+
+  // Fecha o drawer sempre que troca de página
+  useEffect(() => { setMobileOpen(false); }, [page]);
+
+  const tabs = [
+    { k: "client", l: "Cliente" },
+    { k: "catalog", l: "Produtos" },
+    { k: "resumo", l: "Resumo" },
+    { k: "orders", l: "Orçamentos" },
+    { k: "graficos", l: "Gráficos" },
+    { k: "logistica", l: "Logística" },
+    { k: "comissoes", l: "Comissões" },
+    { k: "adm", l: "ADM" },
+    { k: "financeiro", l: "Financeiro" },
+    { k: "dre", l: "DRE" },
+    { k: "nf", l: "NF" },
+    { k: "conciliacao", l: "Conciliação" },
+  ].filter(i => canAccess(user, i.k));
+
+  const activeTab = tabs.find(t => t.k === page);
+
   return (
-    <nav style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, position: "sticky", top: 0, zIndex: 100 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-        <div onClick={() => setPage("client")} style={{ cursor: "pointer", fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800 }}>
-          <span style={{ color: "#888" }}>Gôndolas</span><span style={{ color: COLORS.orange }}> Suprema</span>
-        </div>
-        {user && (
-          <div style={{ display: "flex", gap: 2 }}>
-            {[
-              { k: "client", l: "Cliente" },
-              { k: "catalog", l: "Produtos" },
-              { k: "resumo", l: "Resumo" },
-              { k: "orders", l: "Orçamentos" },
-              { k: "graficos", l: "Gráficos" },
-              { k: "logistica", l: "Logística" },
-              { k: "comissoes", l: "Comissões" },
-              { k: "adm", l: "ADM" },
-              { k: "financeiro", l: "Financeiro" },
-              { k: "dre", l: "DRE" },
-              { k: "nf", l: "NF" },
-              { k: "conciliacao", l: "Conciliação" },
-            ].filter(i => canAccess(user, i.k)).map(i => (
-              <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
-            ))}
+    <>
+      <nav style={{ background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 20, minWidth: 0, flex: 1 }}>
+          <div onClick={() => setPage("client")} style={{ cursor: "pointer", fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, whiteSpace: "nowrap" }}>
+            <span style={{ color: "#888" }}>Gôndolas</span><span style={{ color: COLORS.orange }}> Suprema</span>
           </div>
-        )}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        {user ? (
-          <>
-            <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Olá, <strong style={{ color: COLORS.text }}>{user.name}</strong></span>
-            <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Sair</button>
-          </>
-        ) : (
-          <button onClick={() => setPage("login")} style={{ background: COLORS.orange, border: "none", color: "#000", padding: "7px 18px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Entrar</button>
-        )}
-      </div>
-    </nav>
+          {/* Desktop: menu horizontal */}
+          {user && !isMobile && (
+            <div style={{ display: "flex", gap: 2 }}>
+              {tabs.map(i => (
+                <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
+              ))}
+            </div>
+          )}
+          {/* Mobile: nome da aba ativa */}
+          {user && isMobile && activeTab && (
+            <div style={{ color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{activeTab.l}</div>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {user ? (
+            <>
+              {!isMobile && (
+                <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Olá, <strong style={{ color: COLORS.text }}>{user.name}</strong></span>
+              )}
+              {!isMobile && (
+                <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Sair</button>
+              )}
+              {/* Mobile: hamburguer */}
+              {isMobile && (
+                <button
+                  onClick={() => setMobileOpen(o => !o)}
+                  aria-label="Abrir menu"
+                  style={{ background: mobileOpen ? COLORS.orange + "18" : "transparent", border: `1px solid ${mobileOpen ? COLORS.orange : COLORS.border}`, color: mobileOpen ? COLORS.orange : COLORS.text, padding: "6px 12px", borderRadius: 7, cursor: "pointer", fontSize: 18, lineHeight: 1, fontFamily: "'DM Sans', sans-serif" }}
+                >{mobileOpen ? "✕" : "☰"}</button>
+              )}
+            </>
+          ) : (
+            <button onClick={() => setPage("login")} style={{ background: COLORS.orange, border: "none", color: "#000", padding: "7px 18px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Entrar</button>
+          )}
+        </div>
+      </nav>
+
+      {/* Drawer mobile: cobre a tela com a lista de abas */}
+      {isMobile && mobileOpen && user && (
+        <>
+          <div
+            onClick={() => setMobileOpen(false)}
+            style={{ position: "fixed", top: 60, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 99 }}
+          />
+          <div style={{ position: "fixed", top: 60, left: 0, right: 0, background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, zIndex: 100, maxHeight: "calc(100vh - 60px)", overflowY: "auto", padding: "8px 12px" }}>
+            <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", padding: "8px 12px 4px" }}>
+              Olá, <strong style={{ color: COLORS.text }}>{user.name}</strong>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}>
+              {tabs.map(i => (
+                <button
+                  key={i.k}
+                  onClick={() => { setPage(i.k); setMobileOpen(false); }}
+                  style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.text, border: "none", padding: "12px 14px", borderRadius: 8, cursor: "pointer", fontSize: 15, fontWeight: page === i.k ? 700 : 500, fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}
+                >{i.l}</button>
+              ))}
+              <button
+                onClick={() => { setMobileOpen(false); onLogout(); }}
+                style={{ background: COLORS.danger + "10", color: COLORS.danger, border: `1px solid ${COLORS.danger}30`, padding: "12px 14px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", textAlign: "left", marginTop: 8 }}
+              >Sair</button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
