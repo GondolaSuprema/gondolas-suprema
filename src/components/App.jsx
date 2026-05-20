@@ -4174,13 +4174,19 @@ function LogisticaPage({ user }) {
     return true;
   });
 
+  // Agrupa por DATA de entrega (cada bloco = um dia). Datas crescente.
+  // Entregas sem data caem num grupo "sem-data" no fim.
   const grouped = filtered.reduce((acc, o) => {
-    const r = getRegiao(o.cidade, o.uf);
-    if (!acc[r]) acc[r] = [];
-    acc[r].push(o);
+    const d = o.dataEntrega || "sem-data";
+    if (!acc[d]) acc[d] = [];
+    acc[d].push(o);
     return acc;
   }, {});
-  const regioesOrdenadas = Object.keys(grouped).sort();
+  const datasOrdenadas = Object.keys(grouped).sort((a, b) => {
+    if (a === "sem-data") return 1;
+    if (b === "sem-data") return -1;
+    return a.localeCompare(b);
+  });
 
   // Stats
   const totalEntregas = filtered.length;
@@ -4232,7 +4238,7 @@ function LogisticaPage({ user }) {
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
       <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>📦 Logística</h1>
       <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>
-        Cronograma de entregas agrupado por região
+        Cronograma de entregas organizado por data
         {!podeEditar && <span style={{ color: COLORS.textDim, fontStyle: "italic" }}> · somente leitura</span>}
       </p>
 
@@ -4263,19 +4269,35 @@ function LogisticaPage({ user }) {
         </select>
       </div>
 
-      {regioesOrdenadas.length === 0 ? (
+      {datasOrdenadas.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
           <p style={{ color: COLORS.textMuted, fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>Nenhuma entrega com os filtros atuais</p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {regioesOrdenadas.map(regiao => {
-            const items = grouped[regiao];
+          {datasOrdenadas.map(dataKey => {
+            const items = grouped[dataKey];
+            // Cabeçalho do bloco: data formatada (ou "Sem data definida")
+            const dataLabel = dataKey === "sem-data" ? "Sem data definida" : (() => {
+              const d = new Date(dataKey + "T00:00:00");
+              const diasSemana = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+              const dia = d.toLocaleDateString("pt-BR");
+              const semana = diasSemana[d.getDay()];
+              const diff = Math.round((d - today) / (1000 * 60 * 60 * 24));
+              let rel = "";
+              if (diff === 0) rel = " · hoje";
+              else if (diff === 1) rel = " · amanhã";
+              else if (diff === -1) rel = " · ontem";
+              else if (diff < 0) rel = ` · há ${-diff} dias`;
+              else if (diff <= 30) rel = ` · em ${diff} dias`;
+              return `${dia} (${semana})${rel}`;
+            })();
+            const atrasado = dataKey !== "sem-data" && new Date(dataKey + "T00:00:00") < today;
             return (
-              <div key={regiao} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+              <div key={dataKey} style={{ background: COLORS.card, border: `1px solid ${atrasado ? "#F8717140" : COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
                 <div style={{ padding: "12px 16px", background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.accent, fontSize: 16, margin: 0 }}>📍 {regiao}</h3>
+                  <h3 style={{ fontFamily: "'Playfair Display', serif", color: atrasado ? "#F87171" : COLORS.accent, fontSize: 16, margin: 0 }}>📅 {dataLabel}</h3>
                   <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{items.length} {items.length === 1 ? "entrega" : "entregas"}</span>
                 </div>
                 <div style={{ overflowX: "auto" }}>
