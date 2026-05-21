@@ -189,8 +189,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],   // BANDEJA 30*90CM BRANCA (era 3, tirou 2)
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],   // PAR SLG 30CM BRANCO (era 3, tirou 2)
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA (era 4, tirou 2)
-    ["nome:amapa-fit-regua-90cm-branco-un", 2],  // RÉGUA 90CM BRANCO
-    ["nome:amapa-gancho-simples-25cm-branco", 10], // GANCHO SIMPLES 25CM BRANCO (5 por régua)
+    ["nome:amapa-fit-regua-90cm-branco-un", 3],  // RÉGUA 90CM BRANCO
+    ["nome:amapa-gancho-simples-25cm-branco", 15], // GANCHO SIMPLES 25CM BRANCO (5 por régua)
   ],
   // Parede Continuação c/ Gancho - 1,37m - Branca (1 coluna a menos)
   "103|1,37m|Branca": [
@@ -201,8 +201,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-90cm-branco-un", 2],
-    ["nome:amapa-gancho-simples-25cm-branco", 10],
+    ["nome:amapa-fit-regua-90cm-branco-un", 3],
+    ["nome:amapa-gancho-simples-25cm-branco", 15],
   ],
   // Parede Inicial c/ Gancho - 1,70m - Branca
   "102|1,70m|Branca": [
@@ -213,8 +213,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],   // BANDEJA 30*90CM BRANCA
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],   // PAR SLG 30CM BRANCO
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA
-    ["nome:amapa-fit-regua-90cm-branco-un", 3],  // RÉGUA 90CM BRANCO (2+1)
-    ["nome:amapa-gancho-simples-25cm-branco", 15], // GANCHO SIMPLES 25CM BRANCO (10+5)
+    ["nome:amapa-fit-regua-90cm-branco-un", 4],  // RÉGUA 90CM BRANCO (2+1)
+    ["nome:amapa-gancho-simples-25cm-branco", 20], // GANCHO SIMPLES 25CM BRANCO (10+5)
   ],
   // Parede Continuação c/ Gancho - 1,70m - Branca (1 coluna a menos)
   "103|1,70m|Branca": [
@@ -225,8 +225,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-90cm-branco-un", 3],
-    ["nome:amapa-gancho-simples-25cm-branco", 15],
+    ["nome:amapa-fit-regua-90cm-branco-un", 4],
+    ["nome:amapa-gancho-simples-25cm-branco", 20],
   ],
   // Parede Inicial c/ Gancho - 2,00m - Branca
   "102|2,00m|Branca": [
@@ -237,8 +237,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-90cm-branco-un", 3],  // REGUA (igual 1,70m)
-    ["nome:amapa-gancho-simples-25cm-branco", 15], // GANCHO (igual 1,70m)
+    ["nome:amapa-fit-regua-90cm-branco-un", 4],  // REGUA (igual 1,70m)
+    ["nome:amapa-gancho-simples-25cm-branco", 20], // GANCHO (igual 1,70m)
   ],
   // Parede Continuação c/ Gancho - 2,00m - Branca (1 coluna a menos)
   "103|2,00m|Branca": [
@@ -249,8 +249,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-90cm-branco-un", 3],
-    ["nome:amapa-gancho-simples-25cm-branco", 15],
+    ["nome:amapa-fit-regua-90cm-branco-un", 4],
+    ["nome:amapa-gancho-simples-25cm-branco", 20],
   ],
 
   // ── PAREDE C/ GANCHO PRETA (mesma estrutura, componentes pretos) ──
@@ -263,8 +263,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],   // BANDEJA 30*90 PRETA
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],   // PAR SLG PRETO
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA
-    ["nome:amapa-fit-regua-90cm-preto-un", 2],  // RÉGUA 90CM PRETO
-    ["nome:amapa-gancho-simples-25cm-preto", 10], // GANCHO 25CM PRETO
+    ["nome:amapa-fit-regua-90cm-preto-un", 3],  // RÉGUA 90CM PRETO
+    ["nome:amapa-gancho-simples-25cm-preto", 15], // GANCHO 25CM PRETO
   ],
   // Parede Continuação c/ Gancho - 1,37m - Preta
   "103|1,37m|Preta": [
@@ -275,8 +275,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-90cm-preto-un", 2],
-    ["nome:amapa-gancho-simples-25cm-preto", 10],
+    ["nome:amapa-fit-regua-90cm-preto-un", 3],
+    ["nome:amapa-gancho-simples-25cm-preto", 15],
   ],
   // Parede Inicial c/ Gancho - 1,70m - Preta
   "102|1,70m|Preta": [
@@ -287,8 +287,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-90cm-preto-un", 3],
-    ["nome:amapa-gancho-simples-25cm-preto", 15],
+    ["nome:amapa-fit-regua-90cm-preto-un", 4],
+    ["nome:amapa-gancho-simples-25cm-preto", 20],
   ],
   // Parede Continuação c/ Gancho - 1,70m - Preta
   "103|1,70m|Preta": [
@@ -299,8 +299,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-90cm-preto-un", 3],
-    ["nome:amapa-gancho-simples-25cm-preto", 15],
+    ["nome:amapa-fit-regua-90cm-preto-un", 4],
+    ["nome:amapa-gancho-simples-25cm-preto", 20],
   ],
   // Parede Inicial c/ Gancho - 2,00m - Preta
   "102|2,00m|Preta": [
@@ -311,8 +311,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-90cm-preto-un", 3],
-    ["nome:amapa-gancho-simples-25cm-preto", 15],
+    ["nome:amapa-fit-regua-90cm-preto-un", 4],
+    ["nome:amapa-gancho-simples-25cm-preto", 20],
   ],
   // Parede Continuação c/ Gancho - 2,00m - Preta
   "103|2,00m|Preta": [
@@ -323,8 +323,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-90cm-preto-un", 3],
-    ["nome:amapa-gancho-simples-25cm-preto", 15],
+    ["nome:amapa-fit-regua-90cm-preto-un", 4],
+    ["nome:amapa-gancho-simples-25cm-preto", 20],
   ],
 
   // ── PAREDE C/ CESTO (estrutura do Gancho, sem ganchos, reguas trocadas por cestos) ──
@@ -607,8 +607,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],   // BANDEJA 30 (1 dobrada → 2)
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],   // PAR SLG (1 dobrado → 2)
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],  // PORTA ETIQUETA (2 dobrado → 4)
-    ["nome:amapa-fit-regua-90cm-branco-un", 4],  // RÉGUA 90CM BRANCO (2 dobradas → 4)
-    ["nome:amapa-gancho-simples-25cm-branco", 20], // GANCHO SIMPLES 25CM BRANCO (10 dobrado → 20)
+    ["nome:amapa-fit-regua-90cm-branco-un", 6],  // RÉGUA 90CM BRANCO (2 dobradas → 4)
+    ["nome:amapa-gancho-simples-25cm-branco", 30], // GANCHO SIMPLES 25CM BRANCO (10 dobrado → 20)
   ],
   // Centro Continuação c/ Gancho - 1,37m - Branca
   "203|1,37m|Branca": [
@@ -619,8 +619,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-branco-un", 4],
-    ["nome:amapa-gancho-simples-25cm-branco", 20],
+    ["nome:amapa-fit-regua-90cm-branco-un", 6],
+    ["nome:amapa-gancho-simples-25cm-branco", 30],
   ],
   // Centro Inicial c/ Gancho - 1,70m - Branca
   "202|1,70m|Branca": [
@@ -631,8 +631,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-branco-un", 6],  // 3 dobradas → 6
-    ["nome:amapa-gancho-simples-25cm-branco", 30], // 15 dobrado → 30
+    ["nome:amapa-fit-regua-90cm-branco-un", 8],  // 3 dobradas → 6
+    ["nome:amapa-gancho-simples-25cm-branco", 40], // 15 dobrado → 30
   ],
   // Centro Continuação c/ Gancho - 1,70m - Branca
   "203|1,70m|Branca": [
@@ -643,8 +643,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-branco-un", 6],
-    ["nome:amapa-gancho-simples-25cm-branco", 30],
+    ["nome:amapa-fit-regua-90cm-branco-un", 8],
+    ["nome:amapa-gancho-simples-25cm-branco", 40],
   ],
   // Centro Inicial c/ Gancho - 2,00m - Branca
   "202|2,00m|Branca": [
@@ -655,8 +655,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-branco-un", 6],
-    ["nome:amapa-gancho-simples-25cm-branco", 30],
+    ["nome:amapa-fit-regua-90cm-branco-un", 8],
+    ["nome:amapa-gancho-simples-25cm-branco", 40],
   ],
   // Centro Continuação c/ Gancho - 2,00m - Branca
   "203|2,00m|Branca": [
@@ -667,8 +667,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-branco-un", 6],
-    ["nome:amapa-gancho-simples-25cm-branco", 30],
+    ["nome:amapa-fit-regua-90cm-branco-un", 8],
+    ["nome:amapa-gancho-simples-25cm-branco", 40],
   ],
 
   // ── CENTRO C/ GANCHO PRETO ──
@@ -681,8 +681,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-preto-un", 4],  // RÉGUA 90CM PRETO (dobrada)
-    ["nome:amapa-gancho-simples-25cm-preto", 20], // GANCHO 25CM PRETO (dobrado)
+    ["nome:amapa-fit-regua-90cm-preto-un", 6],  // RÉGUA 90CM PRETO (dobrada)
+    ["nome:amapa-gancho-simples-25cm-preto", 30], // GANCHO 25CM PRETO (dobrado)
   ],
   // Centro Continuação c/ Gancho - 1,37m - Preta
   "203|1,37m|Preta": [
@@ -693,8 +693,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-preto-un", 4],
-    ["nome:amapa-gancho-simples-25cm-preto", 20],
+    ["nome:amapa-fit-regua-90cm-preto-un", 6],
+    ["nome:amapa-gancho-simples-25cm-preto", 30],
   ],
   // Centro Inicial c/ Gancho - 1,70m - Preta
   "202|1,70m|Preta": [
@@ -705,8 +705,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-preto-un", 6],
-    ["nome:amapa-gancho-simples-25cm-preto", 30],
+    ["nome:amapa-fit-regua-90cm-preto-un", 8],
+    ["nome:amapa-gancho-simples-25cm-preto", 40],
   ],
   // Centro Continuação c/ Gancho - 1,70m - Preta
   "203|1,70m|Preta": [
@@ -717,8 +717,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-preto-un", 6],
-    ["nome:amapa-gancho-simples-25cm-preto", 30],
+    ["nome:amapa-fit-regua-90cm-preto-un", 8],
+    ["nome:amapa-gancho-simples-25cm-preto", 40],
   ],
   // Centro Inicial c/ Gancho - 2,00m - Preta
   "202|2,00m|Preta": [
@@ -729,8 +729,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-preto-un", 6],
-    ["nome:amapa-gancho-simples-25cm-preto", 30],
+    ["nome:amapa-fit-regua-90cm-preto-un", 8],
+    ["nome:amapa-gancho-simples-25cm-preto", 40],
   ],
   // Centro Continuação c/ Gancho - 2,00m - Preta
   "203|2,00m|Preta": [
@@ -741,8 +741,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-regua-90cm-preto-un", 6],
-    ["nome:amapa-gancho-simples-25cm-preto", 30],
+    ["nome:amapa-fit-regua-90cm-preto-un", 8],
+    ["nome:amapa-gancho-simples-25cm-preto", 40],
   ],
 
   // ── CENTRO C/ CESTO BRANCO ──
