@@ -2941,6 +2941,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   const [confirmDel, setConfirmDel] = useState(null);
   // Filtro por mês (formato YYYY-MM ou "all")
   const [filterMes, setFilterMes] = useState("all");
+  // Filtro por status ("all" ou um dos status)
+  const [filterStatus, setFilterStatus] = useState("all");
   // Busca livre por nome do cliente / nº do orçamento
   const [buscaNome, setBuscaNome] = useState("");
   // Modal de anotações internas — { orderId, texto }
@@ -3445,6 +3447,10 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       const chave = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
       if (chave !== filterMes) return false;
     }
+    if (filterStatus !== "all") {
+      const st = o.status || "Aguardando Retorno";
+      if (st !== filterStatus) return false;
+    }
     if (buscaNorm) {
       const alvo = [
         o.client?.empresa, o.client?.responsavel,
@@ -3470,6 +3476,15 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         >
           <option value="all">Todos os meses</option>
           {mesesDisponiveis.map(m => <option key={m} value={m}>{formatarMes(m)}</option>)}
+        </select>
+        <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🏷️ Status:</span>
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          style={{ padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", minWidth: 170 }}
+        >
+          <option value="all">Todos os status</option>
+          {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginLeft: "auto" }}>
           {ordersFiltrados.length} {ordersFiltrados.length === 1 ? "orçamento" : "orçamentos"}
