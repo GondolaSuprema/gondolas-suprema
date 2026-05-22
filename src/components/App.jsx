@@ -1978,6 +1978,19 @@ function podeVerOrcamentosRsOcultos(user) {
   return user?.id === "v1" || user?.email === "ale.thonsen@gmail.com";
 }
 
+// Ordem de prioridade dos status de orçamento na listagem (Fazer Pedido
+// primeiro, Concluído por último). Usado pra ordenar Orçamentos e ADM.
+const STATUS_ORDEM = ["Fazer Pedido", "Aguardando Retorno", "Não Responde", "Desistiu", "Fechou Concorrência", "Concluído"];
+const ordenarPorStatus = (a, b) => {
+  const ia = STATUS_ORDEM.indexOf(a.status || "Aguardando Retorno");
+  const ib = STATUS_ORDEM.indexOf(b.status || "Aguardando Retorno");
+  const pa = ia === -1 ? 999 : ia;
+  const pb = ib === -1 ? 999 : ib;
+  if (pa !== pb) return pa - pb;
+  // Dentro do mesmo status, mais recente primeiro
+  return new Date(b.date || 0) - new Date(a.date || 0);
+};
+
 const STATUS_ENTREGA_OPTIONS = ["Agendada", "Em Rota", "Entregue", "Atrasada", "Reagendada"];
 const STATUS_ENTREGA_COLORS = {
   "Agendada":   "#3B82F6",
@@ -3460,7 +3473,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       if (!alvo.includes(buscaNorm)) return false;
     }
     return true;
-  });
+  }).sort(ordenarPorStatus);
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
@@ -5171,7 +5184,7 @@ function AdminPage({ user }) {
       if (!alvo.includes(buscaNorm)) return false;
     }
     return true;
-  });
+  }).sort(ordenarPorStatus);
 
   // Lista de meses disponíveis nos orçamentos (mais recente primeiro)
   const mesesDisponiveis = Array.from(new Set(allOrders.map(o => chaveMes(o.date)).filter(Boolean))).sort().reverse();
