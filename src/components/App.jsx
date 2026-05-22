@@ -3338,8 +3338,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     setSharingOrder(false);
   };
 
-  const sc = { "Aguardando Retorno": "#3B82F6", "Desistiu": "#F87171", "Fazer Pedido": "#8B5CF6", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
-  const statusOptions = ["Aguardando Retorno", "Desistiu", "Fazer Pedido", "Fechou Concorrência", "Concluído"];
+  const sc = { "Aguardando Retorno": "#3B82F6", "Fazer Pedido": "#8B5CF6", "Não Responde": "#9CA3AF", "Desistiu": "#F87171", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
+  const statusOptions = ["Aguardando Retorno", "Fazer Pedido", "Não Responde", "Desistiu", "Fechou Concorrência", "Concluído"];
   const [concluidoId, setConcluidoId] = useState(null);
   const [concluidoData, setConcluidoData] = useState({ cnpj: "", data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
 
@@ -5181,7 +5181,7 @@ function AdminPage({ user }) {
   };
 
   const totalGeral = filtered.reduce((s, o) => s + (o.total || 0), 0);
-  const sc = { "Aguardando Retorno": "#3B82F6", "Desistiu": "#F87171", "Fazer Pedido": "#8B5CF6", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
+  const sc = { "Aguardando Retorno": "#3B82F6", "Fazer Pedido": "#8B5CF6", "Não Responde": "#9CA3AF", "Desistiu": "#F87171", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
   const sel = { padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" };
 
   return (
