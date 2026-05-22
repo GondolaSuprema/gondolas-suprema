@@ -4252,6 +4252,11 @@ function LogisticaPage({ user }) {
           numeroPedido: o.numero_pedido || "",
           statusEntrega: o.status_entrega || "Agendada",
           items: o.items || [],
+          // Forma de pagamento fica embutida nas notes ("... | Pagamento: ...")
+          pagamento: (() => {
+            const m = (o.notes || "").match(/Pagamento:\s*([^\n]+)/i);
+            return m ? m[1].trim() : "";
+          })(),
         })));
       }
     };
@@ -4501,6 +4506,7 @@ function LogisticaPage({ user }) {
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Cidade</th>
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Pedido</th>
                         <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Valor</th>
+                        <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Pagamento</th>
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Data Entrega</th>
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
                         {podeExcluir && <th style={{ padding: "10px 14px", textAlign: "center", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, width: 60 }}>Ações</th>}
@@ -4544,6 +4550,7 @@ function LogisticaPage({ user }) {
                             </td>
                             <td style={{ padding: "12px 14px", color: COLORS.text, fontFamily: "monospace" }}>{o.numeroPedido || "—"}</td>
                             <td style={{ padding: "12px 14px", color: COLORS.orange, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{fmt(o.total)}</td>
+                            <td style={{ padding: "12px 14px", color: o.pagamento ? COLORS.text : COLORS.textDim, fontSize: 12 }}>{o.pagamento || "—"}</td>
                             <td style={{ padding: "12px 14px", color: COLORS.text }}>
                               {podeEditar ? (
                                 <input type="date" value={o.dataEntrega || ""} onChange={(e) => updateData(o.id, e.target.value)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "4px 8px", borderRadius: 6, fontSize: 12, fontFamily: "'DM Sans', sans-serif", colorScheme: "dark" }} />
