@@ -337,7 +337,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],   // BANDEJA 30*90 BRANCA
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],   // PAR SLG BRANCO
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 2],  // CESTO 2 DIVISORIAS BRANCO
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 3],  // CESTO 2 DIVISORIAS BRANCO
   ],
   // Parede Continuação c/ Cesto - 1,37m - Branca
   "105|1,37m|Branca": [
@@ -348,7 +348,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 3],
   ],
   // Parede Inicial c/ Cesto - 1,70m - Branca
   "104|1,70m|Branca": [
@@ -359,7 +359,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 3],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 4],
   ],
   // Parede Continuação c/ Cesto - 1,70m - Branca
   "105|1,70m|Branca": [
@@ -370,7 +370,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 3],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 4],
   ],
   // Parede Inicial c/ Cesto - 2,00m - Branca
   "104|2,00m|Branca": [
@@ -381,7 +381,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 3],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 4],
   ],
   // Parede Continuação c/ Cesto - 2,00m - Branca
   "105|2,00m|Branca": [
@@ -392,7 +392,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 3],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 4],
   ],
 
   // ── PAREDE C/ CESTO PRETA ──
@@ -405,7 +405,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],   // BANDEJA 30*90 PRETA
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],   // PAR SLG PRETO
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],  // PORTA ETIQUETA
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 2],  // CESTO 2 DIVISORIAS PRETO
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 3],  // CESTO 2 DIVISORIAS PRETO
   ],
   // Parede Continuação c/ Cesto - 1,37m - Preta
   "105|1,37m|Preta": [
@@ -416,7 +416,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 2],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 3],
   ],
   // Parede Inicial c/ Cesto - 1,70m - Preta
   "104|1,70m|Preta": [
@@ -427,7 +427,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 3],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 4],
   ],
   // Parede Continuação c/ Cesto - 1,70m - Preta
   "105|1,70m|Preta": [
@@ -438,7 +438,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 3],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 4],
   ],
   // Parede Inicial c/ Cesto - 2,00m - Preta
   "104|2,00m|Preta": [
@@ -449,7 +449,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 3],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 4],
   ],
   // Parede Continuação c/ Cesto - 2,00m - Preta
   "105|2,00m|Preta": [
@@ -460,7 +460,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 1],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
     ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 3],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 4],
   ],
 
   // ═══════════════════════════════════════════════════════════════════
@@ -756,7 +756,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 4],  // CESTO 2 DIVISORIAS BRANCO (2 dobrado → 4)
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 6],  // CESTO 2 DIVISORIAS BRANCO (2 dobrado → 4)
   ],
   // Centro Continuação c/ Cesto - 1,37m - Branca
   "205|1,37m|Branca": [
@@ -767,7 +767,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 6],
   ],
   // Centro Inicial c/ Cesto - 1,70m - Branca
   "204|1,70m|Branca": [
@@ -778,7 +778,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 6],  // 3 dobrado → 6
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 8],  // 4 dobrado → 8
   ],
   // Centro Continuação c/ Cesto - 1,70m - Branca
   "205|1,70m|Branca": [
@@ -789,7 +789,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 6],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 8],
   ],
   // Centro Inicial c/ Cesto - 2,00m - Branca
   "204|2,00m|Branca": [
@@ -800,7 +800,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 6],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 8],
   ],
   // Centro Continuação c/ Cesto - 2,00m - Branca
   "205|2,00m|Branca": [
@@ -811,7 +811,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 6],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-branco", 8],
   ],
 
   // ── CENTRO C/ CESTO PRETO ──
@@ -824,7 +824,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 4],  // CESTO 2 DIVISORIAS PRETO (dobrado)
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 6],  // CESTO 2 DIVISORIAS PRETO (dobrado)
   ],
   // Centro Continuação c/ Cesto - 1,37m - Preta
   "205|1,37m|Preta": [
@@ -835,7 +835,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 4],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 6],
   ],
   // Centro Inicial c/ Cesto - 1,70m - Preta
   "204|1,70m|Preta": [
@@ -846,7 +846,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 6],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 8],
   ],
   // Centro Continuação c/ Cesto - 1,70m - Preta
   "205|1,70m|Preta": [
@@ -857,7 +857,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 6],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 8],
   ],
   // Centro Inicial c/ Cesto - 2,00m - Preta
   "204|2,00m|Preta": [
@@ -868,7 +868,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 6],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 8],
   ],
   // Centro Continuação c/ Cesto - 2,00m - Preta
   "205|2,00m|Preta": [
@@ -879,7 +879,7 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26", 2],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 2],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
-    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-preto", 6],
+    ["nome:amapa-fit-cesto-c-2-divisorias-370-900mm-preto", 8],
   ],
 
   // ═══════════════════════════════════════════════════════════════════
