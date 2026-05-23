@@ -955,6 +955,164 @@ const PRODUCT_RECIPES = {
   ],
 
   // ═══════════════════════════════════════════════════════════════════
+  // ── PONTA DE GÔNDOLA c/ GANCHO ──
+  // Base: 1 bandeja 40 + 1 bandeja 30 (mantém só a base embaixo)
+  // Réguas 78cm + ganchos c/ porta etiqueta 25cm (5 ganchos por régua)
+  // Inicial = 2 colunas / Continuação = 1 coluna (igual Parede/Centro)
+  // 1,37m: 4 painel, 3 régua, 15 gancho
+  // 1,70m: 5 painel, 4 régua, 20 gancho (compl 1,70m)
+  // 2,00m: 6 painel, 4 régua, 20 gancho (compl 2,02m)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Ponta Inicial c/ Gancho - 1,37m - Branca
+  "302|1,37m|Branca": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 4],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-branco-un", 3],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-branco", 15],
+  ],
+  // Ponta Inicial c/ Gancho - 1,70m - Branca
+  "302|1,70m|Branca": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 5],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-branco-un", 4],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-branco", 20],
+  ],
+  // Ponta Inicial c/ Gancho - 2,00m - Branca
+  "302|2,00m|Branca": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 6],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-branco-un", 4],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-branco", 20],
+  ],
+
+  // Ponta Inicial c/ Gancho - 1,37m - Preta
+  "302|1,37m|Preta": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 4],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-preto-un", 3],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 15],
+  ],
+  // Ponta Inicial c/ Gancho - 1,70m - Preta
+  "302|1,70m|Preta": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 5],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-preto-un", 4],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 20],
+  ],
+  // Ponta Inicial c/ Gancho - 2,00m - Preta
+  "302|2,00m|Preta": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 6],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-preto-un", 4],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 20],
+  ],
+
+  // Ponta Continuação c/ Gancho - 1,37m - Branca (1 coluna a menos)
+  "303|1,37m|Branca": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 4],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-branco-un", 3],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-branco", 15],
+  ],
+  // Ponta Continuação c/ Gancho - 1,70m - Branca (1 coluna a menos)
+  "303|1,70m|Branca": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 5],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-branco-un", 4],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-branco", 20],
+  ],
+  // Ponta Continuação c/ Gancho - 2,00m - Branca (1 coluna a menos)
+  "303|2,00m|Branca": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 6],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-branco-un", 4],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-branco", 20],
+  ],
+
+  // Ponta Continuação c/ Gancho - 1,37m - Preta (1 coluna a menos)
+  "303|1,37m|Preta": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 4],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-preto-un", 3],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 15],
+  ],
+  // Ponta Continuação c/ Gancho - 1,70m - Preta (1 coluna a menos)
+  "303|1,70m|Preta": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 5],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-preto-un", 4],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 20],
+  ],
+  // Ponta Continuação c/ Gancho - 2,00m - Preta (1 coluna a menos)
+  "303|2,00m|Preta": [
+    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 6],
+    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 1],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
+    ["nome:amapa-fit-regua-78cm-preto-un", 4],
+    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 20],
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════
   // ── MPP 2000×800 S/MDF ──
   // Inicial = 2 montantes / Continuação = 1 montante (diversos-196)
   // Por nível: 1 par de longarina (218=1200mm, 219=1800mm)
@@ -1278,6 +1436,8 @@ const PRODUCTS = [
   { id: 36, name: "Centro Continuação 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2155.65, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 2021.3 }] },
   // ── PONTA DE GÔNDOLA (novo modelo com variantes) ──
   { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 302, name: "Ponta Inicial c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 303, name: "Ponta Continuação c/ Gancho", category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
