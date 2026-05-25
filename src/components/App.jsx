@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { sharePDFWhatsApp } from "../lib/pdf";
+import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
 
 const COLORS = {
@@ -1038,80 +1038,6 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 20],
   ],
 
-  // Ponta Continuação c/ Gancho - 1,37m - Branca (1 coluna a menos)
-  "303|1,37m|Branca": [
-    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
-    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
-    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 4],
-    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
-    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 1],
-    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
-    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-78cm-branco-un", 3],
-    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-branco", 15],
-  ],
-  // Ponta Continuação c/ Gancho - 1,70m - Branca (1 coluna a menos)
-  "303|1,70m|Branca": [
-    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
-    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18", 1],
-    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 5],
-    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
-    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 1],
-    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
-    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-78cm-branco-un", 4],
-    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-branco", 20],
-  ],
-  // Ponta Continuação c/ Gancho - 2,00m - Branca (1 coluna a menos)
-  "303|2,00m|Branca": [
-    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 1],
-    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
-    ["nome:amapa-fit-painel-ponta-78-34cm-branco-unidade", 6],
-    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22", 1],
-    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26", 1],
-    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 1],
-    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-78cm-branco-un", 4],
-    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-branco", 20],
-  ],
-
-  // Ponta Continuação c/ Gancho - 1,37m - Preta (1 coluna a menos)
-  "303|1,37m|Preta": [
-    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
-    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18", 1],
-    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 4],
-    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
-    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 1],
-    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
-    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-78cm-preto-un", 3],
-    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 15],
-  ],
-  // Ponta Continuação c/ Gancho - 1,70m - Preta (1 coluna a menos)
-  "303|1,70m|Preta": [
-    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
-    ["nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18", 1],
-    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 5],
-    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
-    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 1],
-    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
-    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-78cm-preto-un", 4],
-    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 20],
-  ],
-  // Ponta Continuação c/ Gancho - 2,00m - Preta (1 coluna a menos)
-  "303|2,00m|Preta": [
-    ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18", 1],
-    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18", 1],
-    ["nome:amapa-fit-painel-ponta-78-34cm-preto-unidade", 6],
-    ["nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22", 1],
-    ["nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26", 1],
-    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 1],
-    ["nome:fit-porta-etiqueta-895mm-laranja", 2],
-    ["nome:amapa-fit-regua-78cm-preto-un", 4],
-    ["nome:amapa-gancho-simples-com-porta-etiqueta-25cm-preto", 20],
-  ],
-
   // ═══════════════════════════════════════════════════════════════════
   // ── MPP 2000×800 S/MDF ──
   // Inicial = 2 montantes / Continuação = 1 montante (diversos-196)
@@ -1436,8 +1362,7 @@ const PRODUCTS = [
   { id: 36, name: "Centro Continuação 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2155.65, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 2021.3 }] },
   // ── PONTA DE GÔNDOLA (novo modelo com variantes) ──
   { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  { id: 302, name: "Ponta Inicial c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  { id: 303, name: "Ponta Continuação c/ Gancho", category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 302, name: "Ponta c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
@@ -5157,6 +5082,12 @@ function AdminPage({ user }) {
   // Filtro de mês dedicado do Relatório por Vendedor (independente do filtro
   // geral abaixo). "all" = todos os meses
   const [relatorioMes, setRelatorioMes] = useState("all");
+  // Preview/salvar do PDF do orçamento (ao clicar no nome do cliente)
+  const [pdfHtmlAdm, setPdfHtmlAdm] = useState(null);
+  const [pdfOrderAdm, setPdfOrderAdm] = useState(null);
+  const [pdfTitleAdm, setPdfTitleAdm] = useState("");
+  const [savingPdfAdm, setSavingPdfAdm] = useState(false);
+  const [pdfDownloadMsg, setPdfDownloadMsg] = useState(null);
 
   const emitirNfe = async (ordem) => {
     setConfirmEmitir(null);
@@ -5371,6 +5302,82 @@ function AdminPage({ user }) {
   const totalGeral = filtered.reduce((s, o) => s + (o.total || 0), 0);
   const sc = { "Aguardando Retorno": "#3B82F6", "Fazer Pedido": "#8B5CF6", "Não Responde": "#9CA3AF", "Desistiu": "#F87171", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
   const sel = { padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" };
+
+  // Monta o HTML do orçamento (mesmo layout do PDF do vendedor)
+  const buildPdfHtmlAdm = (order) => {
+    const cd = order.client || {};
+    return buildPdfPage({
+      orderNum: order.id.slice(0, 6).toUpperCase(),
+      date: new Date(order.date).toLocaleDateString("pt-BR"),
+      clientName: cd.responsavel || "", clientCompany: cd.empresa || "", clientPhone: cd.telefone || "",
+      clientCnpj: cd.cnpj, clientEndereco: cd.endereco && cd.cidade ? `${cd.endereco}${cd.bairro ? `, ${cd.bairro}` : ""} — ${cd.cidade}${cd.estado ? `/${cd.estado}` : ""}` : "",
+      clientEmail: cd.email,
+      items: order.items, total: order.total, notes: order.notes,
+      frete: order.frete || 0,
+      comissao: order.comissao || 0,
+      incluirParcelamento: false,
+      incluirCartao: false,
+    });
+  };
+
+  const showPdfAdm = (order) => {
+    const cd = order.client || {};
+    setPdfHtmlAdm(buildPdfHtmlAdm(order));
+    setPdfTitleAdm(cd.empresa || cd.responsavel || order.id.slice(0, 6).toUpperCase());
+    setPdfOrderAdm(order);
+    setPdfDownloadMsg(null);
+  };
+
+  const salvarPdfAdm = async (order) => {
+    if (savingPdfAdm) return;
+    const o = order || pdfOrderAdm;
+    if (!o) return;
+    setSavingPdfAdm(true);
+    try {
+      const cd = o.client || {};
+      const doc = await generatePDF({
+        orderNum: o.id.slice(0, 6).toUpperCase(),
+        date: new Date(o.date).toLocaleDateString("pt-BR"),
+        client: cd,
+        items: o.items, total: o.total, notes: o.notes,
+        frete: o.frete || 0,
+        comissao: o.comissao || 0,
+        user: { name: o.vendedor || user.name, email: user.email },
+        incluirParcelamento: false,
+        incluirCartao: false,
+      });
+      const nomeArq = (cd.empresa || o.id.slice(0, 6)).replace(/[^a-zA-Z0-9À-ɏ]/g, "-").replace(/-+/g, "-");
+      doc.save(`orcamento-${nomeArq}.pdf`);
+      setPdfDownloadMsg("PDF salvo na pasta de Downloads.");
+    } catch (e) {
+      console.error(e);
+      setPdfDownloadMsg("Erro ao gerar o PDF. Tente de novo.");
+    }
+    setSavingPdfAdm(false);
+  };
+
+  if (pdfHtmlAdm) {
+    const bodyMatch = pdfHtmlAdm.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    const styleMatch = pdfHtmlAdm.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    return (
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+          <button onClick={() => { setPdfHtmlAdm(null); setPdfOrderAdm(null); setPdfDownloadMsg(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20 }}>Orçamento — {pdfTitleAdm}</h2>
+          <button onClick={() => salvarPdfAdm()} disabled={savingPdfAdm} style={{ background: savingPdfAdm ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: savingPdfAdm ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
+            {savingPdfAdm ? "Gerando PDF..." : "⬇ Salvar PDF"}
+          </button>
+        </div>
+        {pdfDownloadMsg && <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 14px", borderRadius: 8, fontSize: 12, fontFamily: "'DM Sans', sans-serif", marginBottom: 12 }}>{pdfDownloadMsg}</div>}
+        <div style={{ borderRadius: 10, overflow: "auto", border: `1px solid ${COLORS.border}`, maxHeight: "70vh" }}>
+          <div style={{ background: "#fff", padding: 36, fontFamily: "Helvetica, Arial, sans-serif", color: "#1a1a1a", width: 794 }}>
+            <style>{styleMatch ? styleMatch[1] : ""}</style>
+            <div dangerouslySetInnerHTML={{ __html: bodyMatch ? bodyMatch[1] : "" }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
@@ -5784,10 +5791,10 @@ function AdminPage({ user }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtered.map(o => (
             <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden" }}>
-              <div onClick={() => setExpanded(expanded === o.id ? null : o.id)} style={{ padding: "14px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <div onClick={() => showPdfAdm(o)} title="Clique para ver o orçamento em PDF" style={{ padding: "14px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>#{o.id.slice(0, 6).toUpperCase()} · {new Date(o.date).toLocaleDateString("pt-BR")} · {o.items?.length || 0} itens</div>
-                  <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{o.client?.empresa || "Sem empresa"}</div>
+                  <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginTop: 2, display: "inline-flex", alignItems: "center", gap: 5 }}>{o.client?.empresa || "Sem empresa"} <span style={{ fontSize: 11 }}>📄</span></div>
                   <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Vendedor: <strong style={{ color: COLORS.accent }}>{o.vendedor}</strong>{o.client?.cidade ? " · " + o.client.cidade + (o.client.estado ? "/" + o.client.estado : "") : ""}</div>
                   {o.client?.telefone && (() => {
                     const d = String(o.client.telefone).replace(/\D/g, "");
@@ -5806,6 +5813,7 @@ function AdminPage({ user }) {
                     <span style={{ background: sc[o.status] || sc["Aguardando Retorno"], color: "#000", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status || "Aguardando Retorno"}</span>
                     <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: COLORS.orange, marginTop: 4 }}>{fmt(o.total || 0)}</div>
                   </div>
+                  <button onClick={(e) => { e.stopPropagation(); setExpanded(expanded === o.id ? null : o.id); }} title="Ver detalhes / editar" style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "8px 10px", borderRadius: 7, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>{expanded === o.id ? "▲" : "▼"}</button>
                   {canEditAdm && <button onClick={async (e) => { e.stopPropagation(); if (window.confirm("Excluir este orçamento?")) { await supabase.from("orcamentos").delete().eq("id", o.id); setAllOrders(allOrders.filter(x => x.id !== o.id)); }}} style={{ background: COLORS.danger + "15", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "8px", borderRadius: 7, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>🗑️</button>}
                 </div>
               </div>
