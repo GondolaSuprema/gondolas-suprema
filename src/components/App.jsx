@@ -5697,7 +5697,7 @@ function AdminPage({ user }) {
                       const vs = getVendaStatus(o);
                       return (
                         <tr key={o.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                          <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500 }}>{o.client?.empresa || "-"}</td>
+                          <td onClick={() => showPdfAdm(o)} title="Clique para ver o orçamento em PDF" style={{ padding: "10px 12px", color: COLORS.accent, fontWeight: 500, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}>{o.client?.empresa || "-"} 📄</td>
                           <td style={{ padding: "10px 12px", color: COLORS.textMuted }}>{o.client?.cnpj || "-"}</td>
                           <td style={{ padding: "10px 12px", color: COLORS.textMuted }}>{o.client?.cidade || "-"}{o.client?.estado ? "/" + o.client.estado : ""}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(o.total || 0)}</td>
