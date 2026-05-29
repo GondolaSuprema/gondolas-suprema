@@ -2093,9 +2093,9 @@ const ordenarPorStatus = (a, b) => {
 // Botões de temperatura do lead (🔥 quente / 😶‍🌫️ morno / 🥶 frio) — seleção exclusiva
 function TermometroLead({ value, onChange, canEdit }) {
   const opts = [
-    { val: "quente", emoji: "🔥", color: "#F87171" },
-    { val: "morno",  emoji: "😶‍🌫️", color: "#F5A623" },
     { val: "frio",   emoji: "🥶", color: "#3B82F6" },
+    { val: "morno",  emoji: "😶‍🌫️", color: "#F5A623" },
+    { val: "quente", emoji: "🔥", color: "#F87171" },
   ];
   return (
     <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 4, alignItems: "center" }}>
