@@ -2066,15 +2066,62 @@ function podeVerOrcamentosRsOcultos(user) {
 // Ordem de prioridade dos status de orçamento na listagem (Fazer Pedido
 // primeiro, Concluído por último). Usado pra ordenar Orçamentos e ADM.
 const STATUS_ORDEM = ["Fazer Pedido", "Aguardando Retorno", "Não Responde", "Desistiu", "Fechou Concorrência", "Concluído"];
+// Temperatura do lead: quente → morno → frio → sem temperatura
+const TEMP_ORDEM = ["quente", "morno", "frio"];
+const tempIndex = (t) => {
+  const i = TEMP_ORDEM.indexOf(t || "");
+  return i === -1 ? 999 : i;
+};
 const ordenarPorStatus = (a, b) => {
-  const ia = STATUS_ORDEM.indexOf(a.status || "Aguardando Retorno");
-  const ib = STATUS_ORDEM.indexOf(b.status || "Aguardando Retorno");
+  const sa = a.status || "Aguardando Retorno";
+  const sb = b.status || "Aguardando Retorno";
+  const ia = STATUS_ORDEM.indexOf(sa);
+  const ib = STATUS_ORDEM.indexOf(sb);
   const pa = ia === -1 ? 999 : ia;
   const pb = ib === -1 ? 999 : ib;
   if (pa !== pb) return pa - pb;
-  // Dentro do mesmo status, mais recente primeiro
+  // Dentro de "Aguardando Retorno", ordena por temperatura (quente > morno > frio > sem)
+  if (sa === "Aguardando Retorno" && sb === "Aguardando Retorno") {
+    const ta = tempIndex(a.temperatura);
+    const tb = tempIndex(b.temperatura);
+    if (ta !== tb) return ta - tb;
+  }
+  // Dentro do mesmo bucket, mais recente primeiro
   return new Date(b.date || 0) - new Date(a.date || 0);
 };
+
+// Botões de temperatura do lead (🔥 quente / 😶‍🌫️ morno / 🥶 frio) — seleção exclusiva
+function TermometroLead({ value, onChange, canEdit }) {
+  const opts = [
+    { val: "quente", emoji: "🔥", color: "#F87171" },
+    { val: "morno",  emoji: "😶‍🌫️", color: "#F5A623" },
+    { val: "frio",   emoji: "🥶", color: "#3B82F6" },
+  ];
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+      {opts.map(o => {
+        const sel = value === o.val;
+        return (
+          <button
+            key={o.val}
+            disabled={!canEdit}
+            onClick={(e) => { e.stopPropagation(); if (!canEdit) return; onChange(sel ? null : o.val); }}
+            title={o.val.charAt(0).toUpperCase() + o.val.slice(1)}
+            style={{
+              background: sel ? o.color + "30" : "transparent",
+              border: `1px solid ${sel ? o.color : "transparent"}`,
+              opacity: sel ? 1 : 0.30,
+              filter: sel ? "none" : "grayscale(0.7)",
+              padding: "4px 8px", borderRadius: 7,
+              cursor: canEdit ? "pointer" : "default",
+              fontSize: 16, lineHeight: 1,
+            }}
+          >{o.emoji}</button>
+        );
+      })}
+    </div>
+  );
+}
 
 const STATUS_ENTREGA_OPTIONS = ["Agendada", "Em Rota", "Entregue", "Atrasada", "Reagendada"];
 const STATUS_ENTREGA_COLORS = {
@@ -3332,6 +3379,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       if (data) {
         setOrders(data.map(o => ({
           id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, anotacoes: o.anotacoes || "", status: o.status, items: o.items, vendedor: o.vendedor_nome,
+          temperatura: o.temperatura || null,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
         })));
       }
@@ -3354,6 +3402,12 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     setOrders(orders.filter(o => o.id !== orderId));
     if (expanded === orderId) setExpanded(null);
     setConfirmDel(null);
+  };
+
+  const updateTemperatura = async (orderId, temp) => {
+    // atualização otimista
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, temperatura: temp } : o));
+    await supabase.from("orcamentos").update({ temperatura: temp }).eq("id", orderId);
   };
 
   const addMoreItems = (orderId) => {
@@ -3976,6 +4030,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                     )}
                   </div>
                 </div>
+                <TermometroLead value={o.temperatura} onChange={(v) => updateTemperatura(o.id, v)} canEdit={true} />
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <button
                     onClick={(e) => { e.stopPropagation(); setAnotacoesModal({ orderId: o.id, texto: o.anotacoes || "" }); }}
@@ -5154,6 +5209,7 @@ function AdminPage({ user }) {
         setAllOrders(visiveis.map(o => ({
           id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, status: o.status, items: o.items,
           vendedor: o.vendedor_nome, vendedorId: o.vendedor_id,
+          temperatura: o.temperatura || null,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
         })));
       }
@@ -5195,6 +5251,12 @@ function AdminPage({ user }) {
     setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: novoStatus } : o));
     setStatusChangeMsg({ orderId, tipo: "ok", texto: `Status: ${novoStatus}` });
     setTimeout(() => setStatusChangeMsg(curr => curr?.orderId === orderId ? null : curr), 3000);
+  };
+
+  const updateTemperaturaAdm = async (orderId, temp) => {
+    // atualização otimista
+    setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, temperatura: temp } : o));
+    await supabase.from("orcamentos").update({ temperatura: temp }).eq("id", orderId);
   };
 
   // ─── Edicao inline (Ale/Zanella) ───
@@ -5808,6 +5870,7 @@ function AdminPage({ user }) {
                     );
                   })()}
                 </div>
+                <TermometroLead value={o.temperatura} onChange={(v) => updateTemperaturaAdm(o.id, v)} canEdit={o.vendedorId === user.id} />
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ textAlign: "right" }}>
                     <span style={{ background: sc[o.status] || sc["Aguardando Retorno"], color: "#000", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{o.status || "Aguardando Retorno"}</span>
