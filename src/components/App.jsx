@@ -3532,6 +3532,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       data_entrega: cd.data_entrega || null,
       numero_pedido: cd.numero_pedido || null,
       status_entrega: cd.data_entrega ? "Agendada" : null,
+      // Momento em que a venda foi marcada como Concluída — base do gráfico mensal
+      data_conclusao: new Date().toISOString(),
     }).eq("id", concluidoId);
     setOrders(orders.map(o => o.id === concluidoId
       ? { ...o, status: "Concluído", notes: (o.notes || "") + info, client: { ...(o.client || {}), cnpj: cd.cnpj || "" } }
@@ -4382,7 +4384,10 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
 // ─── LOGISTICA ───
 function LogisticaPage({ user }) {
   const [allEntregas, setAllEntregas] = useState([]);
-  const [filterPeriodo, setFilterPeriodo] = useState("proximos30");
+  // Chave do mês atual no formato YYYY-MM (padrão do filtro)
+  const _hojeRef = new Date();
+  const _mesAtualKey = _hojeRef.getFullYear() + "-" + String(_hojeRef.getMonth() + 1).padStart(2, "0");
+  const [filterMes, setFilterMes] = useState(_mesAtualKey);
   const [filterRegiao, setFilterRegiao] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [confirmDelLog, setConfirmDelLog] = useState(null); // id do orcamento aguardando confirmacao
@@ -4516,25 +4521,35 @@ function LogisticaPage({ user }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const inPeriodo = (dataStr) => {
-    if (!dataStr) return false;
-    const d = new Date(dataStr + "T00:00:00");
-    if (filterPeriodo === "all") return true;
-    if (filterPeriodo === "atrasadas") return d < today;
-    if (filterPeriodo === "hoje") return d.getTime() === today.getTime();
-    if (filterPeriodo === "proximos7") {
-      const lim = new Date(today); lim.setDate(lim.getDate() + 7);
-      return d >= today && d <= lim;
-    }
-    if (filterPeriodo === "proximos30") {
-      const lim = new Date(today); lim.setDate(lim.getDate() + 30);
-      return d >= today && d <= lim;
-    }
-    return true;
+  const chaveMesEntrega = (s) => {
+    if (!s) return null;
+    const d = new Date(s + "T00:00:00");
+    if (isNaN(d.getTime())) return null;
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
   };
 
+  const inPeriodo = (entrega) => {
+    if (filterMes === "all") return true;
+    if (filterMes === "atrasadas") {
+      if (!entrega.dataEntrega) return false;
+      const d = new Date(entrega.dataEntrega + "T00:00:00");
+      return d < today && entrega.statusEntrega !== "Entregue";
+    }
+    return chaveMesEntrega(entrega.dataEntrega) === filterMes;
+  };
+
+  // Lista de meses disponíveis nas entregas (descendente; mês atual sempre presente)
+  const mesesDisponiveisLog = (() => {
+    const set = new Set();
+    allEntregas.forEach(o => { const k = chaveMesEntrega(o.dataEntrega); if (k) set.add(k); });
+    set.add(_mesAtualKey);
+    return Array.from(set).sort().reverse();
+  })();
+  const _mesNomesLog = { "01":"Janeiro","02":"Fevereiro","03":"Março","04":"Abril","05":"Maio","06":"Junho","07":"Julho","08":"Agosto","09":"Setembro","10":"Outubro","11":"Novembro","12":"Dezembro" };
+  const formatarMesLog = (m) => { const [ano, mes] = m.split("-"); return `${_mesNomesLog[mes]} ${ano}`; };
+
   const filtered = allEntregas.filter(o => {
-    if (!inPeriodo(o.dataEntrega)) return false;
+    if (!inPeriodo(o)) return false;
     if (filterStatus !== "all" && o.statusEntrega !== filterStatus) return false;
     if (filterRegiao !== "all" && getRegiao(o.cidade, o.uf) !== filterRegiao) return false;
     return true;
@@ -4616,12 +4631,10 @@ function LogisticaPage({ user }) {
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
-        <select value={filterPeriodo} onChange={e => setFilterPeriodo(e.target.value)} style={sel}>
-          <option value="all">Todos os períodos</option>
+        <select value={filterMes} onChange={e => setFilterMes(e.target.value)} style={sel}>
+          <option value="all">Todos os meses</option>
           <option value="atrasadas">Atrasadas</option>
-          <option value="hoje">Hoje</option>
-          <option value="proximos7">Próximos 7 dias</option>
-          <option value="proximos30">Próximos 30 dias</option>
+          {mesesDisponiveisLog.map(m => <option key={m} value={m}>{formatarMesLog(m)}</option>)}
         </select>
         <select value={filterRegiao} onChange={e => setFilterRegiao(e.target.value)} style={sel}>
           <option value="all">Todas as regiões</option>
@@ -5242,13 +5255,16 @@ function AdminPage({ user }) {
   // sendo feita pela aba Orçamentos; aqui grava apenas o status.
   const updateOrderStatus = async (orderId, novoStatus) => {
     if (!novoStatus) return;
-    const { error } = await supabase.from("orcamentos").update({ status: novoStatus }).eq("id", orderId);
+    const updateObj = { status: novoStatus };
+    // Ao concluir direto pela ADM, registra o momento (base do gráfico mensal).
+    if (novoStatus === "Concluído") updateObj.data_conclusao = new Date().toISOString();
+    const { error } = await supabase.from("orcamentos").update(updateObj).eq("id", orderId);
     if (error) {
       setStatusChangeMsg({ orderId, tipo: "erro", texto: `Falha: ${error.message}` });
       setTimeout(() => setStatusChangeMsg(curr => curr?.orderId === orderId ? null : curr), 5000);
       return;
     }
-    setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: novoStatus } : o));
+    setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: novoStatus, ...(novoStatus === "Concluído" ? { dataConclusao: updateObj.data_conclusao } : {}) } : o));
     setStatusChangeMsg({ orderId, tipo: "ok", texto: `Status: ${novoStatus}` });
     setTimeout(() => setStatusChangeMsg(curr => curr?.orderId === orderId ? null : curr), 3000);
   };
@@ -6087,12 +6103,17 @@ function GraficosPage({ user }) {
     const load = async () => {
       let q = supabase.from("orcamentos").select("*").eq("status", "Concluído");
       if (isVendedorComum) q = q.eq("vendedor_id", user.id);
-      const { data } = await q.order("data", { ascending: false });
+      const { data } = await q.order("data_conclusao", { ascending: false, nullsFirst: false });
       if (data) {
         // Remove orcamentos RS-ocultos do ranking/graficos consolidados
         const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
         setAllOrders(visiveis.map(o => ({
-          id: o.id, date: o.data, total: o.total || 0, vendedor: o.vendedor_nome, vendedorId: o.vendedor_id
+          id: o.id,
+          // Base do agrupamento por mês: data em que a venda foi marcada como
+          // Concluída. Fallback pra data_entrega e depois data do orçamento
+          // (pra eventuais concluídos sem data_conclusao registrada).
+          date: o.data_conclusao || o.data_entrega || o.data,
+          total: o.total || 0, vendedor: o.vendedor_nome, vendedorId: o.vendedor_id
         })));
       }
     };
