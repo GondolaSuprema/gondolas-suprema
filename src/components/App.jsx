@@ -5188,6 +5188,15 @@ function AdminPage({ user }) {
           url_xml: data.url_xml || "",
           vendedor: ordem.vendedor || "",
         });
+        // Atualiza automaticamente o "Status venda" pra Concluído na tabela
+        // Vendas Concluídas (gravado em notes — mesma lógica do updateVendaStatus
+        // do sub-render, mas executada aqui pra refletir imediato após emitir)
+        const existingNotes = allOrders.find(o => o.id === ordem.id)?.notes || ordem.notes || "";
+        const cleanNotes = existingNotes.replace(/\n🏷️ Status venda:.*$/m, "");
+        const novasNotes = cleanNotes + "\n🏷️ Status venda: Concluído";
+        await supabase.from("orcamentos").update({ notes: novasNotes }).eq("id", ordem.id);
+        setAllOrders(prev => prev.map(o => o.id === ordem.id ? { ...o, notes: novasNotes } : o));
+        setVendaStatus(prev => ({ ...prev, [ordem.id]: "Concluído" }));
       }
     } catch (e) {
       setNfeResult({ success: false, mensagem: e.message });
