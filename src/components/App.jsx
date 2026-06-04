@@ -5136,6 +5136,9 @@ function AdminPage({ user }) {
   const [emitindoNfe, setEmitindoNfe] = useState(null);
   const [nfeResult, setNfeResult] = useState(null);
   const [confirmEmitir, setConfirmEmitir] = useState(null);
+  // Seleção de empresa emitente: null | 'gondolas' | 'instalacoes'
+  // (passo 1 do modal de emissão — escolhe a empresa antes de confirmar)
+  const [emitenteSel, setEmitenteSel] = useState(null);
   const [cancelandoNfe, setCancelandoNfe] = useState(null);
   const [cancelJustificativa, setCancelJustificativa] = useState("");
   const [cancelRef, setCancelRef] = useState("");
@@ -5635,21 +5638,103 @@ function AdminPage({ user }) {
         </div>
       )}
 
-      {/* Modal Confirmação Emitir NF */}
+      {/* Modal Emissão NF — 2 passos: escolher empresa emitente + confirmar */}
       {confirmEmitir && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 18, margin: "0 0 12px" }}>⚠️ Confirmar Emissão de NF-e</h2>
-            <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 14px" }}>Esta ação irá emitir uma <strong style={{ color: COLORS.danger }}>Nota Fiscal REAL</strong> na SEFAZ com valor fiscal. Não pode ser desfeita (apenas cancelada em até 24h).</p>
-            <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
-              <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>{confirmEmitir.client?.empresa}</div>
-              <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: {confirmEmitir.client?.cnpj} | {confirmEmitir.client?.cidade}/{confirmEmitir.client?.estado}</div>
-              <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(confirmEmitir.total)}</div>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmEmitir(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
-              <button onClick={() => emitirNfe(confirmEmitir)} style={{ flex: 1, background: "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Sim, Emitir NF-e</button>
-            </div>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 460, maxWidth: "100%" }}>
+
+            {/* PASSO 1 — Escolher empresa emitente */}
+            {emitenteSel === null && (
+              <>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: "0 0 6px" }}>Emitir Nota Fiscal</h2>
+                <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 16px" }}>Escolha qual empresa vai emitir:</p>
+
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+                  <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Venda</div>
+                  <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>{confirmEmitir.client?.empresa}</div>
+                  <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: {confirmEmitir.client?.cnpj || "—"}</div>
+                  <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(confirmEmitir.total)}</div>
+                  {confirmEmitir.comissao > 0 && (
+                    <div style={{ color: "#10B981", fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>Comissão: {fmt(confirmEmitir.comissao)}</div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <button
+                    onClick={() => setEmitenteSel("gondolas")}
+                    style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}40`, color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}
+                  >
+                    <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700 }}>🏪 Gôndolas Suprema</div>
+                    <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NF-e de mercadoria · destinatário: <strong style={{ color: COLORS.text }}>{confirmEmitir.client?.empresa}</strong></div>
+                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(confirmEmitir.total)}</div>
+                  </button>
+
+                  <button
+                    onClick={() => setEmitenteSel("instalacoes")}
+                    style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}
+                  >
+                    <div style={{ color: "#3B82F6", fontSize: 13, fontWeight: 700 }}>🔧 Suprema Instalações</div>
+                    <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NFS-e de serviço · destinatário: <strong style={{ color: COLORS.text }}>Gôndolas Brasil</strong> (23.505.287/0001-07)</div>
+                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(confirmEmitir.comissao || 0)} <em style={{ color: COLORS.textDim }}>(comissão da venda)</em></div>
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 16, textAlign: "center" }}>
+                  <button onClick={() => setConfirmEmitir(null)} style={{ background: "transparent", border: "none", color: COLORS.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                </div>
+              </>
+            )}
+
+            {/* PASSO 2A — Confirmação Gôndolas Suprema (NF-e mercadoria) */}
+            {emitenteSel === "gondolas" && (
+              <>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 18, margin: "0 0 12px" }}>⚠️ Confirmar Emissão — Gôndolas Suprema</h2>
+                <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 14px" }}>Esta ação irá emitir uma <strong style={{ color: COLORS.danger }}>NF-e REAL</strong> na SEFAZ com valor fiscal. Não pode ser desfeita (apenas cancelada em até 24h).</p>
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                  <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>{confirmEmitir.client?.empresa}</div>
+                  <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: {confirmEmitir.client?.cnpj} | {confirmEmitir.client?.cidade}/{confirmEmitir.client?.estado}</div>
+                  <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(confirmEmitir.total)}</div>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
+                  <button onClick={() => emitirNfe(confirmEmitir)} style={{ flex: 1, background: "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Sim, Emitir NF-e</button>
+                </div>
+              </>
+            )}
+
+            {/* PASSO 2B — Suprema Instalações (em configuração) */}
+            {emitenteSel === "instalacoes" && (
+              <>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 18, margin: "0 0 12px" }}>🔧 Suprema Instalações — em configuração</h2>
+                <p style={{ color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", margin: "0 0 12px", lineHeight: 1.5 }}>
+                  A emissão de <strong>NFS-e</strong> pela <strong>Suprema Instalações</strong> ainda não está habilitada.
+                </p>
+                <div style={{ background: "#3B82F608", border: "1px solid #3B82F625", borderRadius: 8, padding: "12px 14px", marginBottom: 14 }}>
+                  <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
+                    Falta passar pro Claude (chat):
+                    <ul style={{ margin: "6px 0 0 16px", padding: 0 }}>
+                      <li>Inscrição Municipal de Palhoça</li>
+                      <li>Caminho fiscal (intermediação ou montagem)</li>
+                      <li>Alíquota ISS</li>
+                      <li>Certificado A1 da Suprema Instalações</li>
+                      <li>Token Focus NFe da Suprema Instalações</li>
+                    </ul>
+                  </div>
+                </div>
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                  <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>Quando habilitar, vai emitir</div>
+                  <div style={{ color: COLORS.text, fontSize: 12, marginTop: 4 }}><strong>Destinatário:</strong> Gôndolas Brasil (RRE Maq. e Equip. LTDA)</div>
+                  <div style={{ color: COLORS.text, fontSize: 12 }}><strong>CNPJ:</strong> 23.505.287/0001-07</div>
+                  <div style={{ color: "#3B82F6", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 6 }}>{fmt(confirmEmitir.comissao || 0)}</div>
+                  <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>(valor da comissão da venda)</div>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
+                  <button onClick={() => setConfirmEmitir(null)} style={{ flex: 1, background: "#3B82F6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Entendi</button>
+                </div>
+              </>
+            )}
+
           </div>
         </div>
       )}
@@ -5799,7 +5884,7 @@ function AdminPage({ user }) {
                               {emitindoNfe === o.id ? (
                                 <span style={{ color: COLORS.textMuted, fontSize: 9 }}>Emitindo...</span>
                               ) : (
-                                <button onClick={() => setConfirmEmitir(o)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 6px", borderRadius: 6, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Emitir</button>
+                                <button onClick={() => { setEmitenteSel(null); setConfirmEmitir(o); }} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 6px", borderRadius: 6, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Emitir</button>
                               )}
                               <button onClick={() => setCancelandoNfe(o.id)} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "3px 6px", borderRadius: 6, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Cancelar</button>
                             </div>
