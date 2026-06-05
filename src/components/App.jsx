@@ -4852,7 +4852,9 @@ function ComissoesPage({ user }) {
   const [vendas, setVendas] = useState([]);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
   const [filtroVendedor, setFiltroVendedor] = useState("all");
-  const [filtroPagamento, setFiltroPagamento] = useState("all"); // "all" | "pago" | "apagar"
+  // Padrão: só mostra "A Pagar" (vendedor ainda não recebeu). Pode trocar pra
+  // "Pago" ou "Todos" no dropdown pra consultar histórico.
+  const [filtroPagamento, setFiltroPagamento] = useState("apagar"); // "all" | "pago" | "apagar"
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
   const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
