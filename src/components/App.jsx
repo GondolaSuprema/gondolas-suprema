@@ -6214,9 +6214,15 @@ function GraficosPage({ user }) {
     load();
   }, [user?.id, isVendedorComum]);
 
-  const meses = [...new Set(allOrders.map(o => { const d = new Date(o.date); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }))].sort().reverse();
+  // Mês atual no formato YYYY-MM — sempre presente no dropdown e usado
+  // como default ao abrir a aba (mesmo que ainda não tenha vendas no mês)
+  const _hojeGraf = new Date();
+  const _mesAtualGraf = _hojeGraf.getFullYear() + "-" + String(_hojeGraf.getMonth() + 1).padStart(2, "0");
+  const _mesesSet = new Set(allOrders.map(o => { const d = new Date(o.date); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }));
+  _mesesSet.add(_mesAtualGraf);
+  const meses = [..._mesesSet].sort().reverse();
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
-  const activeMes = mesSel || meses[0] || "";
+  const activeMes = mesSel || _mesAtualGraf;
   const cores = { v1: "#F5A623", v2: "#3B82F6", v3: "#10B981" };
 
   // Admin/gestor: ranking entre os 3 vendedores
