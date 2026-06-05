@@ -6367,6 +6367,21 @@ function FinanceiroPage() {
     return novoAno + "-" + String(novoMes).padStart(2, "0");
   };
 
+  // Avança o vencimento do mês anterior pro mês corrente, preservando o dia.
+  // Ex: "2026-05-15" + mesNovo "2026-06" → "2026-06-15"
+  // Se o dia não existir no mês novo (ex: 31 em fevereiro), usa o último dia.
+  const avancarVencimento = (vencAnt, novoMesAno) => {
+    if (!vencAnt) return null;
+    const partes = String(vencAnt).split("-");
+    if (partes.length < 3) return null;
+    const dia = parseInt(partes[2], 10);
+    if (isNaN(dia)) return null;
+    const [novoAno, novoMes] = novoMesAno.split("-").map(Number);
+    const ultimoDia = new Date(novoAno, novoMes, 0).getDate();
+    const diaAjustado = Math.min(dia, ultimoDia);
+    return `${novoAno}-${String(novoMes).padStart(2, "0")}-${String(diaAjustado).padStart(2, "0")}`;
+  };
+
   const carregarDespesas = async (mes) => {
     setLoading(true);
     const { data } = await supabase.from("despesas").select("*").eq("mes", mes).order("nome");
@@ -6374,10 +6389,10 @@ function FinanceiroPage() {
       setDespesas(data);
     } else {
       // Mês ainda sem despesas — replica TODAS as despesas fixas do mês
-      // anterior (com os valores já preenchidos), pra evitar redigitação.
-      // Reseta status para "Em Aberto" e zera o vencimento (cada mês tem
-      // a sua data própria). Se não houver mês anterior, cai no template
-      // padrão de DESPESAS_FIXAS.
+      // anterior (com valores E vencimentos já preenchidos), pra evitar
+      // redigitação. O vencimento avança 1 mês mantendo o mesmo dia.
+      // Reseta status para "Em Aberto". Se não houver mês anterior, cai
+      // no template padrão de DESPESAS_FIXAS.
       const mesAnt = calcularMesAnterior(mes);
       const { data: anteriores } = await supabase.from("despesas")
         .select("*")
@@ -6390,7 +6405,7 @@ function FinanceiroPage() {
         novas = anteriores.map(d => ({
           id: genId(),
           nome: d.nome,
-          vencimento: null,
+          vencimento: avancarVencimento(d.vencimento, mes),
           valor: Number(d.valor) || 0,
           status: "Em Aberto",
           mes,
