@@ -6355,6 +6355,9 @@ function FinanceiroPage() {
   const [mdfForm, setMdfForm] = useState({ dia: "", mes: "", qtd: "", valor: "" });
   const [outrosForm, setOutrosForm] = useState({ dia: "", mes: "", fornecedor: "", valor: "" });
   const [loading, setLoading] = useState(true);
+  // Despesas fixas do mês anterior que ainda não foram pagas (atrasadas).
+  // Exibidas em destaque no topo do tab Fixas do mês atual.
+  const [atrasadas, setAtrasadas] = useState([]);
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
@@ -6422,7 +6425,25 @@ function FinanceiroPage() {
       for (const d of novas) { await supabase.from("despesas").insert(d); }
       setDespesas(novas);
     }
+    // Busca despesas fixas do mês anterior ainda não pagas (atrasadas).
+    // Aparecem em destaque no topo do tab Fixas do mês atual.
+    const mesAntAtras = calcularMesAnterior(mes);
+    const { data: atrs } = await supabase.from("despesas")
+      .select("*")
+      .eq("mes", mesAntAtras)
+      .eq("fixa", true)
+      .neq("status", "Pago")
+      .order("vencimento");
+    setAtrasadas((atrs || []).filter(d => Number(d.valor) > 0)); // só destaca quem tem valor preenchido
     setLoading(false);
+  };
+
+  // Marca despesa atrasada (do mês anterior) como Paga.
+  // Atualiza o registro no MÊS ORIGINAL dela (não cria nada no mês atual)
+  // e remove da lista de atrasadas.
+  const marcarAtrasadaPaga = async (despesa) => {
+    await supabase.from("despesas").update({ status: "Pago" }).eq("id", despesa.id);
+    setAtrasadas(prev => prev.filter(d => d.id !== despesa.id));
   };
 
   const carregarFornecedores = async () => {
@@ -6693,6 +6714,48 @@ function FinanceiroPage() {
         <button onClick={() => setSubTab("variaveis")} style={{ background: subTab === "variaveis" ? "#8B5CF6" + "20" : COLORS.card, color: subTab === "variaveis" ? "#8B5CF6" : COLORS.textMuted, border: `1px solid ${subTab === "variaveis" ? "#8B5CF640" : COLORS.border}`, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Variáveis ({variaveis.length})</button>
         <button onClick={() => setSubTab("fornecedores")} style={{ background: subTab === "fornecedores" ? "#3B82F6" + "20" : COLORS.card, color: subTab === "fornecedores" ? "#3B82F6" : COLORS.textMuted, border: `1px solid ${subTab === "fornecedores" ? "#3B82F640" : COLORS.border}`, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Fornecedores</button>
       </div>
+
+      {/* Destaque de despesas fixas atrasadas (mês anterior em aberto) */}
+      {subTab === "fixas" && atrasadas.length > 0 && (() => {
+        const totalAtrasado = atrasadas.reduce((s, d) => s + Number(d.valor || 0), 0);
+        const fmtVenc = (s) => {
+          if (!s) return "—";
+          const partes = String(s).split("-");
+          if (partes.length < 3) return s;
+          return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        };
+        const mesAtrasoStr = atrasadas[0]?.mes ? (() => {
+          const [a, m] = atrasadas[0].mes.split("-");
+          return `${mesNomes[m]} ${a}`;
+        })() : "mês anterior";
+        return (
+          <div style={{ background: "#F8717112", border: `2px solid #F87171`, borderRadius: 12, padding: "14px 18px", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F87171", fontSize: 15, margin: 0 }}>⚠️ Atrasado de {mesAtrasoStr}</h2>
+              <span style={{ color: "#F87171", fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{atrasadas.length} {atrasadas.length === 1 ? "despesa" : "despesas"} · {Number(totalAtrasado).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {atrasadas.map(d => (
+                <div key={d.id} style={{ background: COLORS.bg, borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{d.nome}</div>
+                    <div style={{ color: "#F87171", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Venceu em {fmtVenc(d.vencimento)}</div>
+                  </div>
+                  <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>
+                    {Number(d.valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </div>
+                  <button
+                    onClick={() => marcarAtrasadaPaga(d)}
+                    style={{ background: "#10B981", color: "#fff", border: "none", padding: "6px 12px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
+                  >
+                    ✓ Marcar Pago
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Tabela Fixas/Variáveis */}
       {(subTab === "fixas" || subTab === "variaveis") && (
