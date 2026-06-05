@@ -5163,7 +5163,8 @@ function AdminPage({ user }) {
   const canEditAdm = _admRole === "admin" || _admRole === "gestor";
   // Filtro de mês dedicado do Relatório por Vendedor (independente do filtro
   // geral abaixo). "all" = todos os meses
-  const [relatorioMes, setRelatorioMes] = useState("all");
+  // Default = mês atual (mesma lógica do filtro principal)
+  const [relatorioMes, setRelatorioMes] = useState(_mesAtualAdm);
   // Preview/salvar do PDF do orçamento (ao clicar no nome do cliente)
   const [pdfHtmlAdm, setPdfHtmlAdm] = useState(null);
   const [pdfOrderAdm, setPdfOrderAdm] = useState(null);
