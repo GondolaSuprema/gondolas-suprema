@@ -5120,10 +5120,14 @@ function AdminPage({ user }) {
   // Enquanto nada for aplicado, a lista exibe TUDO.
   const [filterVendedor, setFilterVendedor] = useState("all");
   const [filterCidade, setFilterCidade] = useState("all");
-  const [filterMes, setFilterMes] = useState("all"); // YYYY-MM ou "all"
+  // Default do filtro de mês = mês atual (formato YYYY-MM), pra abrir
+  // a ADM já mostrando só os orçamentos do mês corrente.
+  const _hojeAdm = new Date();
+  const _mesAtualAdm = _hojeAdm.getFullYear() + "-" + String(_hojeAdm.getMonth() + 1).padStart(2, "0");
+  const [filterMes, setFilterMes] = useState(_mesAtualAdm); // YYYY-MM ou "all"
   const [appliedVendedor, setAppliedVendedor] = useState("all");
   const [appliedCidade, setAppliedCidade] = useState("all");
-  const [appliedMes, setAppliedMes] = useState("all");
+  const [appliedMes, setAppliedMes] = useState(_mesAtualAdm);
   // Busca livre por nome do cliente / nº do orçamento (aplica na hora)
   const [buscaNome, setBuscaNome] = useState("");
   const [expanded, setExpanded] = useState(null);
@@ -5375,7 +5379,11 @@ function AdminPage({ user }) {
   }).sort(ordenarPorStatus);
 
   // Lista de meses disponíveis nos orçamentos (mais recente primeiro)
-  const mesesDisponiveis = Array.from(new Set(allOrders.map(o => chaveMes(o.date)).filter(Boolean))).sort().reverse();
+  const mesesDisponiveis = (() => {
+    const set = new Set(allOrders.map(o => chaveMes(o.date)).filter(Boolean));
+    set.add(_mesAtualAdm); // garante mês atual no dropdown, mesmo sem orçamentos
+    return Array.from(set).sort().reverse();
+  })();
   const mesNomesAdm = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
   const formatarMesAdm = (m) => {
     if (!m || m === "all") return "";
