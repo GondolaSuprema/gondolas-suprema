@@ -3535,6 +3535,26 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       // Momento em que a venda foi marcada como Concluída — base do gráfico mensal
       data_conclusao: new Date().toISOString(),
     }).eq("id", concluidoId);
+
+    // Ponte CAPI (Fase 1 - coleta): manda a verdade da venda pro Meta aprender.
+    // Fire-and-forget: nunca trava nem quebra o fluxo do "Concluído".
+    try {
+      const ord = orders.find(o => o.id === concluidoId);
+      if (ord) {
+        fetch("/api/meta-capi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: ord.id,
+            telefone: ord.client?.telefone,
+            valor: ord.total,
+            email: ord.client?.email,
+            nome: ord.client?.responsavel,
+          }),
+        }).catch(() => {});
+      }
+    } catch (e) {}
+
     setOrders(orders.map(o => o.id === concluidoId
       ? { ...o, status: "Concluído", notes: (o.notes || "") + info, client: { ...(o.client || {}), cnpj: cd.cnpj || "" } }
       : o
