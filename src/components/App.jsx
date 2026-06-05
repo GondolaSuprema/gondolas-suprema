@@ -4389,7 +4389,10 @@ function LogisticaPage({ user }) {
   const _mesAtualKey = _hojeRef.getFullYear() + "-" + String(_hojeRef.getMonth() + 1).padStart(2, "0");
   const [filterMes, setFilterMes] = useState(_mesAtualKey);
   const [filterRegiao, setFilterRegiao] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
+  // Default: só pendentes (entregas que ainda não foram concluídas).
+  // "pendentes" = tudo menos "Entregue". Pode trocar pra "all", "Entregue"
+  // ou um status específico no dropdown.
+  const [filterStatus, setFilterStatus] = useState("pendentes");
   const [confirmDelLog, setConfirmDelLog] = useState(null); // id do orcamento aguardando confirmacao
   // Modal de itens desmembrados ao clicar no nome do cliente
   const [pecasModal, setPecasModal] = useState(null); // { entrega, lista, naoExpandidos }
@@ -4550,7 +4553,8 @@ function LogisticaPage({ user }) {
 
   const filtered = allEntregas.filter(o => {
     if (!inPeriodo(o)) return false;
-    if (filterStatus !== "all" && o.statusEntrega !== filterStatus) return false;
+    if (filterStatus === "pendentes" && o.statusEntrega === "Entregue") return false;
+    if (filterStatus !== "all" && filterStatus !== "pendentes" && o.statusEntrega !== filterStatus) return false;
     if (filterRegiao !== "all" && getRegiao(o.cidade, o.uf) !== filterRegiao) return false;
     return true;
   });
@@ -4643,6 +4647,7 @@ function LogisticaPage({ user }) {
           ))}
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={sel}>
+          <option value="pendentes">Pendentes (não entregues)</option>
           <option value="all">Todos os status</option>
           {STATUS_ENTREGA_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
