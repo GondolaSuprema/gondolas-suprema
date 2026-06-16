@@ -5919,7 +5919,6 @@ function AdminPage({ user }) {
                       <th style={{ padding: "10px 12px", textAlign: "right", color: "#10B981", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Lucro/Comissão</th>
                       <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</th>
                       <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
-                      {canEditAdm && <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>NF-e</th>}
                       {isAdminOnly && <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Ações</th>}
                     </tr>
                   </thead>
@@ -5946,18 +5945,7 @@ function AdminPage({ user }) {
                               <span style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{vs}</span>
                             )}
                           </td>
-                          {canEditAdm && (
-                          <td style={{ padding: "10px 8px", textAlign: "center" }}>
-                            <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-                              {emitindoNfe === o.id ? (
-                                <span style={{ color: COLORS.textMuted, fontSize: 9 }}>Emitindo...</span>
-                              ) : (
-                                <button onClick={() => { setEmitenteSel(null); setConfirmEmitir(o); }} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 6px", borderRadius: 6, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Emitir</button>
-                              )}
-                              <button onClick={() => setCancelandoNfe(o.id)} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "3px 6px", borderRadius: 6, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Cancelar</button>
-                            </div>
-                          </td>
-                          )}
+                          {/* Coluna NF removida — emissão de NF agora fica na aba NF */}
                           {isAdminOnly && (
                             <td style={{ padding: "10px 8px", textAlign: "center" }}>
                               {confirmDelVenda === o.id ? (
@@ -7371,18 +7359,143 @@ function DrePage() {
 }
 
 // ─── NOTAS FISCAIS ───
-function NFPage() {
+function NFPage({ user }) {
+  const [vendas, setVendas] = useState([]);
   const [notas, setNotas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [consultando, setConsultando] = useState(null);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
+  // Estados do fluxo de emissão (igual ao do AdminPage antigo)
+  const [confirmEmitir, setConfirmEmitir] = useState(null);
+  const [emitenteSel, setEmitenteSel] = useState(null); // null | 'gondolas' | 'instalacoes'
+  const [emitindoNfe, setEmitindoNfe] = useState(null);
+  const [nfeResult, setNfeResult] = useState(null);
+  const [cancelandoNfe, setCancelandoNfe] = useState(null);
+  const [cancelJustificativa, setCancelJustificativa] = useState("");
+  const [cancelRef, setCancelRef] = useState("");
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
-  const carregarNotas = async () => {
+  // Só admin/gestor (Ale e Zanella) podem emitir/cancelar NF
+  const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
+  const podeEmitir = role === "admin" || role === "gestor";
+
+  // Carrega vendas concluídas + notas emitidas em paralelo
+  const carregarTudo = async () => {
     setLoading(true);
-    const { data } = await supabase.from("notas_fiscais").select("*").order("data_emissao", { ascending: false });
-    if (data) setNotas(data);
+    const [v, n] = await Promise.all([
+      supabase.from("orcamentos").select("*").eq("status", "Concluído").order("data", { ascending: false }),
+      supabase.from("notas_fiscais").select("*").order("data_emissao", { ascending: false }),
+    ]);
+    if (v.data) {
+      const visiveis = v.data.filter(o => !isOrcamentoRsOculto(o));
+      setVendas(visiveis);
+    }
+    if (n.data) setNotas(n.data);
     setLoading(false);
+  };
+
+  // Emite NF (Gôndolas Suprema = NF-e mercadoria, Suprema Instalações = NFS-e serviço).
+  // Mesma lógica que estava no AdminPage. Roteia entre /api/emitir-nfe e /api/emitir-nfse.
+  const emitirNfe = async (ordem, opts = {}) => {
+    const emitente = opts.emitente || "gondolas";
+    setConfirmEmitir(null);
+    setEmitindoNfe(ordem.id);
+    setNfeResult(null);
+    try {
+      const endpoint = emitente === "instalacoes" ? "/api/emitir-nfse" : "/api/emitir-nfe";
+      const ambiente = opts.ambiente || (emitente === "instalacoes" ? "homologacao" : "producao");
+      // Monta payload no formato esperado pela rota /api/emitir-nfe (espera ordem com .client)
+      // Nas notas_fiscais a ordem aqui vem do orcamentos cru (cliente_*) — adapta pro shape esperado.
+      const ordemPayload = {
+        ...ordem,
+        client: {
+          empresa: ordem.cliente_empresa,
+          cnpj: ordem.cliente_cnpj,
+          responsavel: ordem.cliente_responsavel,
+          telefone: ordem.cliente_telefone,
+          email: ordem.cliente_email,
+          endereco: ordem.cliente_endereco,
+          numero: ordem.cliente_numero,
+          bairro: ordem.cliente_bairro,
+          cidade: ordem.cliente_cidade,
+          estado: ordem.cliente_estado,
+          cep: ordem.cliente_cep,
+        },
+        vendedor: ordem.vendedor_nome,
+        date: ordem.data,
+      };
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ordem: ordemPayload, ambiente }),
+      });
+      const data = await res.json();
+      setNfeResult(data);
+      if (data.success) {
+        const valorNota = emitente === "instalacoes"
+          ? (Number(data.valor) || Number(ordem.comissao) || 0)
+          : (Number(ordem.total) || 0);
+        const destinatarioNome = emitente === "instalacoes"
+          ? (data.tomador || "RRE MAQUINAS E EQUIPAMENTOS LTDA")
+          : (ordem.cliente_empresa || "");
+        const cnpjDest = emitente === "instalacoes"
+          ? (data.cnpj_tomador || "23505287000107")
+          : (ordem.cliente_cnpj || "");
+        await supabase.from("notas_fiscais").insert({
+          id: data.ref || genId(),
+          ordem_id: ordem.id,
+          numero: data.numero,
+          chave: data.chave,
+          ref: data.ref,
+          status: data.status || (emitente === "instalacoes" ? "processando" : "autorizado"),
+          valor: valorNota,
+          destinatario: destinatarioNome,
+          cnpj_destinatario: cnpjDest,
+          data_emissao: new Date().toISOString(),
+          url_danfe: data.url_danfe || "",
+          url_xml: data.url_xml || "",
+          vendedor: ordem.vendedor_nome || "",
+          tipo: emitente === "instalacoes" ? "nfse" : "nfe",
+          emitente,
+          ambiente,
+        });
+        // Marca status venda como Concluído (mesma lógica do AdminPage antigo)
+        const existingNotes = ordem.notes || "";
+        const cleanNotes = existingNotes.replace(/\n🏷️ Status venda:.*$/m, "");
+        const novasNotes = cleanNotes + "\n🏷️ Status venda: Concluído";
+        await supabase.from("orcamentos").update({ notes: novasNotes }).eq("id", ordem.id);
+        await carregarTudo();
+      }
+    } catch (e) {
+      setNfeResult({ success: false, mensagem: e.message });
+    }
+    setEmitindoNfe(null);
+  };
+
+  const cancelarNfe = async (ref, justificativa) => {
+    if (!ref) return;
+    setCancelandoNfe("loading");
+    try {
+      const nota = notas.find(n => n.ref === ref);
+      const endpoint = nota?.tipo === "nfse" ? "/api/emitir-nfse" : "/api/emitir-nfe";
+      const ambiente = nota?.ambiente || "producao";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "cancelar", ref_cancelamento: ref, justificativa, ambiente }),
+      });
+      const data = await res.json();
+      setNfeResult(data.success ? { ...data, cancelado: true } : data);
+      if (data.success) {
+        await supabase.from("notas_fiscais").update({ status: "cancelado" }).eq("ref", ref);
+        await carregarTudo();
+      }
+    } catch (e) {
+      setNfeResult({ success: false, mensagem: e.message });
+    }
+    setCancelandoNfe(null);
+    setCancelJustificativa("");
+    setCancelRef("");
   };
 
   const consultarSefaz = async (nota) => {
@@ -7392,7 +7505,7 @@ function NFPage() {
       const res = await fetch("/api/consultar-nfe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ref: nota.ref, ambiente: "producao" }),
+        body: JSON.stringify({ ref: nota.ref, ambiente: nota.ambiente || "producao" }),
       });
       const data = await res.json();
       if (data.success && data.status) {
@@ -7403,48 +7516,47 @@ function NFPage() {
     setConsultando(null);
   };
 
-  const consultarTodas = async () => {
-    setLoading(true);
-    for (const n of notasMes) {
-      if (n.ref) {
-        try {
-          const res = await fetch("/api/consultar-nfe", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ref: n.ref, ambiente: "producao" }),
-          });
-          const data = await res.json();
-          if (data.success && data.status) {
-            await supabase.from("notas_fiscais").update({ status: data.status }).eq("id", n.id);
-          }
-        } catch (e) { console.error(e); }
-      }
-    }
-    await carregarNotas();
-  };
+  useEffect(() => { carregarTudo(); }, []);
 
-  useEffect(() => { carregarNotas(); }, []);
+  // Mapeia notas por ordem_id (uma venda pode ter NF-e e NFS-e)
+  const notasPorOrdem = {};
+  notas.forEach(n => {
+    if (!n.ordem_id) return;
+    if (!notasPorOrdem[n.ordem_id]) notasPorOrdem[n.ordem_id] = [];
+    notasPorOrdem[n.ordem_id].push(n);
+  });
 
-  const notasMes = notas.filter(n => {
-    const dt = n.data_emissao || "";
-    return dt.startsWith(mesSel);
+  // Vendas do mês selecionado (usa data_conclusao OU data_entrega OU data, em ordem)
+  const vendasMes = vendas.filter(o => {
+    const ref = o.data_conclusao || o.data_entrega || o.data;
+    if (!ref) return false;
+    const d = new Date(ref);
+    return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mesSel;
   });
 
   const statusColor = (s) => {
     if (s === "autorizado") return "#10B981";
     if (s === "cancelado") return "#F87171";
+    if (s === "processando") return "#F59E0B";
     return "#888";
   };
 
-  const totalAutorizadas = notasMes.filter(n => n.status === "autorizado").reduce((s, n) => s + Number(n.valor || 0), 0);
-  const totalCanceladas = notasMes.filter(n => n.status === "cancelado").length;
+  // Stats do mês (baseado em vendasMes)
+  const idsVendas = new Set(vendasMes.map(v => v.id));
+  const notasMes = notas.filter(n => idsVendas.has(n.ordem_id));
+  const totalFaturado = vendasMes.reduce((s, o) => s + Number(o.total || 0), 0);
+  const qtdNfEmitidas = notasMes.filter(n => n.status !== "cancelado").length;
+  const qtdNfPendentes = vendasMes.filter(v => !(notasPorOrdem[v.id] || []).some(n => n.status !== "cancelado")).length;
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Notas Fiscais</h1>
-          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>NF-e emitidas via SEFAZ</p>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+            Vendas concluídas do mês — emita NF-e ou NFS-e direto daqui
+            {!podeEmitir && <span style={{ color: COLORS.textDim, fontStyle: "italic" }}> · somente leitura</span>}
+          </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
@@ -7454,89 +7566,228 @@ function NFPage() {
               return <option key={v} value={v}>{mesNomes[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
             })}
           </select>
-          <button onClick={carregarNotas} style={{ background: COLORS.orange + "15", border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Atualizar</button>
-          <button onClick={consultarTodas} style={{ background: "#3B82F615", border: "1px solid #3B82F640", color: "#3B82F6", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Consultar SEFAZ</button>
+          <button onClick={carregarTudo} style={{ background: COLORS.orange + "15", border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Atualizar</button>
         </div>
       </div>
 
       {/* Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 20 }}>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Total NF-e</div>
-          <div style={{ color: COLORS.white, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{notasMes.length}</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Vendas Concluídas</div>
+          <div style={{ color: COLORS.white, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{vendasMes.length}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Autorizadas</div>
-          <div style={{ color: "#10B981", fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{notasMes.filter(n => n.status === "autorizado").length}</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Faturado</div>
+          <div style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalFaturado)}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Canceladas</div>
-          <div style={{ color: "#F87171", fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{totalCanceladas}</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 10 }}>NF Emitidas</div>
+          <div style={{ color: "#10B981", fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{qtdNfEmitidas}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 9 }}>Valor Autorizado</div>
-          <div style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalAutorizadas)}</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Pendentes</div>
+          <div style={{ color: qtdNfPendentes > 0 ? "#F59E0B" : COLORS.textMuted, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{qtdNfPendentes}</div>
         </div>
       </div>
 
-      {/* Tabela */}
+      {/* Tabela de vendas concluídas */}
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>NF-e — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Vendas — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
         </div>
         {loading ? (
           <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando...</div>
-        ) : notasMes.length === 0 ? (
-          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 12 }}>Nenhuma NF-e neste mês</div>
+        ) : vendasMes.length === 0 ? (
+          <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 12 }}>Nenhuma venda concluída neste mês</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Nº</th>
-                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Data</th>
-                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Destinatário</th>
-                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>CNPJ</th>
-                  <th style={{ padding: "8px 10px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
-                  <th style={{ padding: "8px 10px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vendedor</th>
-                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
-                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>PDF</th>
-                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>XML</th>
-                  <th style={{ padding: "8px 10px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>SEFAZ</th>
+                  <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Cliente</th>
+                  <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>CNPJ</th>
+                  <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+                  <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vendedor</th>
+                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>NF-e<br/><span style={{ fontSize: 7, fontWeight: 400, textTransform: "none" }}>(Gôndolas)</span></th>
+                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>NFS-e<br/><span style={{ fontSize: 7, fontWeight: 400, textTransform: "none" }}>(Instalações)</span></th>
+                  {podeEmitir && <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Ações</th>}
                 </tr>
               </thead>
               <tbody>
-                {notasMes.map(n => (
-                  <tr key={n.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: n.status === "cancelado" ? COLORS.danger + "05" : "transparent" }}>
-                    <td style={{ padding: "8px 10px", color: COLORS.white, fontWeight: 700, fontSize: 13 }}>{n.numero || "—"}</td>
-                    <td style={{ padding: "8px 10px", color: COLORS.textMuted }}>{n.data_emissao ? new Date(n.data_emissao).toLocaleDateString("pt-BR") : "—"}</td>
-                    <td style={{ padding: "8px 10px", color: COLORS.text, fontWeight: 500 }}>{n.destinatario || "—"}</td>
-                    <td style={{ padding: "8px 10px", color: COLORS.textDim, fontSize: 10 }}>{n.cnpj_destinatario || "—"}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(Number(n.valor || 0))}</td>
-                    <td style={{ padding: "8px 10px", color: COLORS.accent, fontWeight: 500 }}>{n.vendedor || "—"}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                      <span style={{ background: statusColor(n.status) + "20", color: statusColor(n.status), padding: "2px 8px", borderRadius: 10, fontSize: 9, fontWeight: 700 }}>{n.status === "autorizado" ? "Autorizada" : n.status === "cancelado" ? "Cancelada" : n.status}</span>
-                    </td>
-                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                      {n.url_danfe && n.status === "autorizado" && <a href={n.url_danfe} target="_blank" rel="noopener noreferrer" style={{ color: "#10B981", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>PDF</a>}
-                    </td>
-                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                      {n.url_xml && n.status === "autorizado" && <a href={n.url_xml} target="_blank" rel="noopener noreferrer" style={{ color: "#3B82F6", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>XML</a>}
-                    </td>
-                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                      {consultando === n.id ? (
-                        <span style={{ color: COLORS.textMuted, fontSize: 8 }}>...</span>
-                      ) : (
-                        <button onClick={() => consultarSefaz(n)} style={{ background: "#3B82F610", border: "1px solid #3B82F630", color: "#3B82F6", padding: "2px 6px", borderRadius: 4, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Consultar</button>
+                {vendasMes.map(o => {
+                  const notasDessa = notasPorOrdem[o.id] || [];
+                  const nfe = notasDessa.find(n => n.tipo === "nfe" && n.status !== "cancelado");
+                  const nfse = notasDessa.find(n => n.tipo === "nfse" && n.status !== "cancelado");
+                  const renderNotaCell = (n, corOk) => {
+                    if (!n) return <span style={{ color: COLORS.textDim, fontSize: 11 }}>—</span>;
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                        <span style={{ background: statusColor(n.status) + "20", color: statusColor(n.status), padding: "2px 6px", borderRadius: 8, fontSize: 9, fontWeight: 700 }}>
+                          {n.numero ? `#${n.numero}` : "—"} · {n.status === "autorizado" ? "Autorizada" : n.status === "cancelado" ? "Cancelada" : n.status === "processando" ? "Processando" : n.status}
+                        </span>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {n.url_danfe && n.status === "autorizado" && <a href={n.url_danfe} target="_blank" rel="noopener noreferrer" style={{ color: "#10B981", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>PDF</a>}
+                          {n.url_xml && n.status === "autorizado" && <a href={n.url_xml} target="_blank" rel="noopener noreferrer" style={{ color: "#3B82F6", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>XML</a>}
+                          {podeEmitir && (
+                            <>
+                              <button onClick={() => consultarSefaz(n)} style={{ background: "transparent", border: "none", color: COLORS.textMuted, fontSize: 9, cursor: "pointer", padding: 0, textDecoration: "underline" }}>↻</button>
+                              {n.status !== "cancelado" && (
+                                <button onClick={() => { setCancelRef(n.ref); setCancelandoNfe(n.id); }} style={{ background: "transparent", border: "none", color: COLORS.danger, fontSize: 9, cursor: "pointer", padding: 0, textDecoration: "underline" }}>cancelar</button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  };
+                  return (
+                    <tr key={o.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                      <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500 }}>{o.cliente_empresa || "—"}<div style={{ color: COLORS.textDim, fontSize: 9 }}>{o.cliente_cidade}{o.cliente_estado ? `/${o.cliente_estado}` : ""}</div></td>
+                      <td style={{ padding: "10px 12px", color: COLORS.textDim, fontSize: 10 }}>{o.cliente_cnpj || "—"}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(Number(o.total || 0))}{(Number(o.comissao) || 0) > 0 && <div style={{ color: "#10B981", fontSize: 9, fontWeight: 600 }}>Com.: {fmt(Number(o.comissao))}</div>}</td>
+                      <td style={{ padding: "10px 12px", color: COLORS.accent, fontWeight: 500 }}>{o.vendedor_nome || "—"}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>{renderNotaCell(nfe)}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>{renderNotaCell(nfse)}</td>
+                      {podeEmitir && (
+                        <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                          {emitindoNfe === o.id ? (
+                            <span style={{ color: COLORS.textMuted, fontSize: 10 }}>Emitindo...</span>
+                          ) : (
+                            <button onClick={() => { setEmitenteSel(null); setConfirmEmitir(o); }} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "5px 10px", borderRadius: 7, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Emitir NF</button>
+                          )}
+                        </td>
                       )}
-                    </td>
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {/* Modal Cancelar NF */}
+      {cancelandoNfe && cancelandoNfe !== "loading" && !nfeResult && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.danger, fontSize: 18, margin: "0 0 12px" }}>Cancelar Nota Fiscal</h2>
+            <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 14px" }}>Informe a justificativa do cancelamento (mínimo 15 caracteres). O cancelamento é restrito ao prazo legal (24h pra NF-e, varia pra NFS-e).</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Ref da NF</div>
+                <input value={cancelRef || ""} onChange={e => setCancelRef(e.target.value)} placeholder="ref da nota" style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Justificativa (mín. 15 caracteres) *</div>
+                <input value={cancelJustificativa} onChange={e => setCancelJustificativa(e.target.value)} placeholder="Motivo do cancelamento..." style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button onClick={() => { setCancelandoNfe(null); setCancelRef(""); setCancelJustificativa(""); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
+                <button onClick={() => cancelarNfe(cancelRef, cancelJustificativa)} disabled={!cancelRef || cancelJustificativa.length < 15} style={{ flex: 1, background: !cancelRef || cancelJustificativa.length < 15 ? COLORS.textDim : COLORS.danger, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !cancelRef || cancelJustificativa.length < 15 ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar NF</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Emissão NF — 2 passos */}
+      {confirmEmitir && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 460, maxWidth: "100%" }}>
+            {emitenteSel === null && (
+              <>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: "0 0 6px" }}>Emitir Nota Fiscal</h2>
+                <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 16px" }}>Escolha qual empresa vai emitir:</p>
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+                  <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Venda</div>
+                  <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>{confirmEmitir.cliente_empresa}</div>
+                  <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: {confirmEmitir.cliente_cnpj || "—"}</div>
+                  <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(Number(confirmEmitir.total))}</div>
+                  {Number(confirmEmitir.comissao) > 0 && <div style={{ color: "#10B981", fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>Comissão: {fmt(Number(confirmEmitir.comissao))}</div>}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <button onClick={() => setEmitenteSel("gondolas")} style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}40`, color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                    <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700 }}>🏪 Gôndolas Suprema</div>
+                    <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NF-e de mercadoria · destinatário: <strong style={{ color: COLORS.text }}>{confirmEmitir.cliente_empresa}</strong></div>
+                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.total))}</div>
+                  </button>
+                  <button onClick={() => setEmitenteSel("instalacoes")} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                    <div style={{ color: "#3B82F6", fontSize: 13, fontWeight: 700 }}>🔧 Suprema Instalações</div>
+                    <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NFS-e de serviço · destinatário: <strong style={{ color: COLORS.text }}>Gôndolas Brasil</strong> (23.505.287/0001-07)</div>
+                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.comissao) || 0)} <em style={{ color: COLORS.textDim }}>(comissão)</em></div>
+                  </button>
+                </div>
+                <div style={{ marginTop: 16, textAlign: "center" }}>
+                  <button onClick={() => setConfirmEmitir(null)} style={{ background: "transparent", border: "none", color: COLORS.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                </div>
+              </>
+            )}
+            {emitenteSel === "gondolas" && (
+              <>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 18, margin: "0 0 12px" }}>⚠️ Confirmar — Gôndolas Suprema</h2>
+                <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 14px" }}>Esta ação irá emitir uma <strong style={{ color: COLORS.danger }}>NF-e REAL</strong> na SEFAZ.</p>
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                  <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>{confirmEmitir.cliente_empresa}</div>
+                  <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: {confirmEmitir.cliente_cnpj} | {confirmEmitir.cliente_cidade}/{confirmEmitir.cliente_estado}</div>
+                  <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(Number(confirmEmitir.total))}</div>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
+                  <button onClick={() => emitirNfe(confirmEmitir, { emitente: "gondolas", ambiente: "producao" })} style={{ flex: 1, background: "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Sim, Emitir NF-e</button>
+                </div>
+              </>
+            )}
+            {emitenteSel === "instalacoes" && (
+              <>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 18, margin: "0 0 12px" }}>🔧 Confirmar — Suprema Instalações</h2>
+                <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 12px" }}>NFS-e em <strong style={{ color: "#F59E0B" }}>HOMOLOGAÇÃO</strong> (ambiente de teste).</p>
+                <div style={{ background: "#F59E0B12", border: "1px solid #F59E0B40", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+                  <div style={{ color: "#F59E0B", fontSize: 11, fontWeight: 700 }}>⚠️ AMBIENTE DE HOMOLOGAÇÃO</div>
+                </div>
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                  <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Tomador</div>
+                  <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>RRE MAQUINAS E EQUIPAMENTOS LTDA (Gôndolas Brasil)</div>
+                  <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: 23.505.287/0001-07 · São José/SC</div>
+                  <div style={{ color: "#3B82F6", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(Number(confirmEmitir.comissao) || 0)}</div>
+                  <div style={{ color: COLORS.textDim, fontSize: 10 }}>(comissão · ISS 3% · Simples · item 10.05)</div>
+                </div>
+                {(!confirmEmitir.comissao || Number(confirmEmitir.comissao) <= 0) && (
+                  <div style={{ background: COLORS.danger + "12", border: `1px solid ${COLORS.danger}40`, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                    <div style={{ color: COLORS.danger, fontSize: 12, fontWeight: 600 }}>⚠️ Comissão zero</div>
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
+                  <button onClick={() => emitirNfe(confirmEmitir, { emitente: "instalacoes", ambiente: "homologacao" })} disabled={!confirmEmitir.comissao || Number(confirmEmitir.comissao) <= 0} style={{ flex: 1, background: (!confirmEmitir.comissao || Number(confirmEmitir.comissao) <= 0) ? COLORS.textDim : "#3B82F6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: (!confirmEmitir.comissao || Number(confirmEmitir.comissao) <= 0) ? "not-allowed" : "pointer", fontSize: 13 }}>Emitir NFS-e (homologação)</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Resultado da Emissão / Cancelamento */}
+      {nfeResult && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: nfeResult.cancelado ? "#F59E0B" : nfeResult.success ? "#10B981" : COLORS.danger, fontSize: 18, margin: "0 0 12px" }}>{nfeResult.cancelado ? "✓ NF Cancelada" : nfeResult.success ? "✓ NF Emitida!" : "✕ Erro"}</h2>
+            {nfeResult.success ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {nfeResult.numero && <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}><div style={{ color: COLORS.textMuted, fontSize: 10 }}>Número</div><div style={{ color: COLORS.white, fontSize: 14, fontWeight: 700 }}>{nfeResult.numero}</div></div>}
+                {nfeResult.ref && <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}><div style={{ color: COLORS.textMuted, fontSize: 10 }}>Ref</div><div style={{ color: COLORS.text, fontSize: 11, wordBreak: "break-all" }}>{nfeResult.ref}</div></div>}
+                {nfeResult.status && <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}><div style={{ color: COLORS.textMuted, fontSize: 10 }}>Status</div><div style={{ color: "#10B981", fontSize: 13, fontWeight: 700 }}>{nfeResult.status}</div></div>}
+                {nfeResult.url_danfe && <a href={nfeResult.url_danfe} target="_blank" rel="noopener noreferrer" style={{ background: "#10B981", color: "#fff", padding: "10px", borderRadius: 8, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>📄 Baixar PDF</a>}
+                {nfeResult.url_xml && <a href={nfeResult.url_xml} target="_blank" rel="noopener noreferrer" style={{ background: "#3B82F6", color: "#fff", padding: "10px", borderRadius: 8, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>📄 Baixar XML</a>}
+              </div>
+            ) : (
+              <div style={{ background: COLORS.danger + "12", borderRadius: 8, padding: "12px 14px", marginBottom: 14 }}>
+                <div style={{ color: COLORS.danger, fontSize: 13, fontWeight: 600 }}>{nfeResult.mensagem || "Erro desconhecido"}</div>
+              </div>
+            )}
+            <button onClick={() => { setNfeResult(null); setEmitenteSel(null); setCancelandoNfe(null); setCancelRef(""); setCancelJustificativa(""); }} style={{ marginTop: 14, width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>Fechar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -7912,7 +8163,7 @@ export default function App() {
       {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
       {page === "dre" && canAccess(user, "dre") && <DrePage />}
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
-      {page === "nf" && canAccess(user, "nf") && <NFPage />}
+      {page === "nf" && canAccess(user, "nf") && <NFPage user={user} />}
       {page === "nf" && !canAccess(user, "nf") && <Login onLogin={login} setPage={setPage} />}
       {page === "conciliacao" && canAccess(user, "conciliacao") && <ConciliacaoPage />}
       {page === "conciliacao" && !canAccess(user, "conciliacao") && <Login onLogin={login} setPage={setPage} />}
