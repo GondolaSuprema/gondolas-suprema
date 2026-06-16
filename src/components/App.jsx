@@ -5192,33 +5192,53 @@ function AdminPage({ user }) {
   const [savingPdfAdm, setSavingPdfAdm] = useState(false);
   const [pdfDownloadMsg, setPdfDownloadMsg] = useState(null);
 
-  const emitirNfe = async (ordem) => {
+  const emitirNfe = async (ordem, opts = {}) => {
+    // opts.emitente: "gondolas" (NF-e mercadoria, Suprema) | "instalacoes" (NFS-e serviço, Inst.)
+    // opts.ambiente: "producao" | "homologacao" — pra Suprema Instalações começa em homologação
+    const emitente = opts.emitente || "gondolas";
     setConfirmEmitir(null);
     setEmitindoNfe(ordem.id);
     setNfeResult(null);
     try {
-      const res = await fetch("/api/emitir-nfe", {
+      const endpoint = emitente === "instalacoes" ? "/api/emitir-nfse" : "/api/emitir-nfe";
+      const ambiente = opts.ambiente || (emitente === "instalacoes" ? "homologacao" : "producao");
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ordem, ambiente: "producao" }),
+        body: JSON.stringify({ ordem, ambiente }),
       });
       const data = await res.json();
       setNfeResult(data);
       if (data.success) {
+        // Valor da NF varia pelo emitente:
+        // - Gôndolas Suprema → valor total da venda
+        // - Suprema Instalações → comissão da venda (data.valor já vem da API)
+        const valorNota = emitente === "instalacoes"
+          ? (Number(data.valor) || Number(ordem.comissao) || 0)
+          : (Number(ordem.total) || 0);
+        const destinatarioNome = emitente === "instalacoes"
+          ? (data.tomador || "RRE MAQUINAS E EQUIPAMENTOS LTDA")
+          : (ordem.client?.empresa || "");
+        const cnpjDest = emitente === "instalacoes"
+          ? (data.cnpj_tomador || "23505287000107")
+          : (ordem.client?.cnpj || "");
         await supabase.from("notas_fiscais").insert({
           id: data.ref || genId(),
           ordem_id: ordem.id,
           numero: data.numero,
           chave: data.chave,
           ref: data.ref,
-          status: "autorizado",
-          valor: ordem.total || 0,
-          destinatario: ordem.client?.empresa || "",
-          cnpj_destinatario: ordem.client?.cnpj || "",
+          status: data.status || (emitente === "instalacoes" ? "processando" : "autorizado"),
+          valor: valorNota,
+          destinatario: destinatarioNome,
+          cnpj_destinatario: cnpjDest,
           data_emissao: new Date().toISOString(),
           url_danfe: data.url_danfe || "",
           url_xml: data.url_xml || "",
           vendedor: ordem.vendedor || "",
+          tipo: emitente === "instalacoes" ? "nfse" : "nfe",
+          emitente,
+          ambiente,
         });
         // Atualiza automaticamente o "Status venda" pra Concluído na tabela
         // Vendas Concluídas (gravado em notes — mesma lógica do updateVendaStatus
@@ -5747,35 +5767,38 @@ function AdminPage({ user }) {
               </>
             )}
 
-            {/* PASSO 2B — Suprema Instalações (em configuração) */}
+            {/* PASSO 2B — Confirmação Suprema Instalações (NFS-e serviço) */}
             {emitenteSel === "instalacoes" && (
               <>
-                <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 18, margin: "0 0 12px" }}>🔧 Suprema Instalações — em configuração</h2>
-                <p style={{ color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", margin: "0 0 12px", lineHeight: 1.5 }}>
-                  A emissão de <strong>NFS-e</strong> pela <strong>Suprema Instalações</strong> ainda não está habilitada.
+                <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 18, margin: "0 0 12px" }}>🔧 Confirmar Emissão — Suprema Instalações</h2>
+                <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 12px", lineHeight: 1.5 }}>
+                  Esta ação irá emitir uma <strong style={{ color: "#F59E0B" }}>NFS-e em HOMOLOGAÇÃO</strong> (ambiente de teste, sem valor fiscal). Quando confirmar a configuração com o contador, eu troco pra produção.
                 </p>
-                <div style={{ background: "#3B82F608", border: "1px solid #3B82F625", borderRadius: 8, padding: "12px 14px", marginBottom: 14 }}>
-                  <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
-                    Falta passar pro Claude (chat):
-                    <ul style={{ margin: "6px 0 0 16px", padding: 0 }}>
-                      <li>Inscrição Municipal de Palhoça</li>
-                      <li>Caminho fiscal (intermediação ou montagem)</li>
-                      <li>Alíquota ISS</li>
-                      <li>Certificado A1 da Suprema Instalações</li>
-                      <li>Token Focus NFe da Suprema Instalações</li>
-                    </ul>
-                  </div>
+                <div style={{ background: "#F59E0B12", border: "1px solid #F59E0B40", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+                  <div style={{ color: "#F59E0B", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 700 }}>⚠️ AMBIENTE DE HOMOLOGAÇÃO — nota de teste</div>
                 </div>
                 <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
-                  <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>Quando habilitar, vai emitir</div>
-                  <div style={{ color: COLORS.text, fontSize: 12, marginTop: 4 }}><strong>Destinatário:</strong> Gôndolas Brasil (RRE Maq. e Equip. LTDA)</div>
-                  <div style={{ color: COLORS.text, fontSize: 12 }}><strong>CNPJ:</strong> 23.505.287/0001-07</div>
-                  <div style={{ color: "#3B82F6", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 6 }}>{fmt(confirmEmitir.comissao || 0)}</div>
-                  <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>(valor da comissão da venda)</div>
+                  <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>Tomador</div>
+                  <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>RRE MAQUINAS E EQUIPAMENTOS LTDA (Gôndolas Brasil)</div>
+                  <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: 23.505.287/0001-07 · São José/SC</div>
+                  <div style={{ color: "#3B82F6", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(confirmEmitir.comissao || 0)}</div>
+                  <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>(valor da comissão da venda · ISS 3% · Simples Nacional · item 10.05)</div>
                 </div>
+                {(!confirmEmitir.comissao || confirmEmitir.comissao <= 0) && (
+                  <div style={{ background: COLORS.danger + "12", border: `1px solid ${COLORS.danger}40`, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                    <div style={{ color: COLORS.danger, fontSize: 12, fontWeight: 600 }}>⚠️ Comissão zero ou inválida</div>
+                    <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 4 }}>Esta venda não tem valor de comissão. Não é possível emitir NFS-e sem valor de serviço.</div>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
-                  <button onClick={() => setConfirmEmitir(null)} style={{ flex: 1, background: "#3B82F6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Entendi</button>
+                  <button
+                    onClick={() => emitirNfe(confirmEmitir, { emitente: "instalacoes", ambiente: "homologacao" })}
+                    disabled={!confirmEmitir.comissao || confirmEmitir.comissao <= 0}
+                    style={{ flex: 1, background: (!confirmEmitir.comissao || confirmEmitir.comissao <= 0) ? COLORS.textDim : "#3B82F6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: (!confirmEmitir.comissao || confirmEmitir.comissao <= 0) ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    Sim, Emitir NFS-e (homologação)
+                  </button>
                 </div>
               </>
             )}
