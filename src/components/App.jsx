@@ -7686,6 +7686,7 @@ function NFPage({ user }) {
                   <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>CNPJ</th>
                   <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
                   <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vendedor</th>
+                  <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Recebido em</th>
                   <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>NF-e<br/><span style={{ fontSize: 7, fontWeight: 400, textTransform: "none" }}>(Gôndolas)</span></th>
                   <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>NFS-e<br/><span style={{ fontSize: 7, fontWeight: 400, textTransform: "none" }}>(Instalações)</span></th>
                   {podeEmitir && <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Ações</th>}
@@ -7724,6 +7725,26 @@ function NFPage({ user }) {
                       <td style={{ padding: "10px 12px", color: COLORS.textDim, fontSize: 10 }}>{o.cliente_cnpj || "—"}</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(Number(o.total || 0))}{(Number(o.comissao) || 0) > 0 && <div style={{ color: "#10B981", fontSize: 9, fontWeight: 600 }}>Com.: {fmt(Number(o.comissao))}</div>}</td>
                       <td style={{ padding: "10px 12px", color: COLORS.accent, fontWeight: 500 }}>{o.vendedor_nome || "—"}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                        {(() => {
+                          const banco = o.venda_banco_recebedor;
+                          const empresa = o.venda_empresa_recebedora;
+                          if (!banco) return <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>;
+                          // Pagamento em PF MP = Venda PF (destaque dourado)
+                          if (banco === "pf_mp") {
+                            return <span style={{ background: "#F5A62315", color: "#F5A623", border: "1px solid #F5A62340", padding: "3px 8px", borderRadius: 8, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>🏷️ Venda PF</span>;
+                          }
+                          // Outros bancos: Empresa · Banco
+                          const labelEmp = empresa === "gondolas_suprema" ? "Gôndolas Suprema" : empresa === "suprema_instalacoes" ? "Suprema Instalações" : "—";
+                          const labelBan = ({ sicredi: "Sicredi", mercado_pago: "Mercado Pago", c6_bank: "C6 Bank" })[banco] || banco;
+                          return (
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                              <span style={{ background: "#10B98115", color: "#10B981", border: "1px solid #10B98140", padding: "2px 8px", borderRadius: 8, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{labelBan}</span>
+                              <span style={{ color: COLORS.textDim, fontSize: 8 }}>{labelEmp}</span>
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td style={{ padding: "10px 12px", textAlign: "center" }}>{renderNotaCell(nfe)}</td>
                       <td style={{ padding: "10px 12px", textAlign: "center" }}>{renderNotaCell(nfse)}</td>
                       {podeEmitir && (
