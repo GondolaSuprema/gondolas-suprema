@@ -7604,6 +7604,26 @@ function NFPage({ user }) {
   // Default = valor padrão (total pra Gôndolas, comissão pra Instalações).
   const [editandoValor, setEditandoValor] = useState(false);
   const [valorEditado, setValorEditado] = useState("");
+  // Edição inline do "Valor Recebido" direto na tabela (lápis na linha).
+  // editandoRecebidoId = id da venda sendo editada; valorRecebidoEdit = texto digitado.
+  const [editandoRecebidoId, setEditandoRecebidoId] = useState(null);
+  const [valorRecebidoEdit, setValorRecebidoEdit] = useState("");
+
+  // Helper: retorna o valor recebido salvo (ou comissão como default se null)
+  const getValorRecebido = (o) => {
+    if (o.valor_recebido != null) return Number(o.valor_recebido);
+    return Number(o.comissao || 0);
+  };
+
+  // Salva o valor_recebido no banco
+  const salvarValorRecebido = async (orderId, valor) => {
+    const v = Number(valor);
+    if (isNaN(v) || v < 0) return;
+    await supabase.from("orcamentos").update({ valor_recebido: v }).eq("id", orderId);
+    setVendas(prev => prev.map(o => o.id === orderId ? { ...o, valor_recebido: v } : o));
+    setEditandoRecebidoId(null);
+    setValorRecebidoEdit("");
+  };
   // Estados do fluxo de emissão (igual ao do AdminPage antigo)
   const [confirmEmitir, setConfirmEmitir] = useState(null);
   const [emitenteSel, setEmitenteSel] = useState(null); // null | 'gondolas' | 'instalacoes'
@@ -7874,6 +7894,7 @@ function NFPage({ user }) {
                   <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>CNPJ</th>
                   <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
                   <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vendedor</th>
+                  <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor Recebido</th>
                   <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Recebido em</th>
                   <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>NF-e<br/><span style={{ fontSize: 7, fontWeight: 400, textTransform: "none" }}>(Gôndolas)</span></th>
                   <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>NFS-e<br/><span style={{ fontSize: 7, fontWeight: 400, textTransform: "none" }}>(Instalações)</span></th>
@@ -7913,6 +7934,42 @@ function NFPage({ user }) {
                       <td style={{ padding: "10px 12px", color: COLORS.textDim, fontSize: 10 }}>{o.cliente_cnpj || "—"}</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(Number(o.total || 0))}{(Number(o.comissao) || 0) > 0 && <div style={{ color: "#10B981", fontSize: 9, fontWeight: 600 }}>Com.: {fmt(Number(o.comissao))}</div>}</td>
                       <td style={{ padding: "10px 12px", color: COLORS.accent, fontWeight: 500 }}>{o.vendedor_nome || "—"}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                        {editandoRecebidoId === o.id ? (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ color: COLORS.textMuted, fontSize: 10 }}>R$</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={valorRecebidoEdit}
+                              onChange={e => setValorRecebidoEdit(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") salvarValorRecebido(o.id, valorRecebidoEdit);
+                                if (e.key === "Escape") { setEditandoRecebidoId(null); setValorRecebidoEdit(""); }
+                              }}
+                              autoFocus
+                              style={{ width: 90, padding: "3px 6px", background: COLORS.bg, border: `1px solid ${COLORS.accent}40`, borderRadius: 6, color: COLORS.accent, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "right" }}
+                            />
+                            <button onClick={() => salvarValorRecebido(o.id, valorRecebidoEdit)} title="Confirmar" style={{ background: "#10B981", color: "#fff", border: "none", padding: "2px 6px", borderRadius: 5, fontSize: 10, cursor: "pointer" }}>✓</button>
+                            <button onClick={() => { setEditandoRecebidoId(null); setValorRecebidoEdit(""); }} title="Cancelar" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "2px 6px", borderRadius: 5, fontSize: 10, cursor: "pointer" }}>✕</button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
+                            <span style={{ color: "#10B981", fontWeight: 700, fontSize: 11 }}>{fmt(getValorRecebido(o))}</span>
+                            {podeEmitir && (
+                              <button
+                                onClick={() => { setEditandoRecebidoId(o.id); setValorRecebidoEdit(String(getValorRecebido(o).toFixed(2))); }}
+                                title="Editar valor recebido"
+                                style={{ background: "transparent", border: "none", color: COLORS.textMuted, fontSize: 11, cursor: "pointer", padding: "0 2px" }}
+                              >✏️</button>
+                            )}
+                            {o.valor_recebido != null && Math.abs(Number(o.valor_recebido) - Number(o.comissao || 0)) >= 0.01 && (
+                              <span style={{ color: COLORS.textDim, fontSize: 9 }} title={`Comissão: ${fmt(Number(o.comissao) || 0)}`}>*</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ padding: "10px 12px", textAlign: "center" }}>
                         {(() => {
                           const banco = o.venda_banco_recebedor;
@@ -7998,10 +8055,10 @@ function NFPage({ user }) {
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NF-e de mercadoria · destinatário: <strong style={{ color: COLORS.text }}>{confirmEmitir.cliente_empresa}</strong></div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.total))}</div>
                   </button>
-                  <button onClick={() => { setEmitenteSel("instalacoes"); setValorEditado(Number(confirmEmitir.comissao || 0).toFixed(2)); setEditandoValor(false); }} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                  <button onClick={() => { setEmitenteSel("instalacoes"); setValorEditado(Number(getValorRecebido(confirmEmitir)).toFixed(2)); setEditandoValor(false); }} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
                     <div style={{ color: "#3B82F6", fontSize: 13, fontWeight: 700 }}>🔧 Suprema Instalações</div>
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NFS-e de serviço · destinatário: <strong style={{ color: COLORS.text }}>Gôndolas Brasil</strong> (23.505.287/0001-07)</div>
-                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.comissao) || 0)} <em style={{ color: COLORS.textDim }}>(comissão)</em></div>
+                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(getValorRecebido(confirmEmitir))} <em style={{ color: COLORS.textDim }}>{confirmEmitir.valor_recebido != null && Math.abs(Number(confirmEmitir.valor_recebido) - Number(confirmEmitir.comissao || 0)) >= 0.01 ? "(valor recebido — editado)" : "(comissão)"}</em></div>
                   </button>
                 </div>
                 <div style={{ marginTop: 16, textAlign: "center" }}>
