@@ -7815,8 +7815,8 @@ function NFPage({ user }) {
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <select value={filtroPag} onChange={e => setFiltroPag(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
-            <option value="pagas">💚 Pagas</option>
-            <option value="em_aberto">🟡 Em Aberto</option>
+            <option value="pagas">Pagas</option>
+            <option value="em_aberto">Em Aberto</option>
             <option value="todas">Todas</option>
           </select>
           <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
