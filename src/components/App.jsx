@@ -5289,6 +5289,7 @@ function AdminPage({ user }) {
           temperatura: o.temperatura || null,
           vendaEmpresaRecebedora: o.venda_empresa_recebedora || null,
           vendaBancoRecebedor: o.venda_banco_recebedor || null,
+          data_pagamento: o.data_pagamento || null,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
         })));
       }
@@ -5439,7 +5440,8 @@ function AdminPage({ user }) {
   };
 
   const vendedores = [...new Set(allOrders.map(o => o.vendedor))];
-  const cidades = [...new Set(allOrders.map(o => o.client?.cidade).filter(Boolean))];
+  const cidades = [...new Set(allOrders.map(o => o.client?.cidade).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
 
   const chaveMes = (dateStr) => {
     if (!dateStr) return "";
@@ -5925,11 +5927,22 @@ function AdminPage({ user }) {
           setVendaStatus(prev => ({ ...prev, [orderId]: newSt }));
           const existingNotes = allOrders.find(o => o.id === orderId)?.notes || "";
           const cleanNotes = existingNotes.replace(/\n🏷️ Status venda:.*$/m, "");
-          await supabase.from("orcamentos").update({ notes: cleanNotes + "\n🏷️ Status venda: " + newSt }).eq("id", orderId);
-          // Se voltou pra "Em Aberto", limpa empresa e banco recebedor
+          // Atualiza notes + grava/limpa data_pagamento conforme o status
+          const update = { notes: cleanNotes + "\n🏷️ Status venda: " + newSt };
+          if (newSt === "Pago") {
+            update.data_pagamento = new Date().toISOString();
+          }
+          await supabase.from("orcamentos").update(update).eq("id", orderId);
+          // Se voltou pra "Em Aberto", limpa empresa, banco recebedor e data_pagamento
           if (newSt === "Em Aberto") {
-            await supabase.from("orcamentos").update({ venda_empresa_recebedora: null, venda_banco_recebedor: null }).eq("id", orderId);
-            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendaEmpresaRecebedora: null, vendaBancoRecebedor: null } : o));
+            await supabase.from("orcamentos").update({
+              venda_empresa_recebedora: null,
+              venda_banco_recebedor: null,
+              data_pagamento: null,
+            }).eq("id", orderId);
+            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendaEmpresaRecebedora: null, vendaBancoRecebedor: null, data_pagamento: null } : o));
+          } else if (newSt === "Pago") {
+            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, data_pagamento: update.data_pagamento } : o));
           }
         };
 
@@ -7579,6 +7592,10 @@ function NFPage({ user }) {
     const n = new Date();
     return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0");
   });
+  // Filtro de status venda — espelha o que foi marcado na ADM (Em Aberto / Pago).
+  // Default "pagas" pra abrir já mostrando o que foi recebido (a NF normalmente
+  // é emitida pra venda já paga). Pode trocar pra "todas" ou "em_aberto".
+  const [filtroPag, setFiltroPag] = useState("pagas");
   // Estados do fluxo de emissão (igual ao do AdminPage antigo)
   const [confirmEmitir, setConfirmEmitir] = useState(null);
   const [emitenteSel, setEmitenteSel] = useState(null); // null | 'gondolas' | 'instalacoes'
@@ -7737,13 +7754,36 @@ function NFPage({ user }) {
     notasPorOrdem[n.ordem_id].push(n);
   });
 
-  // Vendas do mês selecionado (ou todas se mesSel === "all")
+  // Lê o status venda (Em Aberto / Pago) das notes do orçamento (mesma
+  // lógica do getVendaStatus do AdminPage). Valores antigos (Concluído,
+  // Gerar NF) são tratados como Pago.
+  const getVendaStatusNF = (o) => {
+    const match = (o.notes || "").match(/🏷️ Status venda: (.+)$/m);
+    const s = match ? match[1] : "Em Aberto";
+    if (s === "Concluído" || s === "Gerar NF") return "Pago";
+    return s;
+  };
+
+  // Vendas filtradas: por mês + status venda (Pagas / Em Aberto / Todas)
+  // Pra "Pagas", o mês é referenciado pela data_pagamento (momento em que
+  // foi marcada como Pago na ADM). Pra outras, usa data_conclusao.
   const vendasMes = vendas.filter(o => {
-    if (mesSel === "all") return true;
-    const ref = o.data_conclusao || o.data_entrega || o.data;
-    if (!ref) return false;
-    const d = new Date(ref);
-    return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mesSel;
+    const st = getVendaStatusNF(o);
+    // Filtro de status venda
+    if (filtroPag !== "todas") {
+      if (filtroPag === "pagas" && st !== "Pago") return false;
+      if (filtroPag === "em_aberto" && st !== "Em Aberto") return false;
+    }
+    // Filtro de mês — pra Pago, referência é data_pagamento; senão data_conclusao
+    if (mesSel !== "all") {
+      const ref = st === "Pago"
+        ? (o.data_pagamento || o.data_conclusao || o.data_entrega || o.data)
+        : (o.data_conclusao || o.data_entrega || o.data);
+      if (!ref) return false;
+      const d = new Date(ref);
+      if ((d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) !== mesSel) return false;
+    }
+    return true;
   });
 
   const statusColor = (s) => {
@@ -7770,7 +7810,12 @@ function NFPage({ user }) {
             {!podeEmitir && <span style={{ color: COLORS.textDim, fontStyle: "italic" }}> · somente leitura</span>}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <select value={filtroPag} onChange={e => setFiltroPag(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+            <option value="pagas">💚 Pagas</option>
+            <option value="em_aberto">🟡 Em Aberto</option>
+            <option value="todas">Todas</option>
+          </select>
           <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
             <option value="all">Todos os meses</option>
             {Array.from({ length: 12 }, (_, i) => {
