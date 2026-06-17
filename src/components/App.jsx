@@ -7364,9 +7364,12 @@ function NFPage({ user }) {
   const [notas, setNotas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [consultando, setConsultando] = useState(null);
-  // Filtro de mês — default "all" pra mostrar TODAS as vendas concluídas
-  // (independente do mês de conclusão). Pode trocar pra um mês específico.
-  const [mesSel, setMesSel] = useState("all");
+  // Filtro de mês — default = mês atual. Pode trocar pra "all" (todos os meses)
+  // ou um mês específico pelo dropdown.
+  const [mesSel, setMesSel] = useState(() => {
+    const n = new Date();
+    return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0");
+  });
   // Estados do fluxo de emissão (igual ao do AdminPage antigo)
   const [confirmEmitir, setConfirmEmitir] = useState(null);
   const [emitenteSel, setEmitenteSel] = useState(null); // null | 'gondolas' | 'instalacoes'
