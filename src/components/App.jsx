@@ -1641,7 +1641,6 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "financeiro", l: "Financeiro" },
     { k: "dre", l: "DRE" },
     { k: "nf", l: "NF" },
-    { k: "conciliacao", l: "Conciliação" },
   ].filter(i => canAccess(user, i.k));
 
   const activeTab = tabs.find(t => t.k === page);
@@ -1989,7 +1988,7 @@ const VENDEDORES = [
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
-  admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf"],
   // gestor (Zanella) — explicitamente SEM comissoes (regra do Ale)
   gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
@@ -2004,7 +2003,7 @@ const ROLE_PERMISSIONS = {
 // Abas com acesso restrito SOMENTE ao Alessandro (user.id === "v1"),
 // independente da role. Mesmo que alguém vire admin no futuro, essas
 // abas continuam exclusivas dele.
-const ALE_ONLY_TABS = ["financeiro", "dre", "nf", "conciliacao"];
+const ALE_ONLY_TABS = ["financeiro", "dre", "nf"];
 
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
@@ -8185,212 +8184,6 @@ function NFPage({ user }) {
   );
 }
 
-// ─── CONCILIAÇÃO BANCÁRIA ───
-// Contas agrupadas por empresa emitente.
-// Gôndolas Suprema: Sicredi (PJ), Mercado Pago (cartão), Mercado Pago PF (sem NF).
-// Suprema Instalações: C6 Bank, e um 2º banco pra cartão (a definir pelo Ale).
-const CONTAS = [
-  { key: "sicredi",          label: "Sicredi",          color: "#2E7D32", icon: "🏦", empresa: "gondolas",     empresaLabel: "Gôndolas Suprema" },
-  { key: "mercadopago",      label: "Mercado Pago",     color: "#00AEEF", icon: "💳", empresa: "gondolas",     empresaLabel: "Gôndolas Suprema", obs: "cartão" },
-  { key: "mercadopago_pf",   label: "Mercado Pago PF",  color: "#8B5CF6", icon: "🟣", empresa: "gondolas",     empresaLabel: "Gôndolas Suprema", obs: "sem NF" },
-  { key: "c6bank",           label: "C6 Bank",          color: "#222222", icon: "⬛", empresa: "instalacoes",  empresaLabel: "Suprema Instalações" },
-  { key: "instalacoes_cartao", label: "Banco Cartão (a definir)", color: "#6B7280", icon: "💳", empresa: "instalacoes",  empresaLabel: "Suprema Instalações", obs: "cartão" },
-];
-
-function ConciliacaoPage() {
-  const [vendas, setVendas] = useState([]);
-  const [despesas, setDespesas] = useState([]);
-  const [saldos, setSaldos] = useState({});
-  const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
-  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
-
-  useEffect(() => {
-    const load = async () => {
-      const { data: orcData } = await supabase.from("orcamentos").select("*").eq("status", "Concluído");
-      if (orcData) setVendas(orcData);
-      const { data: despData } = await supabase.from("despesas").select("*");
-      if (despData) setDespesas(despData);
-    };
-    load();
-  }, []);
-
-  useEffect(() => {
-    const loadSaldos = async () => {
-      const { data } = await supabase.from("despesas").select("*").eq("mes", mesSel).like("nome", "saldo_%");
-      const s = {};
-      if (data) data.forEach(d => {
-        const key = d.nome.replace("saldo_", "").split("|")[0];
-        const tipo = d.nome.replace("saldo_", "").split("|")[1];
-        if (!s[key]) s[key] = { id_ini: null, id_fim: null, ini: 0, fim: 0 };
-        if (tipo === "ini") { s[key].ini = d.valor || 0; s[key].id_ini = d.id; }
-        if (tipo === "fim") { s[key].fim = d.valor || 0; s[key].id_fim = d.id; }
-      });
-      setSaldos(s);
-    };
-    loadSaldos();
-  }, [mesSel]);
-
-  const updateSaldo = async (conta, tipo, valor) => {
-    const key = conta + "|" + tipo;
-    const nome = "saldo_" + key;
-    const existing = saldos[conta]?.[tipo === "ini" ? "id_ini" : "id_fim"];
-    if (existing) {
-      await supabase.from("despesas").update({ valor: Number(valor) || 0 }).eq("id", existing);
-    } else {
-      const id = genId();
-      await supabase.from("despesas").insert({ id, nome, valor: Number(valor) || 0, mes: mesSel, fixa: false, status: "Pago" });
-      setSaldos(prev => ({ ...prev, [conta]: { ...prev[conta], [tipo === "ini" ? "id_ini" : "id_fim"]: id } }));
-    }
-    setSaldos(prev => ({ ...prev, [conta]: { ...(prev[conta] || {}), [tipo]: Number(valor) || 0 } }));
-  };
-
-  // DRE do mês
-  const vendasMes = vendas.filter(o => { const d = new Date(o.data); return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mesSel; });
-  // Receita bruta considera o valor recebido em conta:
-  // - Vendas pagas pela Suprema Instalações → valor_recebido (default = comissão)
-  // - Demais (Gôndolas Suprema, PF, ou em aberto) → total da venda
-  const valorReceitaConciliacao = (o) => {
-    if (o.venda_empresa_recebedora === "suprema_instalacoes") {
-      return Number(o.valor_recebido != null ? o.valor_recebido : (o.comissao || 0)) || 0;
-    }
-    return Number(o.total) || 0;
-  };
-  const receitaBruta = vendasMes.reduce((s, o) => s + valorReceitaConciliacao(o), 0);
-  const comissoes = vendasMes.reduce((s, o) => s + (o.comissao || 0), 0);
-  const despMes = despesas.filter(d => d.mes === mesSel && !d.nome.startsWith("forn_") && !d.nome.startsWith("saldo_"));
-  const fornMes = despesas.filter(d => d.nome.startsWith("forn_") && d.vencimento && d.vencimento.startsWith(mesSel));
-  const totalDesp = despMes.reduce((s, d) => s + (d.valor || 0), 0) + fornMes.reduce((s, d) => s + (d.valor || 0), 0) + comissoes;
-  const resultadoDRE = receitaBruta - totalDesp;
-
-  // Saldos bancários
-  const totalSaldoIni = CONTAS.reduce((s, c) => s + (saldos[c.key]?.ini || 0), 0);
-  const totalSaldoFim = CONTAS.reduce((s, c) => s + (saldos[c.key]?.fim || 0), 0);
-  const movimentacaoBanco = totalSaldoFim - totalSaldoIni;
-  const diferenca = movimentacaoBanco - resultadoDRE;
-
-  const inp = { padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
-
-  return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "28px 20px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Conciliação Bancária</h1>
-          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Compare os saldos bancários com o DRE</p>
-        </div>
-        <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
-          {Array.from({ length: 12 }, (_, i) => {
-            const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
-            const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-            return <option key={v} value={v}>{mesNomes[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
-          })}
-        </select>
-      </div>
-
-      {/* Contas bancárias agrupadas por empresa */}
-      {["gondolas", "instalacoes"].map(emp => {
-        const contasEmp = CONTAS.filter(c => c.empresa === emp);
-        if (contasEmp.length === 0) return null;
-        const empresaLabel = contasEmp[0].empresaLabel;
-        const empColor = emp === "gondolas" ? COLORS.orange : "#3B82F6";
-        return (
-          <div key={emp} style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <div style={{ height: 2, flex: 0, width: 24, background: empColor }} />
-              <h3 style={{ color: empColor, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.8, margin: 0 }}>
-                {emp === "gondolas" ? "🏪" : "🔧"} {empresaLabel}
-              </h3>
-              <div style={{ flex: 1, height: 1, background: COLORS.border }} />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
-              {contasEmp.map(c => {
-                const s = saldos[c.key] || { ini: 0, fim: 0 };
-                const mov = s.fim - s.ini;
-                return (
-                  <div key={c.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
-                    <div style={{ padding: "12px 16px", background: c.color + "15", borderBottom: `1px solid ${COLORS.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 20 }}>{c.icon}</span>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ color: c.color, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{c.label}</span>
-                        {c.obs && <div style={{ color: COLORS.textDim, fontSize: 9, fontFamily: "'DM Sans', sans-serif", marginTop: 1 }}>{c.obs}</div>}
-                      </div>
-                    </div>
-                    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div>
-                        <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif" }}>Saldo Inicial</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <span style={{ color: COLORS.textDim, fontSize: 11 }}>R$</span>
-                          <input type="number" step="0.01" value={s.ini || ""} onChange={e => updateSaldo(c.key, "ini", e.target.value)} placeholder="0,00" style={{ ...inp, width: "100%", textAlign: "right", fontWeight: 700, color: COLORS.text }} />
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ color: COLORS.textMuted, fontSize: 9, marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif" }}>Saldo Final</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <span style={{ color: COLORS.textDim, fontSize: 11 }}>R$</span>
-                          <input type="number" step="0.01" value={s.fim || ""} onChange={e => updateSaldo(c.key, "fim", e.target.value)} placeholder="0,00" style={{ ...inp, width: "100%", textAlign: "right", fontWeight: 700, color: COLORS.text }} />
-                        </div>
-                      </div>
-                      <div style={{ background: COLORS.bg, borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: COLORS.textMuted, fontSize: 10 }}>Movimentação</span>
-                        <span style={{ color: mov >= 0 ? "#10B981" : COLORS.danger, fontSize: 13, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{mov < 0 ? "- " : "+ "}{fmt(Math.abs(mov))}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Comparação */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Comparação DRE × Bancos</h2>
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-          <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Saldo Inicial (todas as contas)</span>
-          <span style={{ color: COLORS.text, fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalSaldoIni)}</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-          <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Saldo Final (todas as contas)</span>
-          <span style={{ color: COLORS.text, fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(totalSaldoFim)}</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: movimentacaoBanco >= 0 ? "#10B98108" : COLORS.danger + "08" }}>
-          <span style={{ color: COLORS.white, fontSize: 13, fontWeight: 600 }}>Movimentação Bancária</span>
-          <span style={{ color: movimentacaoBanco >= 0 ? "#10B981" : COLORS.danger, fontSize: 15, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{movimentacaoBanco < 0 ? "- " : ""}{fmt(Math.abs(movimentacaoBanco))}</span>
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-          <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Receita (DRE)</span>
-          <span style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>{fmt(receitaBruta)}</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-          <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Despesas (DRE)</span>
-          <span style={{ color: COLORS.danger, fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>- {fmt(totalDesp)}</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: resultadoDRE >= 0 ? "#3B82F608" : COLORS.danger + "08" }}>
-          <span style={{ color: COLORS.white, fontSize: 13, fontWeight: 600 }}>Resultado DRE</span>
-          <span style={{ color: resultadoDRE >= 0 ? "#3B82F6" : COLORS.danger, fontSize: 15, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{resultadoDRE < 0 ? "- " : ""}{fmt(Math.abs(resultadoDRE))}</span>
-        </div>
-
-        {/* Diferença */}
-        <div style={{ padding: "16px", background: Math.abs(diferenca) < 1 ? "#10B98112" : "#F59E0B12" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ color: COLORS.white, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Diferença</div>
-              <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Movimentação Bancária - Resultado DRE</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ color: Math.abs(diferenca) < 1 ? "#10B981" : "#F59E0B", fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{diferenca < 0 ? "- " : ""}{fmt(Math.abs(diferenca))}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", color: Math.abs(diferenca) < 1 ? "#10B981" : "#F59E0B" }}>{Math.abs(diferenca) < 1 ? "✓ Conciliado" : "⚠ Divergência"}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── APP ───
 // SHA do commit atual (injetado pela Vercel no build). Usado pelo polling
@@ -8592,8 +8385,6 @@ export default function App() {
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
       {page === "nf" && canAccess(user, "nf") && <NFPage user={user} />}
       {page === "nf" && !canAccess(user, "nf") && <Login onLogin={login} setPage={setPage} />}
-      {page === "conciliacao" && canAccess(user, "conciliacao") && <ConciliacaoPage />}
-      {page === "conciliacao" && !canAccess(user, "conciliacao") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage user={user} />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
