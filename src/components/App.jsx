@@ -7599,6 +7599,11 @@ function NFPage({ user }) {
   // Default "pagas" pra abrir já mostrando o que foi recebido (a NF normalmente
   // é emitida pra venda já paga). Pode trocar pra "todas" ou "em_aberto".
   const [filtroPag, setFiltroPag] = useState("pagas");
+  // Edição manual do valor da NF antes de emitir (lápis no modal).
+  // editandoValor = true mostra input number; valorEditado é o texto digitado.
+  // Default = valor padrão (total pra Gôndolas, comissão pra Instalações).
+  const [editandoValor, setEditandoValor] = useState(false);
+  const [valorEditado, setValorEditado] = useState("");
   // Estados do fluxo de emissão (igual ao do AdminPage antigo)
   const [confirmEmitir, setConfirmEmitir] = useState(null);
   const [emitenteSel, setEmitenteSel] = useState(null); // null | 'gondolas' | 'instalacoes'
@@ -7988,12 +7993,12 @@ function NFPage({ user }) {
                   {Number(confirmEmitir.comissao) > 0 && <div style={{ color: "#10B981", fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>Comissão: {fmt(Number(confirmEmitir.comissao))}</div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <button onClick={() => setEmitenteSel("gondolas")} style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}40`, color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                  <button onClick={() => { setEmitenteSel("gondolas"); setValorEditado(Number(confirmEmitir.total || 0).toFixed(2)); setEditandoValor(false); }} style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}40`, color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
                     <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700 }}>🏪 Gôndolas Suprema</div>
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NF-e de mercadoria · destinatário: <strong style={{ color: COLORS.text }}>{confirmEmitir.cliente_empresa}</strong></div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.total))}</div>
                   </button>
-                  <button onClick={() => setEmitenteSel("instalacoes")} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                  <button onClick={() => { setEmitenteSel("instalacoes"); setValorEditado(Number(confirmEmitir.comissao || 0).toFixed(2)); setEditandoValor(false); }} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
                     <div style={{ color: "#3B82F6", fontSize: 13, fontWeight: 700 }}>🔧 Suprema Instalações</div>
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NFS-e de serviço · destinatário: <strong style={{ color: COLORS.text }}>Gôndolas Brasil</strong> (23.505.287/0001-07)</div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.comissao) || 0)} <em style={{ color: COLORS.textDim }}>(comissão)</em></div>
@@ -8011,11 +8016,28 @@ function NFPage({ user }) {
                 <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
                   <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>{confirmEmitir.cliente_empresa}</div>
                   <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: {confirmEmitir.cliente_cnpj} | {confirmEmitir.cliente_cidade}/{confirmEmitir.cliente_estado}</div>
-                  <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(Number(confirmEmitir.total))}</div>
+                  {/* Valor com lápis pra editar manualmente */}
+                  <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                    {editandoValor ? (
+                      <>
+                        <span style={{ color: COLORS.textMuted, fontSize: 12 }}>R$</span>
+                        <input type="number" min="0" step="0.01" value={valorEditado} onChange={e => setValorEditado(e.target.value)} style={{ flex: 1, padding: "6px 10px", background: COLORS.surface, border: `1px solid ${COLORS.orange}40`, borderRadius: 6, color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", outline: "none" }} autoFocus />
+                        <button onClick={() => setEditandoValor(false)} style={{ background: "#10B981", color: "#fff", border: "none", padding: "4px 8px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>✓</button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(Number(valorEditado) || 0)}</span>
+                        <button onClick={() => setEditandoValor(true)} title="Editar valor" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "2px 6px", borderRadius: 5, fontSize: 11, cursor: "pointer" }}>✏️</button>
+                        {Math.abs((Number(valorEditado) || 0) - Number(confirmEmitir.total)) >= 0.01 && (
+                          <span style={{ color: COLORS.textDim, fontSize: 10 }}>(padrão: {fmt(Number(confirmEmitir.total))})</span>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
-                  <button onClick={() => emitirNfe(confirmEmitir, { emitente: "gondolas", ambiente: "producao" })} style={{ flex: 1, background: "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Sim, Emitir NF-e</button>
+                  <button onClick={() => emitirNfe({ ...confirmEmitir, total: Number(valorEditado) || Number(confirmEmitir.total) }, { emitente: "gondolas", ambiente: "producao" })} disabled={editandoValor} style={{ flex: 1, background: editandoValor ? COLORS.textDim : "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: editandoValor ? "not-allowed" : "pointer", fontSize: 13 }}>Sim, Emitir NF-e</button>
                 </div>
               </>
             )}
@@ -8030,17 +8052,34 @@ function NFPage({ user }) {
                   <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Tomador</div>
                   <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>RRE MAQUINAS E EQUIPAMENTOS LTDA (Gôndolas Brasil)</div>
                   <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: 23.505.287/0001-07 · São José/SC</div>
-                  <div style={{ color: "#3B82F6", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(Number(confirmEmitir.comissao) || 0)}</div>
-                  <div style={{ color: COLORS.textDim, fontSize: 10 }}>(comissão · ISS 3% · Simples · item 10.05)</div>
+                  {/* Valor com lápis pra editar manualmente */}
+                  <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                    {editandoValor ? (
+                      <>
+                        <span style={{ color: COLORS.textMuted, fontSize: 12 }}>R$</span>
+                        <input type="number" min="0" step="0.01" value={valorEditado} onChange={e => setValorEditado(e.target.value)} style={{ flex: 1, padding: "6px 10px", background: COLORS.surface, border: "1px solid #3B82F640", borderRadius: 6, color: "#3B82F6", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", outline: "none" }} autoFocus />
+                        <button onClick={() => setEditandoValor(false)} style={{ background: "#10B981", color: "#fff", border: "none", padding: "4px 8px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>✓</button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ color: "#3B82F6", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(Number(valorEditado) || 0)}</span>
+                        <button onClick={() => setEditandoValor(true)} title="Editar valor" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "2px 6px", borderRadius: 5, fontSize: 11, cursor: "pointer" }}>✏️</button>
+                        {Math.abs((Number(valorEditado) || 0) - Number(confirmEmitir.comissao || 0)) >= 0.01 && (
+                          <span style={{ color: COLORS.textDim, fontSize: 10 }}>(comissão: {fmt(Number(confirmEmitir.comissao) || 0)})</span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4 }}>(ISS 3% · Simples · item 10.05)</div>
                 </div>
-                {(!confirmEmitir.comissao || Number(confirmEmitir.comissao) <= 0) && (
+                {(!Number(valorEditado) || Number(valorEditado) <= 0) && (
                   <div style={{ background: COLORS.danger + "12", border: `1px solid ${COLORS.danger}40`, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
-                    <div style={{ color: COLORS.danger, fontSize: 12, fontWeight: 600 }}>⚠️ Comissão zero</div>
+                    <div style={{ color: COLORS.danger, fontSize: 12, fontWeight: 600 }}>⚠️ Valor precisa ser maior que zero</div>
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
-                  <button onClick={() => emitirNfe(confirmEmitir, { emitente: "instalacoes", ambiente: "homologacao" })} disabled={!confirmEmitir.comissao || Number(confirmEmitir.comissao) <= 0} style={{ flex: 1, background: (!confirmEmitir.comissao || Number(confirmEmitir.comissao) <= 0) ? COLORS.textDim : "#3B82F6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: (!confirmEmitir.comissao || Number(confirmEmitir.comissao) <= 0) ? "not-allowed" : "pointer", fontSize: 13 }}>Emitir NFS-e (homologação)</button>
+                  <button onClick={() => emitirNfe({ ...confirmEmitir, comissao: Number(valorEditado) || Number(confirmEmitir.comissao) }, { emitente: "instalacoes", ambiente: "homologacao" })} disabled={editandoValor || !Number(valorEditado) || Number(valorEditado) <= 0} style={{ flex: 1, background: (editandoValor || !Number(valorEditado) || Number(valorEditado) <= 0) ? COLORS.textDim : "#3B82F6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: (editandoValor || !Number(valorEditado) || Number(valorEditado) <= 0) ? "not-allowed" : "pointer", fontSize: 13 }}>Emitir NFS-e (homologação)</button>
                 </div>
               </>
             )}
