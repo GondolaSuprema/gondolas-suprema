@@ -7364,7 +7364,9 @@ function NFPage({ user }) {
   const [notas, setNotas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [consultando, setConsultando] = useState(null);
-  const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
+  // Filtro de mês — default "all" pra mostrar TODAS as vendas concluídas
+  // (independente do mês de conclusão). Pode trocar pra um mês específico.
+  const [mesSel, setMesSel] = useState("all");
   // Estados do fluxo de emissão (igual ao do AdminPage antigo)
   const [confirmEmitir, setConfirmEmitir] = useState(null);
   const [emitenteSel, setEmitenteSel] = useState(null); // null | 'gondolas' | 'instalacoes'
@@ -7526,8 +7528,9 @@ function NFPage({ user }) {
     notasPorOrdem[n.ordem_id].push(n);
   });
 
-  // Vendas do mês selecionado (usa data_conclusao OU data_entrega OU data, em ordem)
+  // Vendas do mês selecionado (ou todas se mesSel === "all")
   const vendasMes = vendas.filter(o => {
+    if (mesSel === "all") return true;
     const ref = o.data_conclusao || o.data_entrega || o.data;
     if (!ref) return false;
     const d = new Date(ref);
@@ -7560,6 +7563,7 @@ function NFPage({ user }) {
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+            <option value="all">Todos os meses</option>
             {Array.from({ length: 12 }, (_, i) => {
               const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
               const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
@@ -7593,7 +7597,7 @@ function NFPage({ user }) {
       {/* Tabela de vendas concluídas */}
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Vendas — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Vendas — {mesSel === "all" ? "todos os meses" : `${mesNomes[mesSel.split("-")[1]]} ${mesSel.split("-")[0]}`}</h2>
         </div>
         {loading ? (
           <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando...</div>
