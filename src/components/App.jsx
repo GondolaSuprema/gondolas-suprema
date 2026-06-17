@@ -2001,10 +2001,17 @@ const ROLE_PERMISSIONS = {
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes"],
 };
 
+// Abas com acesso restrito SOMENTE ao Alessandro (user.id === "v1"),
+// independente da role. Mesmo que alguém vire admin no futuro, essas
+// abas continuam exclusivas dele.
+const ALE_ONLY_TABS = ["financeiro", "dre", "nf", "conciliacao"];
+
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
 function canAccess(user, tab) {
   if (!user) return false;
+  // Acesso exclusivo do Ale (v1) pras 4 abas financeiras
+  if (ALE_ONLY_TABS.includes(tab)) return user.id === "v1";
   const role = user.role || (user.isAdmin ? "admin" : "vendedor");
   return (ROLE_PERMISSIONS[role] || []).includes(tab);
 }
@@ -5240,15 +5247,8 @@ function AdminPage({ user }) {
           emitente,
           ambiente,
         });
-        // Atualiza automaticamente o "Status venda" pra Concluído na tabela
-        // Vendas Concluídas (gravado em notes — mesma lógica do updateVendaStatus
-        // do sub-render, mas executada aqui pra refletir imediato após emitir)
-        const existingNotes = allOrders.find(o => o.id === ordem.id)?.notes || ordem.notes || "";
-        const cleanNotes = existingNotes.replace(/\n🏷️ Status venda:.*$/m, "");
-        const novasNotes = cleanNotes + "\n🏷️ Status venda: Concluído";
-        await supabase.from("orcamentos").update({ notes: novasNotes }).eq("id", ordem.id);
-        setAllOrders(prev => prev.map(o => o.id === ordem.id ? { ...o, notes: novasNotes } : o));
-        setVendaStatus(prev => ({ ...prev, [ordem.id]: "Concluído" }));
+        // Não mexe mais no "Status venda" automaticamente — o pagamento agora
+        // é separado da emissão de NF (Em Aberto / Pago marcado manualmente).
       }
     } catch (e) {
       setNfeResult({ success: false, mensagem: e.message });
@@ -5287,6 +5287,8 @@ function AdminPage({ user }) {
           id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, status: o.status, items: o.items,
           vendedor: o.vendedor_nome, vendedorId: o.vendedor_id,
           temperatura: o.temperatura || null,
+          vendaEmpresaRecebedora: o.venda_empresa_recebedora || null,
+          vendaBancoRecebedor: o.venda_banco_recebedor || null,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
         })));
       }
@@ -5882,17 +5884,57 @@ function AdminPage({ user }) {
           const existingNotes = allOrders.find(o => o.id === orderId)?.notes || "";
           const cleanNotes = existingNotes.replace(/\n🏷️ Status venda:.*$/m, "");
           await supabase.from("orcamentos").update({ notes: cleanNotes + "\n🏷️ Status venda: " + newSt }).eq("id", orderId);
+          // Se voltou pra "Em Aberto", limpa empresa e banco recebedor
+          if (newSt === "Em Aberto") {
+            await supabase.from("orcamentos").update({ venda_empresa_recebedora: null, venda_banco_recebedor: null }).eq("id", orderId);
+            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendaEmpresaRecebedora: null, vendaBancoRecebedor: null } : o));
+          }
         };
 
         const getVendaStatus = (o) => {
           if (vendaStatus[o.id]) return vendaStatus[o.id];
           const match = (o.notes || "").match(/🏷️ Status venda: (.+)$/m);
-          return match ? match[1] : "Em Aberto";
+          const s = match ? match[1] : "Em Aberto";
+          // Valores antigos ("Concluído" / "Gerar NF") são tratados como "Pago"
+          // (o status agora é só Em Aberto ou Pago)
+          if (s === "Concluído" || s === "Gerar NF") return "Pago";
+          return s;
         };
+
+        // Empresa recebedora — quando status = Pago
+        const updateVendaEmpresa = async (orderId, novaEmpresa) => {
+          await supabase.from("orcamentos").update({
+            venda_empresa_recebedora: novaEmpresa || null,
+            // Trocar de empresa zera o banco (cada empresa tem bancos diferentes)
+            venda_banco_recebedor: null,
+          }).eq("id", orderId);
+          setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendaEmpresaRecebedora: novaEmpresa || null, vendaBancoRecebedor: null } : o));
+        };
+
+        // Banco recebedor — quando empresa está selecionada
+        const updateVendaBanco = async (orderId, novoBanco) => {
+          await supabase.from("orcamentos").update({ venda_banco_recebedor: novoBanco || null }).eq("id", orderId);
+          setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendaBancoRecebedor: novoBanco || null } : o));
+        };
+
+        // Opções de banco dependem da empresa
+        const BANCOS_POR_EMPRESA = {
+          gondolas_suprema: [
+            { v: "pf_mp", label: "PF MP" },
+            { v: "sicredi", label: "Sicredi" },
+            { v: "mercado_pago", label: "Mercado Pago" },
+          ],
+          suprema_instalacoes: [
+            { v: "c6_bank", label: "C6 Bank" },
+            { v: "pf_mp", label: "PF MP" },
+          ],
+        };
+        const labelEmpresa = (v) => v === "gondolas_suprema" ? "Gôndolas Suprema" : v === "suprema_instalacoes" ? "Suprema Instalações" : "—";
+        const labelBanco = (v) => ({ pf_mp: "PF MP", sicredi: "Sicredi", mercado_pago: "Mercado Pago", c6_bank: "C6 Bank" })[v] || "—";
 
         const mesConcluidos = concluidos.filter(o => { const d = new Date(o.date); return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === activeMes; });
         const totalMes = mesConcluidos.reduce((s, o) => s + (o.total || 0), 0);
-        const vstSc = { "Em Aberto": "#F59E0B", "Pago": "#10B981", "Gerar NF": "#3B82F6", "Concluído": "#8B5CF6" };
+        const vstSc = { "Em Aberto": "#F59E0B", "Pago": "#10B981" };
 
         return concluidos.length > 0 ? (
           <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
@@ -5919,6 +5961,8 @@ function AdminPage({ user }) {
                       <th style={{ padding: "10px 12px", textAlign: "right", color: "#10B981", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Lucro/Comissão</th>
                       <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</th>
                       <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
+                      <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Empresa</th>
+                      <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Banco</th>
                       {isAdminOnly && <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Ações</th>}
                     </tr>
                   </thead>
@@ -5938,14 +5982,44 @@ function AdminPage({ user }) {
                               <select value={vs} onChange={e => updateVendaStatus(o.id, e.target.value)} style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
                                 <option value="Em Aberto">Em Aberto</option>
                                 <option value="Pago">Pago</option>
-                                <option value="Gerar NF">Gerar NF</option>
-                                <option value="Concluído">Concluído</option>
                               </select>
                             ) : (
                               <span style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{vs}</span>
                             )}
                           </td>
-                          {/* Coluna NF removida — emissão de NF agora fica na aba NF */}
+                          {/* Empresa Recebedora — só aparece quando Status = Pago */}
+                          <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                            {vs === "Pago" ? (
+                              canEditAdm ? (
+                                <select value={o.vendaEmpresaRecebedora || ""} onChange={e => updateVendaEmpresa(o.id, e.target.value)} style={{ background: COLORS.bg, color: o.vendaEmpresaRecebedora ? COLORS.text : COLORS.textMuted, border: `1px solid ${COLORS.border}`, padding: "3px 8px", borderRadius: 7, fontSize: 10, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                                  <option value="">— selecione —</option>
+                                  <option value="gondolas_suprema">Gôndolas Suprema</option>
+                                  <option value="suprema_instalacoes">Suprema Instalações</option>
+                                </select>
+                              ) : (
+                                <span style={{ color: COLORS.text, fontSize: 10 }}>{labelEmpresa(o.vendaEmpresaRecebedora)}</span>
+                              )
+                            ) : (
+                              <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>
+                            )}
+                          </td>
+                          {/* Banco — só aparece quando Empresa está selecionada */}
+                          <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                            {vs === "Pago" && o.vendaEmpresaRecebedora ? (
+                              canEditAdm ? (
+                                <select value={o.vendaBancoRecebedor || ""} onChange={e => updateVendaBanco(o.id, e.target.value)} style={{ background: COLORS.bg, color: o.vendaBancoRecebedor ? COLORS.text : COLORS.textMuted, border: `1px solid ${COLORS.border}`, padding: "3px 8px", borderRadius: 7, fontSize: 10, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                                  <option value="">— selecione —</option>
+                                  {(BANCOS_POR_EMPRESA[o.vendaEmpresaRecebedora] || []).map(b => (
+                                    <option key={b.v} value={b.v}>{b.label}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span style={{ color: COLORS.text, fontSize: 10 }}>{labelBanco(o.vendaBancoRecebedor)}</span>
+                              )
+                            ) : (
+                              <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>
+                            )}
+                          </td>
                           {isAdminOnly && (
                             <td style={{ padding: "10px 8px", textAlign: "center" }}>
                               {confirmDelVenda === o.id ? (
@@ -7464,11 +7538,8 @@ function NFPage({ user }) {
           emitente,
           ambiente,
         });
-        // Marca status venda como Concluído (mesma lógica do AdminPage antigo)
-        const existingNotes = ordem.notes || "";
-        const cleanNotes = existingNotes.replace(/\n🏷️ Status venda:.*$/m, "");
-        const novasNotes = cleanNotes + "\n🏷️ Status venda: Concluído";
-        await supabase.from("orcamentos").update({ notes: novasNotes }).eq("id", ordem.id);
+        // Não mexe no Status venda automaticamente — pagamento (Em Aberto/Pago)
+        // agora é marcado manualmente na ADM, separado da emissão de NF.
         await carregarTudo();
       }
     } catch (e) {
