@@ -5317,22 +5317,64 @@ function AdminPage({ user }) {
   };
 
   // Trocar status do orcamento direto no ADM (admin/gestor — Ale e Zanella).
-  // Conclusão completa (com data de entrega/pedido p/ Logística) continua
-  // sendo feita pela aba Orçamentos; aqui grava apenas o status.
+  // Modal de Conclusão (igual ao da aba Orçamentos) — aparece quando Ale/Zanella
+  // mudam o status pra "Concluído" pela ADM. Antes só fechava o status; agora
+  // exige preencher CNPJ, data entrega, número pedido e formas de pagamento.
+  const [concluidoIdAdm, setConcluidoIdAdm] = useState(null);
+  const [concluidoDataAdm, setConcluidoDataAdm] = useState({ cnpj: "", data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
+
   const updateOrderStatus = async (orderId, novoStatus) => {
     if (!novoStatus) return;
+    // Concluído pela ADM → abre o mesmo modal do vendedor (preenche CNPJ,
+    // entrega, pedido, pagamento). O update final acontece no saveConcluidoAdm.
+    if (novoStatus === "Concluído") {
+      const ord = allOrders.find(o => o.id === orderId);
+      const cnpjExistente = ord?.client?.cnpj || "";
+      setConcluidoIdAdm(orderId);
+      setConcluidoDataAdm({ cnpj: cnpjExistente, data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
+      return;
+    }
     const updateObj = { status: novoStatus };
-    // Ao concluir direto pela ADM, registra o momento (base do gráfico mensal).
-    if (novoStatus === "Concluído") updateObj.data_conclusao = new Date().toISOString();
     const { error } = await supabase.from("orcamentos").update(updateObj).eq("id", orderId);
     if (error) {
       setStatusChangeMsg({ orderId, tipo: "erro", texto: `Falha: ${error.message}` });
       setTimeout(() => setStatusChangeMsg(curr => curr?.orderId === orderId ? null : curr), 5000);
       return;
     }
-    setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: novoStatus, ...(novoStatus === "Concluído" ? { dataConclusao: updateObj.data_conclusao } : {}) } : o));
+    setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: novoStatus } : o));
     setStatusChangeMsg({ orderId, tipo: "ok", texto: `Status: ${novoStatus}` });
     setTimeout(() => setStatusChangeMsg(curr => curr?.orderId === orderId ? null : curr), 3000);
+  };
+
+  const saveConcluidoAdm = async () => {
+    if (!concluidoIdAdm) return;
+    const cd = concluidoDataAdm;
+    let pagStr = cd.pag1;
+    if (cd.pag1_parcelas) pagStr += " " + cd.pag1_parcelas + "x";
+    if (cd.pag1_valor) pagStr += " R$ " + Number(cd.pag1_valor).toFixed(2);
+    if (cd.pag2) {
+      pagStr += " + " + cd.pag2;
+      if (cd.pag2_parcelas) pagStr += " " + cd.pag2_parcelas + "x";
+      if (cd.pag2_valor) pagStr += " R$ " + Number(cd.pag2_valor).toFixed(2);
+    }
+    const info = "\n📋 CONCLUÍDO — Entrega: " + cd.data_entrega + " | Pedido: " + cd.numero_pedido + " | Pagamento: " + pagStr;
+    const existingNotes = allOrders.find(o => o.id === concluidoIdAdm)?.notes || "";
+    await supabase.from("orcamentos").update({
+      status: "Concluído",
+      notes: existingNotes + info,
+      cliente_cnpj: cd.cnpj || null,
+      data_entrega: cd.data_entrega || null,
+      numero_pedido: cd.numero_pedido || null,
+      status_entrega: cd.data_entrega ? "Agendada" : null,
+      data_conclusao: new Date().toISOString(),
+    }).eq("id", concluidoIdAdm);
+    setAllOrders(prev => prev.map(o => o.id === concluidoIdAdm
+      ? { ...o, status: "Concluído", notes: (o.notes || "") + info, client: { ...(o.client || {}), cnpj: cd.cnpj || "" } }
+      : o
+    ));
+    setStatusChangeMsg({ orderId: concluidoIdAdm, tipo: "ok", texto: "Status: Concluído" });
+    setTimeout(() => setStatusChangeMsg(curr => curr?.orderId === concluidoIdAdm ? null : curr), 3000);
+    setConcluidoIdAdm(null);
   };
 
   const updateTemperaturaAdm = async (orderId, temp) => {
@@ -6217,6 +6259,116 @@ function AdminPage({ user }) {
           ))}
         </div>
       )}
+
+      {/* Modal de Conclusão — abre quando Ale/Zanella escolhem "Concluído" no status */}
+      {concluidoIdAdm && (() => {
+        const cd = concluidoDataAdm;
+        const selStyle = { width: "100%", padding: "10px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+        const lblStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
+        const cnpjDigits = (cd.cnpj || "").replace(/\D/g, "");
+        const cnpjOk = cnpjDigits.length === 14 || cnpjDigits.length === 11;
+        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && ((cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto") || cd.pag1_parcelas);
+        return (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#10B981", fontSize: 20, margin: "0 0 6px" }}>Concluir Orçamento</h2>
+              <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Preencha os dados da conclusão</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label style={lblStyle}>CNPJ ou CPF *</label>
+                  <input placeholder="00.000.000/0001-00 ou 000.000.000-00" value={cd.cnpj} onChange={e => setConcluidoDataAdm({ ...cd, cnpj: formatarCnpjOuCpf(e.target.value) })} maxLength={18} style={!cnpjOk && cd.cnpj ? { ...selStyle, borderColor: COLORS.danger } : selStyle} />
+                  {!cnpjOk && cd.cnpj && (<div style={{ color: COLORS.danger, fontSize: 10, marginTop: 4 }}>CNPJ deve ter 14 dígitos ou CPF deve ter 11 dígitos.</div>)}
+                </div>
+                <div>
+                  <label style={lblStyle}>Data de Entrega *</label>
+                  <input type="date" value={cd.data_entrega} onChange={e => setConcluidoDataAdm({ ...cd, data_entrega: e.target.value })} style={selStyle} />
+                </div>
+                <div>
+                  <label style={lblStyle}>Número do Pedido *</label>
+                  <input placeholder="Ex: PED-001" value={cd.numero_pedido} onChange={e => setConcluidoDataAdm({ ...cd, numero_pedido: e.target.value })} style={selStyle} />
+                </div>
+
+                {/* Pagamento 1 */}
+                <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+                  <label style={lblStyle}>Forma de Pagamento 1 *</label>
+                  <select value={cd.pag1} onChange={e => setConcluidoDataAdm({ ...cd, pag1: e.target.value, pag1_parcelas: "" })} style={selStyle}>
+                    <option value="">Selecione...</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="PIX">PIX</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Boleto">Boleto</option>
+                  </select>
+                  {cd.pag1 === "Cartão de Crédito" && (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={lblStyle}>Parcelas *</label>
+                      <select value={cd.pag1_parcelas} onChange={e => setConcluidoDataAdm({ ...cd, pag1_parcelas: e.target.value })} style={selStyle}>
+                        <option value="">Selecione...</option>
+                        {Array.from({ length: 18 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {cd.pag1 === "Boleto" && (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={lblStyle}>Parcelas *</label>
+                      <select value={cd.pag1_parcelas} onChange={e => setConcluidoDataAdm({ ...cd, pag1_parcelas: e.target.value })} style={selStyle}>
+                        <option value="">Selecione...</option>
+                        {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {cd.pag1 && (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={lblStyle}>Valor (R$)</label>
+                      <input type="number" min="0" step="0.01" placeholder="0,00" value={cd.pag1_valor} onChange={e => setConcluidoDataAdm({ ...cd, pag1_valor: e.target.value })} style={selStyle} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Pagamento 2 (opcional) */}
+                <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+                  <label style={lblStyle}>Forma de Pagamento 2 (opcional)</label>
+                  <select value={cd.pag2} onChange={e => setConcluidoDataAdm({ ...cd, pag2: e.target.value, pag2_parcelas: "", pag2_valor: "" })} style={selStyle}>
+                    <option value="">Sem segundo pagamento</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="PIX">PIX</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Boleto">Boleto</option>
+                  </select>
+                  {cd.pag2 === "Cartão de Crédito" && (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={lblStyle}>Parcelas *</label>
+                      <select value={cd.pag2_parcelas} onChange={e => setConcluidoDataAdm({ ...cd, pag2_parcelas: e.target.value })} style={selStyle}>
+                        <option value="">Selecione...</option>
+                        {Array.from({ length: 18 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {cd.pag2 === "Boleto" && (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={lblStyle}>Parcelas *</label>
+                      <select value={cd.pag2_parcelas} onChange={e => setConcluidoDataAdm({ ...cd, pag2_parcelas: e.target.value })} style={selStyle}>
+                        <option value="">Selecione...</option>
+                        {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {cd.pag2 && (
+                    <div style={{ marginTop: 10 }}>
+                      <label style={lblStyle}>Valor (R$)</label>
+                      <input type="number" min="0" step="0.01" placeholder="0,00" value={cd.pag2_valor} onChange={e => setConcluidoDataAdm({ ...cd, pag2_valor: e.target.value })} style={selStyle} />
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                  <button onClick={() => setConcluidoIdAdm(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>Cancelar</button>
+                  <button onClick={saveConcluidoAdm} disabled={!canSave} style={{ flex: 1, background: !canSave ? COLORS.textDim : "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !canSave ? "not-allowed" : "pointer", fontSize: 13 }}>Concluir</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
