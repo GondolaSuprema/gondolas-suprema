@@ -7917,11 +7917,17 @@ function NFPage({ user }) {
                   const nfse = notasDessa.find(n => n.tipo === "nfse" && n.status !== "cancelado");
                   const renderNotaCell = (n, corOk) => {
                     if (!n) return <span style={{ color: COLORS.textDim, fontSize: 11 }}>—</span>;
+                    const dataEmissaoStr = n.data_emissao
+                      ? new Date(n.data_emissao).toLocaleDateString("pt-BR")
+                      : null;
                     return (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                         <span style={{ background: statusColor(n.status) + "20", color: statusColor(n.status), padding: "2px 6px", borderRadius: 8, fontSize: 9, fontWeight: 700 }}>
                           {n.numero ? `#${n.numero}` : "—"} · {n.status === "autorizado" ? "Autorizada" : n.status === "cancelado" ? "Cancelada" : n.status === "processando" ? "Processando" : n.status}
                         </span>
+                        {dataEmissaoStr && (
+                          <span style={{ color: COLORS.textDim, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>📅 {dataEmissaoStr}</span>
+                        )}
                         <div style={{ display: "flex", gap: 6 }}>
                           {n.url_danfe && n.status === "autorizado" && <a href={n.url_danfe} target="_blank" rel="noopener noreferrer" style={{ color: "#10B981", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>PDF</a>}
                           {n.url_xml && n.status === "autorizado" && <a href={n.url_xml} target="_blank" rel="noopener noreferrer" style={{ color: "#3B82F6", fontSize: 9, fontWeight: 700, textDecoration: "none" }}>XML</a>}
