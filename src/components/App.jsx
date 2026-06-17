@@ -5440,8 +5440,11 @@ function AdminPage({ user }) {
   };
 
   const vendedores = [...new Set(allOrders.map(o => o.vendedor))];
+  // Normaliza pra UPPERCASE só pra ordenação, preservando o texto original
+  // exibido (assim "florianopolis", "Florianopolis", "FLORIANOPOLIS" agrupam
+  // certinho em ordem alfabética independente de como foram digitados).
   const cidades = [...new Set(allOrders.map(o => o.client?.cidade).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+    .sort((a, b) => String(a).toUpperCase().localeCompare(String(b).toUpperCase(), "pt-BR"));
 
   const chaveMes = (dateStr) => {
     if (!dateStr) return "";
