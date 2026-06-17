@@ -7379,7 +7379,16 @@ function DrePage() {
     const porTipo = (tipo) => despesas.filter(d => d.tipo === tipo && noMes(d)).reduce((s, d) => s + (Number(d.valor) || 0), 0);
     const itensTipo = (tipo) => despesas.filter(d => d.tipo === tipo && noMes(d) && (Number(d.valor) || 0) > 0).map(d => ({ nome: d.nome, categoria: d.categoria || "—", valor: Number(d.valor) || 0 }));
 
-    const receitaBruta = vendasMes.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    // Receita bruta considera o "valor recebido em conta":
+    // - Vendas pagas pela Suprema Instalações → valor_recebido (default = comissão)
+    // - Demais (Gôndolas Suprema, PF, ou ainda em aberto) → total da venda
+    const valorReceitaConta = (o) => {
+      if (o.venda_empresa_recebedora === "suprema_instalacoes") {
+        return Number(o.valor_recebido != null ? o.valor_recebido : (o.comissao || 0)) || 0;
+      }
+      return Number(o.total) || 0;
+    };
+    const receitaBruta = vendasMes.reduce((s, o) => s + valorReceitaConta(o), 0);
     const comissoes    = vendasMes.reduce((s, o) => s + (Number(o.comissao) || 0), 0);
     const deducoes = porTipo("DEDUCAO_RECEITA");
     const receitaLiquida = receitaBruta - deducoes;
@@ -8226,7 +8235,16 @@ function ConciliacaoPage() {
 
   // DRE do mês
   const vendasMes = vendas.filter(o => { const d = new Date(o.data); return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mesSel; });
-  const receitaBruta = vendasMes.reduce((s, o) => s + (o.total || 0), 0);
+  // Receita bruta considera o valor recebido em conta:
+  // - Vendas pagas pela Suprema Instalações → valor_recebido (default = comissão)
+  // - Demais (Gôndolas Suprema, PF, ou em aberto) → total da venda
+  const valorReceitaConciliacao = (o) => {
+    if (o.venda_empresa_recebedora === "suprema_instalacoes") {
+      return Number(o.valor_recebido != null ? o.valor_recebido : (o.comissao || 0)) || 0;
+    }
+    return Number(o.total) || 0;
+  };
+  const receitaBruta = vendasMes.reduce((s, o) => s + valorReceitaConciliacao(o), 0);
   const comissoes = vendasMes.reduce((s, o) => s + (o.comissao || 0), 0);
   const despMes = despesas.filter(d => d.mes === mesSel && !d.nome.startsWith("forn_") && !d.nome.startsWith("saldo_"));
   const fornMes = despesas.filter(d => d.nome.startsWith("forn_") && d.vencimento && d.vencimento.startsWith(mesSel));
