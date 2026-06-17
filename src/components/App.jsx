@@ -6117,28 +6117,11 @@ function AdminPage({ user }) {
                   {o.client?.telefone && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>Tel: {o.client.telefone}</div>}
                   {o.client?.email && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>E-mail: {o.client.email}</div>}
                   {o.client?.endereco && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}>End: {o.client.endereco}{o.client.bairro ? ", " + o.client.bairro : ""} — {o.client.cidade}{o.client.estado ? "/" + o.client.estado : ""}</div>}
-                  {/* Reatribuir vendedor + trocar status: só admin/gestor (Adelmo = leitura) */}
+                  {/* Vendedor: só leitura (Ale/Zanella mudam o STATUS, não o vendedor) */}
                   {canEditAdm && (<>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 10px" }}>
                     <label style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor:</label>
-                    <select
-                      value={o.vendedorId || ""}
-                      onClick={e => e.stopPropagation()}
-                      onChange={(e) => { e.stopPropagation(); updateOrderVendedor(o.id, e.target.value); }}
-                      style={{ ...sel, padding: "6px 10px", fontSize: 12, flex: "0 0 auto" }}
-                    >
-                      {!VENDEDORES.find(v => v.id === o.vendedorId) && (
-                        <option value="">— sem vendedor —</option>
-                      )}
-                      {VENDEDORES.map(v => (
-                        <option key={v.id} value={v.id}>{v.name}</option>
-                      ))}
-                    </select>
-                    {vendedorChangeMsg?.orderId === o.id && (
-                      <span style={{ color: vendedorChangeMsg.tipo === "ok" ? COLORS.success : COLORS.danger, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
-                        {vendedorChangeMsg.tipo === "ok" ? "✓ " : "⚠ "}{vendedorChangeMsg.texto}
-                      </span>
-                    )}
+                    <span style={{ color: COLORS.accent, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{o.vendedor || "—"}</span>
                   </div>
 
                   {/* Trocar status (visivel apenas no ADM — Ale e Zanella) */}
