@@ -5528,7 +5528,7 @@ function AdminPage({ user }) {
   }
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
+    <div style={{ maxWidth: 1280, margin: "0 auto", padding: "28px 20px" }}>
       <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Painel Administrativo</h1>
       <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 20px", fontFamily: "'DM Sans', sans-serif" }}>Todos os orçamentos de todos os vendedores</p>
 
@@ -5950,20 +5950,20 @@ function AdminPage({ user }) {
             {mesConcluidos.length === 0 ? (
               <div style={{ padding: "20px", textAlign: "center", color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Nenhuma venda concluída neste mês</div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+              <div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                      <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Empresa</th>
-                      <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>CNPJ</th>
-                      <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Cidade</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Valor Total</th>
-                      <th style={{ padding: "10px 12px", textAlign: "right", color: "#10B981", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Lucro/Comissão</th>
-                      <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</th>
-                      <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
-                      <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Empresa</th>
-                      <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Banco</th>
-                      {isAdminOnly && <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Ações</th>}
+                      <th style={{ padding: "8px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Empresa</th>
+                      <th style={{ padding: "8px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>CNPJ</th>
+                      <th style={{ padding: "8px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Cidade</th>
+                      <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Valor</th>
+                      <th style={{ padding: "8px 6px", textAlign: "right", color: "#10B981", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Lucro</th>
+                      <th style={{ padding: "8px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Vendedor</th>
+                      <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Status</th>
+                      <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Empresa Receb.</th>
+                      <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Banco</th>
+                      {isAdminOnly && <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Ações</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -5971,28 +5971,28 @@ function AdminPage({ user }) {
                       const vs = getVendaStatus(o);
                       return (
                         <tr key={o.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                          <td onClick={() => showPdfAdm(o)} title="Clique para ver o orçamento em PDF" style={{ padding: "10px 12px", color: COLORS.accent, fontWeight: 500, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}>{o.client?.empresa || "-"} 📄</td>
-                          <td style={{ padding: "10px 12px", color: COLORS.textMuted }}>{o.client?.cnpj || "-"}</td>
-                          <td style={{ padding: "10px 12px", color: COLORS.textMuted }}>{o.client?.cidade || "-"}{o.client?.estado ? "/" + o.client.estado : ""}</td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(o.total || 0)}</td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", color: "#10B981", fontWeight: 700 }}>{fmt(o.comissao || 0)}</td>
-                          <td style={{ padding: "10px 12px", color: COLORS.accent, fontWeight: 500 }}>{o.vendedor || "-"}</td>
-                          <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                          <td onClick={() => showPdfAdm(o)} title="Clique para ver o orçamento em PDF" style={{ padding: "8px 6px", color: COLORS.accent, fontWeight: 500, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", maxWidth: 160 }}>{o.client?.empresa || "-"} 📄</td>
+                          <td style={{ padding: "8px 6px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{o.client?.cnpj || "-"}</td>
+                          <td style={{ padding: "8px 6px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{o.client?.cidade || "-"}{o.client?.estado ? "/" + o.client.estado : ""}</td>
+                          <td style={{ padding: "8px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.total || 0)}</td>
+                          <td style={{ padding: "8px 6px", textAlign: "right", color: "#10B981", fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.comissao || 0)}</td>
+                          <td style={{ padding: "8px 6px", color: COLORS.accent, fontWeight: 500, whiteSpace: "nowrap" }}>{o.vendedor || "-"}</td>
+                          <td style={{ padding: "8px 6px", textAlign: "center" }}>
                             {canEditAdm ? (
-                              <select value={vs} onChange={e => updateVendaStatus(o.id, e.target.value)} style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                              <select value={vs} onChange={e => updateVendaStatus(o.id, e.target.value)} style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
                                 <option value="Em Aberto">Em Aberto</option>
                                 <option value="Pago">Pago</option>
                               </select>
                             ) : (
-                              <span style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{vs}</span>
+                              <span style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 8px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{vs}</span>
                             )}
                           </td>
                           {/* Empresa Recebedora — só aparece quando Status = Pago */}
-                          <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                          <td style={{ padding: "8px 6px", textAlign: "center" }}>
                             {vs === "Pago" ? (
                               canEditAdm ? (
-                                <select value={o.vendaEmpresaRecebedora || ""} onChange={e => updateVendaEmpresa(o.id, e.target.value)} style={{ background: COLORS.bg, color: o.vendaEmpresaRecebedora ? COLORS.text : COLORS.textMuted, border: `1px solid ${COLORS.border}`, padding: "3px 8px", borderRadius: 7, fontSize: 10, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
-                                  <option value="">— selecione —</option>
+                                <select value={o.vendaEmpresaRecebedora || ""} onChange={e => updateVendaEmpresa(o.id, e.target.value)} style={{ background: COLORS.bg, color: o.vendaEmpresaRecebedora ? COLORS.text : COLORS.textMuted, border: `1px solid ${COLORS.border}`, padding: "3px 6px", borderRadius: 6, fontSize: 9, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                                  <option value="">—</option>
                                   <option value="gondolas_suprema">Gôndolas Suprema</option>
                                   <option value="suprema_instalacoes">Suprema Instalações</option>
                                 </select>
@@ -6004,11 +6004,11 @@ function AdminPage({ user }) {
                             )}
                           </td>
                           {/* Banco — só aparece quando Empresa está selecionada */}
-                          <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                          <td style={{ padding: "8px 6px", textAlign: "center" }}>
                             {vs === "Pago" && o.vendaEmpresaRecebedora ? (
                               canEditAdm ? (
-                                <select value={o.vendaBancoRecebedor || ""} onChange={e => updateVendaBanco(o.id, e.target.value)} style={{ background: COLORS.bg, color: o.vendaBancoRecebedor ? COLORS.text : COLORS.textMuted, border: `1px solid ${COLORS.border}`, padding: "3px 8px", borderRadius: 7, fontSize: 10, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
-                                  <option value="">— selecione —</option>
+                                <select value={o.vendaBancoRecebedor || ""} onChange={e => updateVendaBanco(o.id, e.target.value)} style={{ background: COLORS.bg, color: o.vendaBancoRecebedor ? COLORS.text : COLORS.textMuted, border: `1px solid ${COLORS.border}`, padding: "3px 6px", borderRadius: 6, fontSize: 9, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                                  <option value="">—</option>
                                   {(BANCOS_POR_EMPRESA[o.vendaEmpresaRecebedora] || []).map(b => (
                                     <option key={b.v} value={b.v}>{b.label}</option>
                                   ))}
