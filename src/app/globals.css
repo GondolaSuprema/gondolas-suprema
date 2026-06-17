@@ -25,3 +25,18 @@ nav > div:first-child > div:nth-child(2)::-webkit-scrollbar { display: none; }
     font-size: 16px !important;
   }
 }
+
+/* Tudo que o usuário digitar aparece em CAIXA ALTA automaticamente.
+   - Aplica em inputs de texto, search, busca, e textareas.
+   - Não afeta password (deve manter case), email (URLs case-sensitive),
+     date, tel, number, url.
+   - Placeholders ficam em case normal pra não confundir visualmente. */
+input[type="text"], input[type="search"], input:not([type]), textarea {
+  text-transform: uppercase;
+}
+input[type="text"]::placeholder,
+input[type="search"]::placeholder,
+input:not([type])::placeholder,
+textarea::placeholder {
+  text-transform: none;
+}

@@ -1861,7 +1861,7 @@ function ClientPage({ clientData, setClientData, setPage }) {
           <input type="password" name="prevent_autofill_pwd" autoComplete="new-password" style={{ display: "none" }} />
           <div>
             <label style={labelStyle}>Nome da Empresa *</label>
-            <input {...noFill} placeholder="Ex: Supermercado Bom Preço" name="gs_empresa_nofill" value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} style={!form.empresa.trim() && erro ? inpErr : inp} />
+            <input {...noFill} placeholder="Ex: Supermercado Bom Preço" name="gs_empresa_nofill" value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value.toUpperCase() })} style={!form.empresa.trim() && erro ? inpErr : inp} />
           </div>
           <div>
             <label style={labelStyle}>CNPJ ou CPF <span style={{ color: COLORS.textDim, fontWeight: 400 }}>(opcional — obrigatório só na conclusão)</span></label>
@@ -1903,7 +1903,7 @@ function ClientPage({ clientData, setClientData, setPage }) {
           </div>
           <div>
             <label style={labelStyle}>Responsável</label>
-            <input {...noFill} placeholder="Nome do responsável" name="gs_resp_nofill" value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} style={inp} />
+            <input {...noFill} placeholder="Nome do responsável" name="gs_resp_nofill" value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value.toUpperCase() })} style={inp} />
           </div>
           <div>
             <label style={labelStyle}>Celular *</label>
@@ -1916,17 +1916,17 @@ function ClientPage({ clientData, setClientData, setPage }) {
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Rua / Logradouro</label>
-              <input {...noFill} placeholder="Ex: Av. Brasil" name="gs_end_nofill" value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })} style={inp} />
+              <input {...noFill} placeholder="Ex: Av. Brasil" name="gs_end_nofill" value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value.toUpperCase() })} style={inp} />
             </div>
             <div>
               <label style={labelStyle}>Número</label>
-              <input {...noFill} placeholder="123" name="gs_num_nofill" value={form.numero || ""} onChange={e => setForm({ ...form, numero: e.target.value })} style={inp} />
+              <input {...noFill} placeholder="123" name="gs_num_nofill" value={form.numero || ""} onChange={e => setForm({ ...form, numero: e.target.value.toUpperCase() })} style={inp} />
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Bairro</label>
-              <input {...noFill} placeholder="Bairro" name="gs_bairro_nofill" value={form.bairro} onChange={e => setForm({ ...form, bairro: e.target.value })} style={inp} />
+              <input {...noFill} placeholder="Bairro" name="gs_bairro_nofill" value={form.bairro} onChange={e => setForm({ ...form, bairro: e.target.value.toUpperCase() })} style={inp} />
             </div>
             <div>
               <label style={labelStyle}>CEP (recomendado p/ NFe)</label>
@@ -1936,11 +1936,11 @@ function ClientPage({ clientData, setClientData, setPage }) {
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Cidade *</label>
-              <input {...noFill} placeholder="Cidade" name="gs_cidade_nofill" value={form.cidade} onChange={e => setForm({ ...form, cidade: e.target.value })} style={!form.cidade.trim() && erro ? inpErr : inp} />
+              <input {...noFill} placeholder="Cidade" name="gs_cidade_nofill" value={form.cidade} onChange={e => setForm({ ...form, cidade: e.target.value.toUpperCase() })} style={!form.cidade.trim() && erro ? inpErr : inp} />
             </div>
             <div>
               <label style={labelStyle}>Estado</label>
-              <input {...noFill} placeholder="UF" name="gs_uf_nofill" value={form.estado} onChange={e => setForm({ ...form, estado: e.target.value })} style={inp} maxLength={2} />
+              <input {...noFill} placeholder="UF" name="gs_uf_nofill" value={form.estado} onChange={e => setForm({ ...form, estado: e.target.value.toUpperCase() })} style={inp} maxLength={2} />
             </div>
           </div>
         </form>
@@ -3829,7 +3829,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
               </div>
               <textarea
                 value={anotacoesModal.texto}
-                onChange={e => setAnotacoesModal({ ...anotacoesModal, texto: e.target.value })}
+                onChange={e => setAnotacoesModal({ ...anotacoesModal, texto: e.target.value.toUpperCase() })}
                 placeholder="Ex: Cliente pediu pra retornar segunda-feira... | Negociar desconto de 5% no fechamento... | Aguardando aprovação interna..."
                 rows={10}
                 autoFocus
@@ -3901,7 +3901,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
               <div>
                 <label style={lblStyle}>Número do Pedido *</label>
                 <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-                  <input placeholder="Ex: PED-001" value={cd.numero_pedido} onChange={e => setConcluidoData({ ...cd, numero_pedido: e.target.value })} style={{ ...selStyle, flex: 1 }} />
+                  <input placeholder="Ex: PED-001" value={cd.numero_pedido} onChange={e => setConcluidoData({ ...cd, numero_pedido: e.target.value.toUpperCase() })} style={{ ...selStyle, flex: 1 }} />
                   <button
                     type="button"
                     onClick={() => {
@@ -6301,7 +6301,7 @@ function AdminPage({ user }) {
                 </div>
                 <div>
                   <label style={lblStyle}>Número do Pedido *</label>
-                  <input placeholder="Ex: PED-001" value={cd.numero_pedido} onChange={e => setConcluidoDataAdm({ ...cd, numero_pedido: e.target.value })} style={selStyle} />
+                  <input placeholder="Ex: PED-001" value={cd.numero_pedido} onChange={e => setConcluidoDataAdm({ ...cd, numero_pedido: e.target.value.toUpperCase() })} style={selStyle} />
                 </div>
 
                 {/* Pagamento 1 */}
