@@ -6624,6 +6624,8 @@ function FinanceiroPage() {
   const [atrasadas, setAtrasadas] = useState([]);
   // Boletos a pagar — tabela boletos_a_pagar
   const [boletos, setBoletos] = useState([]);
+  // Filtro de status dos boletos: "em_aberto" (default) | "pagos" | "todos"
+  const [boletoStatusFiltro, setBoletoStatusFiltro] = useState("em_aberto");
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
@@ -7371,20 +7373,52 @@ function FinanceiroPage() {
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden", marginTop: 16 }}>
           <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 18, margin: 0 }}>📄 Boletos a Pagar</h2>
-            <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}>
-              Manda o boleto pelo chat que o Claude cadastra aqui.
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 4, background: COLORS.bg, padding: 3, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
+                {[
+                  { v: "em_aberto", lbl: "Em Aberto", col: "#F59E0B" },
+                  { v: "pagos",     lbl: "Pagos",     col: "#10B981" },
+                  { v: "todos",     lbl: "Todos",     col: COLORS.text },
+                ].map(opt => (
+                  <button
+                    key={opt.v}
+                    onClick={() => setBoletoStatusFiltro(opt.v)}
+                    style={{
+                      background: boletoStatusFiltro === opt.v ? opt.col + "20" : "transparent",
+                      border: boletoStatusFiltro === opt.v ? `1px solid ${opt.col}60` : "1px solid transparent",
+                      color: boletoStatusFiltro === opt.v ? opt.col : COLORS.textMuted,
+                      padding: "4px 10px", borderRadius: 6,
+                      fontSize: 10, fontWeight: 700, cursor: "pointer",
+                      fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.4,
+                    }}
+                  >{opt.lbl}</button>
+                ))}
+              </div>
+              <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}>
+                Manda o boleto pelo chat que o Claude cadastra aqui.
+              </span>
+            </div>
           </div>
           {(() => {
+            // Aplica filtro de status (em_aberto = pendente, pagos = pago, todos = tudo)
+            const passaFiltro = (b) => {
+              if (boletoStatusFiltro === "todos") return true;
+              if (boletoStatusFiltro === "pagos") return b.status === "pago";
+              return b.status === "pendente"; // em_aberto
+            };
             // Boletos do mês selecionado (filtra pelo vencimento)
-            const boletosDoMes = boletos.filter(b => (b.vencimento || "").startsWith(mesSel));
-            // Atrasados de meses ANTERIORES (qualquer mês) — destaque no topo
-            const atrasadosAntigos = boletos.filter(b => b.status === "pendente" && b.vencimento < hojeISO && !b.vencimento.startsWith(mesSel));
+            const boletosDoMes = boletos.filter(b => (b.vencimento || "").startsWith(mesSel) && passaFiltro(b));
+            // Atrasados de meses ANTERIORES (qualquer mês) — destaque no topo (só faz sentido quando filtro mostra pendentes)
+            const mostrarAtrasadosAntigos = boletoStatusFiltro !== "pagos";
+            const atrasadosAntigos = mostrarAtrasadosAntigos
+              ? boletos.filter(b => b.status === "pendente" && b.vencimento < hojeISO && !b.vencimento.startsWith(mesSel))
+              : [];
             if (boletosDoMes.length === 0 && atrasadosAntigos.length === 0) {
+              const labelFiltro = boletoStatusFiltro === "pagos" ? "pago" : boletoStatusFiltro === "em_aberto" ? "em aberto" : "";
               return (
                 <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
                   <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
-                  Nenhum boleto vencendo em {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}.
+                  Nenhum boleto{labelFiltro ? ` ${labelFiltro}` : ""} em {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}.
                 </div>
               );
             }
