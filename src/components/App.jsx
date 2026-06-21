@@ -6622,8 +6622,32 @@ function FinanceiroPage() {
   // Despesas fixas do mês anterior que ainda não foram pagas (atrasadas).
   // Exibidas em destaque no topo do tab Fixas do mês atual.
   const [atrasadas, setAtrasadas] = useState([]);
+  // Boletos a pagar — tabela boletos_a_pagar
+  const [boletos, setBoletos] = useState([]);
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+
+  // Carrega boletos (todos — pra mostrar atrasados de qualquer mês)
+  const carregarBoletos = async () => {
+    const { data } = await supabase.from("boletos_a_pagar").select("*").order("vencimento", { ascending: true });
+    if (data) setBoletos(data);
+  };
+
+  // Marca boleto como pago
+  const marcarBoletoPago = async (id) => {
+    await supabase.from("boletos_a_pagar").update({ status: "pago", data_pagamento: new Date().toISOString() }).eq("id", id);
+    setBoletos(prev => prev.map(b => b.id === id ? { ...b, status: "pago", data_pagamento: new Date().toISOString() } : b));
+  };
+
+  // Volta boleto pra pendente (se marcou pago por engano)
+  const desmarcarBoletoPago = async (id) => {
+    await supabase.from("boletos_a_pagar").update({ status: "pendente", data_pagamento: null }).eq("id", id);
+    setBoletos(prev => prev.map(b => b.id === id ? { ...b, status: "pendente", data_pagamento: null } : b));
+  };
+
+  // Quantos boletos atrasados (vencidos e não pagos)
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const boletosAtrasados = boletos.filter(b => b.status === "pendente" && b.vencimento < hojeISO).length;
 
   // Calcula a chave do mes anterior no formato YYYY-MM (ex: "2026-05" -> "2026-04")
   const calcularMesAnterior = (mes) => {
@@ -6715,7 +6739,7 @@ function FinanceiroPage() {
     if (data) setFornecedores(data);
   };
 
-  useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(); }, [mesSel]);
+  useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(); carregarBoletos(); }, [mesSel]);
 
   const atualizarDespesa = async (id, campo, valor) => {
     const update = {}; update[campo] = valor;
@@ -6976,7 +7000,7 @@ function FinanceiroPage() {
       <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
         <button onClick={() => setSubTab("fixas")} style={{ background: subTab === "fixas" ? COLORS.orange + "20" : COLORS.card, color: subTab === "fixas" ? COLORS.orange : COLORS.textMuted, border: `1px solid ${subTab === "fixas" ? COLORS.orange + "40" : COLORS.border}`, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Fixas ({fixas.length})</button>
         <button onClick={() => setSubTab("variaveis")} style={{ background: subTab === "variaveis" ? "#8B5CF6" + "20" : COLORS.card, color: subTab === "variaveis" ? "#8B5CF6" : COLORS.textMuted, border: `1px solid ${subTab === "variaveis" ? "#8B5CF640" : COLORS.border}`, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Variáveis ({variaveis.length})</button>
-        <button onClick={() => setSubTab("fornecedores")} style={{ background: subTab === "fornecedores" ? "#3B82F6" + "20" : COLORS.card, color: subTab === "fornecedores" ? "#3B82F6" : COLORS.textMuted, border: `1px solid ${subTab === "fornecedores" ? "#3B82F640" : COLORS.border}`, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Fornecedores</button>
+        <button onClick={() => setSubTab("fornecedores")} style={{ background: subTab === "fornecedores" ? "#3B82F6" + "20" : COLORS.card, color: subTab === "fornecedores" ? "#3B82F6" : COLORS.textMuted, border: `1px solid ${subTab === "fornecedores" ? "#3B82F640" : COLORS.border}`, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Fornecedores{boletosAtrasados > 0 && <span style={{ background: COLORS.danger, color: "#fff", padding: "1px 6px", borderRadius: 8, fontSize: 9, marginLeft: 6 }}>{boletosAtrasados} boleto{boletosAtrasados > 1 ? "s" : ""} atrasado{boletosAtrasados > 1 ? "s" : ""}</span>}</button>
       </div>
 
       {/* Destaque de despesas fixas atrasadas (mês anterior em aberto) */}
@@ -7341,6 +7365,74 @@ function FinanceiroPage() {
           </div>
         );
       })()}
+
+      {/* Bloco BOLETOS — aparece dentro do sub-tab Fornecedores */}
+      {subTab === "fornecedores" && (
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden", marginTop: 16 }}>
+          <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 18, margin: 0 }}>📄 Boletos a Pagar</h2>
+            <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}>
+              Manda o boleto pelo chat que o Claude cadastra aqui.
+            </span>
+          </div>
+          {boletos.length === 0 ? (
+            <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
+              Nenhum boleto cadastrado ainda.
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                    <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Beneficiário</th>
+                    <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vencimento</th>
+                    <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+                    <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
+                    <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Código de Barras</th>
+                    <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {boletos.map(b => {
+                    const atrasado = b.status === "pendente" && b.vencimento < hojeISO;
+                    const pago = b.status === "pago";
+                    const cancelado = b.status === "cancelado";
+                    const statusLabel = pago ? "✓ Pago" : cancelado ? "Cancelado" : atrasado ? "⚠ ATRASADO" : "Em Dia";
+                    const stCol = pago ? "#10B981" : cancelado ? COLORS.textDim : atrasado ? COLORS.danger : "#F59E0B";
+                    const vencFmt = b.vencimento ? new Date(b.vencimento + "T00:00:00").toLocaleDateString("pt-BR") : "—";
+                    return (
+                      <tr key={b.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: atrasado ? COLORS.danger + "08" : "transparent" }}>
+                        <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500 }}>{b.beneficiario}{b.observacao && <div style={{ color: COLORS.textDim, fontSize: 9 }}>{b.observacao}</div>}</td>
+                        <td style={{ padding: "10px 12px", textAlign: "center", color: atrasado ? COLORS.danger : COLORS.text, fontWeight: 600, fontSize: 11 }}>{vencFmt}</td>
+                        <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontFamily: "'Playfair Display', serif", fontSize: 13 }}>{fmt(Number(b.valor) || 0)}</td>
+                        <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                          <span style={{ background: stCol + "20", color: stCol, border: `1px solid ${stCol}40`, padding: "3px 10px", borderRadius: 12, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{statusLabel}</span>
+                        </td>
+                        <td style={{ padding: "10px 12px", color: COLORS.textDim, fontSize: 9, fontFamily: "monospace", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {b.codigo_barras ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }} title={b.codigo_barras}>{b.codigo_barras}</span>
+                              <button onClick={() => { navigator.clipboard.writeText(b.codigo_barras); }} title="Copiar" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.accent, padding: "2px 8px", borderRadius: 5, fontSize: 10, cursor: "pointer", flexShrink: 0 }}>📋</button>
+                            </div>
+                          ) : <span style={{ color: COLORS.textDim }}>—</span>}
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                          {!pago ? (
+                            <button onClick={() => marcarBoletoPago(b.id)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✓ Marcar Pago</button>
+                          ) : (
+                            <button onClick={() => desmarcarBoletoPago(b.id)} title="Voltar pra pendente" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "4px 8px", borderRadius: 6, fontSize: 10, cursor: "pointer" }}>↩ Reabrir</button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -8192,6 +8284,56 @@ function NFPage({ user }) {
 // pegar a versao nova sem precisar dar refresh manual.
 const APP_VERSION = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "dev";
 
+// Banner que aparece no topo do app quando o Ale tem boletos atrasados.
+// Visível só pro Ale (v1). Click leva pro Financeiro → Boletos.
+function BoletosAtrasadosBanner({ user, setPage }) {
+  const [atrasados, setAtrasados] = useState([]);
+  useEffect(() => {
+    if (!user || user.id !== "v1") return;
+    const carregar = async () => {
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase.from("boletos_a_pagar")
+        .select("*")
+        .eq("status", "pendente")
+        .lt("vencimento", hoje)
+        .order("vencimento");
+      if (data) setAtrasados(data);
+    };
+    carregar();
+  }, [user]);
+  if (!user || user.id !== "v1" || atrasados.length === 0) return null;
+  const total = atrasados.reduce((s, b) => s + (Number(b.valor) || 0), 0);
+  return (
+    <div
+      onClick={() => setPage("financeiro")}
+      style={{
+        background: "linear-gradient(90deg, #F87171 0%, #DC2626 100%)",
+        color: "#fff",
+        padding: "10px 20px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+        cursor: "pointer",
+        fontFamily: "'DM Sans', sans-serif",
+        fontSize: 13,
+        fontWeight: 600,
+        flexWrap: "wrap",
+      }}
+      title="Clique pra ir pro Financeiro → Boletos"
+    >
+      <span style={{ fontSize: 18 }}>⚠️</span>
+      <span>
+        <strong>{atrasados.length}</strong> {atrasados.length === 1 ? "boleto atrasado" : "boletos atrasados"} —
+        total <strong>{(total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+      </span>
+      <span style={{ background: "rgba(255,255,255,0.2)", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>
+        Ver no Financeiro →
+      </span>
+    </div>
+  );
+}
+
 export default function App() {
   const [page, setPage] = useState("login");
   const [user, setUser] = useState(null);
@@ -8366,6 +8508,7 @@ export default function App() {
     <div style={{ background: COLORS.bg, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet" />
       <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
+      <BoletosAtrasadosBanner user={user} setPage={setPage} />
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
