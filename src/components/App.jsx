@@ -7375,26 +7375,42 @@ function FinanceiroPage() {
               Manda o boleto pelo chat que o Claude cadastra aqui.
             </span>
           </div>
-          {boletos.length === 0 ? (
-            <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
-              Nenhum boleto cadastrado ainda.
-            </div>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                    <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Beneficiário</th>
-                    <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vencimento</th>
-                    <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
-                    <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
-                    <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Código de Barras</th>
-                    <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {boletos.map(b => {
+          {(() => {
+            // Boletos do mês selecionado (filtra pelo vencimento)
+            const boletosDoMes = boletos.filter(b => (b.vencimento || "").startsWith(mesSel));
+            // Atrasados de meses ANTERIORES (qualquer mês) — destaque no topo
+            const atrasadosAntigos = boletos.filter(b => b.status === "pendente" && b.vencimento < hojeISO && !b.vencimento.startsWith(mesSel));
+            if (boletosDoMes.length === 0 && atrasadosAntigos.length === 0) {
+              return (
+                <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
+                  Nenhum boleto vencendo em {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}.
+                </div>
+              );
+            }
+            return (
+              <>
+                {atrasadosAntigos.length > 0 && (
+                  <div style={{ background: COLORS.danger + "10", borderBottom: `2px solid ${COLORS.danger}30`, padding: "10px 18px" }}>
+                    <div style={{ color: COLORS.danger, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      ⚠️ {atrasadosAntigos.length} boleto{atrasadosAntigos.length > 1 ? "s" : ""} atrasado{atrasadosAntigos.length > 1 ? "s" : ""} de meses anteriores · total {fmt(atrasadosAntigos.reduce((s, b) => s + Number(b.valor || 0), 0))}
+                    </div>
+                  </div>
+                )}
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                        <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Beneficiário</th>
+                        <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vencimento</th>
+                        <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+                        <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Código de Barras</th>
+                        <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...atrasadosAntigos, ...boletosDoMes].sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || "")).map(b => {
                     const atrasado = b.status === "pendente" && b.vencimento < hojeISO;
                     const pago = b.status === "pago";
                     const cancelado = b.status === "cancelado";
@@ -7430,7 +7446,9 @@ function FinanceiroPage() {
                 </tbody>
               </table>
             </div>
-          )}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>
