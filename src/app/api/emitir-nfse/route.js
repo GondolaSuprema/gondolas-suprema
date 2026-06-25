@@ -56,21 +56,35 @@ const SERVICO_CFG = {
   incentivador_cultural: false,
 };
 
-// Aceita CNPJ com ou sem pontuação e padroniza nomes/endereço.
-// Retorna null se faltar dado mínimo — aí o handler cai pro TOMADOR_PADRAO.
+// Aceita CNPJ com pontuação ou não. Pra ser considerado "tomador custom
+// completo" (e ir direto pro payload sem lookup), TODOS os campos
+// essenciais precisam estar preenchidos: razão social, logradouro,
+// bairro, código IBGE (7 dígitos), UF (2 letras) e CEP (8 dígitos).
+// Se faltar qualquer um, retorna null — aí o handler cai pro lookup
+// automático na BrasilAPI (quando só veio o CNPJ) ou pro RRE padrão.
 function normalizarTomadorCustom(t) {
   if (!t || !t.cnpj) return null;
   const cnpj = String(t.cnpj).replace(/\D/g, "");
   if (cnpj.length !== 14) return null;
+  const razao = String(t.razao_social || "").trim().toUpperCase();
+  const logradouro = String(t.logradouro || "").trim().toUpperCase();
+  const bairro = String(t.bairro || "").trim().toUpperCase();
+  const codigoMunicipio = String(t.codigo_municipio || "").replace(/\D/g, "");
+  const uf = String(t.uf || "").trim().toUpperCase().slice(0, 2);
+  const cep = String(t.cep || "").replace(/\D/g, "");
+  // Tem que ter TODOS os campos essenciais — senão deixa fluir pro lookup
+  if (!razao || !logradouro || !bairro || codigoMunicipio.length !== 7 || uf.length !== 2 || cep.length !== 8) {
+    return null;
+  }
   return {
     cnpj,
-    razao_social: String(t.razao_social || "").trim().toUpperCase(),
-    logradouro: String(t.logradouro || "").trim().toUpperCase(),
+    razao_social: razao,
+    logradouro,
     numero: String(t.numero || "S/N").trim(),
-    bairro: String(t.bairro || "").trim().toUpperCase(),
-    codigo_municipio: String(t.codigo_municipio || "").replace(/\D/g, ""),
-    uf: String(t.uf || "").trim().toUpperCase().slice(0, 2),
-    cep: String(t.cep || "").replace(/\D/g, ""),
+    bairro,
+    codigo_municipio: codigoMunicipio,
+    uf,
+    cep,
   };
 }
 
