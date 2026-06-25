@@ -7788,6 +7788,8 @@ function NFPage({ user }) {
   const [tomadorTipo, setTomadorTipo] = useState("rre"); // 'rre' | 'custom'
   const TOMADOR_VAZIO = { cnpj: "", razao_social: "", logradouro: "", numero: "", bairro: "", codigo_municipio: "", uf: "", cep: "" };
   const [tomadorCustom, setTomadorCustom] = useState(TOMADOR_VAZIO);
+  // Texto livre da OBS — anexado à discriminação automática "NF X - Cliente Y"
+  const [observacaoNfse, setObservacaoNfse] = useState("");
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
   // Só admin/gestor (Ale e Zanella) podem emitir/cancelar NF
@@ -7839,10 +7841,14 @@ function NFPage({ user }) {
         vendedor: ordem.vendedor_nome,
         date: ordem.data,
       };
-      // Pra NFS-e da Suprema Instalações, propaga tomador customizado se houver.
+      // Pra NFS-e da Suprema Instalações, propaga tomador customizado e
+      // observação livre se vierem nos opts.
       const reqBody = { ordem: ordemPayload, ambiente };
       if (emitente === "instalacoes" && opts.tomador_custom) {
         reqBody.tomador_custom = opts.tomador_custom;
+      }
+      if (emitente === "instalacoes" && opts.observacao) {
+        reqBody.observacao = opts.observacao;
       }
       const res = await fetch(endpoint, {
         method: "POST",
@@ -8222,7 +8228,7 @@ function NFPage({ user }) {
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NF-e de mercadoria · destinatário: <strong style={{ color: COLORS.text }}>{confirmEmitir.cliente_empresa}</strong></div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.total))}</div>
                   </button>
-                  <button onClick={() => { setEmitenteSel("instalacoes"); setValorEditado(Number(getValorRecebido(confirmEmitir)).toFixed(2)); setEditandoValor(false); setTomadorTipo("rre"); setTomadorCustom(TOMADOR_VAZIO); }} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                  <button onClick={() => { setEmitenteSel("instalacoes"); setValorEditado(Number(getValorRecebido(confirmEmitir)).toFixed(2)); setEditandoValor(false); setTomadorTipo("rre"); setTomadorCustom(TOMADOR_VAZIO); setObservacaoNfse(""); }} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
                     <div style={{ color: "#3B82F6", fontSize: 13, fontWeight: 700 }}>🔧 Suprema Instalações</div>
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NFS-e de serviço · destinatário: <strong style={{ color: COLORS.text }}>Gôndolas Brasil</strong> (23.505.287/0001-07)</div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(getValorRecebido(confirmEmitir))} <em style={{ color: COLORS.textDim }}>{confirmEmitir.valor_recebido != null && Math.abs(Number(confirmEmitir.valor_recebido) - Number(confirmEmitir.comissao || 0)) >= 0.01 ? "(valor recebido — editado)" : "(comissão)"}</em></div>
@@ -8351,6 +8357,21 @@ function NFPage({ user }) {
                   </div>
                   <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4 }}>(ISS 3% · Simples · NBS 100501 — intermediação)</div>
                 </div>
+                {/* Observação livre (anexada à discriminação como "OBS: ...") */}
+                <div style={{ marginBottom: 14 }}>
+                  {lbl("Observação (opcional)")}
+                  <textarea
+                    value={observacaoNfse}
+                    onChange={e => setObservacaoNfse(e.target.value.slice(0, 500))}
+                    rows={3}
+                    placeholder="Texto livre que aparece na NF após o número do pedido e cliente."
+                    style={{ ...inputStyle, resize: "vertical", minHeight: 60, fontFamily: "'DM Sans', sans-serif" }}
+                  />
+                  <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 3, display: "flex", justifyContent: "space-between" }}>
+                    <span>Vai aparecer como "OBS: ..." no DANFSE.</span>
+                    <span>{observacaoNfse.length}/500</span>
+                  </div>
+                </div>
                 {!valorOk && (
                   <div style={{ background: COLORS.danger + "12", border: `1px solid ${COLORS.danger}40`, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
                     <div style={{ color: COLORS.danger, fontSize: 12, fontWeight: 600 }}>⚠️ Valor precisa ser maior que zero</div>
@@ -8370,6 +8391,7 @@ function NFPage({ user }) {
                         emitente: "instalacoes",
                         ambiente: "producao",
                         ...(tomadorTipo === "custom" ? { tomador_custom: tomadorCustom } : {}),
+                        ...(observacaoNfse.trim() ? { observacao: observacaoNfse.trim() } : {}),
                       }
                     )}
                     disabled={!podeEmitir}

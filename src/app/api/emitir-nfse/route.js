@@ -74,10 +74,18 @@ function normalizarTomadorCustom(t) {
   };
 }
 
-function montarDiscriminacao(ordem) {
+// Monta o texto da discriminacao da NFS-e.
+// Formato padrao: "NF {numero_pedido} - Cliente {tomador.razao_social}".
+// O "Cliente" aqui é o TOMADOR da NFS-e (quem está sendo cobrado pela
+// comissão) — RRE Máquinas no caso padrão, ou outro CNPJ customizado.
+// Se vier `observacao` opcional, anexa "OBS: ..." em linha separada.
+function montarDiscriminacao(ordem, tomador, observacao) {
   const numero = ordem.numero_pedido || ordem.id?.slice(0, 6).toUpperCase() || "—";
-  const empresa = ordem.client?.empresa || "—";
-  return `Comissao referente a intermediacao de venda de equipamentos comerciais. Pedido n ${numero} - Cliente ${empresa}`;
+  const cliente = tomador?.razao_social || "—";
+  const base = `NF ${numero} - Cliente ${cliente}`;
+  const obs = String(observacao || "").trim();
+  if (!obs) return base;
+  return `${base}\n\nOBS: ${obs}`;
 }
 
 function dataAtualISO() {
@@ -87,7 +95,7 @@ function dataAtualISO() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { ordem, ambiente = "homologacao", acao, ref_cancelamento, justificativa, tomador_custom } = body;
+    const { ordem, ambiente = "homologacao", acao, ref_cancelamento, justificativa, tomador_custom, observacao } = body;
 
     const TOKEN = ambiente === "producao"
       ? process.env.FOCUS_NFE_TOKEN_PROD_INSTALACOES
@@ -171,7 +179,7 @@ export async function POST(request) {
         aliquota: SERVICO_CFG.aliquota,
         valor_servicos: Number(valorServicos.toFixed(2)),
         iss_retido: SERVICO_CFG.iss_retido,
-        discriminacao: montarDiscriminacao(ordem),
+        discriminacao: montarDiscriminacao(ordem, tomadorResolvido, observacao),
         item_lista_servico: SERVICO_CFG.item_lista_servico,
         codigo_cnae: SERVICO_CFG.codigo_cnae,
       },
