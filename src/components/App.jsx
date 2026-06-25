@@ -7784,6 +7784,10 @@ function NFPage({ user }) {
   const [cancelandoNfe, setCancelandoNfe] = useState(null);
   const [cancelJustificativa, setCancelJustificativa] = useState("");
   const [cancelRef, setCancelRef] = useState("");
+  // NFS-e da Suprema Instalações: tomador é RRE (padrão) ou customizado
+  const [tomadorTipo, setTomadorTipo] = useState("rre"); // 'rre' | 'custom'
+  const TOMADOR_VAZIO = { cnpj: "", razao_social: "", logradouro: "", numero: "", bairro: "", codigo_municipio: "", uf: "", cep: "" };
+  const [tomadorCustom, setTomadorCustom] = useState(TOMADOR_VAZIO);
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
   // Só admin/gestor (Ale e Zanella) podem emitir/cancelar NF
@@ -7835,10 +7839,15 @@ function NFPage({ user }) {
         vendedor: ordem.vendedor_nome,
         date: ordem.data,
       };
+      // Pra NFS-e da Suprema Instalações, propaga tomador customizado se houver.
+      const reqBody = { ordem: ordemPayload, ambiente };
+      if (emitente === "instalacoes" && opts.tomador_custom) {
+        reqBody.tomador_custom = opts.tomador_custom;
+      }
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ordem: ordemPayload, ambiente }),
+        body: JSON.stringify(reqBody),
       });
       const data = await res.json();
       setNfeResult(data);
@@ -8213,7 +8222,7 @@ function NFPage({ user }) {
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NF-e de mercadoria · destinatário: <strong style={{ color: COLORS.text }}>{confirmEmitir.cliente_empresa}</strong></div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.total))}</div>
                   </button>
-                  <button onClick={() => { setEmitenteSel("instalacoes"); setValorEditado(Number(getValorRecebido(confirmEmitir)).toFixed(2)); setEditandoValor(false); }} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                  <button onClick={() => { setEmitenteSel("instalacoes"); setValorEditado(Number(getValorRecebido(confirmEmitir)).toFixed(2)); setEditandoValor(false); setTomadorTipo("rre"); setTomadorCustom(TOMADOR_VAZIO); }} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
                     <div style={{ color: "#3B82F6", fontSize: 13, fontWeight: 700 }}>🔧 Suprema Instalações</div>
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NFS-e de serviço · destinatário: <strong style={{ color: COLORS.text }}>Gôndolas Brasil</strong> (23.505.287/0001-07)</div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(getValorRecebido(confirmEmitir))} <em style={{ color: COLORS.textDim }}>{confirmEmitir.valor_recebido != null && Math.abs(Number(confirmEmitir.valor_recebido) - Number(confirmEmitir.comissao || 0)) >= 0.01 ? "(valor recebido — editado)" : "(comissão)"}</em></div>
@@ -8256,19 +8265,74 @@ function NFPage({ user }) {
                 </div>
               </>
             )}
-            {emitenteSel === "instalacoes" && (
+            {emitenteSel === "instalacoes" && (() => {
+              // Validação dos campos do tomador custom (todos obrigatórios)
+              const tcCnpj = String(tomadorCustom.cnpj || "").replace(/\D/g, "");
+              const customValido = tomadorTipo === "rre" || (
+                tcCnpj.length === 14 &&
+                tomadorCustom.razao_social.trim().length >= 3 &&
+                tomadorCustom.logradouro.trim().length >= 3 &&
+                tomadorCustom.bairro.trim().length >= 2 &&
+                String(tomadorCustom.codigo_municipio).replace(/\D/g, "").length === 7 &&
+                tomadorCustom.uf.trim().length === 2 &&
+                String(tomadorCustom.cep).replace(/\D/g, "").length === 8
+              );
+              const valorOk = Number(valorEditado) > 0;
+              const podeEmitir = !editandoValor && valorOk && customValido;
+              const inputStyle = { width: "100%", padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "'DM Sans', sans-serif" };
+              const lbl = (t) => <div style={{ color: COLORS.textDim, fontSize: 9, marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.3 }}>{t}</div>;
+              const setTC = (k, v) => setTomadorCustom(prev => ({ ...prev, [k]: v }));
+              return (
               <>
                 <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 18, margin: "0 0 12px" }}>🔧 Confirmar — Suprema Instalações</h2>
-                <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 12px" }}>NFS-e em <strong style={{ color: "#F59E0B" }}>HOMOLOGAÇÃO</strong> (ambiente de teste).</p>
-                <div style={{ background: "#F59E0B12", border: "1px solid #F59E0B40", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
-                  <div style={{ color: "#F59E0B", fontSize: 11, fontWeight: 700 }}>⚠️ AMBIENTE DE HOMOLOGAÇÃO</div>
+                <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 12px" }}>Esta ação irá emitir uma <strong style={{ color: COLORS.danger }}>NFS-e REAL</strong> na Prefeitura de Palhoça.</p>
+                {/* Toggle Tomador: RRE (padrão) | Outro CNPJ */}
+                <div style={{ marginBottom: 10 }}>
+                  {lbl("Tomador")}
+                  <div style={{ display: "flex", gap: 4, background: COLORS.bg, padding: 3, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
+                    {[
+                      { v: "rre",    lbl: "RRE Máquinas (padrão)" },
+                      { v: "custom", lbl: "Outro CNPJ" },
+                    ].map(opt => (
+                      <button
+                        key={opt.v}
+                        onClick={() => setTomadorTipo(opt.v)}
+                        style={{
+                          flex: 1,
+                          background: tomadorTipo === opt.v ? "#3B82F620" : "transparent",
+                          border: tomadorTipo === opt.v ? "1px solid #3B82F660" : "1px solid transparent",
+                          color: tomadorTipo === opt.v ? "#3B82F6" : COLORS.textMuted,
+                          padding: "5px 10px", borderRadius: 6,
+                          fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >{opt.lbl}</button>
+                    ))}
+                  </div>
                 </div>
+                {/* Dados do tomador — RRE fixos ou formulário custom */}
                 <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
-                  <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Tomador</div>
-                  <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>RRE MAQUINAS E EQUIPAMENTOS LTDA (Gôndolas Brasil)</div>
-                  <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: 23.505.287/0001-07 · São José/SC</div>
+                  {tomadorTipo === "rre" ? (
+                    <>
+                      <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>RRE MAQUINAS E EQUIPAMENTOS LTDA</div>
+                      <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: 23.505.287/0001-07 · São José/SC</div>
+                    </>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div style={{ gridColumn: "1 / -1" }}>{lbl("CNPJ *")}<input value={tomadorCustom.cnpj} onChange={e => setTC("cnpj", e.target.value)} placeholder="00.000.000/0000-00" style={inputStyle} /></div>
+                      <div style={{ gridColumn: "1 / -1" }}>{lbl("Razão Social *")}<input value={tomadorCustom.razao_social} onChange={e => setTC("razao_social", e.target.value)} placeholder="Nome da empresa" style={inputStyle} /></div>
+                      <div style={{ gridColumn: "1 / 2" }}>{lbl("Logradouro *")}<input value={tomadorCustom.logradouro} onChange={e => setTC("logradouro", e.target.value)} placeholder="Rua/Av." style={inputStyle} /></div>
+                      <div>{lbl("Número")}<input value={tomadorCustom.numero} onChange={e => setTC("numero", e.target.value)} placeholder="123" style={inputStyle} /></div>
+                      <div>{lbl("Bairro *")}<input value={tomadorCustom.bairro} onChange={e => setTC("bairro", e.target.value)} style={inputStyle} /></div>
+                      <div>{lbl("CEP *")}<input value={tomadorCustom.cep} onChange={e => setTC("cep", e.target.value)} placeholder="00000-000" style={inputStyle} /></div>
+                      <div>{lbl("Cód. Município IBGE *")}<input value={tomadorCustom.codigo_municipio} onChange={e => setTC("codigo_municipio", e.target.value)} placeholder="7 dígitos (ex: 4216800)" style={inputStyle} /></div>
+                      <div>{lbl("UF *")}<input value={tomadorCustom.uf} onChange={e => setTC("uf", e.target.value.toUpperCase().slice(0, 2))} placeholder="SC" maxLength={2} style={inputStyle} /></div>
+                      <div style={{ gridColumn: "1 / -1", color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>
+                        💡 Cód. Município IBGE de 7 dígitos. Pesquisa em <a href="https://www.ibge.gov.br/explica/codigos-dos-municipios.php" target="_blank" rel="noopener noreferrer" style={{ color: "#3B82F6" }}>ibge.gov.br</a> se não souber.
+                      </div>
+                    </div>
+                  )}
                   {/* Valor com lápis pra editar manualmente */}
-                  <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
                     {editandoValor ? (
                       <>
                         <span style={{ color: COLORS.textMuted, fontSize: 12 }}>R$</span>
@@ -8285,19 +8349,36 @@ function NFPage({ user }) {
                       </>
                     )}
                   </div>
-                  <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4 }}>(ISS 3% · Simples · item 10.05)</div>
+                  <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4 }}>(ISS 3% · Simples · NBS 100501 — intermediação)</div>
                 </div>
-                {(!Number(valorEditado) || Number(valorEditado) <= 0) && (
+                {!valorOk && (
                   <div style={{ background: COLORS.danger + "12", border: `1px solid ${COLORS.danger}40`, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
                     <div style={{ color: COLORS.danger, fontSize: 12, fontWeight: 600 }}>⚠️ Valor precisa ser maior que zero</div>
                   </div>
                 )}
+                {valorOk && tomadorTipo === "custom" && !customValido && (
+                  <div style={{ background: "#F59E0B12", border: "1px solid #F59E0B40", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                    <div style={{ color: "#F59E0B", fontSize: 12, fontWeight: 600 }}>⚠️ Preencha todos os campos do tomador (CNPJ, razão, endereço completo, cód. município IBGE e UF)</div>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
-                  <button onClick={() => emitirNfe({ ...confirmEmitir, comissao: Number(valorEditado) || Number(confirmEmitir.comissao) }, { emitente: "instalacoes", ambiente: "homologacao" })} disabled={editandoValor || !Number(valorEditado) || Number(valorEditado) <= 0} style={{ flex: 1, background: (editandoValor || !Number(valorEditado) || Number(valorEditado) <= 0) ? COLORS.textDim : "#3B82F6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: (editandoValor || !Number(valorEditado) || Number(valorEditado) <= 0) ? "not-allowed" : "pointer", fontSize: 13 }}>Emitir NFS-e (homologação)</button>
+                  <button
+                    onClick={() => emitirNfe(
+                      { ...confirmEmitir, comissao: Number(valorEditado) || Number(confirmEmitir.comissao) },
+                      {
+                        emitente: "instalacoes",
+                        ambiente: "producao",
+                        ...(tomadorTipo === "custom" ? { tomador_custom: tomadorCustom } : {}),
+                      }
+                    )}
+                    disabled={!podeEmitir}
+                    style={{ flex: 1, background: !podeEmitir ? COLORS.textDim : "#3B82F6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !podeEmitir ? "not-allowed" : "pointer", fontSize: 13 }}
+                  >Sim, Emitir NFS-e</button>
                 </div>
               </>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}

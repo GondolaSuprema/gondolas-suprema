@@ -26,8 +26,10 @@ const PRESTADOR = {
   razao_social: "SUPREMA INSTALACOES LTDA",
 };
 
-// Destinatário fixo — RRE Maquinas (Gôndolas Brasil)
-const TOMADOR = {
+// Destinatário PADRÃO — RRE Máquinas (Gôndolas Brasil). Pode ser
+// sobrescrito pelo body via `tomador_custom` quando a NFS-e for emitida
+// pra outro CNPJ (ex.: outro fornecedor que pague comissão).
+const TOMADOR_PADRAO = {
   cnpj: "23505287000107",
   razao_social: "RRE MAQUINAS E EQUIPAMENTOS LTDA",
   logradouro: "RUA JOSE ANTONIO PEREIRA",
@@ -38,18 +40,39 @@ const TOMADOR = {
   cep: "88111490",
 };
 
-// Configuração fiscal do serviço (Simples Nacional / Item 10.05)
+// Configuração fiscal do serviço (Simples Nacional / item 10.05).
+// Palhoça usa o código NBS desdobrado: 100501 = "Agenciamento, corretagem
+// ou intermediação de bens móveis ou imóveis, não abrangidos em outros
+// itens ou subitens, por quaisquer meios". O `codigo_tributario_municipio`
+// não é utilizado em Palhoça (conforme guia da Focus NFe).
 const SERVICO_CFG = {
   aliquota: 3.0,
   iss_retido: false,
-  codigo_tributario_municipio: "10.05",
-  item_lista_servico: "10.05",
+  item_lista_servico: "100501",
   codigo_cnae: "7490104",
   natureza_operacao: "1",     // 1 = Tributação no município
   regime_tributacao: "6",     // 6 = Simples Nacional
   optante_simples_nacional: true,
   incentivador_cultural: false,
 };
+
+// Aceita CNPJ com ou sem pontuação e padroniza nomes/endereço.
+// Retorna null se faltar dado mínimo — aí o handler cai pro TOMADOR_PADRAO.
+function normalizarTomadorCustom(t) {
+  if (!t || !t.cnpj) return null;
+  const cnpj = String(t.cnpj).replace(/\D/g, "");
+  if (cnpj.length !== 14) return null;
+  return {
+    cnpj,
+    razao_social: String(t.razao_social || "").trim().toUpperCase(),
+    logradouro: String(t.logradouro || "").trim().toUpperCase(),
+    numero: String(t.numero || "S/N").trim(),
+    bairro: String(t.bairro || "").trim().toUpperCase(),
+    codigo_municipio: String(t.codigo_municipio || "").replace(/\D/g, ""),
+    uf: String(t.uf || "").trim().toUpperCase().slice(0, 2),
+    cep: String(t.cep || "").replace(/\D/g, ""),
+  };
+}
 
 function montarDiscriminacao(ordem) {
   const numero = ordem.numero_pedido || ordem.id?.slice(0, 6).toUpperCase() || "—";
@@ -64,7 +87,7 @@ function dataAtualISO() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { ordem, ambiente = "homologacao", acao, ref_cancelamento, justificativa } = body;
+    const { ordem, ambiente = "homologacao", acao, ref_cancelamento, justificativa, tomador_custom } = body;
 
     const TOKEN = ambiente === "producao"
       ? process.env.FOCUS_NFE_TOKEN_PROD_INSTALACOES
@@ -122,6 +145,9 @@ export async function POST(request) {
     // Referência única (Focus NFe usa pra rastrear a nota)
     const ref = `inst-${ordem.id}-${Date.now()}`;
 
+    // Resolve tomador: custom (vindo do body) ou RRE padrão.
+    const tomadorResolvido = normalizarTomadorCustom(tomador_custom) || TOMADOR_PADRAO;
+
     const payload = {
       data_emissao: dataAtualISO(),
       prestador: {
@@ -130,15 +156,15 @@ export async function POST(request) {
         codigo_municipio: PRESTADOR.codigo_municipio,
       },
       tomador: {
-        cnpj: TOMADOR.cnpj,
-        razao_social: TOMADOR.razao_social,
+        cnpj: tomadorResolvido.cnpj,
+        razao_social: tomadorResolvido.razao_social,
         endereco: {
-          logradouro: TOMADOR.logradouro,
-          numero: TOMADOR.numero,
-          bairro: TOMADOR.bairro,
-          codigo_municipio: TOMADOR.codigo_municipio,
-          uf: TOMADOR.uf,
-          cep: TOMADOR.cep,
+          logradouro: tomadorResolvido.logradouro,
+          numero: tomadorResolvido.numero,
+          bairro: tomadorResolvido.bairro,
+          codigo_municipio: tomadorResolvido.codigo_municipio,
+          uf: tomadorResolvido.uf,
+          cep: tomadorResolvido.cep,
         },
       },
       servico: {
@@ -146,7 +172,6 @@ export async function POST(request) {
         valor_servicos: Number(valorServicos.toFixed(2)),
         iss_retido: SERVICO_CFG.iss_retido,
         discriminacao: montarDiscriminacao(ordem),
-        codigo_tributario_municipio: SERVICO_CFG.codigo_tributario_municipio,
         item_lista_servico: SERVICO_CFG.item_lista_servico,
         codigo_cnae: SERVICO_CFG.codigo_cnae,
       },
@@ -182,8 +207,8 @@ export async function POST(request) {
       ref,
       ambiente,
       valor: valorServicos,
-      tomador: TOMADOR.razao_social,
-      cnpj_tomador: TOMADOR.cnpj,
+      tomador: tomadorResolvido.razao_social,
+      cnpj_tomador: tomadorResolvido.cnpj,
       ...data,
     });
   } catch (e) {
