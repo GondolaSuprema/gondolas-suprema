@@ -7925,15 +7925,40 @@ function NFPage({ user }) {
     if (!nota.ref) return;
     setConsultando(nota.id);
     try {
-      const res = await fetch("/api/consultar-nfe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ref: nota.ref, ambiente: nota.ambiente || "producao" }),
-      });
-      const data = await res.json();
+      const ehNfse = nota.tipo === "nfse" || nota.emitente === "instalacoes";
+      let data;
+      if (ehNfse) {
+        // NFS-e: consulta na Focus NFe via /api/emitir-nfse com acao=consultar.
+        // A resposta da Focus traz status, numero, url_danfse, codigo_verificacao
+        // e caminho_xml_nota_fiscal. A gente persiste tudo na linha da nota.
+        const res = await fetch("/api/emitir-nfse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ acao: "consultar", ref_consulta: nota.ref, ambiente: nota.ambiente || "producao" }),
+        });
+        data = await res.json();
+      } else {
+        // NF-e: consulta SEFAZ direta (rota antiga)
+        const res = await fetch("/api/consultar-nfe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ref: nota.ref, ambiente: nota.ambiente || "producao" }),
+        });
+        data = await res.json();
+      }
       if (data.success && data.status) {
-        await supabase.from("notas_fiscais").update({ status: data.status }).eq("id", nota.id);
-        setNotas(notas.map(n => n.id === nota.id ? { ...n, status: data.status } : n));
+        // Pra NFS-e: a Focus devolve url_danfse (com 's') e caminho_xml_nota_fiscal.
+        // A gente normaliza pro nosso schema (url_danfe / url_xml).
+        const update = { status: data.status };
+        if (data.numero) update.numero = String(data.numero);
+        if (data.url_danfse) update.url_danfe = data.url_danfse;
+        if (data.url_danfe) update.url_danfe = data.url_danfe;
+        if (data.caminho_xml_nota_fiscal) {
+          // URL pública do XML — a Focus disponibiliza pelo endpoint da nota
+          update.url_xml = `https://api.focusnfe.com.br/v2/nfse/${encodeURIComponent(nota.ref)}.xml`;
+        }
+        await supabase.from("notas_fiscais").update(update).eq("id", nota.id);
+        setNotas(notas.map(n => n.id === nota.id ? { ...n, ...update } : n));
       }
     } catch (e) { console.error(e); }
     setConsultando(null);
@@ -8081,7 +8106,7 @@ function NFPage({ user }) {
                     return (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                         <span style={{ background: statusColor(n.status) + "20", color: statusColor(n.status), padding: "2px 6px", borderRadius: 8, fontSize: 9, fontWeight: 700 }}>
-                          {n.numero ? `#${n.numero}` : "—"} · {n.status === "autorizado" ? "Autorizada" : n.status === "cancelado" ? "Cancelada" : n.status === "processando" ? "Processando" : n.status}
+                          {n.numero ? `#${n.numero}` : "—"} · {n.status === "autorizado" ? "Autorizada" : n.status === "cancelado" ? "Cancelada" : (n.status === "processando" || n.status === "processando_autorizacao") ? "Processando" : n.status}
                         </span>
                         {dataEmissaoStr && (
                           <span style={{ color: COLORS.textDim, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>📅 {dataEmissaoStr}</span>

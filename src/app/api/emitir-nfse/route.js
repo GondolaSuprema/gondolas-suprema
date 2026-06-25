@@ -137,7 +137,7 @@ function dataAtualISO() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { ordem, ambiente = "homologacao", acao, ref_cancelamento, justificativa, tomador_custom, observacao } = body;
+    const { ordem, ambiente = "homologacao", acao, ref_cancelamento, ref_consulta, justificativa, tomador_custom, observacao } = body;
 
     const TOKEN = ambiente === "producao"
       ? process.env.FOCUS_NFE_TOKEN_PROD_INSTALACOES
@@ -155,6 +155,25 @@ export async function POST(request) {
       : "https://homologacao.focusnfe.com.br/v2/nfse";
 
     const authHeader = "Basic " + Buffer.from(TOKEN + ":").toString("base64");
+
+    // ────────────────────────────────────────────────────────────────────
+    // Consulta de status (pra NFS-e que ficaram em "processando_autorizacao")
+    // ────────────────────────────────────────────────────────────────────
+    if (acao === "consultar") {
+      if (!ref_consulta) {
+        return Response.json({ success: false, mensagem: "ref_consulta obrigatório" }, { status: 400 });
+      }
+      const url = `${baseUrl}/${encodeURIComponent(ref_consulta)}`;
+      const res = await fetch(url, {
+        headers: { "Authorization": authHeader, "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return Response.json({ success: false, mensagem: data.mensagem || data.codigo || `HTTP ${res.status}`, raw: data }, { status: res.status });
+      }
+      return Response.json({ success: true, consulta: true, ...data });
+    }
 
     // ────────────────────────────────────────────────────────────────────
     // Cancelamento
