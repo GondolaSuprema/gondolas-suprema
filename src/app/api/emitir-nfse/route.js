@@ -74,6 +74,34 @@ function normalizarTomadorCustom(t) {
   };
 }
 
+// Busca dados oficiais do CNPJ na BrasilAPI (Receita Federal) e devolve
+// um objeto no formato do TOMADOR_PADRAO. Devolve null se a API falhar
+// ou se o CNPJ não vier com código IBGE — o handler vai responder erro
+// explicando que precisa cadastrar manualmente.
+async function buscarTomadorPorCnpj(cnpjLimpo) {
+  try {
+    const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`, {
+      headers: { "User-Agent": "GondolasSuprema/1.0" },
+      cache: "no-store",
+    });
+    if (!resp.ok) return null;
+    const d = await resp.json();
+    if (!d || !d.codigo_municipio_ibge) return null;
+    return {
+      cnpj: cnpjLimpo,
+      razao_social: String(d.razao_social || "").trim().toUpperCase(),
+      logradouro: String(d.logradouro || "").trim().toUpperCase(),
+      numero: String(d.numero || "S/N").trim(),
+      bairro: String(d.bairro || "").trim().toUpperCase(),
+      codigo_municipio: String(d.codigo_municipio_ibge).replace(/\D/g, ""),
+      uf: String(d.uf || "").trim().toUpperCase().slice(0, 2),
+      cep: String(d.cep || "").replace(/\D/g, ""),
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+
 // Monta o texto da discriminacao da NFS-e.
 // Formato padrao: "NF {numero_pedido} - Cliente {tomador.razao_social}".
 // O "Cliente" aqui é o TOMADOR da NFS-e (quem está sendo cobrado pela
@@ -153,8 +181,24 @@ export async function POST(request) {
     // Referência única (Focus NFe usa pra rastrear a nota)
     const ref = `inst-${ordem.id}-${Date.now()}`;
 
-    // Resolve tomador: custom (vindo do body) ou RRE padrão.
-    const tomadorResolvido = normalizarTomadorCustom(tomador_custom) || TOMADOR_PADRAO;
+    // Resolve tomador. Ordem de prioridade:
+    // 1. Se vier tomador_custom completo no body → usa.
+    // 2. Se vier só {cnpj} → busca dados oficiais na BrasilAPI (incluindo IBGE).
+    // 3. Senão → RRE Máquinas padrão.
+    let tomadorResolvido = normalizarTomadorCustom(tomador_custom);
+    if (!tomadorResolvido && tomador_custom && tomador_custom.cnpj) {
+      const cnpjLimpo = String(tomador_custom.cnpj).replace(/\D/g, "");
+      if (cnpjLimpo.length === 14) {
+        tomadorResolvido = await buscarTomadorPorCnpj(cnpjLimpo);
+        if (!tomadorResolvido) {
+          return Response.json({
+            success: false,
+            mensagem: `Não consegui resolver os dados do CNPJ ${cnpjLimpo} na Receita Federal (BrasilAPI). Tenta novamente em alguns segundos — se persistir, o cliente precisa ter o CNPJ cadastrado corretamente.`,
+          }, { status: 502 });
+        }
+      }
+    }
+    if (!tomadorResolvido) tomadorResolvido = TOMADOR_PADRAO;
 
     const payload = {
       data_emissao: dataAtualISO(),

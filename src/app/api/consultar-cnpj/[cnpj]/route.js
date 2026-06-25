@@ -82,5 +82,7 @@ export async function GET(_request, { params }) {
     cep,
     municipio: dados.municipio || "",
     uf: dados.uf || "",
+    // Codigo IBGE 7 digitos — necessario pra emissao de NFS-e.
+    codigo_municipio_ibge: dados.codigo_municipio_ibge || "",
   });
 }

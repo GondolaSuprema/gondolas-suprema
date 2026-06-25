@@ -8272,33 +8272,26 @@ function NFPage({ user }) {
               </>
             )}
             {emitenteSel === "instalacoes" && (() => {
-              // Validação dos campos do tomador custom (todos obrigatórios)
-              const tcCnpj = String(tomadorCustom.cnpj || "").replace(/\D/g, "");
-              const customValido = tomadorTipo === "rre" || (
-                tcCnpj.length === 14 &&
-                tomadorCustom.razao_social.trim().length >= 3 &&
-                tomadorCustom.logradouro.trim().length >= 3 &&
-                tomadorCustom.bairro.trim().length >= 2 &&
-                String(tomadorCustom.codigo_municipio).replace(/\D/g, "").length === 7 &&
-                tomadorCustom.uf.trim().length === 2 &&
-                String(tomadorCustom.cep).replace(/\D/g, "").length === 8
-              );
+              // CNPJ do cliente da venda (limpo)
+              const cnpjCliente = String(confirmEmitir.cliente_cnpj || "").replace(/\D/g, "");
+              const clienteTemCnpj = cnpjCliente.length === 14;
+              // Validação: se for "cliente da venda", precisa ter CNPJ válido (o sistema busca o resto)
+              const tomadorValido = tomadorTipo === "rre" || clienteTemCnpj;
               const valorOk = Number(valorEditado) > 0;
-              const podeEmitir = !editandoValor && valorOk && customValido;
-              const inputStyle = { width: "100%", padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "'DM Sans', sans-serif" };
+              const podeEmitir = !editandoValor && valorOk && tomadorValido;
               const lbl = (t) => <div style={{ color: COLORS.textDim, fontSize: 9, marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.3 }}>{t}</div>;
-              const setTC = (k, v) => setTomadorCustom(prev => ({ ...prev, [k]: v }));
+              const inputStyle = { width: "100%", padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "'DM Sans', sans-serif" };
               return (
               <>
                 <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 18, margin: "0 0 12px" }}>🔧 Confirmar — Suprema Instalações</h2>
                 <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 12px" }}>Esta ação irá emitir uma <strong style={{ color: COLORS.danger }}>NFS-e REAL</strong> na Prefeitura de Palhoça.</p>
-                {/* Toggle Tomador: RRE (padrão) | Outro CNPJ */}
+                {/* Toggle Tomador: RRE (padrão) | Cliente da venda */}
                 <div style={{ marginBottom: 10 }}>
                   {lbl("Tomador")}
                   <div style={{ display: "flex", gap: 4, background: COLORS.bg, padding: 3, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
                     {[
-                      { v: "rre",    lbl: "RRE Máquinas (padrão)" },
-                      { v: "custom", lbl: "Outro CNPJ" },
+                      { v: "rre",     lbl: "RRE Máquinas (padrão)" },
+                      { v: "cliente", lbl: "Cliente da venda" },
                     ].map(opt => (
                       <button
                         key={opt.v}
@@ -8315,7 +8308,7 @@ function NFPage({ user }) {
                     ))}
                   </div>
                 </div>
-                {/* Dados do tomador — RRE fixos ou formulário custom */}
+                {/* Dados do tomador — só preview, sistema busca o resto via CNPJ */}
                 <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
                   {tomadorTipo === "rre" ? (
                     <>
@@ -8323,19 +8316,15 @@ function NFPage({ user }) {
                       <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: 23.505.287/0001-07 · São José/SC</div>
                     </>
                   ) : (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <div style={{ gridColumn: "1 / -1" }}>{lbl("CNPJ *")}<input value={tomadorCustom.cnpj} onChange={e => setTC("cnpj", e.target.value)} placeholder="00.000.000/0000-00" style={inputStyle} /></div>
-                      <div style={{ gridColumn: "1 / -1" }}>{lbl("Razão Social *")}<input value={tomadorCustom.razao_social} onChange={e => setTC("razao_social", e.target.value)} placeholder="Nome da empresa" style={inputStyle} /></div>
-                      <div style={{ gridColumn: "1 / 2" }}>{lbl("Logradouro *")}<input value={tomadorCustom.logradouro} onChange={e => setTC("logradouro", e.target.value)} placeholder="Rua/Av." style={inputStyle} /></div>
-                      <div>{lbl("Número")}<input value={tomadorCustom.numero} onChange={e => setTC("numero", e.target.value)} placeholder="123" style={inputStyle} /></div>
-                      <div>{lbl("Bairro *")}<input value={tomadorCustom.bairro} onChange={e => setTC("bairro", e.target.value)} style={inputStyle} /></div>
-                      <div>{lbl("CEP *")}<input value={tomadorCustom.cep} onChange={e => setTC("cep", e.target.value)} placeholder="00000-000" style={inputStyle} /></div>
-                      <div>{lbl("Cód. Município IBGE *")}<input value={tomadorCustom.codigo_municipio} onChange={e => setTC("codigo_municipio", e.target.value)} placeholder="7 dígitos (ex: 4216800)" style={inputStyle} /></div>
-                      <div>{lbl("UF *")}<input value={tomadorCustom.uf} onChange={e => setTC("uf", e.target.value.toUpperCase().slice(0, 2))} placeholder="SC" maxLength={2} style={inputStyle} /></div>
-                      <div style={{ gridColumn: "1 / -1", color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>
-                        💡 Cód. Município IBGE de 7 dígitos. Pesquisa em <a href="https://www.ibge.gov.br/explica/codigos-dos-municipios.php" target="_blank" rel="noopener noreferrer" style={{ color: "#3B82F6" }}>ibge.gov.br</a> se não souber.
-                      </div>
-                    </div>
+                    <>
+                      <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>{confirmEmitir.cliente_empresa || "—"}</div>
+                      <div style={{ color: COLORS.textMuted, fontSize: 11 }}>CNPJ: {confirmEmitir.cliente_cnpj || "—"} · {confirmEmitir.cliente_cidade || ""}{confirmEmitir.cliente_estado ? "/" + confirmEmitir.cliente_estado : ""}</div>
+                      {clienteTemCnpj ? (
+                        <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4, fontStyle: "italic" }}>O sistema busca razão, endereço e código IBGE direto na Receita Federal pelo CNPJ.</div>
+                      ) : (
+                        <div style={{ color: COLORS.danger, fontSize: 10, marginTop: 4, fontWeight: 600 }}>⚠️ Cliente da venda sem CNPJ cadastrado. Cadastra o CNPJ na ficha do cliente ou usa "RRE Máquinas".</div>
+                      )}
+                    </>
                   )}
                   {/* Valor com lápis pra editar manualmente */}
                   <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
@@ -8377,11 +8366,6 @@ function NFPage({ user }) {
                     <div style={{ color: COLORS.danger, fontSize: 12, fontWeight: 600 }}>⚠️ Valor precisa ser maior que zero</div>
                   </div>
                 )}
-                {valorOk && tomadorTipo === "custom" && !customValido && (
-                  <div style={{ background: "#F59E0B12", border: "1px solid #F59E0B40", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
-                    <div style={{ color: "#F59E0B", fontSize: 12, fontWeight: 600 }}>⚠️ Preencha todos os campos do tomador (CNPJ, razão, endereço completo, cód. município IBGE e UF)</div>
-                  </div>
-                )}
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
                   <button
@@ -8390,7 +8374,9 @@ function NFPage({ user }) {
                       {
                         emitente: "instalacoes",
                         ambiente: "producao",
-                        ...(tomadorTipo === "custom" ? { tomador_custom: tomadorCustom } : {}),
+                        // Pra "cliente da venda", mandamos só o CNPJ — o backend
+                        // resolve razão, endereço e código IBGE na BrasilAPI.
+                        ...(tomadorTipo === "cliente" ? { tomador_custom: { cnpj: cnpjCliente } } : {}),
                         ...(observacaoNfse.trim() ? { observacao: observacaoNfse.trim() } : {}),
                       }
                     )}
