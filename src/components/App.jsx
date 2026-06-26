@@ -4289,12 +4289,12 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                             Inscrição Estadual <span style={{ fontStyle: "italic" }}>(obrigatória pra NF-e quando o cliente é contribuinte)</span>
                           </span>
                           <a
-                            href={`https://www.sintegra.gov.br/${editClient.estado ? `Cad_Est_${editClient.estado.toUpperCase()}.html` : ""}`}
+                            href="http://www.sintegra.gov.br/"
                             target="_blank"
                             rel="noopener noreferrer"
-                            title={`Consultar IE no SINTEGRA${editClient.estado ? ` ${editClient.estado.toUpperCase()}` : ""}`}
+                            title="Consultar IE no SINTEGRA — escolha o estado"
                             style={{ color: COLORS.orange, fontSize: 10, fontFamily: "'DM Sans', sans-serif", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}
-                          >🔍 Consultar IE no SINTEGRA{editClient.estado ? ` (${editClient.estado.toUpperCase()})` : ""} ↗</a>
+                          >🔍 Consultar SINTEGRA ↗</a>
                         </div>
                         <input value={editClient.ie} onChange={e => setEditClient({ ...editClient, ie: e.target.value })} placeholder='Apenas dígitos · ou escreva "ISENTO" se o cliente for isento' style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
                       </div>
@@ -8316,12 +8316,12 @@ function NFPage({ user }) {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                     <span style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.3 }}>Inscrição Estadual</span>
                     <a
-                      href={`https://www.sintegra.gov.br/${confirmEmitir.cliente_estado ? `Cad_Est_${String(confirmEmitir.cliente_estado).toUpperCase()}.html` : ""}`}
+                      href="http://www.sintegra.gov.br/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      title={`Consultar IE no SINTEGRA${confirmEmitir.cliente_estado ? ` ${String(confirmEmitir.cliente_estado).toUpperCase()}` : ""}`}
+                      title="Consultar IE no SINTEGRA — escolha o estado"
                       style={{ color: COLORS.orange, fontSize: 10, textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}
-                    >🔍 Consultar SINTEGRA{confirmEmitir.cliente_estado ? ` (${String(confirmEmitir.cliente_estado).toUpperCase()})` : ""} ↗</a>
+                    >🔍 Consultar SINTEGRA ↗</a>
                   </div>
                   <input
                     value={ieEditNfe}
