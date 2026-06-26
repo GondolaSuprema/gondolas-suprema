@@ -130,7 +130,22 @@ export async function POST(request) {
     municipio_destinatario: ordem.client?.cidade || "Nao informado",
     uf_destinatario: (ordem.client?.estado || "SC").toUpperCase(),
     cep_destinatario: ((ordem.client?.cep || "").replace(/\D/g, "").padStart(8, "0")).slice(0, 8) || "00000000",
-    indicador_inscricao_estadual_destinatario: "9",
+    // Inscricao Estadual: se cliente é PJ e a ficha tem IE preenchida, manda
+    // indicador "1" (contribuinte) + IE. Se for "ISENTO" / vazio / PF, indicador "9".
+    // SEFAZ rejeita NF-e com destinatario PJ sem IE quando o indicador eh 1.
+    ...(function() {
+      if (isClienteCpf) return { indicador_inscricao_estadual_destinatario: "9" };
+      const ieRaw = String(ordem.client?.ie || "").trim().toUpperCase();
+      if (!ieRaw || ieRaw === "ISENTO" || ieRaw === "ISENTA") {
+        return { indicador_inscricao_estadual_destinatario: ieRaw.startsWith("ISENT") ? "2" : "9" };
+      }
+      const ieLimpa = ieRaw.replace(/\D/g, "");
+      if (!ieLimpa) return { indicador_inscricao_estadual_destinatario: "9" };
+      return {
+        indicador_inscricao_estadual_destinatario: "1",
+        inscricao_estadual_destinatario: ieLimpa,
+      };
+    })(),
     telefone_destinatario: (ordem.client?.telefone || "").replace(/\D/g, ""),
     email_destinatario: ordem.client?.email || "",
     items: produtos,

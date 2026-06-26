@@ -3139,7 +3139,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   };
   const [editMarkup, setEditMarkup] = useState(0);
   const [editNotes, setEditNotes] = useState("");
-  const [editClient, setEditClient] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "" });
+  const [editClient, setEditClient] = useState({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "", ie: "" });
   const [editBuscandoCnpj, setEditBuscandoCnpj] = useState(false);
   const [editCnpjMsg, setEditCnpjMsg] = useState({ tipo: "", texto: "" }); // tipo: "ok" | "erro" | ""
   const ultimoCnpjConsultadoRef = useRef("");
@@ -3319,6 +3319,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       cidade: c.cidade || "",
       estado: c.estado || "",
       cep: c.cep || "",
+      ie: c.ie || "",
     });
     // Recuperar a margem do orcamento como percentual aplicado (sobre custo COM desconto)
     const subCusto = itensCusto.reduce((s, it) => s + (Number(it.total) || 0), 0);
@@ -3334,7 +3335,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     setEditDesconto(0);
     setEditMarkup(0);
     setEditNotes("");
-    setEditClient({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "" });
+    setEditClient({ empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", bairro: "", cidade: "", estado: "", cep: "", ie: "" });
     setEditCnpjMsg({ tipo: "", texto: "" });
     ultimoCnpjConsultadoRef.current = "";
   };
@@ -3369,6 +3370,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       cliente_cidade: editClient.cidade || null,
       cliente_estado: editClient.estado || null,
       cliente_cep: cepDigits || null,
+      cliente_ie: (editClient.ie || "").trim() || null,
     }).eq("id", orderId);
     setOrders(orders.map(o => o.id === orderId ? {
       ...o,
@@ -3386,7 +3388,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         setOrders(data.map(o => ({
           id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, anotacoes: o.anotacoes || "", status: o.status, items: o.items, vendedor: o.vendedor_nome,
           temperatura: o.temperatura || null,
-          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
+          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep, ie: o.cliente_ie }
         })));
       }
     };
@@ -4280,6 +4282,21 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                       <div>
                         <div style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 3, fontFamily: "'DM Sans', sans-serif" }}>Estado (UF)</div>
                         <input value={editClient.estado} onChange={e => setEditClient({ ...editClient, estado: e.target.value.toUpperCase().slice(0, 2) })} placeholder="SC" maxLength={2} style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textTransform: "uppercase" }} />
+                      </div>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                          <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>
+                            Inscrição Estadual <span style={{ fontStyle: "italic" }}>(obrigatória pra NF-e quando o cliente é contribuinte)</span>
+                          </span>
+                          <a
+                            href={`https://www.sintegra.gov.br/${editClient.estado ? `Cad_Est_${editClient.estado.toUpperCase()}.html` : ""}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`Consultar IE no SINTEGRA${editClient.estado ? ` ${editClient.estado.toUpperCase()}` : ""}`}
+                            style={{ color: COLORS.orange, fontSize: 10, fontFamily: "'DM Sans', sans-serif", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}
+                          >🔍 Consultar IE no SINTEGRA{editClient.estado ? ` (${editClient.estado.toUpperCase()})` : ""} ↗</a>
+                        </div>
+                        <input value={editClient.ie} onChange={e => setEditClient({ ...editClient, ie: e.target.value })} placeholder='Apenas dígitos · ou escreva "ISENTO" se o cliente for isento' style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
                       </div>
                     </div>
                   </div>
@@ -5289,7 +5306,7 @@ function AdminPage({ user }) {
           vendaEmpresaRecebedora: o.venda_empresa_recebedora || null,
           vendaBancoRecebedor: o.venda_banco_recebedor || null,
           data_pagamento: o.data_pagamento || null,
-          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep }
+          client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep, ie: o.cliente_ie }
         })));
       }
     };
@@ -7790,6 +7807,9 @@ function NFPage({ user }) {
   const [tomadorCustom, setTomadorCustom] = useState(TOMADOR_VAZIO);
   // Texto livre da OBS — anexado à discriminação automática "NF X - Cliente Y"
   const [observacaoNfse, setObservacaoNfse] = useState("");
+  // IE editável no modal de emissão NF-e Gôndolas — sincroniza com o orçamento ao emitir
+  const [ieEditNfe, setIeEditNfe] = useState("");
+  const [salvandoIe, setSalvandoIe] = useState(false);
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
   // Só admin/gestor (Ale e Zanella) podem emitir/cancelar NF
@@ -7828,6 +7848,7 @@ function NFPage({ user }) {
         client: {
           empresa: ordem.cliente_empresa,
           cnpj: ordem.cliente_cnpj,
+          ie: ordem.cliente_ie,
           responsavel: ordem.cliente_responsavel,
           telefone: ordem.cliente_telefone,
           email: ordem.cliente_email,
@@ -8248,7 +8269,7 @@ function NFPage({ user }) {
                   {Number(confirmEmitir.comissao) > 0 && <div style={{ color: "#10B981", fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>Comissão: {fmt(Number(confirmEmitir.comissao))}</div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <button onClick={() => { setEmitenteSel("gondolas"); setValorEditado(Number(confirmEmitir.total || 0).toFixed(2)); setEditandoValor(false); }} style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}40`, color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                  <button onClick={() => { setEmitenteSel("gondolas"); setValorEditado(Number(confirmEmitir.total || 0).toFixed(2)); setEditandoValor(false); setIeEditNfe(confirmEmitir.cliente_ie || ""); }} style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}40`, color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
                     <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700 }}>🏪 Gôndolas Suprema</div>
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NF-e de mercadoria · destinatário: <strong style={{ color: COLORS.text }}>{confirmEmitir.cliente_empresa}</strong></div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.total))}</div>
@@ -8290,9 +8311,51 @@ function NFPage({ user }) {
                     )}
                   </div>
                 </div>
+                {/* Inscrição Estadual — obrigatória pra cliente PJ contribuinte. Salva no orçamento ao emitir. */}
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <span style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.3 }}>Inscrição Estadual</span>
+                    <a
+                      href={`https://www.sintegra.gov.br/${confirmEmitir.cliente_estado ? `Cad_Est_${String(confirmEmitir.cliente_estado).toUpperCase()}.html` : ""}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Consultar IE no SINTEGRA${confirmEmitir.cliente_estado ? ` ${String(confirmEmitir.cliente_estado).toUpperCase()}` : ""}`}
+                      style={{ color: COLORS.orange, fontSize: 10, textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}
+                    >🔍 Consultar SINTEGRA{confirmEmitir.cliente_estado ? ` (${String(confirmEmitir.cliente_estado).toUpperCase()})` : ""} ↗</a>
+                  </div>
+                  <input
+                    value={ieEditNfe}
+                    onChange={e => setIeEditNfe(e.target.value)}
+                    placeholder='Apenas dígitos · ou "ISENTO" se o cliente for isento'
+                    style={{ width: "100%", padding: "7px 10px", background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "'DM Sans', sans-serif" }}
+                  />
+                  <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 4, fontStyle: "italic" }}>
+                    A IE preenchida aqui é salva também no orçamento — não precisa reabrir.
+                  </div>
+                </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
-                  <button onClick={() => emitirNfe({ ...confirmEmitir, total: Number(valorEditado) || Number(confirmEmitir.total) }, { emitente: "gondolas", ambiente: "producao" })} disabled={editandoValor} style={{ flex: 1, background: editandoValor ? COLORS.textDim : "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: editandoValor ? "not-allowed" : "pointer", fontSize: 13 }}>Sim, Emitir NF-e</button>
+                  <button
+                    onClick={async () => {
+                      const ieFinal = (ieEditNfe || "").trim();
+                      // Salva IE atualizada no orçamento (se mudou) antes de emitir,
+                      // pra que próximas emissões da mesma venda já tenham a IE.
+                      if (ieFinal !== String(confirmEmitir.cliente_ie || "").trim()) {
+                        setSalvandoIe(true);
+                        try {
+                          await supabase.from("orcamentos").update({ cliente_ie: ieFinal || null }).eq("id", confirmEmitir.id);
+                          setVendas(prev => prev.map(o => o.id === confirmEmitir.id ? { ...o, cliente_ie: ieFinal || null } : o));
+                        } catch (_e) { /* segue mesmo se falhar — emissão é o crítico */ }
+                        setSalvandoIe(false);
+                      }
+                      emitirNfe(
+                        { ...confirmEmitir, total: Number(valorEditado) || Number(confirmEmitir.total), cliente_ie: ieFinal || null },
+                        { emitente: "gondolas", ambiente: "producao" }
+                      );
+                    }}
+                    disabled={editandoValor || salvandoIe}
+                    style={{ flex: 1, background: (editandoValor || salvandoIe) ? COLORS.textDim : "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: (editandoValor || salvandoIe) ? "not-allowed" : "pointer", fontSize: 13 }}
+                  >{salvandoIe ? "Salvando IE..." : "Sim, Emitir NF-e"}</button>
                 </div>
               </>
             )}
