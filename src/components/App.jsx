@@ -8574,9 +8574,8 @@ function BoletosAtrasadosBanner({ user, setPage }) {
 }
 
 // ─── Conciliação Bancária ─────────────────────────────────────────────
-// Fase 1: upload de PDF de extrato (C6 Instalações / Sicredi Gôndolas /
-// MP Gôndolas), parse automático e visualização em tabela. Matching com
-// despesas/vendas vem na Fase 2.
+// Fase 1 (upload PDF) + Fase 2 (matching automático) + Fase 3 (ações
+// inline: criar despesa, marcar ignorado, vincular venda).
 function ConciliacaoPage({ user }) {
   const BANCOS = [
     { k: "c6_instalacoes",   l: "C6 (Suprema Instalações)",     cor: "#3B82F6" },
@@ -8590,6 +8589,11 @@ function ConciliacaoPage({ user }) {
   const [carregando, setCarregando] = useState(false);
   const [uploadando, setUploadando] = useState(false);
   const [uploadResultado, setUploadResultado] = useState(null);
+  const [reconciliando, setReconciliando] = useState(false);
+  const [reconcResultado, setReconcResultado] = useState(null);
+  const [processandoAcao, setProcessandoAcao] = useState(null); // id do lancamento
+  const [vincularVenda, setVincularVenda] = useState(null); // { lancamento }
+  const [vendasDisponiveis, setVendasDisponiveis] = useState([]);
   const fileInputRef = useRef(null);
 
   const carregar = async () => {
@@ -8605,7 +8609,7 @@ function ConciliacaoPage({ user }) {
     setCarregando(false);
   };
 
-  useEffect(() => { carregar(); }, [bancoSel, mesSel]);
+  useEffect(() => { carregar(); setReconcResultado(null); }, [bancoSel, mesSel]);
 
   const onUploadFile = async (e) => {
     const file = e.target.files?.[0];
@@ -8619,7 +8623,6 @@ function ConciliacaoPage({ user }) {
       const data = await res.json();
       setUploadResultado(data);
       if (data.success) {
-        // Se o banco detectado for diferente do selecionado, troca pra ele
         if (data.banco && data.banco !== bancoSel) setBancoSel(data.banco);
         await carregar();
       }
@@ -8628,6 +8631,51 @@ function ConciliacaoPage({ user }) {
     }
     setUploadando(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const reconciliar = async () => {
+    setReconciliando(true);
+    setReconcResultado(null);
+    try {
+      const res = await fetch("/api/conciliacao/reconciliar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ banco: bancoSel, mes: mesSel }),
+      });
+      const data = await res.json();
+      setReconcResultado(data);
+      if (data.success) await carregar();
+    } catch (err) {
+      setReconcResultado({ success: false, mensagem: err.message });
+    }
+    setReconciliando(false);
+  };
+
+  const aplicarAcao = async (lancamento, acao, extras = {}) => {
+    setProcessandoAcao(lancamento.id);
+    try {
+      const res = await fetch("/api/conciliacao/acao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lancamento_id: lancamento.id, acao, ...extras }),
+      });
+      const data = await res.json();
+      if (data.success) await carregar();
+      else alert("Erro: " + (data.mensagem || "ação falhou"));
+    } catch (err) { alert("Erro: " + err.message); }
+    setProcessandoAcao(null);
+  };
+
+  const abrirVincularVenda = async (lancamento) => {
+    setVincularVenda({ lancamento });
+    // Busca vendas concluídas do mês (sem orçamentos RS-ocultos)
+    const { data } = await supabase
+      .from("orcamentos")
+      .select("id, cliente_empresa, total, valor_recebido, data_entrega")
+      .eq("status", "Concluído")
+      .order("data_entrega", { ascending: false })
+      .limit(50);
+    if (data) setVendasDisponiveis(data.filter(o => !isOrcamentoRsOculto(o)));
   };
 
   const totalEntradas = lancamentos.filter(l => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0);
@@ -8685,7 +8733,29 @@ function ConciliacaoPage({ user }) {
             disabled={uploadando}
             style={{ background: uploadando ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: uploadando ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif" }}
           >{uploadando ? "Parseando PDF..." : "📄 Subir extrato (PDF)"}</button>
+          <button
+            onClick={reconciliar}
+            disabled={reconciliando || lancamentos.length === 0}
+            style={{ background: (reconciliando || lancamentos.length === 0) ? COLORS.textDim : "#8B5CF6", color: "#fff", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: (reconciliando || lancamentos.length === 0) ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif" }}
+          >{reconciliando ? "Reconciliando..." : "🔄 Reconciliar agora"}</button>
         </div>
+
+        {/* Resultado do matching */}
+        {reconcResultado && (
+          <div style={{
+            background: reconcResultado.success ? "#8B5CF612" : COLORS.danger + "12",
+            border: `1px solid ${reconcResultado.success ? "#8B5CF640" : COLORS.danger + "40"}`,
+            borderRadius: 8, padding: "10px 14px", marginBottom: 14,
+            color: reconcResultado.success ? "#8B5CF6" : COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+          }}>
+            {reconcResultado.success ? (
+              <>
+                <strong>✓ Reconciliado {reconcResultado.total} lançamentos:</strong>{" "}
+                {reconcResultado.stats?.conciliado || 0} conciliados · {reconcResultado.stats?.so_extrato || 0} só no extrato · {reconcResultado.stats?.ignorado || 0} ignorados
+              </>
+            ) : (<>⚠️ {reconcResultado.mensagem || "Falha"}</>)}
+          </div>
+        )}
 
         {/* Resultado do último upload */}
         {uploadResultado && (
@@ -8738,32 +8808,140 @@ function ConciliacaoPage({ user }) {
                     <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Data</th>
                     <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Descrição</th>
                     <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
-                    <th style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Tipo</th>
                     <th style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
+                    <th style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lancamentos.map(l => (
-                    <tr key={l.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                      <td style={{ padding: "8px 12px", color: COLORS.text, whiteSpace: "nowrap" }}>{new Date(l.data + "T00:00:00").toLocaleDateString("pt-BR")}</td>
-                      <td style={{ padding: "8px 12px", color: COLORS.text }}>{l.descricao}</td>
-                      <td style={{ padding: "8px 12px", textAlign: "right", color: l.tipo === "entrada" ? "#10B981" : COLORS.danger, fontWeight: 700 }}>
-                        {l.tipo === "saida" ? "-" : "+"}{fmt(Number(l.valor))}
-                      </td>
-                      <td style={{ padding: "8px 12px", textAlign: "center" }}>
-                        <span style={{ background: (l.tipo === "entrada" ? "#10B981" : COLORS.danger) + "20", color: l.tipo === "entrada" ? "#10B981" : COLORS.danger, padding: "2px 8px", borderRadius: 12, fontSize: 9, fontWeight: 700 }}>{l.tipo === "entrada" ? "Entrada" : "Saída"}</span>
-                      </td>
-                      <td style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textDim, fontSize: 10 }}>
-                        {l.status_conciliacao === "pendente" ? "—" : l.status_conciliacao}
-                      </td>
-                    </tr>
-                  ))}
+                  {lancamentos.map(l => {
+                    const statusInfo = {
+                      conciliado: { cor: "#10B981", lbl: "✓ Conciliado", bg: "#10B98115" },
+                      divergente: { cor: "#F59E0B", lbl: "⚠ Divergente", bg: "#F59E0B15" },
+                      so_extrato: { cor: COLORS.danger, lbl: "🆕 Só no extrato", bg: COLORS.danger + "12" },
+                      ignorado:   { cor: COLORS.textDim, lbl: "🚫 Ignorado", bg: COLORS.textDim + "12" },
+                      pendente:   { cor: COLORS.textMuted, lbl: "— Pendente", bg: "transparent" },
+                    }[l.status_conciliacao] || { cor: COLORS.textMuted, lbl: l.status_conciliacao, bg: "transparent" };
+                    const linhaBg = l.status_conciliacao === "so_extrato" ? COLORS.danger + "08" :
+                                    l.status_conciliacao === "divergente" ? "#F59E0B08" : "transparent";
+                    const podeAgir = l.status_conciliacao !== "conciliado" && l.status_conciliacao !== "ignorado";
+                    const processando = processandoAcao === l.id;
+                    return (
+                      <tr key={l.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: linhaBg }}>
+                        <td style={{ padding: "8px 12px", color: COLORS.text, whiteSpace: "nowrap" }}>{new Date(l.data + "T00:00:00").toLocaleDateString("pt-BR")}</td>
+                        <td style={{ padding: "8px 12px", color: COLORS.text }}>
+                          {l.descricao}
+                          {l.observacao && <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2, fontStyle: "italic" }}>{l.observacao}</div>}
+                        </td>
+                        <td style={{ padding: "8px 12px", textAlign: "right", color: l.tipo === "entrada" ? "#10B981" : COLORS.danger, fontWeight: 700, whiteSpace: "nowrap" }}>
+                          {l.tipo === "saida" ? "-" : "+"}{fmt(Number(l.valor))}
+                        </td>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          <span style={{ background: statusInfo.bg, color: statusInfo.cor, padding: "2px 8px", borderRadius: 12, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{statusInfo.lbl}</span>
+                        </td>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          {processando ? (
+                            <span style={{ color: COLORS.textDim, fontSize: 10 }}>...</span>
+                          ) : podeAgir ? (
+                            <div style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
+                              <button
+                                onClick={() => aplicarAcao(l, "criar_despesa")}
+                                title="Criar despesa nova com tipo/categoria inferidos"
+                                style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 7px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+                              >+ Despesa</button>
+                              {l.tipo === "entrada" && (
+                                <button
+                                  onClick={() => abrirVincularVenda(l)}
+                                  title="Vincular a uma venda do sistema"
+                                  style={{ background: "#3B82F615", border: "1px solid #3B82F640", color: "#3B82F6", padding: "3px 7px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+                                >🛒 Venda</button>
+                              )}
+                              <button
+                                onClick={() => aplicarAcao(l, "marcar_ignorado")}
+                                title="Marcar como ignorado (transferência interna, pessoal, etc)"
+                                style={{ background: COLORS.textDim + "15", border: `1px solid ${COLORS.textDim}40`, color: COLORS.textDim, padding: "3px 7px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+                              >🚫 Ignorar</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => aplicarAcao(l, "desconciliar")}
+                              title="Desfazer conciliação"
+                              style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "3px 7px", borderRadius: 6, fontSize: 9, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+                            >↺ Desfazer</button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modal: vincular lançamento a uma venda */}
+      {vincularVenda && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 600, maxWidth: "100%", maxHeight: "85vh", overflowY: "auto" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 18, margin: "0 0 6px" }}>Vincular a uma venda</h2>
+            <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "0 0 12px" }}>
+              Lançamento: <strong style={{ color: COLORS.text }}>{vincularVenda.lancamento.descricao.slice(0, 80)}</strong>{" "}
+              · <strong style={{ color: "#10B981" }}>+{fmt(Number(vincularVenda.lancamento.valor))}</strong>
+            </p>
+            <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, maxHeight: 360, overflowY: "auto" }}>
+              {vendasDisponiveis.length === 0 ? (
+                <div style={{ padding: 20, color: COLORS.textMuted, textAlign: "center", fontSize: 12 }}>Carregando vendas...</div>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                      <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Cliente</th>
+                      <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Total</th>
+                      <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Recebido</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Entrega</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Vincular</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vendasDisponiveis.map(v => {
+                      const vrIgual = v.valor_recebido != null && Math.abs(Number(v.valor_recebido) - Number(vincularVenda.lancamento.valor)) < 0.01;
+                      const totalIgual = Math.abs(Number(v.total) - Number(vincularVenda.lancamento.valor)) < 0.01;
+                      const destaque = vrIgual || totalIgual;
+                      return (
+                        <tr key={v.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: destaque ? "#10B98108" : "transparent" }}>
+                          <td style={{ padding: "8px 12px", color: COLORS.text }}>{v.cliente_empresa || "—"}</td>
+                          <td style={{ padding: "8px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700 }}>{fmt(Number(v.total || 0))}</td>
+                          <td style={{ padding: "8px 12px", textAlign: "right", color: vrIgual ? "#10B981" : COLORS.textDim, fontWeight: vrIgual ? 700 : 400 }}>
+                            {v.valor_recebido != null ? fmt(Number(v.valor_recebido)) : "—"}
+                          </td>
+                          <td style={{ padding: "8px 12px", color: COLORS.textMuted, fontSize: 10 }}>{v.data_entrega || "—"}</td>
+                          <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                            <div style={{ display: "inline-flex", gap: 4 }}>
+                              <button
+                                onClick={() => { aplicarAcao(vincularVenda.lancamento, "vincular_venda", { ordem_id: v.id, atualizar_valor_recebido: false }); setVincularVenda(null); }}
+                                title="Apenas vincular (sem mexer no valor_recebido)"
+                                style={{ background: "#3B82F615", border: "1px solid #3B82F640", color: "#3B82F6", padding: "3px 7px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                              >Vincular</button>
+                              <button
+                                onClick={() => { aplicarAcao(vincularVenda.lancamento, "vincular_venda", { ordem_id: v.id, atualizar_valor_recebido: true }); setVincularVenda(null); }}
+                                title="Vincular E atualizar valor_recebido da venda pra esse valor"
+                                style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "3px 7px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
+                              >+ Atualizar VR</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+              <button onClick={() => setVincularVenda(null)} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
