@@ -4733,6 +4733,7 @@ function LogisticaPage({ user }) {
                       <tr style={{ background: COLORS.bg }}>
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Cliente</th>
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Cidade</th>
+                        <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Vendedor</th>
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Pedido</th>
                         <th style={{ padding: "10px 14px", textAlign: "right", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Valor</th>
                         <th style={{ padding: "10px 14px", textAlign: "left", color: COLORS.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Pagamento</th>
@@ -4777,6 +4778,7 @@ function LogisticaPage({ user }) {
                                 })()}
                               </div>
                             </td>
+                            <td style={{ padding: "12px 14px", color: COLORS.accent, fontSize: 12, fontWeight: 500 }}>{o.vendedor || "—"}</td>
                             <td style={{ padding: "12px 14px", color: COLORS.text, fontFamily: "monospace" }}>{o.numeroPedido || "—"}</td>
                             <td style={{ padding: "12px 14px", color: COLORS.orange, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{fmt(o.total)}</td>
                             <td style={{ padding: "12px 14px", color: o.pagamento ? COLORS.text : COLORS.textDim, fontSize: 12 }}>{o.pagamento || "—"}</td>
