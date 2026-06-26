@@ -2175,6 +2175,13 @@ function inferirTipoDespesa(nome) {
   if (n.startsWith("forn_"))         return { tipo: "CMV", categoria: "Fornecedores Outros" };
   // Gondolas S.A — fornecedor especifico de gondolas
   if (n === "s.a" || n === "gondolas s.a" || n.startsWith("gondolas s.a")) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
+  // Fornecedores frequentes da Suprema (cadastrados conforme aparecem nos extratos):
+  // - RRE Máquinas (Gôndolas Brasil) → fornecedor de gôndolas/MPP
+  // - Império das Gôndolas → fornecedor de gôndolas
+  // - Fibrasul → fornecedor de MDF
+  if (n.includes("rre máquinas") || n.includes("rre maquinas") || /\brre\b/.test(n)) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
+  if (n.includes("império das gôndolas") || n.includes("imperio das gondolas") || n.includes("imperio gondolas")) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
+  if (n.includes("fibrasul")) return { tipo: "CMV", categoria: "Fornecedores MDF" };
   if (n.includes("simples") || n.startsWith("imposto_das") || n.startsWith("das_")) return { tipo: "DEDUCAO_RECEITA", categoria: "Simples Nacional (DAS)" };
   if (n.includes("icms"))            return { tipo: "DEDUCAO_RECEITA", categoria: "ICMS" };
   if (n.startsWith("salário") || n.startsWith("salario")) return { tipo: "DESPESA_LOGISTICA", categoria: "Salários Operacionais" };
