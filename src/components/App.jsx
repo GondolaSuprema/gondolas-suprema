@@ -1641,6 +1641,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "financeiro", l: "Financeiro" },
     { k: "dre", l: "DRE" },
     { k: "nf", l: "NF" },
+    { k: "conciliacao", l: "Conciliação" },
   ].filter(i => canAccess(user, i.k));
 
   const activeTab = tabs.find(t => t.k === page);
@@ -1988,7 +1989,7 @@ const VENDEDORES = [
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
-  admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf"],
+  admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
   // gestor (Zanella) — explicitamente SEM comissoes (regra do Ale)
   gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
@@ -2003,7 +2004,7 @@ const ROLE_PERMISSIONS = {
 // Abas com acesso restrito SOMENTE ao Alessandro (user.id === "v1"),
 // independente da role. Mesmo que alguém vire admin no futuro, essas
 // abas continuam exclusivas dele.
-const ALE_ONLY_TABS = ["financeiro", "dre", "nf"];
+const ALE_ONLY_TABS = ["financeiro", "dre", "nf", "conciliacao"];
 
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
@@ -8572,6 +8573,201 @@ function BoletosAtrasadosBanner({ user, setPage }) {
   );
 }
 
+// ─── Conciliação Bancária ─────────────────────────────────────────────
+// Fase 1: upload de PDF de extrato (C6 Instalações / Sicredi Gôndolas /
+// MP Gôndolas), parse automático e visualização em tabela. Matching com
+// despesas/vendas vem na Fase 2.
+function ConciliacaoPage({ user }) {
+  const BANCOS = [
+    { k: "c6_instalacoes",   l: "C6 (Suprema Instalações)",     cor: "#3B82F6" },
+    { k: "sicredi_gondolas", l: "Sicredi (Gôndolas Suprema)",   cor: "#10B981" },
+    { k: "mp_gondolas",      l: "Mercado Pago (Gôndolas)",      cor: "#06B6D4" },
+  ];
+  const [bancoSel, setBancoSel] = useState("c6_instalacoes");
+  const _hojeMes = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); })();
+  const [mesSel, setMesSel] = useState(_hojeMes);
+  const [lancamentos, setLancamentos] = useState([]);
+  const [carregando, setCarregando] = useState(false);
+  const [uploadando, setUploadando] = useState(false);
+  const [uploadResultado, setUploadResultado] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const carregar = async () => {
+    setCarregando(true);
+    const { data } = await supabase
+      .from("lancamentos_bancarios")
+      .select("*")
+      .eq("banco", bancoSel)
+      .eq("mes", mesSel)
+      .order("data", { ascending: true })
+      .order("criado_em", { ascending: true });
+    if (data) setLancamentos(data);
+    setCarregando(false);
+  };
+
+  useEffect(() => { carregar(); }, [bancoSel, mesSel]);
+
+  const onUploadFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadando(true);
+    setUploadResultado(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/conciliacao/upload-extrato", { method: "POST", body: form });
+      const data = await res.json();
+      setUploadResultado(data);
+      if (data.success) {
+        // Se o banco detectado for diferente do selecionado, troca pra ele
+        if (data.banco && data.banco !== bancoSel) setBancoSel(data.banco);
+        await carregar();
+      }
+    } catch (err) {
+      setUploadResultado({ success: false, mensagem: err.message });
+    }
+    setUploadando(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const totalEntradas = lancamentos.filter(l => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0);
+  const totalSaidas   = lancamentos.filter(l => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
+
+  // Gera lista de meses pro filtro (últimos 12)
+  const mesesOpts = (() => {
+    const out = [];
+    const hoje = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+      const k = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+      const lbl = d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+      out.push({ k, lbl: lbl.charAt(0).toUpperCase() + lbl.slice(1) });
+    }
+    return out;
+  })();
+
+  const bancoAtual = BANCOS.find(b => b.k === bancoSel);
+
+  return (
+    <div style={{ minHeight: "100vh", background: COLORS.bg, padding: "30px 40px" }}>
+      <div style={{ maxWidth: 1300, margin: "0 auto" }}>
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 28, margin: 0 }}>Conciliação Bancária</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 6 }}>
+            Suba o PDF do extrato e o sistema parseia + (em breve) cruza com despesas e vendas do sistema.
+          </p>
+        </div>
+
+        {/* Filtro banco + mês + upload */}
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 18, marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 4, background: COLORS.bg, padding: 3, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
+            {BANCOS.map(b => (
+              <button
+                key={b.k}
+                onClick={() => setBancoSel(b.k)}
+                style={{
+                  background: bancoSel === b.k ? b.cor + "20" : "transparent",
+                  border: bancoSel === b.k ? `1px solid ${b.cor}60` : "1px solid transparent",
+                  color: bancoSel === b.k ? b.cor : COLORS.textMuted,
+                  padding: "6px 14px", borderRadius: 6,
+                  fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                }}
+              >{b.l}</button>
+            ))}
+          </div>
+          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "6px 12px", borderRadius: 6, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+            {mesesOpts.map(m => <option key={m.k} value={m.k}>{m.lbl}</option>)}
+          </select>
+          <div style={{ flex: 1 }} />
+          <input ref={fileInputRef} type="file" accept="application/pdf" onChange={onUploadFile} style={{ display: "none" }} />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadando}
+            style={{ background: uploadando ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: uploadando ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif" }}
+          >{uploadando ? "Parseando PDF..." : "📄 Subir extrato (PDF)"}</button>
+        </div>
+
+        {/* Resultado do último upload */}
+        {uploadResultado && (
+          <div style={{
+            background: uploadResultado.success ? "#10B98112" : COLORS.danger + "12",
+            border: `1px solid ${uploadResultado.success ? "#10B98140" : COLORS.danger + "40"}`,
+            borderRadius: 8, padding: "10px 14px", marginBottom: 14,
+            color: uploadResultado.success ? "#10B981" : COLORS.danger, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+          }}>
+            {uploadResultado.success
+              ? `✓ ${uploadResultado.total} lançamentos extraídos do PDF (${uploadResultado.banco}). Mostrando os do mês atual abaixo.`
+              : `⚠️ ${uploadResultado.mensagem || "Falha ao processar PDF"}`}
+          </div>
+        )}
+
+        {/* Totais */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+            <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Entradas</div>
+            <div style={{ color: "#10B981", fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalEntradas)}</div>
+          </div>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+            <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Saídas</div>
+            <div style={{ color: COLORS.danger, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalSaidas)}</div>
+          </div>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+            <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Saldo do mês</div>
+            <div style={{ color: COLORS.orange, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalEntradas - totalSaidas)}</div>
+          </div>
+        </div>
+
+        {/* Tabela de lançamentos */}
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: bancoAtual?.cor || COLORS.orange, fontSize: 16, margin: 0 }}>{bancoAtual?.l} — {lancamentos.length} lançamento{lancamentos.length === 1 ? "" : "s"}</h2>
+            <span style={{ color: COLORS.textMuted, fontSize: 11, fontStyle: "italic" }}>matching com despesas/vendas: Fase 2</span>
+          </div>
+          {carregando ? (
+            <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando...</div>
+          ) : lancamentos.length === 0 ? (
+            <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
+              Nenhum lançamento desse banco em {mesesOpts.find(m => m.k === mesSel)?.lbl}. Sobe o PDF do extrato acima.
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg }}>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Data</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Descrição</th>
+                    <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+                    <th style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Tipo</th>
+                    <th style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lancamentos.map(l => (
+                    <tr key={l.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                      <td style={{ padding: "8px 12px", color: COLORS.text, whiteSpace: "nowrap" }}>{new Date(l.data + "T00:00:00").toLocaleDateString("pt-BR")}</td>
+                      <td style={{ padding: "8px 12px", color: COLORS.text }}>{l.descricao}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right", color: l.tipo === "entrada" ? "#10B981" : COLORS.danger, fontWeight: 700 }}>
+                        {l.tipo === "saida" ? "-" : "+"}{fmt(Number(l.valor))}
+                      </td>
+                      <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                        <span style={{ background: (l.tipo === "entrada" ? "#10B981" : COLORS.danger) + "20", color: l.tipo === "entrada" ? "#10B981" : COLORS.danger, padding: "2px 8px", borderRadius: 12, fontSize: 9, fontWeight: 700 }}>{l.tipo === "entrada" ? "Entrada" : "Saída"}</span>
+                      </td>
+                      <td style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textDim, fontSize: 10 }}>
+                        {l.status_conciliacao === "pendente" ? "—" : l.status_conciliacao}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [page, setPage] = useState("login");
   const [user, setUser] = useState(null);
@@ -8766,6 +8962,8 @@ export default function App() {
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
       {page === "nf" && canAccess(user, "nf") && <NFPage user={user} />}
       {page === "nf" && !canAccess(user, "nf") && <Login onLogin={login} setPage={setPage} />}
+      {page === "conciliacao" && canAccess(user, "conciliacao") && <ConciliacaoPage user={user} />}
+      {page === "conciliacao" && !canAccess(user, "conciliacao") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage user={user} />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
