@@ -8239,6 +8239,82 @@ function NFPage({ user }) {
         )}
       </div>
 
+      {/* Seção NFs Emitidas no mês — agrupadas por empresa emissora */}
+      {(() => {
+        // Filtra por mês (data_emissao) só as autorizadas do mês atual
+        const notasDoMes = notas.filter(n => n.status === "autorizado" && n.data_emissao && n.data_emissao.slice(0, 7) === mesSel);
+        const nfsGondolas = notasDoMes.filter(n => n.emitente === "gondolas" || (n.tipo === "nfe" && n.emitente !== "instalacoes"));
+        const nfsInstalacoes = notasDoMes.filter(n => n.emitente === "instalacoes" || n.tipo === "nfse");
+        const totalGondolas = nfsGondolas.reduce((s, n) => s + (Number(n.valor) || 0), 0);
+        const totalInstalacoes = nfsInstalacoes.reduce((s, n) => s + (Number(n.valor) || 0), 0);
+        const totalGeral = totalGondolas + totalInstalacoes;
+        if (notasDoMes.length === 0) return null;
+        const renderNota = (n) => (
+          <tr key={n.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+            <td style={{ padding: "8px 12px", color: COLORS.text, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>#{n.numero || "—"}</td>
+            <td style={{ padding: "8px 12px", color: COLORS.textMuted, fontSize: 11 }}>{n.destinatario || "—"}<div style={{ color: COLORS.textDim, fontSize: 9 }}>{n.cnpj_destinatario || ""}</div></td>
+            <td style={{ padding: "8px 12px", color: COLORS.textDim, fontSize: 10, whiteSpace: "nowrap" }}>{n.data_emissao ? new Date(n.data_emissao).toLocaleDateString("pt-BR") : "—"}</td>
+            <td style={{ padding: "8px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" }}>{fmt(Number(n.valor) || 0)}</td>
+            <td style={{ padding: "8px 12px", textAlign: "center" }}>
+              {n.url_danfe ? (
+                <a href={n.url_danfe} target="_blank" rel="noopener noreferrer" title="Baixar PDF" style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, textDecoration: "none", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>📥 PDF</a>
+              ) : (
+                <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>
+              )}
+            </td>
+          </tr>
+        );
+        const renderCard = (titulo, cor, notasLista, total) => (
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: cor + "08" }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", color: cor, fontSize: 15, margin: 0 }}>{titulo}</h3>
+              <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{notasLista.length} nota{notasLista.length === 1 ? "" : "s"}</span>
+            </div>
+            {notasLista.length === 0 ? (
+              <div style={{ padding: 20, textAlign: "center", color: COLORS.textDim, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Nenhuma NF emitida neste mês.</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg }}>
+                      <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Nº</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Destinatário</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Emissão</th>
+                      <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>PDF</th>
+                    </tr>
+                  </thead>
+                  <tbody>{notasLista.map(renderNota)}</tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: `2px solid ${cor}40`, background: cor + "08" }}>
+                      <td colSpan={3} style={{ padding: "10px 12px", color: cor, fontWeight: 700, fontSize: 12 }}>Total {titulo}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: cor, fontWeight: 800, fontFamily: "'Playfair Display', serif", fontSize: 14, whiteSpace: "nowrap" }}>{fmt(total)}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+        return (
+          <div style={{ marginTop: 24 }}>
+            <div style={{ marginBottom: 12 }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20, margin: 0 }}>Notas Fiscais Emitidas — {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h2>
+              <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", marginTop: 4 }}>NFs autorizadas no mês, agrupadas por empresa emissora. Clica em <strong>📥 PDF</strong> pra reimprimir.</p>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              {renderCard("🏪 Gôndolas Suprema", COLORS.orange, nfsGondolas, totalGondolas)}
+              {renderCard("🔧 Suprema Instalações", "#3B82F6", nfsInstalacoes, totalInstalacoes)}
+            </div>
+            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>💰 Total geral emitido em {mesNomes[mesSel.split("-")[1]]}</span>
+              <span style={{ color: COLORS.orange, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalGeral)}</span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Modal Cancelar NF */}
       {cancelandoNfe && cancelandoNfe !== "loading" && !nfeResult && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
