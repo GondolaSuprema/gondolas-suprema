@@ -6785,12 +6785,15 @@ function FinanceiroPage() {
     setAtrasadas(prev => prev.filter(d => d.id !== despesa.id));
   };
 
-  const carregarFornecedores = async () => {
-    const { data } = await supabase.from("despesas").select("*").like("nome", "forn_%").order("vencimento");
+  // Carrega só os fornecedores do mês selecionado — cada parcela aparece
+  // no seu próprio mês de vencimento. Antes puxava TODAS as parcelas de
+  // todos os meses de uma vez, poluindo a visão do mês atual.
+  const carregarFornecedores = async (mes) => {
+    const { data } = await supabase.from("despesas").select("*").like("nome", "forn_%").eq("mes", mes).order("vencimento");
     if (data) setFornecedores(data);
   };
 
-  useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(); carregarBoletos(); }, [mesSel]);
+  useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(mesSel); carregarBoletos(); }, [mesSel]);
 
   const atualizarDespesa = async (id, campo, valor) => {
     const update = {}; update[campo] = valor;
