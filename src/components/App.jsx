@@ -2193,8 +2193,11 @@ function inferirTipoDespesa(nome) {
   if (n.startsWith("forn_mdf"))      return { tipo: "CMV", categoria: "Fornecedores MDF" };
   if (n.startsWith("forn_outros"))   return { tipo: "CMV", categoria: "Fornecedores Outros" };
   if (n.startsWith("forn_"))         return { tipo: "CMV", categoria: "Fornecedores Outros" };
-  // Gondolas S.A — fornecedor especifico de gondolas
-  if (n === "s.a" || n === "gondolas s.a" || n.startsWith("gondolas s.a")) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
+  // "S.A" (Gôndolas S.A) NÃO é mais fornecedor recorrente da Suprema.
+  // Ale confirmou 01-jul-2026: só RRE Máquinas e Império das Gôndolas
+  // entram em Fornecedores Gôndolas. Deixa em DESPESA_GERAL pra o Ale
+  // reclassificar manualmente se quiser.
+  // (Regra antiga removida — antes classificava "s.a" como Fornecedores Gôndolas.)
   // Fornecedores frequentes da Suprema (cadastrados conforme aparecem nos extratos):
   // - RRE Máquinas (Gôndolas Brasil) → fornecedor de gôndolas/MPP
   // - Império das Gôndolas → fornecedor de gôndolas
