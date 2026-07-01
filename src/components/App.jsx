@@ -1380,6 +1380,25 @@ const PRODUCTS = [
 
 const fmt = (v) => v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const fmtMoney = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+// Data/hora atual em ISO com offset -03:00 (BRT). Evita bug do
+// `new Date().toISOString()` que retorna UTC (dia seguinte após 21h).
+// Usada quando salvamos data_emissao no banco pra manter fuso local.
+const dataEmissaoBRT = () => {
+  const d = new Date();
+  const brt = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  return brt.toISOString().replace(/Z$/, "-03:00");
+};
+
+// Retorna YYYY-MM da data em BRT (independente se veio salva em UTC).
+// Usado pra agrupar notas por mês respeitando o fuso local.
+const mesBRT = (dataStr) => {
+  if (!dataStr) return "";
+  const d = new Date(dataStr);
+  if (isNaN(d)) return "";
+  const brt = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+  return brt.toISOString().slice(0, 7);
+};
 const genId = () => Math.random().toString(36).substr(2, 9);
 const catLabel = (key) => CATEGORIES.find(c => c.key === key)?.label || key;
 
@@ -5265,7 +5284,7 @@ function AdminPage({ user }) {
           valor: valorNota,
           destinatario: destinatarioNome,
           cnpj_destinatario: cnpjDest,
-          data_emissao: new Date().toISOString(),
+          data_emissao: dataEmissaoBRT(),
           url_danfe: data.url_danfe || "",
           url_xml: data.url_xml || "",
           vendedor: ordem.vendedor || "",
@@ -7908,7 +7927,7 @@ function NFPage({ user }) {
           valor: valorNota,
           destinatario: destinatarioNome,
           cnpj_destinatario: cnpjDest,
-          data_emissao: new Date().toISOString(),
+          data_emissao: dataEmissaoBRT(),
           url_danfe: data.url_danfe || "",
           url_xml: data.url_xml || "",
           vendedor: ordem.vendedor_nome || "",
@@ -7996,6 +8015,22 @@ function NFPage({ user }) {
   };
 
   useEffect(() => { carregarTudo(); }, []);
+
+  // Polling automático: pra cada nota em "processando_autorizacao", consulta
+  // a Focus a cada 8s até status virar autorizado/erro. Evita fricção do Ale
+  // ter que clicar ↻ manualmente. Ativo enquanto houver ao menos 1 pendente
+  // no state; interval é limpo quando todas resolvem.
+  useEffect(() => {
+    const pendentes = notas.filter(n => n.status === "processando_autorizacao" || n.status === "processando");
+    if (pendentes.length === 0) return;
+    let cancelado = false;
+    const timer = setInterval(() => {
+      if (cancelado) return;
+      // Consulta a primeira pendente (spread evita paralelizar demais)
+      pendentes.forEach((n, idx) => setTimeout(() => !cancelado && consultarSefaz(n), idx * 500));
+    }, 8000);
+    return () => { cancelado = true; clearInterval(timer); };
+  }, [notas]);
 
   // Mapeia notas por ordem_id (uma venda pode ter NF-e e NFS-e)
   const notasPorOrdem = {};
@@ -8241,8 +8276,9 @@ function NFPage({ user }) {
 
       {/* Seção NFs Emitidas no mês — agrupadas por empresa emissora */}
       {(() => {
-        // Filtra por mês (data_emissao) só as autorizadas do mês atual
-        const notasDoMes = notas.filter(n => n.status === "autorizado" && n.data_emissao && n.data_emissao.slice(0, 7) === mesSel);
+        // Filtra por mês (data_emissao) só as autorizadas do mês atual — usa BRT
+        // pra pegar o dia local (não UTC, que fura à noite).
+        const notasDoMes = notas.filter(n => n.status === "autorizado" && n.data_emissao && mesBRT(n.data_emissao) === mesSel);
         const nfsGondolas = notasDoMes.filter(n => n.emitente === "gondolas" || (n.tipo === "nfe" && n.emitente !== "instalacoes"));
         const nfsInstalacoes = notasDoMes.filter(n => n.emitente === "instalacoes" || n.tipo === "nfse");
         const totalGondolas = nfsGondolas.reduce((s, n) => s + (Number(n.valor) || 0), 0);
