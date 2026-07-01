@@ -1,5 +1,17 @@
 export const runtime = "nodejs";
 
+// Data de emissão no formato ISO com offset -03:00 (BRT).
+// Motivo: `new Date().toISOString()` sempre retorna UTC (com Z), e à noite
+// no Brasil isso vira o DIA SEGUINTE. A Focus NFe monta a chave da NFe com
+// AAMM da data enviada, mas a SEFAZ valida o DV baseada no fuso local do
+// emitente — divergência → erro 253 "Digito Verificador da chave de acesso
+// composta invalida". Solução: enviar sempre com offset -03:00 explícito.
+function dataEmissaoBRT() {
+  const agora = new Date();
+  const brt = new Date(agora.getTime() - 3 * 60 * 60 * 1000);
+  return brt.toISOString().replace(/Z$/, "-03:00");
+}
+
 export async function POST(request) {
   const body = await request.json();
   const { ordem, ambiente, acao, ref_cancelamento, justificativa } = body;
@@ -97,9 +109,10 @@ export async function POST(request) {
   const docCliente = (ordem.client?.cnpj || "").replace(/\D/g, "");
   const isClienteCpf = docCliente.length === 11;
 
+  const dataEmissao = dataEmissaoBRT();
   const nfe = {
-    data_emissao: new Date().toISOString(),
-    data_entrada_saida: new Date().toISOString(),
+    data_emissao: dataEmissao,
+    data_entrada_saida: dataEmissao,
     natureza_operacao: "Venda",
     forma_pagamento: "0",
     tipo_documento: "1",

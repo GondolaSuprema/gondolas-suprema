@@ -130,8 +130,13 @@ function montarDiscriminacao(ordem, tomador, observacao) {
   return `${base}\n\nOBS: ${obs}`;
 }
 
+// Data local BRT no formato YYYY-MM-DD. `new Date().toISOString()` retorna
+// UTC, o que causa erro à noite no Brasil (dia seguinte). Ajustamos -3h
+// pra pegar o dia local antes de fatiar.
 function dataAtualISO() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const agora = new Date();
+  const brt = new Date(agora.getTime() - 3 * 60 * 60 * 1000);
+  return brt.toISOString().slice(0, 10); // YYYY-MM-DD local
 }
 
 export async function POST(request) {
