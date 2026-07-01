@@ -6815,7 +6815,9 @@ function FinanceiroPage() {
     const d = vf.vencimento_dia || "01";
     const venc = y + "-" + m + "-" + d;
     const cls = inferirTipoDespesa(nome);
-    const nova = { id: genId(), nome, vencimento: venc, valor: Number(vf.valor) || 0, status: "Em Aberto", mes: mesSel, fixa: false, tipo: cls.tipo, categoria: cls.categoria };
+    // Regra do Ale: despesa variável é sempre um gasto já feito na hora,
+    // então sai direto como "Pago" (não fica em Em Aberto esperando).
+    const nova = { id: genId(), nome, vencimento: venc, valor: Number(vf.valor) || 0, status: "Pago", mes: mesSel, fixa: false, tipo: cls.tipo, categoria: cls.categoria };
     await supabase.from("despesas").insert(nova);
     setDespesas([...despesas, nova]);
     setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" });
