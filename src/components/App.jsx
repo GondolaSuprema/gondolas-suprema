@@ -2159,8 +2159,14 @@ const STATUS_ENTREGA_COLORS = {
 };
 
 // ─── CONTABILIDADE: TIPOS PARA DRE ───
-// Cada despesa tem um tipo contabil que define onde aparece na DRE.
-// Receitas vem da tabela orcamentos (status='Concluído'), nao de despesas.
+// Cada despesa/movimentação tem um tipo contabil que define onde aparece na DRE.
+// Receitas de venda vem da tabela orcamentos (status='Concluído'), nao de despesas.
+// Ordem canonica do DRE brasileiro (CPC 26 / ITG 1000 CFC):
+//   Receita Bruta → (-) Deduções → Receita Líquida → (-) CMV → Lucro Bruto
+//   → (-) Despesas Operacionais → EBIT
+//   → (+/-) Resultado Financeiro → LAIR
+//   → (-) Provisão de Tributos (DAS) → Lucro Líquido
+//   → (-) Distribuição de Lucros (informativo — sai do PL, não do resultado)
 const TIPOS_DESPESA = [
   { key: "DEDUCAO_RECEITA",     label: "Dedução da Receita",      grupo: "Deduções",         color: "#F59E0B" },
   { key: "CMV",                 label: "Custo dos Produtos (CMV)", grupo: "CMV",              color: "#F87171" },
@@ -2170,54 +2176,83 @@ const TIPOS_DESPESA = [
   { key: "DESPESA_GERAL",       label: "Despesa Geral",           grupo: "Operacional",      color: "#8B5CF6" },
   { key: "DESPESA_FINANCEIRA",  label: "Despesa Financeira",      grupo: "Financeiro",       color: "#EC4899" },
   { key: "RECEITA_FINANCEIRA",  label: "Receita Financeira",      grupo: "Financeiro",       color: "#10B981" },
+  { key: "PROVISAO_TRIBUTOS",   label: "Provisão de Tributos",    grupo: "Tributos",         color: "#F59E0B" },
+  // Abaixo do Lucro Líquido — não afetam o resultado, só o Patrimônio/Fluxo de Caixa
+  { key: "RETIRADA_LUCRO",      label: "Distribuição de Lucros",  grupo: "PatrimonioLiquido", color: "#94A3B8" },
+  { key: "APORTE_SOCIO",        label: "Aporte de Sócio",         grupo: "PatrimonioLiquido", color: "#10B981" },
+  { key: "FINANCIAMENTO",       label: "Empréstimos/Financiamentos", grupo: "Financiamento",  color: "#94A3B8" },
 ];
+
+// Tipos que NÃO entram no cálculo do DRE (só aparecem em Fluxo de Caixa e cards separados)
+const TIPOS_FORA_DRE = new Set(["RETIRADA_LUCRO", "APORTE_SOCIO", "FINANCIAMENTO"]);
 
 // Categorias sugeridas por tipo (autocomplete pro select)
 const CATEGORIAS_SUGERIDAS = {
-  DEDUCAO_RECEITA:    ["Simples Nacional (DAS)", "ICMS", "ICMS-ST", "Devoluções", "Cancelamentos"],
-  CMV:                ["Fornecedores Gôndolas", "Fornecedores MDF", "Fornecedores Outros", "Mão-de-obra Produção", "Insumos"],
-  DESPESA_VENDAS:     ["Comissões", "Tráfego Pago", "Ferramentas Comerciais", "Materiais de Venda"],
+  DEDUCAO_RECEITA:    ["ICMS", "ICMS-ST", "ISS", "PIS/COFINS", "Devoluções", "Cancelamentos", "Descontos Concedidos"],
+  CMV:                ["Fornecedores Gôndolas", "Fornecedores MDF", "Fornecedores Outros", "Mão-de-obra Produção", "Insumos", "Frete de Entrada"],
+  DESPESA_VENDAS:     ["Comissões", "Tráfego Pago", "Ferramentas Comerciais", "Materiais de Venda", "Frete de Saída"],
   DESPESA_ADM:        ["Pró-labore", "Encargos Trabalhistas", "Honorários", "Infraestrutura", "Software & TI", "Material de Escritório"],
-  DESPESA_LOGISTICA:  ["Salários Operacionais", "Veículos", "Combustível", "Frete Terceirizado"],
+  DESPESA_LOGISTICA:  ["Salários Operacionais", "Veículos", "Combustível", "Manutenção Veículos", "Frete Terceirizado"],
   DESPESA_GERAL:      ["A classificar", "Outros"],
-  DESPESA_FINANCEIRA: ["Tarifas Bancárias", "Juros Pagos", "IOF"],
+  DESPESA_FINANCEIRA: ["Tarifas Bancárias", "Juros Pagos", "IOF", "Multas por Atraso"],
   RECEITA_FINANCEIRA: ["Rendimentos", "Juros Recebidos"],
+  PROVISAO_TRIBUTOS:  ["Simples Nacional (DAS)", "IRPJ", "CSLL"],
+  RETIRADA_LUCRO:     ["Retirada de Lucro"],
+  APORTE_SOCIO:       ["Aporte de Sócio"],
+  FINANCIAMENTO:      ["Empréstimo Recebido", "Amortização de Empréstimo"],
 };
 
 // Heuristica para inferir tipo a partir do nome da despesa (usado ao criar
 // novas despesas no Financeiro pra ja sair classificada corretamente).
 function inferirTipoDespesa(nome) {
   if (!nome) return { tipo: "DESPESA_GERAL", categoria: "A classificar" };
-  const n = String(nome).toLowerCase();
-  if (n.startsWith("forn_gondolas")) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
-  if (n.startsWith("forn_mdf"))      return { tipo: "CMV", categoria: "Fornecedores MDF" };
-  if (n.startsWith("forn_outros"))   return { tipo: "CMV", categoria: "Fornecedores Outros" };
-  if (n.startsWith("forn_"))         return { tipo: "CMV", categoria: "Fornecedores Outros" };
-  // "S.A" (Gôndolas S.A) NÃO é mais fornecedor recorrente da Suprema.
-  // Ale confirmou 01-jul-2026: só RRE Máquinas e Império das Gôndolas
-  // entram em Fornecedores Gôndolas. Deixa em DESPESA_GERAL pra o Ale
-  // reclassificar manualmente se quiser.
-  // (Regra antiga removida — antes classificava "s.a" como Fornecedores Gôndolas.)
-  // Fornecedores frequentes da Suprema (cadastrados conforme aparecem nos extratos):
-  // - RRE Máquinas (Gôndolas Brasil) → fornecedor de gôndolas/MPP
-  // - Império das Gôndolas → fornecedor de gôndolas
-  // - Fibrasul → fornecedor de MDF
-  if (n.includes("rre máquinas") || n.includes("rre maquinas") || /\brre\b/.test(n)) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
-  if (n.includes("império das gôndolas") || n.includes("imperio das gondolas") || n.includes("imperio gondolas")) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
-  if (n.includes("fibrasul")) return { tipo: "CMV", categoria: "Fornecedores MDF" };
-  if (n.includes("simples") || n.startsWith("imposto_das") || n.startsWith("das_")) return { tipo: "DEDUCAO_RECEITA", categoria: "Simples Nacional (DAS)" };
-  if (n.includes("icms"))            return { tipo: "DEDUCAO_RECEITA", categoria: "ICMS" };
-  if (n.startsWith("salário") || n.startsWith("salario")) return { tipo: "DESPESA_LOGISTICA", categoria: "Salários Operacionais" };
-  if (n.includes("hr") || n.startsWith("carro") || n.startsWith("seguro") || n.includes("combust") || n.includes("manuten")) return { tipo: "DESPESA_LOGISTICA", categoria: "Veículos" };
-  if (n.includes("pgto sócio") || n.includes("pgto socio") || n.includes("pró-labore") || n.includes("pro-labore")) return { tipo: "DESPESA_ADM", categoria: "Pró-labore" };
+  // Normaliza: minúsculas + remove acentos + colapsa espaços/pontuação repetida.
+  // Assim "Facebook - Ads" e "facebook ads" batem na mesma regex.
+  const n = String(nome).toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "") // remove acentos (combining marks)
+    .replace(/[.\-_/]+/g, " ")                        // pontuações viram espaço
+    .replace(/\s+/g, " ")                             // colapsa múltiplos espaços
+    .trim();
+
+  // Prefixos internos (id gerado pelo sistema)
+  if (n.startsWith("forn gondolas") || nome.startsWith("forn_gondolas")) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
+  if (n.startsWith("forn mdf")      || nome.startsWith("forn_mdf"))      return { tipo: "CMV", categoria: "Fornecedores MDF" };
+  if (n.startsWith("forn outros")   || nome.startsWith("forn_outros"))   return { tipo: "CMV", categoria: "Fornecedores Outros" };
+  if (n.startsWith("forn ")         || nome.startsWith("forn_"))         return { tipo: "CMV", categoria: "Fornecedores Outros" };
+
+  // Aportes/retiradas de sócio e financiamentos ficam FORA do DRE
+  if (n.includes("retirada de lucro") || n.includes("distribuicao de lucro") || n.includes("distribuicao de lucros")) return { tipo: "RETIRADA_LUCRO", categoria: "Retirada de Lucro" };
+  if (n.includes("aporte de socio") || n.includes("aporte socio") || n.includes("aporte")) return { tipo: "APORTE_SOCIO", categoria: "Aporte de Sócio" };
+  if (n.includes("emprestimo") || n.includes("financiamento")) return { tipo: "FINANCIAMENTO", categoria: "Empréstimo Recebido" };
+
+  // Fornecedores recorrentes da Suprema
+  if (n.includes("rre maquinas") || /\brre\b/.test(n)) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
+  if (n.includes("imperio das gondolas") || n.includes("imperio gondolas")) return { tipo: "CMV", categoria: "Fornecedores Gôndolas" };
+  if (n.includes("fibrasul") || n.includes("fibra sul")) return { tipo: "CMV", categoria: "Fornecedores MDF" };
+
+  // Tributos — DAS agora vai pra PROVISAO_TRIBUTOS (linha 11 do DRE, não Deduções)
+  if (n.includes("simples") || n.includes("imposto das") || n.startsWith("das ") || n === "das") return { tipo: "PROVISAO_TRIBUTOS", categoria: "Simples Nacional (DAS)" };
+  if (n.includes("irpj")) return { tipo: "PROVISAO_TRIBUTOS", categoria: "IRPJ" };
+  if (n.includes("csll")) return { tipo: "PROVISAO_TRIBUTOS", categoria: "CSLL" };
+
+  // Impostos sobre venda (esses SIM são deduções da receita)
+  if (n.includes("icms")) return { tipo: "DEDUCAO_RECEITA", categoria: "ICMS" };
+  if (/\biss\b/.test(n)) return { tipo: "DEDUCAO_RECEITA", categoria: "ISS" };
+  if (n.includes("pis cofins") || n.includes("pis/cofins")) return { tipo: "DEDUCAO_RECEITA", categoria: "PIS/COFINS" };
+
+  if (n.startsWith("salario") || n.startsWith("salário")) return { tipo: "DESPESA_LOGISTICA", categoria: "Salários Operacionais" };
+  if (n.includes("manuten") && (n.includes("veic") || n.includes("hr") || n.includes("carro") || n.includes("caminh") || n.includes("doutor diesel"))) return { tipo: "DESPESA_LOGISTICA", categoria: "Manutenção Veículos" };
+  if (/\bhr\b/.test(n) || n.startsWith("carro") || n.startsWith("seguro") || n.includes("combust")) return { tipo: "DESPESA_LOGISTICA", categoria: "Veículos" };
+  if (n.includes("pgto socio") || n.includes("pro labore") || n.includes("prolabore")) return { tipo: "DESPESA_ADM", categoria: "Pró-labore" };
   if (n === "fgts" || n === "inss") return { tipo: "DESPESA_ADM", categoria: "Encargos Trabalhistas" };
-  if (n.startsWith("contabilidade") || n.startsWith("advogad") || n.startsWith("honorário")) return { tipo: "DESPESA_ADM", categoria: "Honorários" };
-  if (n.startsWith("aluguel") || n.startsWith("internet") || n.startsWith("energia") || n.startsWith("agua") || n.startsWith("água") || n.startsWith("telefone")) return { tipo: "DESPESA_ADM", categoria: "Infraestrutura" };
-  // Software, sistemas, IAs, hospedagem, dominios
-  if (n === "sistema" || n.startsWith("sistema") || n.startsWith("software") || n.startsWith("hospedagem") || n.startsWith("domínio") || n.startsWith("dominio") || n.startsWith("vercel") || n.startsWith("openai") || n.startsWith("anthropic") || n.startsWith("supabase") || n.startsWith("ia ") || n.includes(" ia ")) return { tipo: "DESPESA_ADM", categoria: "Software & TI" };
-  if (n.startsWith("google ads") || n.startsWith("meta ads") || n.startsWith("facebook ads") || n.startsWith("instagram ads") || n.startsWith("tráfego")) return { tipo: "DESPESA_VENDAS", categoria: "Tráfego Pago" };
+  if (n.startsWith("contabilidade") || n.startsWith("advogad") || n.startsWith("honorario")) return { tipo: "DESPESA_ADM", categoria: "Honorários" };
+  if (n.startsWith("aluguel") || n.startsWith("internet") || n.startsWith("energia") || n.startsWith("agua") || n.startsWith("telefone")) return { tipo: "DESPESA_ADM", categoria: "Infraestrutura" };
+  if (n === "sistema" || n.startsWith("sistema") || n.startsWith("software") || n.startsWith("hospedagem") || n.startsWith("dominio") || n.startsWith("vercel") || n.startsWith("openai") || n.startsWith("anthropic") || n.startsWith("supabase") || n.startsWith("ia ") || n.includes(" ia ")) return { tipo: "DESPESA_ADM", categoria: "Software & TI" };
+  if (n.startsWith("google ads") || n.startsWith("meta ads") || n.startsWith("facebook ads") || n.startsWith("facebook") && n.includes("ads") || n.startsWith("instagram ads") || n.startsWith("trafego")) return { tipo: "DESPESA_VENDAS", categoria: "Tráfego Pago" };
   if (n.startsWith("wasseler") || n.startsWith("crm")) return { tipo: "DESPESA_VENDAS", categoria: "Ferramentas Comerciais" };
-  if (n.includes("comissão") || n.includes("comissao")) return { tipo: "DESPESA_VENDAS", categoria: "Comissões" };
+  if (n.includes("comissao")) return { tipo: "DESPESA_VENDAS", categoria: "Comissões" };
+  if (n.includes("tarifa") || n.includes("iof")) return { tipo: "DESPESA_FINANCEIRA", categoria: n.includes("iof") ? "IOF" : "Tarifas Bancárias" };
+  if (n.includes("juros") && (n.includes("pagos") || n.includes("cobrado"))) return { tipo: "DESPESA_FINANCEIRA", categoria: "Juros Pagos" };
   return { tipo: "DESPESA_GERAL", categoria: "A classificar" };
 }
 
@@ -3533,7 +3568,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   const sc = { "Aguardando Retorno": "#3B82F6", "Fazer Pedido": "#8B5CF6", "Não Responde": "#9CA3AF", "Desistiu": "#F87171", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
   const statusOptions = ["Aguardando Retorno", "Fazer Pedido", "Não Responde", "Desistiu", "Fechou Concorrência", "Concluído"];
   const [concluidoId, setConcluidoId] = useState(null);
-  const [concluidoData, setConcluidoData] = useState({ cnpj: "", data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
+  const [concluidoData, setConcluidoData] = useState({ cnpj: "", data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "", venda_empresa_recebedora: "", venda_banco_recebedor: "", valor_recebido: "" });
 
   const updateStatus = async (orderId, newStatus) => {
     if (newStatus === "Concluído") {
@@ -3541,7 +3576,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       const ord = orders.find(o => o.id === orderId);
       const cnpjExistente = ord?.client?.cnpj || "";
       setConcluidoId(orderId);
-      setConcluidoData({ cnpj: cnpjExistente, data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
+      setConcluidoData({ cnpj: cnpjExistente, data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "", venda_empresa_recebedora: "", venda_banco_recebedor: "", valor_recebido: "" });
       return;
     }
     await supabase.from("orcamentos").update({ status: newStatus }).eq("id", orderId);
@@ -3561,6 +3596,14 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     }
     const info = "\n📋 CONCLUÍDO — Entrega: " + cd.data_entrega + " | Pedido: " + cd.numero_pedido + " | Pagamento: " + pagStr;
     const existingNotes = orders.find(o => o.id === concluidoId)?.notes || "";
+    // Valor recebido: se Instalações e Ale não digitou, usa comissão como fallback (regra existente).
+    // Se Gôndolas Suprema e Ale não digitou, usa total da venda.
+    const ord = orders.find(o => o.id === concluidoId);
+    const totalOrd = Number(ord?.total) || 0;
+    const comissaoOrd = Number(ord?.comissao) || 0;
+    const valorRecebidoFinal = cd.valor_recebido !== ""
+      ? Number(cd.valor_recebido)
+      : (cd.venda_empresa_recebedora === "suprema_instalacoes" ? comissaoOrd : totalOrd);
     await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
@@ -3572,6 +3615,10 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       status_entrega: cd.data_entrega ? "Agendada" : null,
       // Momento em que a venda foi marcada como Concluída — base do gráfico mensal
       data_conclusao: new Date().toISOString(),
+      // ⭐ Contábil (Sprint 2.1): quem recebeu, qual banco, quanto entrou de fato
+      venda_empresa_recebedora: cd.venda_empresa_recebedora || null,
+      venda_banco_recebedor: cd.venda_banco_recebedor || null,
+      valor_recebido: valorRecebidoFinal,
     }).eq("id", concluidoId);
 
     // Ponte CAPI (Fase 1 - coleta): manda a verdade da venda pro Meta aprender.
@@ -3905,7 +3952,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         // Aceita CNPJ (14 dígitos) ou CPF (11 dígitos)
         const cnpjDigits = (cd.cnpj || "").replace(/\D/g, "");
         const cnpjOk = cnpjDigits.length === 14 || cnpjDigits.length === 11;
-        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && (cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto" || cd.pag1_parcelas);
+        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && (cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto" || cd.pag1_parcelas) && cd.venda_empresa_recebedora;
         return (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
@@ -3925,6 +3972,43 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   <div style={{ color: COLORS.danger, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>CNPJ deve ter 14 dígitos ou CPF deve ter 11 dígitos.</div>
                 )}
               </div>
+              <div>
+                <label style={lblStyle}>Empresa que recebe *</label>
+                <select value={cd.venda_empresa_recebedora} onChange={e => setConcluidoData({ ...cd, venda_empresa_recebedora: e.target.value })} style={selStyle}>
+                  <option value="">Selecione...</option>
+                  <option value="gondolas_suprema">Gôndolas Suprema (recebe o total)</option>
+                  <option value="suprema_instalacoes">Suprema Instalações (recebe só comissão)</option>
+                </select>
+              </div>
+              {cd.venda_empresa_recebedora && (
+                <div>
+                  <label style={lblStyle}>Banco recebedor</label>
+                  <select value={cd.venda_banco_recebedor} onChange={e => setConcluidoData({ ...cd, venda_banco_recebedor: e.target.value })} style={selStyle}>
+                    <option value="">Selecione...</option>
+                    <option value="sicredi">Sicredi (Gôndolas)</option>
+                    <option value="mercado_pago">Mercado Pago (Gôndolas)</option>
+                    <option value="c6_bank">C6 Bank (Instalações)</option>
+                    <option value="pf_mp">MP PF Ale (particular)</option>
+                  </select>
+                </div>
+              )}
+              {cd.venda_empresa_recebedora && (
+                <div>
+                  <label style={lblStyle}>Valor efetivamente recebido em conta (R$)</label>
+                  <input
+                    type="number" min="0" step="0.01"
+                    placeholder={cd.venda_empresa_recebedora === "suprema_instalacoes" ? "Deixe vazio pra usar a comissão" : "Deixe vazio pra usar o total da venda"}
+                    value={cd.valor_recebido}
+                    onChange={e => setConcluidoData({ ...cd, valor_recebido: e.target.value })}
+                    style={selStyle}
+                  />
+                  <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
+                    {cd.venda_empresa_recebedora === "suprema_instalacoes"
+                      ? "Instalações recebe só a comissão do fornecedor — deixe vazio pra usar o valor da comissão automaticamente."
+                      : "Se recebeu valor diferente do total (parcial, desconto etc), digite aqui. Senão deixa vazio."}
+                  </div>
+                </div>
+              )}
               <div>
                 <label style={lblStyle}>Data de Entrega *</label>
                 <input type="date" value={cd.data_entrega} onChange={e => setConcluidoData({ ...cd, data_entrega: e.target.value })} style={selStyle} />
@@ -5370,7 +5454,7 @@ function AdminPage({ user }) {
   // mudam o status pra "Concluído" pela ADM. Antes só fechava o status; agora
   // exige preencher CNPJ, data entrega, número pedido e formas de pagamento.
   const [concluidoIdAdm, setConcluidoIdAdm] = useState(null);
-  const [concluidoDataAdm, setConcluidoDataAdm] = useState({ cnpj: "", data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
+  const [concluidoDataAdm, setConcluidoDataAdm] = useState({ cnpj: "", data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "", venda_empresa_recebedora: "", venda_banco_recebedor: "", valor_recebido: "" });
 
   const updateOrderStatus = async (orderId, novoStatus) => {
     if (!novoStatus) return;
@@ -5380,7 +5464,7 @@ function AdminPage({ user }) {
       const ord = allOrders.find(o => o.id === orderId);
       const cnpjExistente = ord?.client?.cnpj || "";
       setConcluidoIdAdm(orderId);
-      setConcluidoDataAdm({ cnpj: cnpjExistente, data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "" });
+      setConcluidoDataAdm({ cnpj: cnpjExistente, data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "", venda_empresa_recebedora: ord?.vendaEmpresaRecebedora || "", venda_banco_recebedor: ord?.vendaBancoRecebedor || "", valor_recebido: "" });
       return;
     }
     const updateObj = { status: novoStatus };
@@ -5408,6 +5492,12 @@ function AdminPage({ user }) {
     }
     const info = "\n📋 CONCLUÍDO — Entrega: " + cd.data_entrega + " | Pedido: " + cd.numero_pedido + " | Pagamento: " + pagStr;
     const existingNotes = allOrders.find(o => o.id === concluidoIdAdm)?.notes || "";
+    const ordAdm = allOrders.find(o => o.id === concluidoIdAdm);
+    const totalOrdAdm = Number(ordAdm?.total) || 0;
+    const comissaoOrdAdm = Number(ordAdm?.comissao) || 0;
+    const valorRecebidoAdm = cd.valor_recebido !== ""
+      ? Number(cd.valor_recebido)
+      : (cd.venda_empresa_recebedora === "suprema_instalacoes" ? comissaoOrdAdm : totalOrdAdm);
     await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
@@ -5416,6 +5506,9 @@ function AdminPage({ user }) {
       numero_pedido: cd.numero_pedido || null,
       status_entrega: cd.data_entrega ? "Agendada" : null,
       data_conclusao: new Date().toISOString(),
+      venda_empresa_recebedora: cd.venda_empresa_recebedora || null,
+      venda_banco_recebedor: cd.venda_banco_recebedor || null,
+      valor_recebido: valorRecebidoAdm,
     }).eq("id", concluidoIdAdm);
     setAllOrders(prev => prev.map(o => o.id === concluidoIdAdm
       ? { ...o, status: "Concluído", notes: (o.notes || "") + info, client: { ...(o.client || {}), cnpj: cd.cnpj || "" } }
@@ -6331,7 +6424,7 @@ function AdminPage({ user }) {
         const lblStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
         const cnpjDigits = (cd.cnpj || "").replace(/\D/g, "");
         const cnpjOk = cnpjDigits.length === 14 || cnpjDigits.length === 11;
-        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && ((cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto") || cd.pag1_parcelas);
+        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && ((cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto") || cd.pag1_parcelas) && cd.venda_empresa_recebedora;
         return (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
             <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
@@ -6343,6 +6436,43 @@ function AdminPage({ user }) {
                   <input placeholder="00.000.000/0001-00 ou 000.000.000-00" value={cd.cnpj} onChange={e => setConcluidoDataAdm({ ...cd, cnpj: formatarCnpjOuCpf(e.target.value) })} maxLength={18} style={!cnpjOk && cd.cnpj ? { ...selStyle, borderColor: COLORS.danger } : selStyle} />
                   {!cnpjOk && cd.cnpj && (<div style={{ color: COLORS.danger, fontSize: 10, marginTop: 4 }}>CNPJ deve ter 14 dígitos ou CPF deve ter 11 dígitos.</div>)}
                 </div>
+                <div>
+                  <label style={lblStyle}>Empresa que recebe *</label>
+                  <select value={cd.venda_empresa_recebedora} onChange={e => setConcluidoDataAdm({ ...cd, venda_empresa_recebedora: e.target.value })} style={selStyle}>
+                    <option value="">Selecione...</option>
+                    <option value="gondolas_suprema">Gôndolas Suprema (recebe o total)</option>
+                    <option value="suprema_instalacoes">Suprema Instalações (recebe só comissão)</option>
+                  </select>
+                </div>
+                {cd.venda_empresa_recebedora && (
+                  <div>
+                    <label style={lblStyle}>Banco recebedor</label>
+                    <select value={cd.venda_banco_recebedor} onChange={e => setConcluidoDataAdm({ ...cd, venda_banco_recebedor: e.target.value })} style={selStyle}>
+                      <option value="">Selecione...</option>
+                      <option value="sicredi">Sicredi (Gôndolas)</option>
+                      <option value="mercado_pago">Mercado Pago (Gôndolas)</option>
+                      <option value="c6_bank">C6 Bank (Instalações)</option>
+                      <option value="pf_mp">MP PF Ale (particular)</option>
+                    </select>
+                  </div>
+                )}
+                {cd.venda_empresa_recebedora && (
+                  <div>
+                    <label style={lblStyle}>Valor efetivamente recebido em conta (R$)</label>
+                    <input
+                      type="number" min="0" step="0.01"
+                      placeholder={cd.venda_empresa_recebedora === "suprema_instalacoes" ? "Deixe vazio pra usar a comissão" : "Deixe vazio pra usar o total da venda"}
+                      value={cd.valor_recebido}
+                      onChange={e => setConcluidoDataAdm({ ...cd, valor_recebido: e.target.value })}
+                      style={selStyle}
+                    />
+                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4 }}>
+                      {cd.venda_empresa_recebedora === "suprema_instalacoes"
+                        ? "Instalações recebe só a comissão — deixe vazio pra usar automaticamente."
+                        : "Se recebeu valor diferente do total, digite aqui. Senão deixa vazio."}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label style={lblStyle}>Data de Entrega *</label>
                   <input type="date" value={cd.data_entrega} onChange={e => setConcluidoDataAdm({ ...cd, data_entrega: e.target.value })} style={selStyle} />
@@ -6658,6 +6788,9 @@ function FinanceiroPage() {
   const [subTab, setSubTab] = useState("fixas");
   const [despesas, setDespesas] = useState([]);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
+  // Sprint 2.2 — empresa que "possui" as despesas exibidas/criadas nesta tela.
+  // Cada CNPJ (Gôndolas Suprema, Suprema Instalações) tem seu próprio conjunto de despesas.
+  const [empresaSel, setEmpresaSel] = useState("gondolas_suprema");
   const [novaDespesa, setNovaDespesa] = useState("");
   const [showAddVar, setShowAddVar] = useState(false);
   const [varForm, setVarForm] = useState({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" });
@@ -6726,7 +6859,7 @@ function FinanceiroPage() {
 
   const carregarDespesas = async (mes) => {
     setLoading(true);
-    const { data } = await supabase.from("despesas").select("*").eq("mes", mes).order("nome");
+    const { data } = await supabase.from("despesas").select("*").eq("mes", mes).eq("empresa", empresaSel).order("nome");
     if (data && data.length > 0) {
       setDespesas(data);
     } else {
@@ -6739,6 +6872,7 @@ function FinanceiroPage() {
       const { data: anteriores } = await supabase.from("despesas")
         .select("*")
         .eq("mes", mesAnt)
+        .eq("empresa", empresaSel)
         .eq("fixa", true)
         .order("nome");
 
@@ -6754,11 +6888,12 @@ function FinanceiroPage() {
           fixa: true,
           tipo: d.tipo,
           categoria: d.categoria,
+          empresa: empresaSel,
         }));
       } else {
         novas = DESPESAS_FIXAS.map(nome => {
           const { tipo, categoria } = inferirTipoDespesa(nome);
-          return { id: genId(), nome, vencimento: null, valor: 0, status: "Em Aberto", mes, fixa: true, tipo, categoria };
+          return { id: genId(), nome, vencimento: null, valor: 0, status: "Em Aberto", mes, fixa: true, tipo, categoria, empresa: empresaSel };
         });
       }
       for (const d of novas) { await supabase.from("despesas").insert(d); }
@@ -6770,6 +6905,7 @@ function FinanceiroPage() {
     const { data: atrs } = await supabase.from("despesas")
       .select("*")
       .eq("mes", mesAntAtras)
+      .eq("empresa", empresaSel)
       .eq("fixa", true)
       .neq("status", "Pago")
       .order("vencimento");
@@ -6789,11 +6925,11 @@ function FinanceiroPage() {
   // no seu próprio mês de vencimento. Antes puxava TODAS as parcelas de
   // todos os meses de uma vez, poluindo a visão do mês atual.
   const carregarFornecedores = async (mes) => {
-    const { data } = await supabase.from("despesas").select("*").like("nome", "forn_%").eq("mes", mes).order("vencimento");
+    const { data } = await supabase.from("despesas").select("*").like("nome", "forn_%").eq("mes", mes).eq("empresa", empresaSel).order("vencimento");
     if (data) setFornecedores(data);
   };
 
-  useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(mesSel); carregarBoletos(); }, [mesSel]);
+  useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(mesSel); carregarBoletos(); }, [mesSel, empresaSel]);
 
   const atualizarDespesa = async (id, campo, valor) => {
     const update = {}; update[campo] = valor;
@@ -6805,7 +6941,7 @@ function FinanceiroPage() {
     if (fixa) {
       if (!novaDespesa.trim()) return;
       const { tipo, categoria } = inferirTipoDespesa(novaDespesa.trim());
-      const nova = { id: genId(), nome: novaDespesa.trim(), vencimento: null, valor: 0, status: "Em Aberto", mes: mesSel, fixa: true, tipo, categoria };
+      const nova = { id: genId(), nome: novaDespesa.trim(), vencimento: null, valor: 0, status: "Em Aberto", mes: mesSel, fixa: true, tipo, categoria, empresa: empresaSel };
       await supabase.from("despesas").insert(nova);
       setDespesas([...despesas, nova]);
       setNovaDespesa("");
@@ -6823,7 +6959,7 @@ function FinanceiroPage() {
     const cls = inferirTipoDespesa(nome);
     // Regra do Ale: despesa variável é sempre um gasto já feito na hora,
     // então sai direto como "Pago" (não fica em Em Aberto esperando).
-    const nova = { id: genId(), nome, vencimento: venc, valor: Number(vf.valor) || 0, status: "Pago", mes: mesSel, fixa: false, tipo: cls.tipo, categoria: cls.categoria };
+    const nova = { id: genId(), nome, vencimento: venc, valor: Number(vf.valor) || 0, status: "Pago", mes: mesSel, fixa: false, tipo: cls.tipo, categoria: cls.categoria, empresa: empresaSel };
     await supabase.from("despesas").insert(nova);
     setDespesas([...despesas, nova]);
     setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" });
@@ -6840,7 +6976,7 @@ function FinanceiroPage() {
     let nomeFinal = "forn_" + tipo;
     if (ff.pedido || ff.parcela) nomeFinal = "forn_" + tipo + "|" + (ff.pedido || "") + "|" + (ff.parcela || "");
     const cls = inferirTipoDespesa(nomeFinal);
-    const nova = { id: genId(), nome: nomeFinal, vencimento: venc, valor: Number(ff.valor) || 0, status: "Em Aberto", mes: mesSel, fixa: false, tipo: cls.tipo, categoria: cls.categoria };
+    const nova = { id: genId(), nome: nomeFinal, vencimento: venc, valor: Number(ff.valor) || 0, status: "Em Aberto", mes: mesSel, fixa: false, tipo: cls.tipo, categoria: cls.categoria, empresa: empresaSel };
     await supabase.from("despesas").insert(nova);
     setFornecedores([...fornecedores, nova]);
     setFornForm({ data: "", pedido: "", parcela: "", valor: "" });
@@ -6864,7 +7000,7 @@ function FinanceiroPage() {
     const y = mesSel.split("-")[0];
     const venc = y + "-" + mf.mes + "-" + mf.dia;
     const mesKey = y + "-" + mf.mes;
-    const nova = { id: genId(), nome: "forn_mdf||" + (mf.qtd || "1") + "|", vencimento: venc, valor: Number(mf.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false, tipo: "CMV", categoria: "Fornecedores MDF" };
+    const nova = { id: genId(), nome: "forn_mdf||" + (mf.qtd || "1") + "|", vencimento: venc, valor: Number(mf.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false, tipo: "CMV", categoria: "Fornecedores MDF", empresa: empresaSel };
     await supabase.from("despesas").insert(nova);
     setFornecedores([...fornecedores, nova]);
     setMdfForm({ dia: "", mes: "", qtd: "", valor: "" });
@@ -6877,7 +7013,7 @@ function FinanceiroPage() {
     const y = mesSel.split("-")[0];
     const venc = y + "-" + of2.mes + "-" + of2.dia;
     const mesKey = y + "-" + of2.mes;
-    const nova = { id: genId(), nome: "forn_outros|" + of2.fornecedor + "||", vencimento: venc, valor: Number(of2.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false, tipo: "CMV", categoria: "Fornecedores Outros" };
+    const nova = { id: genId(), nome: "forn_outros|" + of2.fornecedor + "||", vencimento: venc, valor: Number(of2.valor) || 0, status: "Em Aberto", mes: mesKey, fixa: false, tipo: "CMV", categoria: "Fornecedores Outros", empresa: empresaSel };
     await supabase.from("despesas").insert(nova);
     setFornecedores([...fornecedores, nova]);
     setOutrosForm({ dia: "", mes: "", fornecedor: "", valor: "" });
@@ -6910,6 +7046,7 @@ function FinanceiroPage() {
         fixa: false,
         tipo: "CMV",
         categoria: "Fornecedores Gôndolas",
+        empresa: empresaSel,
       };
       novas.push(nova);
       await supabase.from("despesas").insert(nova);
@@ -7021,15 +7158,23 @@ function FinanceiroPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Financeiro</h1>
-          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Contas a pagar do mês</p>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+            {empresaSel === "gondolas_suprema" ? "Gôndolas Suprema LTDA" : "Suprema Instalações LTDA"} · Contas a pagar do mês
+          </p>
         </div>
-        <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
-          {Array.from({ length: 12 }, (_, i) => {
-            const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
-            const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-            return <option key={v} value={v}>{mesNomes[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
-          })}
-        </select>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <select value={empresaSel} onChange={e => setEmpresaSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+            <option value="gondolas_suprema">Gôndolas Suprema</option>
+            <option value="suprema_instalacoes">Suprema Instalações</option>
+          </select>
+          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+            {Array.from({ length: 12 }, (_, i) => {
+              const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
+              const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+              return <option key={v} value={v}>{mesNomes[String(d.getMonth() + 1).padStart(2, "0")]} {d.getFullYear()}</option>;
+            })}
+          </select>
+        </div>
       </div>
 
       {/* Cards resumo */}
@@ -7549,8 +7694,13 @@ function DrePage() {
   const [despesas, setDespesas] = useState([]);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
   const [comparacao, setComparacao] = useState(true);
+  // Sprint 2.2 — filtro por empresa. Cada CNPJ tem seu DRE isolado.
+  // "todos" = DRE consolidado (soma as duas empresas)
+  const [empresaSel, setEmpresaSel] = useState("todos");
   const mesNomes = { "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr", "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago", "09": "Set", "10": "Out", "11": "Nov", "12": "Dez" };
   const mesNomesLongo = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
+
+  const [boletosAbertos, setBoletosAbertos] = useState([]);
 
   useEffect(() => {
     const load = async () => {
@@ -7558,23 +7708,108 @@ function DrePage() {
       if (orcData) setVendas(orcData);
       const { data: despData } = await supabase.from("despesas").select("*");
       if (despData) setDespesas(despData);
+      const { data: bolData } = await supabase.from("boletos_a_pagar").select("*").eq("status", "pendente");
+      if (bolData) setBoletosAbertos(bolData);
     };
     load();
   }, []);
+
+  // Filtro por empresa aplicado a despesas e vendas
+  const filtroEmpresa = (item, campoEmpresa) => {
+    if (empresaSel === "todos") return true;
+    return (item[campoEmpresa] || "gondolas_suprema") === empresaSel;
+  };
+
+  // ─── Sprint 3.3 — Fluxo de caixa projetado 30 dias ───
+  const calcularFluxo30d = () => {
+    const hoje = new Date();
+    const daqui30 = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const iso = (d) => d.toISOString().split("T")[0];
+    const inRange = (dt) => dt && dt >= iso(hoje) && dt <= iso(daqui30);
+    // A Pagar: boletos pendentes + despesas Em Aberto vencendo em 30d
+    const boletos30d = boletosAbertos.filter(b => inRange(b.vencimento)).reduce((s, b) => s + (Number(b.valor) || 0), 0);
+    const despesas30d = despesas
+      .filter(d => d.status === "Em Aberto" && !d.tipo?.includes("APORTE") && !d.tipo?.includes("FINANCIAMENTO"))
+      .filter(d => filtroEmpresa(d, "empresa"))
+      .filter(d => inRange(d.vencimento))
+      .reduce((s, d) => s + (Number(d.valor) || 0), 0);
+    // A Receber: vendas concluídas com data_pagamento futura (que ainda não caiu)
+    const receber30d = vendas
+      .filter(o => !isOrcamentoRsOculto(o))
+      .filter(o => filtroEmpresa(o, "venda_empresa_recebedora"))
+      .filter(o => o.data_pagamento && inRange(o.data_pagamento.slice(0, 10)))
+      .reduce((s, o) => {
+        if (o.venda_empresa_recebedora === "suprema_instalacoes") {
+          return s + (Number(o.valor_recebido != null ? o.valor_recebido : (o.comissao || 0)) || 0);
+        }
+        return s + (Number(o.total) || 0);
+      }, 0);
+    return { aPagar: boletos30d + despesas30d, aReceber: receber30d, saldo: receber30d - (boletos30d + despesas30d) };
+  };
+
+  // ─── Sprint 3.1/3.2 — Indicadores fiscais e contábeis ───
+  // RBT12 = Receita Bruta acumulada dos últimos 12 meses (base do DAS Simples Nacional).
+  // Calculamos somando as vendas concluídas dos 12 meses anteriores ao mês selecionado.
+  const calcularRBT12 = (mesRef) => {
+    const [yRef, mRef] = mesRef.split("-").map(Number);
+    let total = 0;
+    for (let i = 1; i <= 12; i++) {
+      const d = new Date(yRef, mRef - 1 - i, 1);
+      const mesStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+      const vendasM = vendas.filter(o => {
+        if (isOrcamentoRsOculto(o)) return false;
+        if (!filtroEmpresa(o, "venda_empresa_recebedora")) return false;
+        const ref = o.data_entrega || o.data;
+        if (!ref) return false;
+        const dd = new Date(ref);
+        return (dd.getFullYear() + "-" + String(dd.getMonth() + 1).padStart(2, "0")) === mesStr;
+      });
+      total += vendasM.reduce((s, o) => {
+        if (o.venda_empresa_recebedora === "suprema_instalacoes") {
+          return s + (Number(o.valor_recebido != null ? o.valor_recebido : (o.comissao || 0)) || 0);
+        }
+        return s + (Number(o.total) || 0);
+      }, 0);
+    }
+    return total;
+  };
+  // Tabela Anexo I (Comércio) — Gôndolas Suprema. 2026.
+  // [limite_faixa, aliquota_nominal, deducao]
+  const FAIXAS_ANEXO_I = [
+    [180000,   0.04,  0],
+    [360000,   0.073, 5940],
+    [720000,   0.095, 13860],
+    [1800000,  0.107, 22500],
+    [3600000,  0.143, 87300],
+    [4800000,  0.190, 378000],
+  ];
+  const faixaSimples = (rbt12) => {
+    for (let i = 0; i < FAIXAS_ANEXO_I.length; i++) {
+      if (rbt12 <= FAIXAS_ANEXO_I[i][0]) return { faixa: i + 1, ...{ limite: FAIXAS_ANEXO_I[i][0], aliqNom: FAIXAS_ANEXO_I[i][1], deducao: FAIXAS_ANEXO_I[i][2] } };
+    }
+    return { faixa: 6, limite: 4800000, aliqNom: 0.19, deducao: 378000, excedeu: true };
+  };
+  const aliqEfetiva = (rbt12) => {
+    if (rbt12 <= 0) return 0;
+    const f = faixaSimples(rbt12);
+    return Math.max(0, (rbt12 * f.aliqNom - f.deducao) / rbt12);
+  };
 
   // Receita usa data_entrega (regime de competencia). Fallback: data do orcamento.
   // Orcamentos RS-ocultos do Ale ficam fora da DRE consolidada.
   const calcularMes = (mes) => {
     const vendasMes = vendas.filter(o => {
       if (isOrcamentoRsOculto(o)) return false;
+      if (!filtroEmpresa(o, "venda_empresa_recebedora")) return false;
       const ref = o.data_entrega || o.data;
       if (!ref) return false;
       const d = new Date(ref);
       return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mes;
     });
     const noMes = (d) => d.vencimento && d.vencimento.startsWith(mes);
-    const porTipo = (tipo) => despesas.filter(d => d.tipo === tipo && noMes(d)).reduce((s, d) => s + (Number(d.valor) || 0), 0);
-    const itensTipo = (tipo) => despesas.filter(d => d.tipo === tipo && noMes(d) && (Number(d.valor) || 0) > 0).map(d => ({ nome: d.nome, categoria: d.categoria || "—", valor: Number(d.valor) || 0 }));
+    const empOk = (d) => filtroEmpresa(d, "empresa");
+    const porTipo = (tipo) => despesas.filter(d => d.tipo === tipo && noMes(d) && empOk(d)).reduce((s, d) => s + (Number(d.valor) || 0), 0);
+    const itensTipo = (tipo) => despesas.filter(d => d.tipo === tipo && noMes(d) && empOk(d) && (Number(d.valor) || 0) > 0).map(d => ({ nome: d.nome, categoria: d.categoria || "—", valor: Number(d.valor) || 0 }));
 
     // Receita bruta considera o "valor recebido em conta":
     // - Vendas pagas pela Suprema Instalações → valor_recebido (default = comissão)
@@ -7587,6 +7822,11 @@ function DrePage() {
     };
     const receitaBruta = vendasMes.reduce((s, o) => s + valorReceitaConta(o), 0);
     const comissoes    = vendasMes.reduce((s, o) => s + (Number(o.comissao) || 0), 0);
+    // Vendas sem data_entrega: caem no mês do orçamento por fallback, mas contabilmente
+    // são "sem competência definida" — flaggamos pra visibilidade.
+    const vendasSemEntrega = vendasMes.filter(o => !o.data_entrega).length;
+    // Deduções: só impostos sobre venda (ICMS, ISS, PIS/COFINS, devoluções).
+    // DAS NÃO entra aqui — é tributo único que substitui vários, vai como Provisão depois do EBIT.
     const deducoes = porTipo("DEDUCAO_RECEITA");
     const receitaLiquida = receitaBruta - deducoes;
     const cmv = porTipo("CMV");
@@ -7600,17 +7840,27 @@ function DrePage() {
     const recFin  = porTipo("RECEITA_FINANCEIRA");
     const despFin = porTipo("DESPESA_FINANCEIRA");
     const resultadoFin = recFin - despFin;
-    const lucroLiquido = ebit + resultadoFin;
+    const lair = ebit + resultadoFin; // Lucro Antes do IR (LAIR)
+    // Provisão de Tributos (DAS + IRPJ + CSLL) — depois do LAIR, antes do Lucro Líquido
+    const provisaoTributos = porTipo("PROVISAO_TRIBUTOS");
+    const lucroLiquido = lair - provisaoTributos;
+    // Linhas informativas (não afetam o resultado, saem do PL / fluxo caixa)
+    const retiradaLucro = porTipo("RETIRADA_LUCRO");
+    const aporteSocio   = porTipo("APORTE_SOCIO");
+    const financiamento = porTipo("FINANCIAMENTO");
     return {
       mes,
-      receitaBruta, qtdVendas: vendasMes.length,
+      receitaBruta, qtdVendas: vendasMes.length, vendasSemEntrega,
       deducoes, receitaLiquida,
       cmv, lucroBruto,
       margemBruta: receitaBruta > 0 ? lucroBruto / receitaBruta * 100 : 0,
       despVendas, despAdm, despLogistica, despGeral, totalOp, comissoes,
       ebit, margemOp: receitaBruta > 0 ? ebit / receitaBruta * 100 : 0,
       recFin, despFin, resultadoFin,
+      lair,
+      provisaoTributos,
       lucroLiquido, margemLiq: receitaBruta > 0 ? lucroLiquido / receitaBruta * 100 : 0,
+      retiradaLucro, aporteSocio, financiamento,
       itens: {
         DEDUCAO_RECEITA:    itensTipo("DEDUCAO_RECEITA"),
         CMV:                itensTipo("CMV"),
@@ -7620,6 +7870,10 @@ function DrePage() {
         DESPESA_GERAL:      itensTipo("DESPESA_GERAL"),
         DESPESA_FINANCEIRA: itensTipo("DESPESA_FINANCEIRA"),
         RECEITA_FINANCEIRA: itensTipo("RECEITA_FINANCEIRA"),
+        PROVISAO_TRIBUTOS:  itensTipo("PROVISAO_TRIBUTOS"),
+        RETIRADA_LUCRO:     itensTipo("RETIRADA_LUCRO"),
+        APORTE_SOCIO:       itensTipo("APORTE_SOCIO"),
+        FINANCIAMENTO:      itensTipo("FINANCIAMENTO"),
       },
     };
   };
@@ -7669,9 +7923,17 @@ function DrePage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>DRE</h1>
-          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Demonstração do Resultado do Exercício · {comparacao ? "comparação 3 meses" : "mês único"}</p>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+            {empresaSel === "todos" ? "Consolidado (Gôndolas + Instalações)" : empresaSel === "gondolas_suprema" ? "Gôndolas Suprema LTDA" : "Suprema Instalações LTDA"}
+            {" · "}{comparacao ? "comparação 3 meses" : "mês único"}
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <select value={empresaSel} onChange={e => setEmpresaSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+            <option value="todos">🏢 Consolidado</option>
+            <option value="gondolas_suprema">Gôndolas Suprema</option>
+            <option value="suprema_instalacoes">Suprema Instalações</option>
+          </select>
           <button onClick={() => setComparacao(!comparacao)} style={{ background: comparacao ? COLORS.orange + "20" : COLORS.card, border: `1px solid ${comparacao ? COLORS.orange + "60" : COLORS.border}`, color: comparacao ? COLORS.orange : COLORS.textMuted, padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
             {comparacao ? "Comparação 3M" : "Mês único"}
           </button>
@@ -7684,6 +7946,93 @@ function DrePage() {
           </select>
         </div>
       </div>
+
+      {/* Sprint 3.3 — Fluxo de caixa projetado 30 dias */}
+      {(() => {
+        const fluxo = calcularFluxo30d();
+        return (
+          <div style={{ background: "#3B82F608", border: `1px solid #3B82F630`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>💰 A Receber (próximos 30 dias)</div>
+                <div style={{ color: "#10B981", fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(fluxo.aReceber)}</div>
+                <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Vendas concluídas com pagamento futuro</div>
+              </div>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>💸 A Pagar (próximos 30 dias)</div>
+                <div style={{ color: COLORS.danger, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(fluxo.aPagar)}</div>
+                <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Boletos + Despesas em aberto</div>
+              </div>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>📊 Saldo Projetado 30d</div>
+                <div style={{ color: fluxo.saldo >= 0 ? "#10B981" : COLORS.danger, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fluxo.saldo >= 0 ? "+" : ""}{fmt(fluxo.saldo)}</div>
+                <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>
+                  {fluxo.saldo >= 0 ? "Sobra prevista" : "⚠️ Falta prevista"}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Sprint 3.1 — Card de indicadores fiscais (só faz sentido pra Gôndolas ou Consolidado) */}
+      {(() => {
+        const rbt12 = calcularRBT12(mesSel);
+        const f = faixaSimples(rbt12);
+        const aliqEf = aliqEfetiva(rbt12);
+        const dasProvisMes = dadosAtual.receitaBruta * aliqEf;
+        const perFaixa = f.limite > 0 ? (rbt12 / f.limite) * 100 : 0;
+        const dasPagoMes = dadosAtual.provisaoTributos;
+        const diffDAS = dasProvisMes - dasPagoMes;
+        const alertaSublimite = rbt12 > 3200000;
+        const alertaTeto = rbt12 > 4300000;
+        // Retirada de lucros > R$50k na PF (regra 2026, retenção 10% na fonte)
+        const retiradaMes = dadosAtual.retiradaLucro;
+        const alertaRetencao = retiradaMes > 50000;
+        // Pró-labore pago no mês?
+        const proLaboreItens = (dadosAtual.itens.DESPESA_ADM || []).filter(i => (i.categoria || "").toLowerCase().includes("pró-labore") || (i.categoria || "").toLowerCase().includes("pro-labore"));
+        const proLaborePago = proLaboreItens.reduce((s, i) => s + (i.valor || 0), 0);
+        const alertaProLabore = proLaborePago === 0 && dadosAtual.receitaBruta > 0;
+        return (
+          <div style={{ background: "#F59E0B08", border: `1px solid #F59E0B30`, borderRadius: 10, padding: 14, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>RBT12 · últimos 12 meses</div>
+                <div style={{ color: alertaTeto ? COLORS.danger : (alertaSublimite ? "#F59E0B" : COLORS.text), fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(rbt12)}</div>
+                <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>{perFaixa.toFixed(1)}% da faixa {f.faixa} (limite {fmt(f.limite)})</div>
+              </div>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Alíquota Efetiva Simples</div>
+                <div style={{ color: "#F59E0B", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{(aliqEf * 100).toFixed(2)}%</div>
+                <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Anexo I (Comércio) · faixa {f.faixa}</div>
+              </div>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>DAS provisionado do mês</div>
+                <div style={{ color: Math.abs(diffDAS) > 200 ? "#F59E0B" : "#10B981", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(dasProvisMes)}</div>
+                <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>
+                  Pago: {fmt(dasPagoMes)}
+                  {Math.abs(diffDAS) > 200 && ` (Δ ${diffDAS > 0 ? "+" : ""}${fmt(diffDAS)})`}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Pró-labore do mês</div>
+                <div style={{ color: alertaProLabore ? COLORS.danger : "#10B981", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(proLaborePago)}</div>
+                <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>
+                  {alertaProLabore ? "⚠️ Não pago ainda" : proLaborePago > 0 ? "OK" : "Sem receita no mês"}
+                </div>
+              </div>
+            </div>
+            {(alertaSublimite || alertaTeto || alertaRetencao || alertaProLabore) && (
+              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+                {alertaTeto && <div style={{ color: COLORS.danger, fontSize: 11, fontWeight: 700 }}>🚨 RBT12 próximo do TETO do Simples (R$ 4,8mi) — planejar transição pra Lucro Presumido</div>}
+                {alertaSublimite && !alertaTeto && <div style={{ color: "#F59E0B", fontSize: 11, fontWeight: 700 }}>⚠️ RBT12 se aproxima do sublimite estadual (R$ 3,6mi) — ICMS/ISS podem sair do DAS</div>}
+                {alertaRetencao && <div style={{ color: "#F59E0B", fontSize: 11, fontWeight: 700 }}>⚠️ Distribuição de Lucros do mês ({fmt(retiradaMes)}) &gt; R$ 50k — retenção 10% na fonte (regra 2026)</div>}
+                {alertaProLabore && <div style={{ color: COLORS.danger, fontSize: 11, fontWeight: 700 }}>⚠️ Pró-labore não pago neste mês — pagar antes de distribuir lucros (evita reclassificação pelo Fisco)</div>}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
@@ -7725,9 +8074,10 @@ function DrePage() {
         {separator("Receita", "#10B981")}
         {linha({ label: "Receita Bruta de Vendas", valores: get("receitaBruta"), bold: true, color: COLORS.orange })}
         {linha({ label: "Vendas concluídas no período (qtd)", valores: get("qtdVendas"), italic: true, indent: true, color: COLORS.textDim })}
+        {dados.some(d => d.vendasSemEntrega > 0) && linha({ label: "⚠️ Vendas sem data de entrega (fallback = data do orçamento)", valores: get("vendasSemEntrega"), italic: true, indent: true, color: "#F59E0B" })}
 
         {separator("(-) Deduções da Receita", "#F59E0B")}
-        {linha({ label: "Impostos sobre vendas (DAS, ICMS)", valores: dados.map(d => -d.deducoes), color: COLORS.danger, indent: true, sign: "minus" })}
+        {linha({ label: "Impostos sobre vendas (ICMS, ISS, PIS/COFINS)", valores: dados.map(d => -d.deducoes), color: COLORS.danger, indent: true, sign: "minus" })}
         {linha({ label: "= Receita Líquida", valores: get("receitaLiquida"), bold: true, color: COLORS.text })}
 
         {separator("(-) Custo dos Produtos Vendidos (CMV)", "#F87171")}
@@ -7750,6 +8100,10 @@ function DrePage() {
         {dados.some(d => d.recFin > 0) && linha({ label: "Receitas financeiras", valores: get("recFin"), color: "#10B981", indent: true })}
         {dados.some(d => d.despFin > 0) && linha({ label: "Despesas financeiras", valores: dados.map(d => -d.despFin), color: COLORS.danger, indent: true, sign: "minus" })}
         {linha({ label: "(=) Resultado Financeiro Líquido", valores: get("resultadoFin"), color: COLORS.textMuted, indent: true })}
+        {linha({ label: "= LAIR (Lucro Antes IR/CSLL)", valores: get("lair"), bold: true, color: dadosAtual.lair >= 0 ? COLORS.text : COLORS.danger })}
+
+        {separator("(-) Provisão de Tributos", "#F59E0B")}
+        {linha({ label: "Simples Nacional (DAS) / IRPJ / CSLL", valores: dados.map(d => -d.provisaoTributos), color: COLORS.danger, indent: true, sign: "minus" })}
 
         {separator("Lucro Líquido", dadosAtual.lucroLiquido >= 0 ? "#10B981" : "#F87171")}
         <div style={{ display: "grid", gridTemplateColumns: colTemplate, alignItems: "center", padding: "16px 14px", background: dadosAtual.lucroLiquido >= 0 ? "#10B98112" : COLORS.danger + "12" }}>
@@ -7764,6 +8118,16 @@ function DrePage() {
           })}
         </div>
         {linhaPct("Margem Líquida", dados.map(d => d.margemLiq), dadosAtual.lucroLiquido >= 0 ? "#10B981" : COLORS.danger)}
+
+        {/* Movimentações informativas — saem do PL / Fluxo de Caixa, não afetam o resultado */}
+        {(dados.some(d => d.retiradaLucro > 0) || dados.some(d => d.aporteSocio > 0) || dados.some(d => d.financiamento > 0)) && (
+          <>
+            {separator("Movimentações do Patrimônio (informativo)", "#94A3B8")}
+            {dados.some(d => d.aporteSocio > 0) && linha({ label: "Aporte de Sócio (entrada de PF)", valores: get("aporteSocio"), color: "#10B981", indent: true, italic: true })}
+            {dados.some(d => d.retiradaLucro > 0) && linha({ label: "Distribuição de Lucros / Retirada de Sócio", valores: dados.map(d => -d.retiradaLucro), color: "#94A3B8", indent: true, sign: "minus", italic: true })}
+            {dados.some(d => d.financiamento > 0) && linha({ label: "Empréstimos / Financiamentos recebidos", valores: get("financiamento"), color: "#94A3B8", indent: true, italic: true })}
+          </>
+        )}
       </div>
 
       <div style={{ marginTop: 24 }}>
@@ -8645,8 +9009,10 @@ const APP_VERSION = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "dev";
 
 // Banner que aparece no topo do app quando o Ale tem boletos atrasados.
 // Visível só pro Ale (v1). Click leva pro Financeiro → Boletos.
+// Botão X fecha só pra sessão atual — volta a aparecer no próximo carregamento.
 function BoletosAtrasadosBanner({ user, setPage }) {
   const [atrasados, setAtrasados] = useState([]);
+  const [dispensado, setDispensado] = useState(false);
   useEffect(() => {
     if (!user || user.id !== "v1") return;
     const carregar = async () => {
@@ -8660,35 +9026,64 @@ function BoletosAtrasadosBanner({ user, setPage }) {
     };
     carregar();
   }, [user]);
-  if (!user || user.id !== "v1" || atrasados.length === 0) return null;
+  if (!user || user.id !== "v1" || atrasados.length === 0 || dispensado) return null;
   const total = atrasados.reduce((s, b) => s + (Number(b.valor) || 0), 0);
   return (
     <div
-      onClick={() => setPage("financeiro")}
       style={{
         background: "linear-gradient(90deg, #F87171 0%, #DC2626 100%)",
         color: "#fff",
         padding: "10px 20px",
         display: "flex",
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "space-between",
         gap: 12,
-        cursor: "pointer",
         fontFamily: "'DM Sans', sans-serif",
         fontSize: 13,
         fontWeight: 600,
-        flexWrap: "wrap",
       }}
-      title="Clique pra ir pro Financeiro → Boletos"
     >
-      <span style={{ fontSize: 18 }}>⚠️</span>
-      <span>
-        <strong>{atrasados.length}</strong> {atrasados.length === 1 ? "boleto atrasado" : "boletos atrasados"} —
-        total <strong>{(total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
-      </span>
-      <span style={{ background: "rgba(255,255,255,0.2)", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>
-        Ver no Financeiro →
-      </span>
+      <div style={{ width: 32, flexShrink: 0 }} />
+      <div
+        onClick={() => setPage("financeiro")}
+        style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flexWrap: "wrap", justifyContent: "center", flex: 1 }}
+        title="Clique pra ir pro Financeiro → Boletos"
+      >
+        <span style={{ fontSize: 18 }}>⚠️</span>
+        <span>
+          <strong>{atrasados.length}</strong> {atrasados.length === 1 ? "boleto atrasado" : "boletos atrasados"} —
+          total <strong>{(total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+        </span>
+        <span style={{ background: "rgba(255,255,255,0.2)", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>
+          Ver no Financeiro →
+        </span>
+      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); setDispensado(true); }}
+        title="Fechar (volta a aparecer no próximo carregamento)"
+        aria-label="Fechar aviso"
+        style={{
+          background: "rgba(255,255,255,0.25)",
+          border: "1px solid rgba(255,255,255,0.4)",
+          color: "#fff",
+          width: 32,
+          height: 32,
+          borderRadius: "50%",
+          cursor: "pointer",
+          fontSize: 18,
+          fontWeight: 700,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          lineHeight: 1,
+          padding: 0,
+          flexShrink: 0,
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.4)"}
+        onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.25)"}
+      >
+        ×
+      </button>
     </div>
   );
 }
