@@ -3596,14 +3596,27 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     }
     const info = "\n📋 CONCLUÍDO — Entrega: " + cd.data_entrega + " | Pedido: " + cd.numero_pedido + " | Pagamento: " + pagStr;
     const existingNotes = orders.find(o => o.id === concluidoId)?.notes || "";
-    // Valor recebido: se Instalações e Ale não digitou, usa comissão como fallback (regra existente).
-    // Se Gôndolas Suprema e Ale não digitou, usa total da venda.
+    // Valor recebido: se Ale digitou explicitamente, usa isso.
+    // Regras automáticas quando Ale deixou vazio:
+    // - Suprema Instalações → usa comissão (só recebe comissão)
+    // - Gôndolas Suprema com Pag2=Boleto parcelado (>1x) → só a ENTRADA entra na conta;
+    //   o restante vai pra RRE (cliente paga direto pro fornecedor)
+    // - Gôndolas Suprema demais casos → usa total da venda
     const ord = orders.find(o => o.id === concluidoId);
     const totalOrd = Number(ord?.total) || 0;
     const comissaoOrd = Number(ord?.comissao) || 0;
-    const valorRecebidoFinal = cd.valor_recebido !== ""
-      ? Number(cd.valor_recebido)
-      : (cd.venda_empresa_recebedora === "suprema_instalacoes" ? comissaoOrd : totalOrd);
+    const pag2BoletoParcRRE = cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1;
+    const entradaOrd = Number(cd.pag1_valor || 0) || 0;
+    let valorRecebidoFinal;
+    if (cd.valor_recebido !== "") {
+      valorRecebidoFinal = Number(cd.valor_recebido);
+    } else if (cd.venda_empresa_recebedora === "suprema_instalacoes") {
+      valorRecebidoFinal = comissaoOrd;
+    } else if (pag2BoletoParcRRE && entradaOrd > 0) {
+      valorRecebidoFinal = entradaOrd;
+    } else {
+      valorRecebidoFinal = totalOrd;
+    }
     await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
@@ -3997,7 +4010,13 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   <label style={lblStyle}>Valor efetivamente recebido em conta (R$)</label>
                   <input
                     type="number" min="0" step="0.01"
-                    placeholder={cd.venda_empresa_recebedora === "suprema_instalacoes" ? "Deixe vazio pra usar a comissão" : "Deixe vazio pra usar o total da venda"}
+                    placeholder={
+                      cd.venda_empresa_recebedora === "suprema_instalacoes"
+                        ? "Deixe vazio pra usar a comissão"
+                        : (cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1
+                            ? "Deixe vazio — usaremos só a entrada (Pag 1)"
+                            : "Deixe vazio pra usar o total da venda")
+                    }
                     value={cd.valor_recebido}
                     onChange={e => setConcluidoData({ ...cd, valor_recebido: e.target.value })}
                     style={selStyle}
@@ -4005,7 +4024,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
                     {cd.venda_empresa_recebedora === "suprema_instalacoes"
                       ? "Instalações recebe só a comissão do fornecedor — deixe vazio pra usar o valor da comissão automaticamente."
-                      : "Se recebeu valor diferente do total (parcial, desconto etc), digite aqui. Senão deixa vazio."}
+                      : (cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1
+                          ? "⚠️ Boleto parcelado pra RRE detectado — só a entrada (Pag 1) entra no seu DRE. Os boletos vão direto pra RRE."
+                          : "Se recebeu valor diferente do total (parcial, desconto etc), digite aqui. Senão deixa vazio.")}
                   </div>
                 </div>
               )}
@@ -5495,9 +5516,18 @@ function AdminPage({ user }) {
     const ordAdm = allOrders.find(o => o.id === concluidoIdAdm);
     const totalOrdAdm = Number(ordAdm?.total) || 0;
     const comissaoOrdAdm = Number(ordAdm?.comissao) || 0;
-    const valorRecebidoAdm = cd.valor_recebido !== ""
-      ? Number(cd.valor_recebido)
-      : (cd.venda_empresa_recebedora === "suprema_instalacoes" ? comissaoOrdAdm : totalOrdAdm);
+    const pag2BoletoParcRREAdm = cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1;
+    const entradaOrdAdm = Number(cd.pag1_valor || 0) || 0;
+    let valorRecebidoAdm;
+    if (cd.valor_recebido !== "") {
+      valorRecebidoAdm = Number(cd.valor_recebido);
+    } else if (cd.venda_empresa_recebedora === "suprema_instalacoes") {
+      valorRecebidoAdm = comissaoOrdAdm;
+    } else if (pag2BoletoParcRREAdm && entradaOrdAdm > 0) {
+      valorRecebidoAdm = entradaOrdAdm;
+    } else {
+      valorRecebidoAdm = totalOrdAdm;
+    }
     await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
@@ -7812,13 +7842,14 @@ function DrePage() {
     const itensTipo = (tipo) => despesas.filter(d => d.tipo === tipo && noMes(d) && empOk(d) && (Number(d.valor) || 0) > 0).map(d => ({ nome: d.nome, categoria: d.categoria || "—", valor: Number(d.valor) || 0 }));
 
     // Receita bruta considera o "valor recebido em conta":
-    // - Vendas pagas pela Suprema Instalações → valor_recebido (default = comissão)
-    // - Demais (Gôndolas Suprema, PF, ou ainda em aberto) → total da venda
+    // - Suprema Instalações → valor_recebido (default = comissão)
+    // - Gôndolas Suprema → valor_recebido (quando definido, ex: só entrada quando boleto parcelado
+    //   é pago direto pra RRE); senão total da venda
     const valorReceitaConta = (o) => {
       if (o.venda_empresa_recebedora === "suprema_instalacoes") {
         return Number(o.valor_recebido != null ? o.valor_recebido : (o.comissao || 0)) || 0;
       }
-      return Number(o.total) || 0;
+      return Number(o.valor_recebido != null ? o.valor_recebido : (o.total || 0)) || 0;
     };
     const receitaBruta = vendasMes.reduce((s, o) => s + valorReceitaConta(o), 0);
     const comissoes    = vendasMes.reduce((s, o) => s + (Number(o.comissao) || 0), 0);
