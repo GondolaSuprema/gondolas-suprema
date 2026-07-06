@@ -1402,6 +1402,10 @@ const mesBRT = (dataStr) => {
 const genId = () => Math.random().toString(36).substr(2, 9);
 const catLabel = (key) => CATEGORIES.find(c => c.key === key)?.label || key;
 
+// Texto das variantes escolhidas de um item do orçamento ("Largura 1200mm · Níveis 5 · Cor C+L").
+// Itens novos têm opts_label pronto; antigos caem no join dos opts crus.
+const itemOptsLabel = (it) => it?.opts_label || (Array.isArray(it?.opts) && it.opts.length ? it.opts.join(" · ") : "");
+
 function getItemCusto(item, order) {
   const itemTotal = Number(item.total) || 0;
   const orderTotal = Number(order.total) || 0;
@@ -4257,9 +4261,10 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                         <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: COLORS.bg, borderRadius: 8, marginBottom: 6 }}>
                           <div>
                             <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.name}</div>
-                            <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
+                            <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
                               <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{it.cat}</span>
                               <span style={{ color: COLORS.textDim, fontSize: 11 }}>×{it.qty}</span>
+                              {itemOptsLabel(it) && <span style={{ color: COLORS.orange, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{itemOptsLabel(it)}</span>}
                             </div>
                           </div>
                           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: custo === 0 ? COLORS.textDim : COLORS.textMuted }}>{fmtMoney(custo)}</span>
@@ -4478,7 +4483,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                       <div key={i} style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                         <div style={{ flex: 1, minWidth: 180 }}>
                           <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.name}</div>
-                          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{it.cat}</div>
+                          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{it.cat}{itemOptsLabel(it) ? <span style={{ color: COLORS.orange }}> · {itemOptsLabel(it)}</span> : null}</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <div style={{ display: "flex", alignItems: "center" }}>
@@ -6418,7 +6423,7 @@ function AdminPage({ user }) {
                       <div key={j} style={{ background: COLORS.bg, borderRadius: 6, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div>
                           <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{it.name}</div>
-                          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{it.cat} · Qtd: {it.qty}</div>
+                          <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{it.cat} · Qtd: {it.qty}{itemOptsLabel(it) ? <span style={{ color: COLORS.orange }}> · {itemOptsLabel(it)}</span> : null}</div>
                         </div>
                         <span style={{ color: COLORS.orange, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{fmt(it.total)}</span>
                       </div>
