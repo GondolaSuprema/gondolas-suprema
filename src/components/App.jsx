@@ -2346,6 +2346,16 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
   const getProductQty = (p) => qtyByProduct[p.id] || 1;
   const setProductQty = (productId, qty) => setQtyByProduct(prev => ({ ...prev, [productId]: Math.max(1, qty) }));
 
+  // Depois de adicionar ao orçamento, os chips do produto voltam pro padrão
+  // (primeira opção de cada variante) e a quantidade volta pra 1. Evita a
+  // "seleção fantasma": variante marcada num orçamento anterior ficava ativa
+  // e o vendedor adicionava sem perceber (ex: Slim 1800mm no lugar de 1200mm).
+  const addAndReset = (p, sel, qty) => {
+    onAdd(p, sel, qty);
+    setVariantSel(prev => { const n = { ...prev }; delete n[p.id]; return n; });
+    setQtyByProduct(prev => { const n = { ...prev }; delete n[p.id]; return n; });
+  };
+
   useEffect(() => {
     if (!uniplusFromApp) return;
     setLoadingOutros(true);
@@ -2611,7 +2621,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
                       />
                       <button onClick={() => setProductQty(p.id, qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 32, height: 32, borderRadius: "0 6px 6px 0", cursor: "pointer", fontSize: 14 }}>+</button>
                     </div>
-                    <button onClick={() => onAdd(p, sel, qty)} style={{ flex: 1, background: COLORS.orange, color: "#000", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Orçamento</button>
+                    <button onClick={() => addAndReset(p, sel, qty)} style={{ flex: 1, background: COLORS.orange, color: "#000", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Orçamento</button>
                   </div>
                 </div>
               );
@@ -2644,7 +2654,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
                     />
                     <button onClick={() => setProductQty(p.id, qty + 1)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, width: 24, height: 26, borderRadius: "0 6px 6px 0", cursor: "pointer", fontSize: 13 }}>+</button>
                   </div>
-                  <button onClick={() => onAdd(p, sel, qty)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "6px 12px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Orçamento</button>
+                  <button onClick={() => addAndReset(p, sel, qty)} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "6px 12px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Orçamento</button>
                 </div>
               </div>
             );
@@ -2911,13 +2921,26 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
     setSaving(true);
     const newItems = items.map(i => {
       const optsFromOptions = (i.selOpts || []).map(oi => (i.product.options || [])[oi]?.label).filter(Boolean);
-      const optsFromVariants = i.selVariants ? Object.entries(i.selVariants).map(([k, v]) => v) : [];
+      // Variantes SEMPRE na ordem canônica do produto (largura, níveis, cor...) —
+      // Object.entries dependia da ordem de clique do vendedor, o que gerava
+      // opts fora de ordem no PDF e dificultava conferir o orçamento.
+      const variants = i.product.variants || [];
+      const optsFromVariants = i.selVariants
+        ? (variants.length
+            ? variants.map(v => i.selVariants[v.key]).filter(Boolean)
+            : Object.values(i.selVariants))
+        : [];
+      // Label legível pro PDF: "Largura 1200mm · Níveis 5 · Cor C+L"
+      const optsLabel = i.selVariants && variants.length
+        ? variants.map(v => i.selVariants[v.key] ? `${v.label} ${i.selVariants[v.key]}` : null).filter(Boolean).join(" · ")
+        : "";
       return {
         product_id: i.product.id,
         name: i.product.name,
         cat: catLabel(i.product.category),
         qty: i.qty,
         opts: [...optsFromVariants, ...optsFromOptions],
+        opts_label: optsLabel || undefined,
         total: itemBase(i),
       };
     });

@@ -274,7 +274,7 @@ export async function generatePDF({ orderNum, date, client, items, total, frete,
       cleanForPdf(it.name),
       cleanForPdf(it.cat),
       String(it.qty),
-      it.opts && it.opts.length ? it.opts.join(", ") : "-",
+      it.opts_label ? cleanForPdf(it.opts_label) : (it.opts && it.opts.length ? it.opts.join(", ") : "-"),
       fmt(subtotalItem),
     ];
   });
