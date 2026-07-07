@@ -3623,27 +3623,17 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     }
     const info = "\n📋 CONCLUÍDO — Entrega: " + cd.data_entrega + " | Pedido: " + cd.numero_pedido + " | Pagamento: " + pagStr;
     const existingNotes = orders.find(o => o.id === concluidoId)?.notes || "";
-    // Valor recebido: se Ale digitou explicitamente, usa isso.
-    // Regras automáticas quando Ale deixou vazio:
-    // - Suprema Instalações → usa comissão (só recebe comissão)
-    // - Gôndolas Suprema com Pag2=Boleto parcelado (>1x) → só a ENTRADA entra na conta;
+    // Contábil automático (o vendedor não preenche mais isso — Ale ajusta no
+    // financeiro se precisar). A venda nasce como Gôndolas Suprema.
+    // Valor recebido:
+    // - Pag2 = Boleto parcelado (>1x) → só a ENTRADA (Pag 1) entra no DRE;
     //   o restante vai pra RRE (cliente paga direto pro fornecedor)
-    // - Gôndolas Suprema demais casos → usa total da venda
+    // - demais casos → total da venda
     const ord = orders.find(o => o.id === concluidoId);
     const totalOrd = Number(ord?.total) || 0;
-    const comissaoOrd = Number(ord?.comissao) || 0;
     const pag2BoletoParcRRE = cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1;
     const entradaOrd = Number(cd.pag1_valor || 0) || 0;
-    let valorRecebidoFinal;
-    if (cd.valor_recebido !== "") {
-      valorRecebidoFinal = Number(cd.valor_recebido);
-    } else if (cd.venda_empresa_recebedora === "suprema_instalacoes") {
-      valorRecebidoFinal = comissaoOrd;
-    } else if (pag2BoletoParcRRE && entradaOrd > 0) {
-      valorRecebidoFinal = entradaOrd;
-    } else {
-      valorRecebidoFinal = totalOrd;
-    }
+    const valorRecebidoFinal = (pag2BoletoParcRRE && entradaOrd > 0) ? entradaOrd : totalOrd;
     await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
@@ -3655,9 +3645,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       status_entrega: cd.data_entrega ? "Agendada" : null,
       // Momento em que a venda foi marcada como Concluída — base do gráfico mensal
       data_conclusao: new Date().toISOString(),
-      // ⭐ Contábil (Sprint 2.1): quem recebeu, qual banco, quanto entrou de fato
-      venda_empresa_recebedora: cd.venda_empresa_recebedora || null,
-      venda_banco_recebedor: cd.venda_banco_recebedor || null,
+      // Contábil: default Gôndolas Suprema; valor recebido auto (entrada se boleto parcelado)
+      venda_empresa_recebedora: "gondolas_suprema",
       valor_recebido: valorRecebidoFinal,
     }).eq("id", concluidoId);
 
@@ -3992,7 +3981,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         // Aceita CNPJ (14 dígitos) ou CPF (11 dígitos)
         const cnpjDigits = (cd.cnpj || "").replace(/\D/g, "");
         const cnpjOk = cnpjDigits.length === 14 || cnpjDigits.length === 11;
-        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && (cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto" || cd.pag1_parcelas) && cd.venda_empresa_recebedora;
+        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && (cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto" || cd.pag1_parcelas);
         return (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
@@ -4012,51 +4001,6 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   <div style={{ color: COLORS.danger, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>CNPJ deve ter 14 dígitos ou CPF deve ter 11 dígitos.</div>
                 )}
               </div>
-              <div>
-                <label style={lblStyle}>Empresa que recebe *</label>
-                <select value={cd.venda_empresa_recebedora} onChange={e => setConcluidoData({ ...cd, venda_empresa_recebedora: e.target.value })} style={selStyle}>
-                  <option value="">Selecione...</option>
-                  <option value="gondolas_suprema">Gôndolas Suprema (recebe o total)</option>
-                  <option value="suprema_instalacoes">Suprema Instalações (recebe só comissão)</option>
-                </select>
-              </div>
-              {cd.venda_empresa_recebedora && (
-                <div>
-                  <label style={lblStyle}>Banco recebedor</label>
-                  <select value={cd.venda_banco_recebedor} onChange={e => setConcluidoData({ ...cd, venda_banco_recebedor: e.target.value })} style={selStyle}>
-                    <option value="">Selecione...</option>
-                    <option value="sicredi">Sicredi (Gôndolas)</option>
-                    <option value="mercado_pago">Mercado Pago (Gôndolas)</option>
-                    <option value="c6_bank">C6 Bank (Instalações)</option>
-                    <option value="pf_mp">MP PF Ale (particular)</option>
-                  </select>
-                </div>
-              )}
-              {cd.venda_empresa_recebedora && (
-                <div>
-                  <label style={lblStyle}>Valor efetivamente recebido em conta (R$)</label>
-                  <input
-                    type="number" min="0" step="0.01"
-                    placeholder={
-                      cd.venda_empresa_recebedora === "suprema_instalacoes"
-                        ? "Deixe vazio pra usar a comissão"
-                        : (cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1
-                            ? "Deixe vazio — usaremos só a entrada (Pag 1)"
-                            : "Deixe vazio pra usar o total da venda")
-                    }
-                    value={cd.valor_recebido}
-                    onChange={e => setConcluidoData({ ...cd, valor_recebido: e.target.value })}
-                    style={selStyle}
-                  />
-                  <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
-                    {cd.venda_empresa_recebedora === "suprema_instalacoes"
-                      ? "Instalações recebe só a comissão do fornecedor — deixe vazio pra usar o valor da comissão automaticamente."
-                      : (cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1
-                          ? "⚠️ Boleto parcelado pra RRE detectado — só a entrada (Pag 1) entra no seu DRE. Os boletos vão direto pra RRE."
-                          : "Se recebeu valor diferente do total (parcial, desconto etc), digite aqui. Senão deixa vazio.")}
-                  </div>
-                </div>
-              )}
               <div>
                 <label style={lblStyle}>Data de Entrega *</label>
                 <input type="date" value={cd.data_entrega} onChange={e => setConcluidoData({ ...cd, data_entrega: e.target.value })} style={selStyle} />
@@ -5543,19 +5487,9 @@ function AdminPage({ user }) {
     const existingNotes = allOrders.find(o => o.id === concluidoIdAdm)?.notes || "";
     const ordAdm = allOrders.find(o => o.id === concluidoIdAdm);
     const totalOrdAdm = Number(ordAdm?.total) || 0;
-    const comissaoOrdAdm = Number(ordAdm?.comissao) || 0;
     const pag2BoletoParcRREAdm = cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1;
     const entradaOrdAdm = Number(cd.pag1_valor || 0) || 0;
-    let valorRecebidoAdm;
-    if (cd.valor_recebido !== "") {
-      valorRecebidoAdm = Number(cd.valor_recebido);
-    } else if (cd.venda_empresa_recebedora === "suprema_instalacoes") {
-      valorRecebidoAdm = comissaoOrdAdm;
-    } else if (pag2BoletoParcRREAdm && entradaOrdAdm > 0) {
-      valorRecebidoAdm = entradaOrdAdm;
-    } else {
-      valorRecebidoAdm = totalOrdAdm;
-    }
+    const valorRecebidoAdm = (pag2BoletoParcRREAdm && entradaOrdAdm > 0) ? entradaOrdAdm : totalOrdAdm;
     await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
@@ -5564,8 +5498,7 @@ function AdminPage({ user }) {
       numero_pedido: cd.numero_pedido || null,
       status_entrega: cd.data_entrega ? "Agendada" : null,
       data_conclusao: new Date().toISOString(),
-      venda_empresa_recebedora: cd.venda_empresa_recebedora || null,
-      venda_banco_recebedor: cd.venda_banco_recebedor || null,
+      venda_empresa_recebedora: "gondolas_suprema",
       valor_recebido: valorRecebidoAdm,
     }).eq("id", concluidoIdAdm);
     setAllOrders(prev => prev.map(o => o.id === concluidoIdAdm
@@ -6482,7 +6415,7 @@ function AdminPage({ user }) {
         const lblStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
         const cnpjDigits = (cd.cnpj || "").replace(/\D/g, "");
         const cnpjOk = cnpjDigits.length === 14 || cnpjDigits.length === 11;
-        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && ((cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto") || cd.pag1_parcelas) && cd.venda_empresa_recebedora;
+        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && ((cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto") || cd.pag1_parcelas);
         return (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
             <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
@@ -6494,43 +6427,6 @@ function AdminPage({ user }) {
                   <input placeholder="00.000.000/0001-00 ou 000.000.000-00" value={cd.cnpj} onChange={e => setConcluidoDataAdm({ ...cd, cnpj: formatarCnpjOuCpf(e.target.value) })} maxLength={18} style={!cnpjOk && cd.cnpj ? { ...selStyle, borderColor: COLORS.danger } : selStyle} />
                   {!cnpjOk && cd.cnpj && (<div style={{ color: COLORS.danger, fontSize: 10, marginTop: 4 }}>CNPJ deve ter 14 dígitos ou CPF deve ter 11 dígitos.</div>)}
                 </div>
-                <div>
-                  <label style={lblStyle}>Empresa que recebe *</label>
-                  <select value={cd.venda_empresa_recebedora} onChange={e => setConcluidoDataAdm({ ...cd, venda_empresa_recebedora: e.target.value })} style={selStyle}>
-                    <option value="">Selecione...</option>
-                    <option value="gondolas_suprema">Gôndolas Suprema (recebe o total)</option>
-                    <option value="suprema_instalacoes">Suprema Instalações (recebe só comissão)</option>
-                  </select>
-                </div>
-                {cd.venda_empresa_recebedora && (
-                  <div>
-                    <label style={lblStyle}>Banco recebedor</label>
-                    <select value={cd.venda_banco_recebedor} onChange={e => setConcluidoDataAdm({ ...cd, venda_banco_recebedor: e.target.value })} style={selStyle}>
-                      <option value="">Selecione...</option>
-                      <option value="sicredi">Sicredi (Gôndolas)</option>
-                      <option value="mercado_pago">Mercado Pago (Gôndolas)</option>
-                      <option value="c6_bank">C6 Bank (Instalações)</option>
-                      <option value="pf_mp">MP PF Ale (particular)</option>
-                    </select>
-                  </div>
-                )}
-                {cd.venda_empresa_recebedora && (
-                  <div>
-                    <label style={lblStyle}>Valor efetivamente recebido em conta (R$)</label>
-                    <input
-                      type="number" min="0" step="0.01"
-                      placeholder={cd.venda_empresa_recebedora === "suprema_instalacoes" ? "Deixe vazio pra usar a comissão" : "Deixe vazio pra usar o total da venda"}
-                      value={cd.valor_recebido}
-                      onChange={e => setConcluidoDataAdm({ ...cd, valor_recebido: e.target.value })}
-                      style={selStyle}
-                    />
-                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4 }}>
-                      {cd.venda_empresa_recebedora === "suprema_instalacoes"
-                        ? "Instalações recebe só a comissão — deixe vazio pra usar automaticamente."
-                        : "Se recebeu valor diferente do total, digite aqui. Senão deixa vazio."}
-                    </div>
-                  </div>
-                )}
                 <div>
                   <label style={lblStyle}>Data de Entrega *</label>
                   <input type="date" value={cd.data_entrega} onChange={e => setConcluidoDataAdm({ ...cd, data_entrega: e.target.value })} style={selStyle} />
