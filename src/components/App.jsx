@@ -2016,8 +2016,9 @@ const VENDEDORES = [
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
   admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
-  // gestor (Zanella) — explicitamente SEM comissoes (regra do Ale)
-  gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm"],
+  // gestor (Zanella) — SEM comissoes (regra do Ale). TEM financeiro mas SOMENTE
+  // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage).
+  gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm", "financeiro"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
@@ -2030,7 +2031,9 @@ const ROLE_PERMISSIONS = {
 // Abas com acesso restrito SOMENTE ao Alessandro (user.id === "v1"),
 // independente da role. Mesmo que alguém vire admin no futuro, essas
 // abas continuam exclusivas dele.
-const ALE_ONLY_TABS = ["financeiro", "dre", "nf", "conciliacao"];
+// financeiro SAIU desta lista: Zanella (gestor) pode VER (só leitura).
+// DRE, NF e Conciliação continuam exclusivos do Ale.
+const ALE_ONLY_TABS = ["dre", "nf", "conciliacao"];
 
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
@@ -6741,7 +6744,10 @@ const DESPESAS_FIXAS = [
   "Sistema", "Aluguel Barracão", "Carro HR", "Contabilidade", "INSS", "SIMPLES", "FGTS"
 ];
 
-function FinanceiroPage() {
+function FinanceiroPage({ user }) {
+  // Somente leitura: só o Ale (admin/v1) edita o Financeiro. Zanella (gestor)
+  // e qualquer outro que tenha acesso à aba enxergam tudo mas não alteram nada.
+  const somenteLeitura = !(user?.role === "admin" || user?.id === "v1");
   const [subTab, setSubTab] = useState("fixas");
   const [despesas, setDespesas] = useState([]);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
@@ -6776,12 +6782,14 @@ function FinanceiroPage() {
 
   // Marca boleto como pago
   const marcarBoletoPago = async (id) => {
+    if (somenteLeitura) return;
     await supabase.from("boletos_a_pagar").update({ status: "pago", data_pagamento: new Date().toISOString() }).eq("id", id);
     setBoletos(prev => prev.map(b => b.id === id ? { ...b, status: "pago", data_pagamento: new Date().toISOString() } : b));
   };
 
   // Volta boleto pra pendente (se marcou pago por engano)
   const desmarcarBoletoPago = async (id) => {
+    if (somenteLeitura) return;
     await supabase.from("boletos_a_pagar").update({ status: "pendente", data_pagamento: null }).eq("id", id);
     setBoletos(prev => prev.map(b => b.id === id ? { ...b, status: "pendente", data_pagamento: null } : b));
   };
@@ -6819,6 +6827,9 @@ function FinanceiroPage() {
     const { data } = await supabase.from("despesas").select("*").eq("mes", mes).eq("empresa", empresaSel).order("nome");
     if (data && data.length > 0) {
       setDespesas(data);
+    } else if (somenteLeitura) {
+      // Zanella (só leitura) não gera esqueleto de fixas — só mostra o que existe.
+      setDespesas([]);
     } else {
       // Mês ainda sem despesas — replica TODAS as despesas fixas do mês
       // anterior (com valores E vencimentos já preenchidos), pra evitar
@@ -6874,6 +6885,7 @@ function FinanceiroPage() {
   // Atualiza o registro no MÊS ORIGINAL dela (não cria nada no mês atual)
   // e remove da lista de atrasadas.
   const marcarAtrasadaPaga = async (despesa) => {
+    if (somenteLeitura) return;
     await supabase.from("despesas").update({ status: "Pago" }).eq("id", despesa.id);
     setAtrasadas(prev => prev.filter(d => d.id !== despesa.id));
   };
@@ -6889,12 +6901,14 @@ function FinanceiroPage() {
   useEffect(() => { carregarDespesas(mesSel); carregarFornecedores(mesSel); carregarBoletos(); }, [mesSel, empresaSel]);
 
   const atualizarDespesa = async (id, campo, valor) => {
+    if (somenteLeitura) return;
     const update = {}; update[campo] = valor;
     await supabase.from("despesas").update(update).eq("id", id);
     setDespesas(despesas.map(d => d.id === id ? { ...d, [campo]: valor } : d));
   };
 
   const adicionarDespesa = async (fixa) => {
+    if (somenteLeitura) return;
     if (fixa) {
       if (!novaDespesa.trim()) return;
       const { tipo, categoria } = inferirTipoDespesa(novaDespesa.trim());
@@ -6906,6 +6920,7 @@ function FinanceiroPage() {
   };
 
   const adicionarVariavel = async () => {
+    if (somenteLeitura) return;
     const vf = varForm;
     if (!vf.categoria) return;
     const nome = vf.categoria === "Pagamento Socios" ? "Pgto Sócio — " + vf.socio : vf.categoria;
@@ -6924,6 +6939,7 @@ function FinanceiroPage() {
   };
 
   const adicionarFornecedor = async (tipo) => {
+    if (somenteLeitura) return;
     const ff = fornForm;
     if (!ff.valor) return;
     const y = mesSel.split("-")[0];
@@ -6941,17 +6957,20 @@ function FinanceiroPage() {
   };
 
   const excluirFornecedor = async (id) => {
+    if (somenteLeitura) return;
     await supabase.from("despesas").delete().eq("id", id);
     setFornecedores(fornecedores.filter(f => f.id !== id));
   };
 
   const atualizarFornecedor = async (id, campo, valor) => {
+    if (somenteLeitura) return;
     const update = {}; update[campo] = valor;
     await supabase.from("despesas").update(update).eq("id", id);
     setFornecedores(fornecedores.map(f => f.id === id ? { ...f, [campo]: valor } : f));
   };
 
   const adicionarMdf = async () => {
+    if (somenteLeitura) return;
     const mf = mdfForm;
     if (!mf.dia || !mf.mes || !mf.valor) return;
     const y = mesSel.split("-")[0];
@@ -6965,6 +6984,7 @@ function FinanceiroPage() {
   };
 
   const adicionarOutros = async () => {
+    if (somenteLeitura) return;
     const of2 = outrosForm;
     if (!of2.dia || !of2.mes || !of2.fornecedor || !of2.valor) return;
     const y = mesSel.split("-")[0];
@@ -6978,6 +6998,7 @@ function FinanceiroPage() {
   };
 
   const adicionarGondolas = async () => {
+    if (somenteLeitura) return;
     const gf = gondForm;
     if (!gf.documento || !gf.dia || !gf.mes || !gf.valor) return;
     const qtd = Number(gf.qtdParcelas) || 1;
@@ -7014,6 +7035,7 @@ function FinanceiroPage() {
   };
 
   const excluirDespesa = async (id) => {
+    if (somenteLeitura) return;
     await supabase.from("despesas").delete().eq("id", id);
     setDespesas(despesas.filter(d => d.id !== id));
   };
@@ -7062,15 +7084,15 @@ function FinanceiroPage() {
             return (
               <tr key={d.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                 <td style={{ padding: "6px 8px" }}>
-                  <input value={d.nome} onChange={e => atualizarDespesa(d.id, "nome", e.target.value)} style={{ ...inp, width: "100%", padding: "4px 6px", fontSize: 11, fontWeight: 500, color: COLORS.text, border: "1px solid transparent" }} onFocus={e => e.target.style.borderColor = COLORS.border} onBlur={e => e.target.style.borderColor = "transparent"} />
+                  <input disabled={somenteLeitura} value={d.nome} onChange={e => atualizarDespesa(d.id, "nome", e.target.value)} style={{ ...inp, width: "100%", padding: "4px 6px", fontSize: 11, fontWeight: 500, color: COLORS.text, border: "1px solid transparent" }} onFocus={e => e.target.style.borderColor = COLORS.border} onBlur={e => e.target.style.borderColor = "transparent"} />
                 </td>
                 <td style={{ padding: "4px 4px", textAlign: "center" }}>
                   <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
-                    <select value={d.vencimento ? d.vencimento.split("-")[2] : ""} onChange={e => { const m = d.vencimento ? d.vencimento.split("-")[1] : mesSel.split("-")[1]; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + m + "-" + e.target.value); }} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
+                    <select disabled={somenteLeitura} value={d.vencimento ? d.vencimento.split("-")[2] : ""} onChange={e => { const m = d.vencimento ? d.vencimento.split("-")[1] : mesSel.split("-")[1]; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + m + "-" + e.target.value); }} style={{ ...inp, width: 42, padding: "4px 2px", fontSize: 10 }}>
                       <option value="">--</option>
                       {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
                     </select>
-                    <select value={d.vencimento ? d.vencimento.split("-")[1] : ""} onChange={e => { const dia = d.vencimento ? d.vencimento.split("-")[2] : "01"; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + e.target.value + "-" + dia); }} style={{ ...inp, width: 50, padding: "4px 2px", fontSize: 10 }}>
+                    <select disabled={somenteLeitura} value={d.vencimento ? d.vencimento.split("-")[1] : ""} onChange={e => { const dia = d.vencimento ? d.vencimento.split("-")[2] : "01"; const y = mesSel.split("-")[0]; atualizarDespesa(d.id, "vencimento", y + "-" + e.target.value + "-" + dia); }} style={{ ...inp, width: 50, padding: "4px 2px", fontSize: 10 }}>
                       <option value="">--</option>
                       <option value="01">Jan</option><option value="02">Fev</option><option value="03">Mar</option><option value="04">Abr</option><option value="05">Mai</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Ago</option><option value="09">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
                     </select>
@@ -7079,20 +7101,22 @@ function FinanceiroPage() {
                 <td style={{ padding: "4px 8px", textAlign: "right" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
                     <span style={{ color: COLORS.textDim, fontSize: 10 }}>R$</span>
-                    <input type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0,00" style={{ ...inp, width: 95, textAlign: "right", color: COLORS.orange, fontWeight: 700, padding: "4px 6px", fontSize: 11 }} />
+                    <input disabled={somenteLeitura} type="number" min="0" step="0.01" value={d.valor || ""} onChange={e => atualizarDespesa(d.id, "valor", Number(e.target.value) || 0)} placeholder="0,00" style={{ ...inp, width: 95, textAlign: "right", color: COLORS.orange, fontWeight: 700, padding: "4px 6px", fontSize: 11 }} />
                   </div>
                 </td>
                 <td style={{ padding: "4px 6px", textAlign: "center" }}>
                   <span style={{ background: sit.color + "20", color: sit.color, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{sit.label}</span>
                 </td>
                 <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                  <select value={d.status} onChange={e => atualizarDespesa(d.id, "status", e.target.value)} style={{ background: d.status === "Pago" ? "#10B98120" : "#F59E0B20", color: d.status === "Pago" ? "#10B981" : "#F59E0B", border: `1px solid ${d.status === "Pago" ? "#10B98140" : "#F59E0B40"}`, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
+                  <select disabled={somenteLeitura} value={d.status} onChange={e => atualizarDespesa(d.id, "status", e.target.value)} style={{ background: d.status === "Pago" ? "#10B98120" : "#F59E0B20", color: d.status === "Pago" ? "#10B981" : "#F59E0B", border: `1px solid ${d.status === "Pago" ? "#10B98140" : "#F59E0B40"}`, padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: somenteLeitura ? "default" : "pointer", outline: "none" }}>
                     <option value="Em Aberto">Aberto</option>
                     <option value="Pago">Pago</option>
                   </select>
                 </td>
                 <td style={{ padding: "4px 2px", textAlign: "center" }}>
+                  {!somenteLeitura && (
                   <button onClick={() => excluirDespesa(d.id)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>✕</button>
+                  )}
                 </td>
               </tr>
             );
@@ -7133,6 +7157,13 @@ function FinanceiroPage() {
           </select>
         </div>
       </div>
+
+      {somenteLeitura && (
+        <div style={{ background: "#3B82F612", border: `1px solid #3B82F640`, borderRadius: 10, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>👁️</span>
+          <span style={{ color: "#93C5FD", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Modo somente leitura — você pode consultar o financeiro, mas não editar.</span>
+        </div>
+      )}
 
       {/* Cards resumo */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
@@ -7190,12 +7221,14 @@ function FinanceiroPage() {
                   <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>
                     {Number(d.valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </div>
+                  {!somenteLeitura && (
                   <button
                     onClick={() => marcarAtrasadaPaga(d)}
                     style={{ background: "#10B981", color: "#fff", border: "none", padding: "6px 12px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
                   >
                     ✓ Marcar Pago
                   </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -7216,8 +7249,8 @@ function FinanceiroPage() {
           <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted, fontSize: 12 }}>Nenhuma despesa {subTab === "fixas" ? "fixa" : "variável"} neste mês</div>
         ) : renderTabela(current, subTab === "fixas")}
 
-        {/* Adicionar despesa */}
-        {subTab === "fixas" ? (
+        {/* Adicionar despesa — oculto no modo somente leitura (Zanella) */}
+        {!somenteLeitura && (subTab === "fixas" ? (
           <div style={{ padding: "10px 18px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 8, alignItems: "center" }}>
             <input placeholder="Nova despesa fixa..." value={novaDespesa} onChange={e => setNovaDespesa(e.target.value)} onKeyDown={e => e.key === "Enter" && adicionarDespesa(true)} style={{ ...inp, flex: 1, fontSize: 11 }} />
             <button onClick={() => adicionarDespesa(true)} style={{ background: COLORS.orange, border: "none", color: "#000", padding: "6px 14px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>+ Adicionar</button>
@@ -7291,7 +7324,7 @@ function FinanceiroPage() {
               </div>
             )}
           </div>
-        )}
+        ))}
       </div>
       )}
 
@@ -7338,13 +7371,15 @@ function FinanceiroPage() {
                               <td style={{ padding: "4px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 10 }}>{p.parcela || "-"}</td>
                               <td style={{ padding: "4px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontSize: 10 }}>{fmt(f.valor)}</td>
                               <td style={{ padding: "3px 3px", textAlign: "center" }}>
-                                <select value={f.status} onChange={e => atualizarFornecedor(f.id, "status", e.target.value)} style={{ background: f.status === "Pago" ? "#10B98120" : "#F59E0B20", color: f.status === "Pago" ? "#10B981" : "#F59E0B", border: "none", padding: "2px 3px", borderRadius: 8, fontSize: 8, fontWeight: 700, cursor: "pointer", outline: "none" }}>
+                                <select disabled={somenteLeitura} value={f.status} onChange={e => atualizarFornecedor(f.id, "status", e.target.value)} style={{ background: f.status === "Pago" ? "#10B98120" : "#F59E0B20", color: f.status === "Pago" ? "#10B981" : "#F59E0B", border: "none", padding: "2px 3px", borderRadius: 8, fontSize: 8, fontWeight: 700, cursor: somenteLeitura ? "default" : "pointer", outline: "none" }}>
                                   <option value="Em Aberto">Aberto</option>
                                   <option value="Pago">Pago</option>
                                 </select>
                               </td>
                               <td style={{ padding: "2px", textAlign: "center" }}>
+                                {!somenteLeitura && (
                                 <button onClick={() => excluirFornecedor(f.id)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 10, padding: 0, lineHeight: 1 }}>✕</button>
+                                )}
                               </td>
                             </tr>
                           );
@@ -7497,7 +7532,7 @@ function FinanceiroPage() {
                         </div>
                       </div>
                     </div>
-                  ) : (
+                  ) : somenteLeitura ? null : (
                     <div style={{ padding: "6px 10px", borderTop: `1px solid ${COLORS.border}`, textAlign: "center" }}>
                       <button onClick={() => setShowAddForn(t.key)} style={{ background: t.color + "15", border: `1px solid ${t.color}30`, color: t.color, padding: "4px 12px", borderRadius: 5, fontWeight: 700, fontSize: 9, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Adicionar</button>
                     </div>
@@ -7624,7 +7659,9 @@ function FinanceiroPage() {
                           ) : <span style={{ color: COLORS.textDim }}>—</span>}
                         </td>
                         <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                          {!pago ? (
+                          {somenteLeitura ? (
+                            <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>
+                          ) : !pago ? (
                             <button onClick={() => marcarBoletoPago(b.id)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✓ Marcar Pago</button>
                           ) : (
                             <button onClick={() => desmarcarBoletoPago(b.id)} title="Voltar pra pendente" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "4px 8px", borderRadius: 6, fontSize: 10, cursor: "pointer" }}>↩ Reabrir</button>
@@ -9607,7 +9644,7 @@ export default function App() {
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
-      {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroPage />}
+      {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroPage user={user} />}
       {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
       {page === "dre" && canAccess(user, "dre") && <DrePage />}
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
