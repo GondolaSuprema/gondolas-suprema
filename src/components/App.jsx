@@ -1779,10 +1779,13 @@ function ClientPage({ clientData, setClientData, setPage }) {
   const inpErr = { ...inp, border: `1px solid ${COLORS.danger}` };
   const labelStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
 
+  // Anti-autofill sem quebrar mobile: o truque antigo usava readOnly + onFocus
+  // pra destravar, mas no celular (iOS Safari / Android) tocar num campo
+  // readOnly não dispara o onFocus de forma confiável — o campo ficava
+  // impossível de editar. Agora só autoComplete=off + campos-isca ocultos +
+  // nomes não-padrão (gs_*_nofill), que já seguram o autofill sem travar nada.
   const noFill = {
     autoComplete: "off",
-    readOnly: true,
-    onFocus: (e) => e.target.removeAttribute("readonly"),
   };
 
   const buscarCnpj = async () => {
