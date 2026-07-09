@@ -7328,6 +7328,54 @@ function FinanceiroPage({ user }) {
       </div>
       )}
 
+      {/* Boletos atrasados de meses anteriores — abaixo das despesas fixas */}
+      {subTab === "fixas" && (() => {
+        const atrasadosLista = boletos
+          .filter(b => b.status === "pendente" && (b.vencimento || "") < hojeISO)
+          .sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || ""));
+        if (atrasadosLista.length === 0) return null;
+        const totalAtr = atrasadosLista.reduce((s, b) => s + (Number(b.valor) || 0), 0);
+        const fmtVenc = (s) => {
+          if (!s) return "—";
+          const p = String(s).split("-");
+          return p.length < 3 ? s : `${p[2]}/${p[1]}/${p[0]}`;
+        };
+        const diasAtraso = (venc) => {
+          if (!venc) return 0;
+          const d = Math.floor((new Date(hojeISO) - new Date(venc)) / (1000 * 60 * 60 * 24));
+          return d > 0 ? d : 0;
+        };
+        return (
+          <div style={{ background: "#F8717110", border: `2px solid #F87171`, borderRadius: 12, overflow: "hidden", marginTop: 16 }}>
+            <div style={{ padding: "12px 18px", borderBottom: `1px solid #F8717140`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F87171", fontSize: 15, margin: 0 }}>⚠️ Boletos atrasados</h2>
+              <span style={{ color: "#F87171", fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>
+                {atrasadosLista.length} {atrasadosLista.length === 1 ? "boleto" : "boletos"} · {Number(totalAtr).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </span>
+            </div>
+            <div>
+              {atrasadosLista.map((b, i) => (
+                <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderBottom: i < atrasadosLista.length - 1 ? `1px solid #F8717120` : "none", flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <div style={{ color: COLORS.text, fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{b.beneficiario || "—"}</div>
+                    <div style={{ color: "#F87171", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>
+                      Venceu em {fmtVenc(b.vencimento)} · {diasAtraso(b.vencimento)} {diasAtraso(b.vencimento) === 1 ? "dia" : "dias"} de atraso
+                      {b.observacao ? ` · ${b.observacao}` : ""}
+                    </div>
+                  </div>
+                  <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif", whiteSpace: "nowrap" }}>
+                    {Number(b.valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </div>
+                  {!somenteLeitura && (
+                    <button onClick={() => marcarBoletoPago(b.id)} style={{ background: "#10B981", color: "#fff", border: "none", padding: "6px 12px", borderRadius: 7, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>✓ Marcar Pago</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Fornecedores */}
       {subTab === "fornecedores" && (() => {
         const tipos = [
@@ -9630,7 +9678,6 @@ export default function App() {
     <div style={{ background: COLORS.bg, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet" />
       <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
-      <BoletosAtrasadosBanner user={user} setPage={setPage} />
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
