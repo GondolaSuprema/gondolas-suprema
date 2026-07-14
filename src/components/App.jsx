@@ -5525,6 +5525,25 @@ function AdminPage({ user }) {
       venda_empresa_recebedora: "gondolas_suprema",
       valor_recebido: valorRecebidoAdm,
     }).eq("id", concluidoIdAdm);
+
+    // Ponte CAPI (Fase 1 - coleta): manda a verdade da venda pro Meta aprender.
+    // Fire-and-forget: nunca trava nem quebra o fluxo do "Concluído".
+    try {
+      if (ordAdm) {
+        fetch("/api/meta-capi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: ordAdm.id,
+            telefone: ordAdm.client?.telefone,
+            valor: ordAdm.total,
+            email: ordAdm.client?.email,
+            nome: ordAdm.client?.responsavel,
+          }),
+        }).catch(() => {});
+      }
+    } catch (e) {}
+
     setAllOrders(prev => prev.map(o => o.id === concluidoIdAdm
       ? { ...o, status: "Concluído", notes: (o.notes || "") + info, client: { ...(o.client || {}), cnpj: cd.cnpj || "" } }
       : o
