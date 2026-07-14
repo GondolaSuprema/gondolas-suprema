@@ -193,15 +193,18 @@ export async function POST(request) {
     if (transportadora.endereco) nfe.endereco_transportador = transportadora.endereco;
     if (transportadora.municipio) nfe.municipio_transportador = transportadora.municipio;
     if (transportadora.uf) nfe.uf_transportador = String(transportadora.uf).toUpperCase();
-    const qtd = Number(transportadora.quantidade) || 0;
+    // Quantidade + peso bruto/líquido — o front exige os 3 preenchidos antes
+    // de salvar o modal (SEFAZ só exibe a caixa de volumes na DANFE quando
+    // vêm juntos; mandar só quantidade sem peso faz a Focus omitir a seção
+    // inteira). Fallback "1"/"0.000" só entra se a rota for chamada direto
+    // (fora do modal) sem essa validação.
+    const qtd = Number(transportadora.quantidade) || 1;
     const pesoB = Number(transportadora.peso_bruto) || 0;
     const pesoL = Number(transportadora.peso_liquido) || 0;
-    if (qtd > 0 || pesoB > 0 || pesoL > 0) {
-      nfe.quantidade_volumes = String(qtd || 1);
-      nfe.especie_volumes = "Volume";
-      if (pesoB > 0) nfe.peso_bruto_volumes = pesoB.toFixed(3);
-      if (pesoL > 0) nfe.peso_liquido_volumes = pesoL.toFixed(3);
-    }
+    nfe.quantidade_volumes = String(qtd);
+    nfe.especie_volumes = "Volume";
+    nfe.peso_bruto_volumes = pesoB.toFixed(3);
+    nfe.peso_liquido_volumes = pesoL.toFixed(3);
   }
 
   const ref = "nfe_" + Date.now();

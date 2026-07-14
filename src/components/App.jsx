@@ -9134,7 +9134,10 @@ function NFPage({ user }) {
       {transportadoraModalOpen && (() => {
         const docLimpo = (transportadoraData.documento || "").replace(/\D/g, "");
         const docOk = docLimpo.length === 0 || docLimpo.length === 11 || docLimpo.length === 14;
-        const podeConfirmar = transportadoraData.nome.trim().length > 0;
+        const qtdOk = Number(transportadoraData.quantidade) > 0;
+        const pesoBrutoOk = Number(transportadoraData.peso_bruto) > 0;
+        const pesoLiquidoOk = Number(transportadoraData.peso_liquido) > 0;
+        const podeConfirmar = transportadoraData.nome.trim().length > 0 && qtdOk && pesoBrutoOk && pesoLiquidoOk;
         const selStyle = { width: "100%", padding: "10px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
         const lblStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
         return (
@@ -9210,17 +9213,22 @@ function NFPage({ user }) {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <div>
                     <label style={lblStyle}>Quantidade *</label>
-                    <input type="number" min="1" placeholder="1" value={transportadoraData.quantidade} onChange={e => setTransportadoraData(prev => ({ ...prev, quantidade: e.target.value }))} style={selStyle} />
+                    <input type="number" min="1" placeholder="1" value={transportadoraData.quantidade} onChange={e => setTransportadoraData(prev => ({ ...prev, quantidade: e.target.value }))} style={qtdOk ? selStyle : { ...selStyle, borderColor: COLORS.danger }} />
                   </div>
                   <div>
                     <label style={lblStyle}>Peso Bruto (kg) *</label>
-                    <input type="number" min="0" step="0.001" placeholder="0,000" value={transportadoraData.peso_bruto} onChange={e => setTransportadoraData(prev => ({ ...prev, peso_bruto: e.target.value }))} style={selStyle} />
+                    <input type="number" min="0" step="0.001" placeholder="0,000" value={transportadoraData.peso_bruto} onChange={e => setTransportadoraData(prev => ({ ...prev, peso_bruto: e.target.value }))} style={pesoBrutoOk ? selStyle : { ...selStyle, borderColor: COLORS.danger }} />
                   </div>
                   <div>
                     <label style={lblStyle}>Peso Líquido (kg) *</label>
-                    <input type="number" min="0" step="0.001" placeholder="0,000" value={transportadoraData.peso_liquido} onChange={e => setTransportadoraData(prev => ({ ...prev, peso_liquido: e.target.value }))} style={selStyle} />
+                    <input type="number" min="0" step="0.001" placeholder="0,000" value={transportadoraData.peso_liquido} onChange={e => setTransportadoraData(prev => ({ ...prev, peso_liquido: e.target.value }))} style={pesoLiquidoOk ? selStyle : { ...selStyle, borderColor: COLORS.danger }} />
                   </div>
                 </div>
+                {!(qtdOk && pesoBrutoOk && pesoLiquidoOk) && (
+                  <div style={{ color: COLORS.danger, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>
+                    ⚠️ Quantidade, Peso Bruto e Peso Líquido são obrigatórios — a SEFAZ só mostra os volumes na NF se os três vierem preenchidos.
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
