@@ -8307,6 +8307,12 @@ function NFPage({ user }) {
   const [transportadoraData, setTransportadoraData] = useState(TRANSPORTADORA_VAZIA);
   const [buscandoCnpjTransp, setBuscandoCnpjTransp] = useState(false);
   const [erroTransp, setErroTransp] = useState("");
+  // Carta de Correção Eletrônica (CC-e) — corrige NF-e já autorizada sem
+  // precisar cancelar (ex: esqueceu de preencher volumes/transportador).
+  const [cartaCorrecaoRef, setCartaCorrecaoRef] = useState(null);
+  const [correcaoTexto, setCorrecaoTexto] = useState("");
+  const [enviandoCorrecao, setEnviandoCorrecao] = useState(false);
+  const [correcaoResult, setCorrecaoResult] = useState(null);
   const buscarCnpjTransportadora = async () => {
     const docLimpo = (transportadoraData.documento || "").replace(/\D/g, "");
     if (docLimpo.length !== 14) { setErroTransp("CNPJ deve ter 14 dígitos para a consulta automática."); return; }
@@ -8467,6 +8473,39 @@ function NFPage({ user }) {
     setCancelandoNfe(null);
     setCancelJustificativa("");
     setCancelRef("");
+  };
+
+  const emitirCartaCorrecao = async (ref, texto) => {
+    if (!ref || texto.trim().length < 15) return;
+    setEnviandoCorrecao(true);
+    try {
+      const nota = notas.find(n => n.ref === ref);
+      const ambiente = nota?.ambiente || "producao";
+      const res = await fetch("/api/emitir-nfe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "carta_correcao", ref_correcao: ref, correcao: texto.trim(), ambiente }),
+      });
+      const data = await res.json();
+      setCorrecaoResult(data);
+      if (data.success) {
+        const registro = {
+          texto: texto.trim(),
+          numero: data.numero_carta_correcao,
+          url_pdf: data.url_pdf_carta_correcao,
+          url_xml: data.url_xml_carta_correcao,
+          data: new Date().toISOString(),
+        };
+        const historico = [...(nota?.cartas_correcao || []), registro];
+        await supabase.from("notas_fiscais").update({ cartas_correcao: historico }).eq("ref", ref);
+        setNotas(prev => prev.map(n => n.ref === ref ? { ...n, cartas_correcao: historico } : n));
+        setCartaCorrecaoRef(null);
+        setCorrecaoTexto("");
+      }
+    } catch (e) {
+      setCorrecaoResult({ success: false, mensagem: e.message });
+    }
+    setEnviandoCorrecao(false);
   };
 
   const consultarSefaz = async (nota) => {
@@ -8796,6 +8835,20 @@ function NFPage({ user }) {
                 <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>
               )}
             </td>
+            <td style={{ padding: "8px 12px", textAlign: "center" }}>
+              {n.tipo === "nfse" ? (
+                <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>
+              ) : (n.cartas_correcao || []).length > 0 ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  {n.cartas_correcao[n.cartas_correcao.length - 1].url_pdf && (
+                    <a href={n.cartas_correcao[n.cartas_correcao.length - 1].url_pdf} target="_blank" rel="noopener noreferrer" title="Baixar última CC-e" style={{ color: "#3B82F6", fontSize: 10, fontWeight: 700, textDecoration: "none" }}>✓ {n.cartas_correcao.length}ª CC-e</a>
+                  )}
+                  <button onClick={() => { setCartaCorrecaoRef(n.ref); setCorrecaoTexto(""); setCorrecaoResult(null); }} title="Emitir nova Carta de Correção" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "3px 8px", borderRadius: 6, fontSize: 9, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ CC-e</button>
+                </div>
+              ) : (
+                <button onClick={() => { setCartaCorrecaoRef(n.ref); setCorrecaoTexto(""); setCorrecaoResult(null); }} title="Emitir Carta de Correção" style={{ background: "#3B82F615", border: "1px solid #3B82F640", color: "#3B82F6", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>📝 CC-e</button>
+              )}
+            </td>
           </tr>
         );
         const renderCard = (titulo, cor, notasLista, total) => (
@@ -8816,6 +8869,7 @@ function NFPage({ user }) {
                       <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Emissão</th>
                       <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
                       <th style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>PDF</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center", color: COLORS.textDim, fontSize: 9, textTransform: "uppercase" }}>CC-e</th>
                     </tr>
                   </thead>
                   <tbody>{notasLista.map(renderNota)}</tbody>
@@ -8869,6 +8923,65 @@ function NFPage({ user }) {
                 <button onClick={() => cancelarNfe(cancelRef, cancelJustificativa)} disabled={!cancelRef || cancelJustificativa.length < 15} style={{ flex: 1, background: !cancelRef || cancelJustificativa.length < 15 ? COLORS.textDim : COLORS.danger, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !cancelRef || cancelJustificativa.length < 15 ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar NF</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Carta de Correção (CC-e) — corrige NF-e autorizada sem cancelar */}
+      {cartaCorrecaoRef && !correcaoResult && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 460, maxWidth: "100%" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 18, margin: "0 0 6px" }}>📝 Carta de Correção Eletrônica</h2>
+            <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 14px" }}>
+              Corrige dados da NF-e sem cancelar — só pode ser usada pra informações que <strong>não mudam valor, quantidade faturada ou as partes envolvidas</strong> (ex: dados do transportador, quantidade/peso dos volumes). Depois de enviada, a Carta de Correção é definitiva.
+            </p>
+            <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase" }}>Texto da correção (15 a 1000 caracteres) *</div>
+            <textarea
+              value={correcaoTexto}
+              onChange={e => setCorrecaoTexto(e.target.value.slice(0, 1000))}
+              placeholder="Ex: Corrige a quantidade de volumes transportados para 1, peso bruto 25,000 kg e peso líquido 22,000 kg, informados incorretamente na emissão original."
+              rows={5}
+              style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", resize: "vertical" }}
+            />
+            <div style={{ color: correcaoTexto.trim().length < 15 ? COLORS.danger : COLORS.textDim, fontSize: 10, marginTop: 4, textAlign: "right" }}>{correcaoTexto.trim().length}/1000 {correcaoTexto.trim().length < 15 ? "(mínimo 15)" : ""}</div>
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <button onClick={() => { setCartaCorrecaoRef(null); setCorrecaoTexto(""); }} disabled={enviandoCorrecao} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: enviandoCorrecao ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
+              <button
+                onClick={() => emitirCartaCorrecao(cartaCorrecaoRef, correcaoTexto)}
+                disabled={correcaoTexto.trim().length < 15 || enviandoCorrecao}
+                style={{ flex: 1, background: correcaoTexto.trim().length < 15 || enviandoCorrecao ? COLORS.textDim : "#3B82F6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: correcaoTexto.trim().length < 15 || enviandoCorrecao ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
+              >{enviandoCorrecao ? "Enviando..." : "Emitir Carta de Correção"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Resultado da Carta de Correção */}
+      {correcaoResult && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", color: correcaoResult.success ? "#10B981" : COLORS.danger, fontSize: 18, margin: "0 0 12px" }}>{correcaoResult.success ? "✓ Carta de Correção Emitida!" : "✕ Erro ao Emitir Correção"}</h2>
+            {correcaoResult.success ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {correcaoResult.numero_carta_correcao && (
+                  <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px" }}>
+                    <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Número da CC-e</div>
+                    <div style={{ color: COLORS.white, fontSize: 14, fontWeight: 700 }}>{correcaoResult.numero_carta_correcao}</div>
+                  </div>
+                )}
+                {correcaoResult.url_pdf_carta_correcao && (
+                  <a href={correcaoResult.url_pdf_carta_correcao} target="_blank" rel="noopener noreferrer" style={{ background: "#10B981", color: "#fff", padding: "10px", borderRadius: 8, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>📄 Baixar PDF da CC-e</a>
+                )}
+                {correcaoResult.url_xml_carta_correcao && (
+                  <a href={correcaoResult.url_xml_carta_correcao} target="_blank" rel="noopener noreferrer" style={{ background: "#3B82F615", border: "1px solid #3B82F640", color: "#3B82F6", padding: "10px", borderRadius: 8, textAlign: "center", textDecoration: "none", fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>📋 Baixar XML da CC-e</a>
+                )}
+              </div>
+            ) : (
+              <div style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, borderRadius: 8, padding: "12px 14px" }}>
+                <div style={{ color: COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{correcaoResult.mensagem || "Erro desconhecido"}</div>
+              </div>
+            )}
+            <button onClick={() => { setCorrecaoResult(null); setCartaCorrecaoRef(null); setCorrecaoTexto(""); }} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 12 }}>Fechar</button>
           </div>
         </div>
       )}

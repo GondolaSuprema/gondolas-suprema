@@ -14,7 +14,7 @@ function dataEmissaoBRT() {
 
 export async function POST(request) {
   const body = await request.json();
-  const { ordem, ambiente, acao, ref_cancelamento, justificativa, transportadora } = body;
+  const { ordem, ambiente, acao, ref_cancelamento, justificativa, transportadora, ref_correcao, correcao } = body;
 
   const TOKENS = {
     homologacao: process.env.FOCUS_NFE_TOKEN_HOMOLOGACAO,
@@ -56,6 +56,38 @@ export async function POST(request) {
         success: data.status === "cancelado",
         status: data.status,
         mensagem: data.mensagem_sefaz || data.mensagem || JSON.stringify(data),
+      });
+    } catch (error) {
+      return Response.json({ success: false, mensagem: error.message });
+    }
+  }
+
+  // CARTA DE CORRECAO ELETRONICA (CC-e) — corrige campos que a SEFAZ permite
+  // alterar sem cancelar a nota (ex: dados do transportador, quantidade/peso
+  // dos volumes), desde que nao mude valor, quantidade faturada ou as partes
+  // envolvidas. Endpoint confirmado na doc Focus: POST /nfe/{ref}/carta_correcao.
+  if (acao === "carta_correcao") {
+    try {
+      const response = await fetch(baseUrl + "/" + ref_correcao + "/carta_correcao", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": authHeader,
+        },
+        body: JSON.stringify({ correcao }),
+      });
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch (e) {
+        return Response.json({ success: false, mensagem: "Resposta: " + text.substring(0, 300) });
+      }
+      return Response.json({
+        success: response.ok && !!data.numero_carta_correcao,
+        status_sefaz: data.status_sefaz,
+        mensagem: data.mensagem_sefaz || data.mensagem || JSON.stringify(data),
+        numero_carta_correcao: data.numero_carta_correcao,
+        url_pdf_carta_correcao: data.caminho_pdf_carta_correcao ? urlBase + data.caminho_pdf_carta_correcao : null,
+        url_xml_carta_correcao: data.caminho_xml_carta_correcao ? urlBase + data.caminho_xml_carta_correcao : null,
       });
     } catch (error) {
       return Response.json({ success: false, mensagem: error.message });
