@@ -3,8 +3,8 @@ export const runtime = "nodejs";
 import crypto from "crypto";
 
 // Ponte CAPI - Fase 1 (coleta)
-// Dispara um evento Purchase pro Meta quando um orcamento vira "Concluido".
-// NAO altera nenhuma campanha. So manda a verdade da venda pro algoritmo aprender.
+// Dispara eventos pro Meta: Lead quando um orcamento e criado, Purchase quando vira "Concluido".
+// NAO altera nenhuma campanha. So manda a verdade do funil pro algoritmo aprender.
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -21,10 +21,36 @@ function normalizarTelefone(tel) {
   return d;
 }
 
+// Normalizacoes pro padrao que o Meta exige (minusculo, sem acento/pontuacao).
+function normalizarCidade(cidade) {
+  if (!cidade) return null;
+  const s = String(cidade)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  return s || null;
+}
+function normalizarEstado(estado) {
+  if (!estado) return null;
+  const s = String(estado).trim().toLowerCase().replace(/[^a-z]/g, "");
+  return s || null;
+}
+function normalizarCep(cep) {
+  const d = String(cep || "").replace(/\D/g, "");
+  return d || null;
+}
+function normalizarCnpj(cnpj) {
+  const d = String(cnpj || "").replace(/\D/g, "");
+  return d || null;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { id, telefone, valor, email, nome } = body;
+    const { id, telefone, valor, email, nome, cidade, estado, cep, cnpj, evento: eventoNome } = body;
+    // "Purchase" (padrao, orcamento Concluido) ou "Lead" (orcamento criado)
+    const eventName = eventoNome === "Lead" ? "Lead" : "Purchase";
 
     const DATASET_ID = process.env.META_CAPI_DATASET_ID;
     const TOKEN = process.env.META_CAPI_TOKEN;
@@ -41,15 +67,30 @@ export async function POST(request) {
 
     const user_data = {};
     if (telNorm) user_data.ph = [sha256(telNorm)];
-    if (email) user_data.em = [sha256(String(email).trim().toLowerCase())];
+
+    // Dados extras (email/cidade/estado/CEP/CNPJ) so entram em eventos Purchase --
+    // so depois do orcamento virar "Concluido" esses dados estao 100% validados.
+    // No Lead (orcamento so criado) o unico dado 100% real e o telefone.
+    if (eventName === "Purchase") {
+      if (email) user_data.em = [sha256(String(email).trim().toLowerCase())];
+      const ctNorm = normalizarCidade(cidade);
+      if (ctNorm) user_data.ct = [sha256(ctNorm)];
+      const stNorm = normalizarEstado(estado);
+      if (stNorm) user_data.st = [sha256(stNorm)];
+      const zpNorm = normalizarCep(cep);
+      if (zpNorm) user_data.zp = [sha256(zpNorm)];
+      user_data.country = [sha256("br")];
+      const cnpjNorm = normalizarCnpj(cnpj);
+      if (cnpjNorm) user_data.external_id = [sha256(cnpjNorm)];
+    }
 
     const evento = {
-      event_name: "Purchase",
+      event_name: eventName,
       event_time: Math.floor(Date.now() / 1000),
       action_source: "business_messaging",
       messaging_channel: "whatsapp",
-      // event_id = id do orcamento -> garante deduplicacao se reenviar
-      event_id: String(id || Date.now()),
+      // event_id = id do orcamento (prefixado por tipo) -> garante deduplicacao se reenviar
+      event_id: (eventName === "Lead" ? "lead-" : "purchase-") + String(id || Date.now()),
       user_data,
       custom_data: {
         currency: "BRL",

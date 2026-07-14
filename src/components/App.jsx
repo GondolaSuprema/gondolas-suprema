@@ -2983,8 +2983,9 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
         }
         setEditingOrderId(null);
       } else {
+        const novoId = genId();
         await supabase.from("orcamentos").insert({
-          id: genId(),
+          id: novoId,
           vendedor_id: user.id,
           vendedor_nome: user.name,
           data: new Date().toISOString(),
@@ -3007,6 +3008,23 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           notes,
           status: "Aguardando Retorno",
         });
+
+        // Ponte CAPI (Fase 1 - coleta): manda o Lead pro Meta assim que o orcamento nasce.
+        // So o telefone -- e o unico dado 100% real nessa fase (email/nome so
+        // ficam validados depois do orcamento virar "Concluido").
+        // Fire-and-forget: nunca trava nem quebra o fluxo de salvar o orcamento.
+        try {
+          fetch("/api/meta-capi", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              evento: "Lead",
+              id: novoId,
+              telefone: cd.telefone,
+              valor: totalFinal,
+            }),
+          }).catch(() => {});
+        } catch (e) {}
       }
     } catch (e) { console.error("Erro ao salvar:", e); }
     setSaving(false);
@@ -3670,6 +3688,10 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
             valor: ord.total,
             email: ord.client?.email,
             nome: ord.client?.responsavel,
+            cidade: ord.client?.cidade,
+            estado: ord.client?.estado,
+            cep: ord.client?.cep,
+            cnpj: cd.cnpj || ord.client?.cnpj,
           }),
         }).catch(() => {});
       }
@@ -5507,6 +5529,29 @@ function AdminPage({ user }) {
       venda_empresa_recebedora: "gondolas_suprema",
       valor_recebido: valorRecebidoAdm,
     }).eq("id", concluidoIdAdm);
+
+    // Ponte CAPI (Fase 1 - coleta): manda a verdade da venda pro Meta aprender.
+    // Fire-and-forget: nunca trava nem quebra o fluxo do "Concluído".
+    try {
+      if (ordAdm) {
+        fetch("/api/meta-capi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: ordAdm.id,
+            telefone: ordAdm.client?.telefone,
+            valor: ordAdm.total,
+            email: ordAdm.client?.email,
+            nome: ordAdm.client?.responsavel,
+            cidade: ordAdm.client?.cidade,
+            estado: ordAdm.client?.estado,
+            cep: ordAdm.client?.cep,
+            cnpj: cd.cnpj || ordAdm.client?.cnpj,
+          }),
+        }).catch(() => {});
+      }
+    } catch (e) {}
+
     setAllOrders(prev => prev.map(o => o.id === concluidoIdAdm
       ? { ...o, status: "Concluído", notes: (o.notes || "") + info, client: { ...(o.client || {}), cnpj: cd.cnpj || "" } }
       : o
