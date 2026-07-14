@@ -3010,6 +3010,8 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
         });
 
         // Ponte CAPI (Fase 1 - coleta): manda o Lead pro Meta assim que o orcamento nasce.
+        // So o telefone -- e o unico dado 100% real nessa fase (email/nome so
+        // ficam validados depois do orcamento virar "Concluido").
         // Fire-and-forget: nunca trava nem quebra o fluxo de salvar o orcamento.
         try {
           fetch("/api/meta-capi", {
@@ -3020,8 +3022,6 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
               id: novoId,
               telefone: cd.telefone,
               valor: totalFinal,
-              email: cd.email,
-              nome: cd.responsavel,
             }),
           }).catch(() => {});
         } catch (e) {}
@@ -3688,6 +3688,10 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
             valor: ord.total,
             email: ord.client?.email,
             nome: ord.client?.responsavel,
+            cidade: ord.client?.cidade,
+            estado: ord.client?.estado,
+            cep: ord.client?.cep,
+            cnpj: cd.cnpj || ord.client?.cnpj,
           }),
         }).catch(() => {});
       }
@@ -5539,6 +5543,10 @@ function AdminPage({ user }) {
             valor: ordAdm.total,
             email: ordAdm.client?.email,
             nome: ordAdm.client?.responsavel,
+            cidade: ordAdm.client?.cidade,
+            estado: ordAdm.client?.estado,
+            cep: ordAdm.client?.cep,
+            cnpj: cd.cnpj || ordAdm.client?.cnpj,
           }),
         }).catch(() => {});
       }

@@ -21,10 +21,34 @@ function normalizarTelefone(tel) {
   return d;
 }
 
+// Normalizacoes pro padrao que o Meta exige (minusculo, sem acento/pontuacao).
+function normalizarCidade(cidade) {
+  if (!cidade) return null;
+  const s = String(cidade)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  return s || null;
+}
+function normalizarEstado(estado) {
+  if (!estado) return null;
+  const s = String(estado).trim().toLowerCase().replace(/[^a-z]/g, "");
+  return s || null;
+}
+function normalizarCep(cep) {
+  const d = String(cep || "").replace(/\D/g, "");
+  return d || null;
+}
+function normalizarCnpj(cnpj) {
+  const d = String(cnpj || "").replace(/\D/g, "");
+  return d || null;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { id, telefone, valor, email, nome, evento: eventoNome } = body;
+    const { id, telefone, valor, email, nome, cidade, estado, cep, cnpj, evento: eventoNome } = body;
     // "Purchase" (padrao, orcamento Concluido) ou "Lead" (orcamento criado)
     const eventName = eventoNome === "Lead" ? "Lead" : "Purchase";
 
@@ -43,7 +67,22 @@ export async function POST(request) {
 
     const user_data = {};
     if (telNorm) user_data.ph = [sha256(telNorm)];
-    if (email) user_data.em = [sha256(String(email).trim().toLowerCase())];
+
+    // Dados extras (email/cidade/estado/CEP/CNPJ) so entram em eventos Purchase --
+    // so depois do orcamento virar "Concluido" esses dados estao 100% validados.
+    // No Lead (orcamento so criado) o unico dado 100% real e o telefone.
+    if (eventName === "Purchase") {
+      if (email) user_data.em = [sha256(String(email).trim().toLowerCase())];
+      const ctNorm = normalizarCidade(cidade);
+      if (ctNorm) user_data.ct = [sha256(ctNorm)];
+      const stNorm = normalizarEstado(estado);
+      if (stNorm) user_data.st = [sha256(stNorm)];
+      const zpNorm = normalizarCep(cep);
+      if (zpNorm) user_data.zp = [sha256(zpNorm)];
+      user_data.country = [sha256("br")];
+      const cnpjNorm = normalizarCnpj(cnpj);
+      if (cnpjNorm) user_data.external_id = [sha256(cnpjNorm)];
+    }
 
     const evento = {
       event_name: eventName,
