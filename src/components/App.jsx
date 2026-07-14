@@ -8254,6 +8254,39 @@ function NFPage({ user }) {
   // IE editável no modal de emissão NF-e Gôndolas — sincroniza com o orçamento ao emitir
   const [ieEditNfe, setIeEditNfe] = useState("");
   const [salvandoIe, setSalvandoIe] = useState(false);
+  // Envio por transportadora — checkbox no modal Gôndolas Suprema abre modal
+  // dedicado pra preencher dados exigidos pela SEFAZ (grupo Transporte da NFe).
+  const [usarTransportadora, setUsarTransportadora] = useState(false);
+  const [transportadoraModalOpen, setTransportadoraModalOpen] = useState(false);
+  const TRANSPORTADORA_VAZIA = { nome: "", documento: "", ie: "", endereco: "", municipio: "", uf: "", frete_modalidade: "0", quantidade: "1", peso_bruto: "", peso_liquido: "" };
+  const [transportadoraData, setTransportadoraData] = useState(TRANSPORTADORA_VAZIA);
+  const [buscandoCnpjTransp, setBuscandoCnpjTransp] = useState(false);
+  const [erroTransp, setErroTransp] = useState("");
+  const buscarCnpjTransportadora = async () => {
+    const docLimpo = (transportadoraData.documento || "").replace(/\D/g, "");
+    if (docLimpo.length !== 14) { setErroTransp("CNPJ deve ter 14 dígitos para a consulta automática."); return; }
+    setErroTransp(""); setBuscandoCnpjTransp(true);
+    try {
+      const resp = await fetch(`/api/consultar-cnpj/${docLimpo}`, { cache: "no-store" });
+      const d = await resp.json().catch(() => ({}));
+      if (!resp.ok || d?.success === false) {
+        setErroTransp(resp.status === 404 ? "CNPJ não encontrado na Receita." : (d?.mensagem || "Falha ao consultar CNPJ."));
+        return;
+      }
+      setTransportadoraData(prev => ({
+        ...prev,
+        nome: prev.nome.trim() || d.razao_social || d.nome_fantasia || "",
+        endereco: prev.endereco.trim() || d.logradouro || "",
+        municipio: prev.municipio.trim() || d.municipio || "",
+        uf: prev.uf.trim() || d.uf || "",
+      }));
+      setErroTransp("A Receita não retorna Inscrição Estadual — preencha manualmente se souber.");
+    } catch (e) {
+      setErroTransp("Falha de rede ao consultar o CNPJ.");
+    } finally {
+      setBuscandoCnpjTransp(false);
+    }
+  };
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
   // Só admin/gestor (Ale e Zanella) podem emitir/cancelar NF
@@ -8314,6 +8347,11 @@ function NFPage({ user }) {
       }
       if (emitente === "instalacoes" && opts.observacao) {
         reqBody.observacao = opts.observacao;
+      }
+      // Envio por transportadora (NF-e Gôndolas Suprema) — dados do grupo
+      // Transporte da SEFAZ, preenchidos no modal quando o checkbox é marcado.
+      if (emitente === "gondolas" && opts.transportadora) {
+        reqBody.transportadora = opts.transportadora;
       }
       const res = await fetch(endpoint, {
         method: "POST",
@@ -8806,7 +8844,7 @@ function NFPage({ user }) {
                   {Number(confirmEmitir.comissao) > 0 && <div style={{ color: "#10B981", fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>Comissão: {fmt(Number(confirmEmitir.comissao))}</div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <button onClick={() => { setEmitenteSel("gondolas"); setValorEditado(Number(confirmEmitir.total || 0).toFixed(2)); setEditandoValor(false); setIeEditNfe(confirmEmitir.cliente_ie || ""); }} style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}40`, color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                  <button onClick={() => { setEmitenteSel("gondolas"); setValorEditado(Number(confirmEmitir.total || 0).toFixed(2)); setEditandoValor(false); setIeEditNfe(confirmEmitir.cliente_ie || ""); setUsarTransportadora(false); setTransportadoraData(TRANSPORTADORA_VAZIA); setErroTransp(""); }} style={{ background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}40`, color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
                     <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 700 }}>🏪 Gôndolas Suprema</div>
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NF-e de mercadoria · destinatário: <strong style={{ color: COLORS.text }}>{confirmEmitir.cliente_empresa}</strong></div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.total))}</div>
@@ -8870,6 +8908,33 @@ function NFPage({ user }) {
                     A IE preenchida aqui é salva também no orçamento — não precisa reabrir.
                   </div>
                 </div>
+                {/* Envio por transportadora — SEFAZ exige dados do transportador quando o material sai por terceiro */}
+                <div style={{ background: COLORS.bg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={usarTransportadora}
+                      onChange={e => {
+                        const marcado = e.target.checked;
+                        setUsarTransportadora(marcado);
+                        if (marcado) { setTransportadoraModalOpen(true); }
+                        else { setTransportadoraData(TRANSPORTADORA_VAZIA); setErroTransp(""); }
+                      }}
+                      style={{ width: 16, height: 16, accentColor: COLORS.orange, cursor: "pointer" }}
+                    />
+                    <span style={{ color: COLORS.text, fontSize: 12, fontWeight: 600 }}>🚚 Enviar por transportadora</span>
+                  </label>
+                  {usarTransportadora && (
+                    <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ color: COLORS.textMuted, fontSize: 11 }}>
+                        {transportadoraData.nome ? (
+                          <>{transportadoraData.nome} · {transportadoraData.frete_modalidade === "1" ? "FOB" : "CIF"} · {transportadoraData.quantidade || 1} vol. · {transportadoraData.peso_bruto || "0"}kg bruto</>
+                        ) : "Nenhum dado preenchido ainda"}
+                      </div>
+                      <button type="button" onClick={() => setTransportadoraModalOpen(true)} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.orange, padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>✏️ Editar</button>
+                    </div>
+                  )}
+                </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
                   <button
@@ -8887,7 +8952,11 @@ function NFPage({ user }) {
                       }
                       emitirNfe(
                         { ...confirmEmitir, total: Number(valorEditado) || Number(confirmEmitir.total), cliente_ie: ieFinal || null },
-                        { emitente: "gondolas", ambiente: "producao" }
+                        {
+                          emitente: "gondolas",
+                          ambiente: "producao",
+                          ...(usarTransportadora && transportadoraData.nome ? { transportadora: transportadoraData } : {}),
+                        }
                       );
                     }}
                     disabled={editandoValor || salvandoIe}
@@ -9015,6 +9084,115 @@ function NFPage({ user }) {
           </div>
         </div>
       )}
+
+      {/* Modal Transportadora — dados exigidos pela SEFAZ quando o material sai por terceiro */}
+      {transportadoraModalOpen && (() => {
+        const docLimpo = (transportadoraData.documento || "").replace(/\D/g, "");
+        const docOk = docLimpo.length === 0 || docLimpo.length === 11 || docLimpo.length === 14;
+        const podeConfirmar = transportadoraData.nome.trim().length > 0;
+        const selStyle = { width: "100%", padding: "10px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+        const lblStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
+        return (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.orange, fontSize: 18, margin: "0 0 6px" }}>🚚 Dados da Transportadora</h2>
+              <p style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", margin: "0 0 16px" }}>Informações exigidas pela SEFAZ quando o envio é feito por transportadora.</p>
+
+              {erroTransp && (
+                <div style={{ background: (erroTransp.startsWith("A Receita não retorna") ? "#F59E0B15" : COLORS.danger + "15"), color: erroTransp.startsWith("A Receita não retorna") ? "#F59E0B" : COLORS.danger, padding: "8px 12px", borderRadius: 8, fontSize: 11, marginBottom: 14, fontFamily: "'DM Sans', sans-serif" }}>{erroTransp}</div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <label style={lblStyle}>Buscar por CNPJ (opcional)</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      placeholder="00.000.000/0001-00"
+                      value={transportadoraData.documento}
+                      onChange={e => setTransportadoraData(prev => ({ ...prev, documento: formatarCnpjOuCpf(e.target.value) }))}
+                      maxLength={18}
+                      style={{ ...selStyle, flex: 1, ...(docOk ? {} : { borderColor: COLORS.danger }) }}
+                    />
+                    <button type="button" onClick={buscarCnpjTransportadora} disabled={buscandoCnpjTransp} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "0 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: buscandoCnpjTransp ? "wait" : "pointer", whiteSpace: "nowrap", opacity: buscandoCnpjTransp ? 0.6 : 1 }}>
+                      {buscandoCnpjTransp ? "Buscando..." : "Buscar dados"}
+                    </button>
+                  </div>
+                  {!docOk && <div style={{ color: COLORS.danger, fontSize: 10, marginTop: 4 }}>CNPJ deve ter 14 dígitos ou CPF 11 dígitos.</div>}
+                </div>
+
+                <div>
+                  <label style={lblStyle}>Nome da Transportadora *</label>
+                  <input placeholder="Razão social ou nome do motorista" value={transportadoraData.nome} onChange={e => setTransportadoraData(prev => ({ ...prev, nome: e.target.value.toUpperCase() }))} style={selStyle} />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <label style={lblStyle}>Inscrição Estadual</label>
+                    <input placeholder="Opcional" value={transportadoraData.ie} onChange={e => setTransportadoraData(prev => ({ ...prev, ie: e.target.value }))} style={selStyle} />
+                  </div>
+                  <div>
+                    <label style={lblStyle}>UF</label>
+                    <input placeholder="SC" maxLength={2} value={transportadoraData.uf} onChange={e => setTransportadoraData(prev => ({ ...prev, uf: e.target.value.toUpperCase() }))} style={selStyle} />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={lblStyle}>Endereço</label>
+                  <input placeholder="Rua, número — opcional" value={transportadoraData.endereco} onChange={e => setTransportadoraData(prev => ({ ...prev, endereco: e.target.value }))} style={selStyle} />
+                </div>
+
+                <div>
+                  <label style={lblStyle}>Município</label>
+                  <input placeholder="Opcional" value={transportadoraData.municipio} onChange={e => setTransportadoraData(prev => ({ ...prev, municipio: e.target.value.toUpperCase() }))} style={selStyle} />
+                </div>
+
+                <div>
+                  <label style={lblStyle}>Frete *</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setTransportadoraData(prev => ({ ...prev, frete_modalidade: "0" }))}
+                      style={{ flex: 1, background: transportadoraData.frete_modalidade === "0" ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${transportadoraData.frete_modalidade === "0" ? COLORS.orange : COLORS.border}`, color: transportadoraData.frete_modalidade === "0" ? COLORS.orange : COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}
+                    >CIF (você paga)</button>
+                    <button
+                      type="button"
+                      onClick={() => setTransportadoraData(prev => ({ ...prev, frete_modalidade: "1" }))}
+                      style={{ flex: 1, background: transportadoraData.frete_modalidade === "1" ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${transportadoraData.frete_modalidade === "1" ? COLORS.orange : COLORS.border}`, color: transportadoraData.frete_modalidade === "1" ? COLORS.orange : COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}
+                    >FOB (cliente paga)</button>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div>
+                    <label style={lblStyle}>Quantidade *</label>
+                    <input type="number" min="1" placeholder="1" value={transportadoraData.quantidade} onChange={e => setTransportadoraData(prev => ({ ...prev, quantidade: e.target.value }))} style={selStyle} />
+                  </div>
+                  <div>
+                    <label style={lblStyle}>Peso Bruto (kg) *</label>
+                    <input type="number" min="0" step="0.001" placeholder="0,000" value={transportadoraData.peso_bruto} onChange={e => setTransportadoraData(prev => ({ ...prev, peso_bruto: e.target.value }))} style={selStyle} />
+                  </div>
+                  <div>
+                    <label style={lblStyle}>Peso Líquido (kg) *</label>
+                    <input type="number" min="0" step="0.001" placeholder="0,000" value={transportadoraData.peso_liquido} onChange={e => setTransportadoraData(prev => ({ ...prev, peso_liquido: e.target.value }))} style={selStyle} />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                <button
+                  onClick={() => { setUsarTransportadora(false); setTransportadoraData(TRANSPORTADORA_VAZIA); setErroTransp(""); setTransportadoraModalOpen(false); }}
+                  style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
+                >Cancelar</button>
+                <button
+                  onClick={() => setTransportadoraModalOpen(false)}
+                  disabled={!podeConfirmar}
+                  style={{ flex: 1, background: podeConfirmar ? "#10B981" : COLORS.textDim, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: podeConfirmar ? "pointer" : "not-allowed", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
+                >Salvar</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal Resultado da Emissão / Cancelamento */}
       {nfeResult && (

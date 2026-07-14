@@ -14,7 +14,7 @@ function dataEmissaoBRT() {
 
 export async function POST(request) {
   const body = await request.json();
-  const { ordem, ambiente, acao, ref_cancelamento, justificativa } = body;
+  const { ordem, ambiente, acao, ref_cancelamento, justificativa, transportadora } = body;
 
   const TOKENS = {
     homologacao: process.env.FOCUS_NFE_TOKEN_HOMOLOGACAO,
@@ -170,6 +170,39 @@ export async function POST(request) {
       valor_pagamento: totalNfe.toFixed(2),
     }],
   };
+
+  // Transportadora (grupo Transporte da NFe) — só entra quando o envio é
+  // feito por transportadora. modalidade_frete: "0" = CIF (emitente paga),
+  // "1" = FOB (destinatário paga) — sobrescreve o default "3" (transporte
+  // próprio) usado quando a Suprema mesma entrega e monta.
+  // ⚠️ Nomes de campo (nome_transportador, cnpj_transportador, etc.) seguem o
+  // mesmo padrão "atributo_entidade" já confirmado nos campos de destinatario/
+  // emitente desta rota — não confirmados 1:1 na doc da Focus (indisponível
+  // no momento da implementação). Testar em homologação antes de confiar 100%
+  // em produção; se a Focus rejeitar por nome de campo, o erro virá explícito.
+  if (transportadora && transportadora.nome) {
+    const docTransp = (transportadora.documento || "").replace(/\D/g, "");
+    const transpIsCpf = docTransp.length === 11;
+    nfe.modalidade_frete = transportadora.frete_modalidade === "1" ? "1" : "0";
+    nfe.nome_transportador = transportadora.nome;
+    if (docTransp) {
+      if (transpIsCpf) nfe.cpf_transportador = docTransp;
+      else nfe.cnpj_transportador = docTransp;
+    }
+    if (transportadora.ie) nfe.inscricao_estadual_transportador = String(transportadora.ie).replace(/\D/g, "");
+    if (transportadora.endereco) nfe.endereco_transportador = transportadora.endereco;
+    if (transportadora.municipio) nfe.municipio_transportador = transportadora.municipio;
+    if (transportadora.uf) nfe.uf_transportador = String(transportadora.uf).toUpperCase();
+    const qtd = Number(transportadora.quantidade) || 0;
+    const pesoB = Number(transportadora.peso_bruto) || 0;
+    const pesoL = Number(transportadora.peso_liquido) || 0;
+    if (qtd > 0 || pesoB > 0 || pesoL > 0) {
+      nfe.quantidade_volumes = String(qtd || 1);
+      nfe.especie_volumes = "Volume";
+      if (pesoB > 0) nfe.peso_bruto_volumes = pesoB.toFixed(3);
+      if (pesoL > 0) nfe.peso_liquido_volumes = pesoL.toFixed(3);
+    }
+  }
 
   const ref = "nfe_" + Date.now();
 
