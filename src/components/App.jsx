@@ -2983,8 +2983,9 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
         }
         setEditingOrderId(null);
       } else {
+        const novoId = genId();
         await supabase.from("orcamentos").insert({
-          id: genId(),
+          id: novoId,
           vendedor_id: user.id,
           vendedor_nome: user.name,
           data: new Date().toISOString(),
@@ -3007,6 +3008,23 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           notes,
           status: "Aguardando Retorno",
         });
+
+        // Ponte CAPI (Fase 1 - coleta): manda o Lead pro Meta assim que o orcamento nasce.
+        // Fire-and-forget: nunca trava nem quebra o fluxo de salvar o orcamento.
+        try {
+          fetch("/api/meta-capi", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              evento: "Lead",
+              id: novoId,
+              telefone: cd.telefone,
+              valor: totalFinal,
+              email: cd.email,
+              nome: cd.responsavel,
+            }),
+          }).catch(() => {});
+        } catch (e) {}
       }
     } catch (e) { console.error("Erro ao salvar:", e); }
     setSaving(false);

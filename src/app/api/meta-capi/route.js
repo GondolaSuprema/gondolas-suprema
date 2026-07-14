@@ -3,8 +3,8 @@ export const runtime = "nodejs";
 import crypto from "crypto";
 
 // Ponte CAPI - Fase 1 (coleta)
-// Dispara um evento Purchase pro Meta quando um orcamento vira "Concluido".
-// NAO altera nenhuma campanha. So manda a verdade da venda pro algoritmo aprender.
+// Dispara eventos pro Meta: Lead quando um orcamento e criado, Purchase quando vira "Concluido".
+// NAO altera nenhuma campanha. So manda a verdade do funil pro algoritmo aprender.
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -24,7 +24,9 @@ function normalizarTelefone(tel) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { id, telefone, valor, email, nome } = body;
+    const { id, telefone, valor, email, nome, evento: eventoNome } = body;
+    // "Purchase" (padrao, orcamento Concluido) ou "Lead" (orcamento criado)
+    const eventName = eventoNome === "Lead" ? "Lead" : "Purchase";
 
     const DATASET_ID = process.env.META_CAPI_DATASET_ID;
     const TOKEN = process.env.META_CAPI_TOKEN;
@@ -44,12 +46,12 @@ export async function POST(request) {
     if (email) user_data.em = [sha256(String(email).trim().toLowerCase())];
 
     const evento = {
-      event_name: "Purchase",
+      event_name: eventName,
       event_time: Math.floor(Date.now() / 1000),
       action_source: "business_messaging",
       messaging_channel: "whatsapp",
-      // event_id = id do orcamento -> garante deduplicacao se reenviar
-      event_id: String(id || Date.now()),
+      // event_id = id do orcamento (prefixado por tipo) -> garante deduplicacao se reenviar
+      event_id: (eventName === "Lead" ? "lead-" : "purchase-") + String(id || Date.now()),
       user_data,
       custom_data: {
         currency: "BRL",
