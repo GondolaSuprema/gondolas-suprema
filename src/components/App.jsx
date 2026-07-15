@@ -2021,8 +2021,9 @@ const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
   admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
   // gestor (Zanella) — SEM comissoes (regra do Ale). TEM financeiro mas SOMENTE
-  // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage).
-  gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm", "financeiro"],
+  // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage). TEM nf
+  // com acesso COMPLETO (pode emitir/cancelar/CC-e via podeEmitir=gestor).
+  gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm", "financeiro", "nf"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
@@ -2035,9 +2036,10 @@ const ROLE_PERMISSIONS = {
 // Abas com acesso restrito SOMENTE ao Alessandro (user.id === "v1"),
 // independente da role. Mesmo que alguém vire admin no futuro, essas
 // abas continuam exclusivas dele.
-// financeiro SAIU desta lista: Zanella (gestor) pode VER (só leitura).
-// DRE, NF e Conciliação continuam exclusivos do Ale.
-const ALE_ONLY_TABS = ["dre", "nf", "conciliacao"];
+// financeiro e nf SAÍRAM desta lista: Zanella (gestor) VÊ o financeiro (só
+// leitura) e tem acesso COMPLETO à NF (emite). DRE e Conciliação seguem
+// exclusivos do Ale.
+const ALE_ONLY_TABS = ["dre", "conciliacao"];
 
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
