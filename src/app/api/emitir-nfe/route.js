@@ -225,18 +225,20 @@ export async function POST(request) {
     if (transportadora.endereco) nfe.endereco_transportador = transportadora.endereco;
     if (transportadora.municipio) nfe.municipio_transportador = transportadora.municipio;
     if (transportadora.uf) nfe.uf_transportador = String(transportadora.uf).toUpperCase();
-    // Quantidade + peso bruto/líquido — o front exige os 3 preenchidos antes
-    // de salvar o modal (SEFAZ só exibe a caixa de volumes na DANFE quando
-    // vêm juntos; mandar só quantidade sem peso faz a Focus omitir a seção
-    // inteira). Fallback "1"/"0.000" só entra se a rota for chamada direto
-    // (fora do modal) sem essa validação.
+    // Volumes vão num ARRAY "volumes" (tag XML vol) — nomes confirmados na doc
+    // oficial de campos da Focus NFe (campos.focusnfe.com.br/nfe/): cada volume
+    // tem quantidade (qVol), especie (esp), peso_liquido (pesoL) e peso_bruto
+    // (pesoB). Os campos planos antigos (quantidade_volumes/peso_bruto_volumes)
+    // NÃO existem na API — por isso a caixa de volumes não saía na DANFE.
     const qtd = Number(transportadora.quantidade) || 1;
     const pesoB = Number(transportadora.peso_bruto) || 0;
     const pesoL = Number(transportadora.peso_liquido) || 0;
-    nfe.quantidade_volumes = String(qtd);
-    nfe.especie_volumes = "Volume";
-    nfe.peso_bruto_volumes = pesoB.toFixed(3);
-    nfe.peso_liquido_volumes = pesoL.toFixed(3);
+    nfe.volumes = [{
+      quantidade: String(Math.max(1, Math.round(qtd))),
+      especie: "Volume",
+      peso_liquido: pesoL.toFixed(3),
+      peso_bruto: pesoB.toFixed(3),
+    }];
   }
 
   const ref = "nfe_" + Date.now();
