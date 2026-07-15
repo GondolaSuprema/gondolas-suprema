@@ -18,6 +18,10 @@ const COLORS = {
   orange: "#F5A623",
 };
 
+// Contorno neon dourado sutil aplicado a todos os cards/painéis do sistema.
+// Ring fino no dourado da marca + brilho suave — discreto pra não poluir.
+const CARD_GLOW = "0 0 0 1px rgba(245,166,35,0.18), 0 0 12px rgba(245,166,35,0.07)";
+
 const CATEGORIES = [
   { key: "gondolas-parede", label: "Gôndolas de Parede" },
   { key: "gondolas-centro", label: "Gôndolas de Centro" },
@@ -1873,7 +1877,7 @@ function ClientPage({ clientData, setClientData, setPage }) {
         <p style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", margin: 0 }}>Preencha os dados para gerar o orçamento</p>
       </div>
 
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24 }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 14, padding: 24 }}>
         {erro && <div style={{ background: COLORS.danger + "15", color: COLORS.danger, padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 16, fontFamily: "'DM Sans', sans-serif" }}>{erro}</div>}
         {!inputsReady ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -2448,7 +2452,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
             setFabricaForm({ nome: "", quantidade: "1", valorCusto: "", valorComissao: "" });
           };
           return (
-            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 24, maxWidth: 600 }}>
+            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 24, maxWidth: 600 }}>
               <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: "0 0 4px" }}>🏭 Produto sob medida — Fábrica</h3>
               <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "0 0 18px", fontFamily: "'DM Sans', sans-serif" }}>Cadastre um produto fabricado especialmente para este orçamento. Os valores aparecerão direto no orçamento.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -2532,7 +2536,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
           // Valor 110px, botao 100px — Capacidade fica visualmente entre nome e preco.
           const grid = isMpp ? "1.5fr 1fr 110px 100px" : "1fr auto auto";
           return (
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
           {!isMobile && (
             <div style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "10px 16px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.textDim, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
               <div>Produto</div>
@@ -2583,7 +2587,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
         })()
       ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "mpp" || filter === "slim" || filter === "mdf" ? (
         // Visualização em lista para Gôndolas de Parede, Centro, Ponta, MPP, Slim e MDF
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
           )}
@@ -2673,7 +2677,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
           {filtered.map(p => (
-            <div key={p.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden", transition: "all .2s" }}>
+            <div key={p.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden", transition: "all .2s" }}>
               <div style={{ height: 80, background: `linear-gradient(135deg, ${COLORS.orange}08, ${COLORS.orange}15)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38 }}>{p.icon}</div>
               <div style={{ padding: "14px 16px" }}>
                 <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 1.2, color: COLORS.orange, fontWeight: 700, marginBottom: 4, fontFamily: "'DM Sans', sans-serif" }}>{catLabel(p.category)}</div>
@@ -2748,7 +2752,7 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
       <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 20px" }}>{editingOrderId ? "Adicionar Itens" : "Calculadora de Orçamento"}</h1>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {items.map((it, i) => (
-          <div key={i} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16 }}>
+          <div key={i} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
               <div>
                 <span style={{ fontSize: 22, marginRight: 8 }}>{it.product.icon}</span>
@@ -2794,7 +2798,7 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
         ))}
       </div>
       <button onClick={() => setPage("catalog")} style={{ width: "100%", background: COLORS.card, border: `2px dashed ${COLORS.border}`, color: COLORS.orange, padding: "14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 12, transition: "all .2s" }}>+ Adicionar mais produtos</button>
-      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
 
       {acrescentando ? (
         <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}10, ${COLORS.orange}05)`, border: `1px dashed ${COLORS.orange}40`, borderRadius: 12, padding: "14px 18px", marginTop: 14, fontFamily: "'DM Sans', sans-serif" }}>
@@ -2809,14 +2813,14 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
       ) : (
         <>
           {/* Desconto (aplicado no custo, antes da comissao e frete) */}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
             <input type="number" min="0" value={desconto || ""} onChange={e => setDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.danger, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
             <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{desconto > 0 ? `Custo após desconto: ${fmt(baseComDesconto)}` : "Sem desconto"}</span>
           </div>
 
           {/* Comissão */}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
             <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
             <div style={{ marginLeft: "auto", textAlign: "right" }}>
@@ -2826,7 +2830,7 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
           </div>
 
           {/* Frete */}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
             <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
             <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{frete > 0 ? "Frete incluso no total" : "Sem frete"}</span>
@@ -3079,7 +3083,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
       )}
 
       {/* Lista de produtos */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between" }}>
           <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Produtos ({items.length})</span>
           <button onClick={() => setPage("catalog")} style={{ background: "transparent", border: "none", color: COLORS.orange, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>+ Adicionar</button>
@@ -3118,14 +3122,14 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
       ) : (
         <>
           {/* Desconto (aplicado no custo, antes da comissao e frete) */}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
             <input type="number" min="0" value={desconto || ""} onChange={e => setDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.danger, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
             <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{descontoNum > 0 ? `Custo após desconto: ${fmt(subtotalComDesconto)}` : "Sem desconto"}</span>
           </div>
 
           {/* Comissão */}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Comissão/Margem (%):</span>
             <input type="number" min="0" max="500" value={markup || ""} onChange={e => setMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 80, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
             <div style={{ marginLeft: "auto", textAlign: "right" }}>
@@ -3135,7 +3139,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           </div>
 
           {/* Frete */}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16, marginTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <span style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
             <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
             <button
@@ -3157,7 +3161,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
       )}
 
       {/* Observações */}
-      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observações adicionais..." rows={3} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, color: COLORS.text, padding: "12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginTop: 14 }} />
 
       {/* Total final */}
       <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}15, ${COLORS.orange}05)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 12, padding: "20px 22px", marginTop: 14 }}>
@@ -3712,7 +3716,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-          <button onClick={() => { setPdfHtml(null); setPdfOrder(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
+          <button onClick={() => { setPdfHtml(null); setPdfOrder(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
           <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20 }}>Orçamento — {pdfTitle}</h2>
           <button onClick={() => handleWhatsApp()} disabled={sharingOrder} style={{ background: sharingOrder ? COLORS.textDim : "#25D366", color: "#fff", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: sharingOrder ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -3783,7 +3787,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 20px" }}>Orçamentos</h1>
 
       {/* Filtro por mês — disponível pra todos os usuários */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>📅 Filtrar por mês:</span>
         <select
           value={filterMes}
@@ -3899,7 +3903,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   const linhas = pecasModal.lista.map(p => `${p.qty}\t${p.nome}`).join("\n");
                   navigator.clipboard?.writeText(linhas);
                 }}
-                style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}
+                style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.text, borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}
               >
                 Copiar lista
               </button>
@@ -3938,7 +3942,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
               >📱 Abrir WhatsApp Web</a>
               <button
                 onClick={() => setDownloadInfo(null)}
-                style={{ flex: 1, minWidth: 100, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "10px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+                style={{ flex: 1, minWidth: 100, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.text, padding: "10px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
               >Fechar</button>
             </div>
           </div>
@@ -3988,7 +3992,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                 <button
                   onClick={() => setAnotacoesModal(null)}
                   disabled={savingAnotacoes}
-                  style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: savingAnotacoes ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
+                  style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: savingAnotacoes ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
                 >Cancelar</button>
                 <button
                   onClick={salvarAnotacoes}
@@ -4070,7 +4074,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
               </div>
 
               {/* Pagamento 1 */}
-              <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+              <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
                 <label style={lblStyle}>Forma de Pagamento 1 *</label>
                 <select value={cd.pag1} onChange={e => setConcluidoData({ ...cd, pag1: e.target.value, pag1_parcelas: "" })} style={selStyle}>
                   <option value="">Selecione...</option>
@@ -4106,7 +4110,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
               </div>
 
               {/* Pagamento 2 (opcional) */}
-              <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+              <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
                 <label style={lblStyle}>Forma de Pagamento 2 (opcional)</label>
                 <select value={cd.pag2} onChange={e => setConcluidoData({ ...cd, pag2: e.target.value, pag2_parcelas: "", pag2_valor: "" })} style={selStyle}>
                   <option value="">Sem segundo pagamento</option>
@@ -4142,7 +4146,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-                <button onClick={() => setConcluidoId(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                <button onClick={() => setConcluidoId(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                 <button onClick={saveConcluido} disabled={!canSave} style={{ flex: 1, background: !canSave ? COLORS.textDim : "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !canSave ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Concluir</button>
               </div>
             </div>
@@ -4152,7 +4156,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       })()}
 
       {ordersFiltrados.length === 0 && filterMes !== "all" && (
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "32px 20px", textAlign: "center" }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: "32px 20px", textAlign: "center" }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>📅</div>
           <div style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             Nenhum orçamento em {formatarMes(filterMes)}.
@@ -4294,7 +4298,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                     <div style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, borderRadius: 10, padding: "14px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                       <span style={{ color: COLORS.danger, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>Excluir este orçamento?</span>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={(e) => { e.stopPropagation(); setConfirmDel(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDel(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                         <button onClick={(e) => { e.stopPropagation(); deleteOrder(o.id); }} style={{ background: COLORS.danger, border: "none", color: "#fff", padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Sim, excluir</button>
                       </div>
                     </div>
@@ -4360,7 +4364,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   </div>
 
                   {/* Dados do Cliente (editaveis) */}
-                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14, marginBottom: 14 }}>
                     <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>👤 Dados do Cliente</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <div>
@@ -4437,7 +4441,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   </div>
 
                   {/* Edit Items */}
-                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
                     <div style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Itens ({editItems.length})</span>
                       <button onClick={() => { addMoreItems(o.id); cancelEdit(); }} style={{ background: "transparent", border: "none", color: COLORS.orange, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>+ Adicionar item</button>
@@ -4478,21 +4482,21 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   </div>
 
                   {/* Edit Desconto */}
-                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Desconto no custo (R$):</span>
                     <input type="number" min="0" value={editDesconto || ""} onChange={e => setEditDesconto(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 100, padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.danger, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
                     <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{editDesconto > 0 ? "Aplicado antes da comissão" : "Sem desconto"}</span>
                   </div>
 
                   {/* Edit Markup */}
-                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Aplicar margem (%):</span>
                     <input type="number" min="0" max="500" value={editMarkup || ""} onChange={e => setEditMarkup(Number(e.target.value) || 0)} placeholder="0" style={{ width: 70, padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
                     <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{editMarkup > 0 ? "+" + editMarkup + "% sobre custo c/ desconto" : "Sem margem extra"}</span>
                   </div>
 
                   {/* Edit Frete */}
-                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Frete (R$):</span>
                     <input type="number" min="0" value={editFrete || ""} onChange={e => setEditFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 100, padding: "6px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
                     <button
@@ -4511,7 +4515,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   </div>
 
                   {/* Edit Notes */}
-                  <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Observações..." rows={2} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, color: COLORS.text, padding: "10px 14px", fontSize: 12, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginBottom: 14 }} />
+                  <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Observações..." rows={2} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, color: COLORS.text, padding: "10px 14px", fontSize: 12, fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", marginBottom: 14 }} />
 
                   {/* Edit Total Preview */}
                   {(() => {
@@ -4791,7 +4795,7 @@ function LogisticaPage({ user }) {
   };
   const sel = { padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" };
   const statCard = (label, value, color, small) => (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16 }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16 }}>
       <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>{label}</div>
       <div style={{ color: color, fontSize: small ? 18 : 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{value}</div>
     </div>
@@ -5140,7 +5144,7 @@ function ComissoesPage({ user }) {
   const fmtMoney = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const sel = { padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" };
   const statCard = (label, value, color, small) => (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16 }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16 }}>
       <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>{label}</div>
       <div style={{ color: color, fontSize: small ? 18 : 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{value}</div>
     </div>
@@ -5185,7 +5189,7 @@ function ComissoesPage({ user }) {
       </div>
 
       {/* Tabela de comissoes */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}` }}>
           <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 14, margin: 0 }}>
             Vendas concluídas em {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}
@@ -5281,7 +5285,7 @@ function ComissoesPage({ user }) {
               <br/><span style={{ color: COLORS.textDim, fontSize: 11 }}>O orçamento original continua intacto na aba <strong>Orçamentos</strong> e no <strong>ADM</strong>.</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setConfirmExcluir(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "10px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+              <button onClick={() => setConfirmExcluir(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.text, padding: "10px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
               <button onClick={() => excluirComissao(confirmExcluir.id)} style={{ flex: 1, background: COLORS.danger, border: "none", color: "#fff", padding: "10px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>🗑️ Excluir</button>
             </div>
           </div>
@@ -5740,13 +5744,13 @@ function AdminPage({ user }) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-          <button onClick={() => { setPdfHtmlAdm(null); setPdfOrderAdm(null); setPdfDownloadMsg(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
+          <button onClick={() => { setPdfHtmlAdm(null); setPdfOrderAdm(null); setPdfDownloadMsg(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
           <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20 }}>Orçamento — {pdfTitleAdm}</h2>
           <button onClick={() => salvarPdfAdm()} disabled={savingPdfAdm} style={{ background: savingPdfAdm ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: savingPdfAdm ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
             {savingPdfAdm ? "Gerando PDF..." : "⬇ Salvar PDF"}
           </button>
         </div>
-        {pdfDownloadMsg && <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 14px", borderRadius: 8, fontSize: 12, fontFamily: "'DM Sans', sans-serif", marginBottom: 12 }}>{pdfDownloadMsg}</div>}
+        {pdfDownloadMsg && <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.text, padding: "8px 14px", borderRadius: 8, fontSize: 12, fontFamily: "'DM Sans', sans-serif", marginBottom: 12 }}>{pdfDownloadMsg}</div>}
         <div style={{ borderRadius: 10, overflow: "auto", border: `1px solid ${COLORS.border}`, maxHeight: "70vh" }}>
           <div style={{ background: "#fff", padding: 36, fontFamily: "Helvetica, Arial, sans-serif", color: "#1a1a1a", width: 794 }}>
             <style>{styleMatch ? styleMatch[1] : ""}</style>
@@ -5764,26 +5768,26 @@ function AdminPage({ user }) {
 
       {/* Stats Gerais */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 16 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Total Orçamentos</div>
           <div style={{ color: COLORS.white, fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{filtered.length}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 16 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Valor Total</div>
           <div style={{ color: COLORS.orange, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalGeral)}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 16 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Aguardando Retorno</div>
           <div style={{ color: "#3B82F6", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{allOrders.filter(o => o.status === "Aguardando Retorno").length}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 16 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Concluídos</div>
           <div style={{ color: "#10B981", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{allOrders.filter(o => o.status === "Concluído").length}</div>
         </div>
       </div>
 
       {/* Relatório por Vendedor */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
         <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: 0 }}>Relatório por Vendedor</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -5880,7 +5884,7 @@ function AdminPage({ user }) {
       </div>
 
       {/* Filtros */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16, marginBottom: 16, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 16, marginBottom: 16, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Filtros:</span>
         <select value={filterVendedor} onChange={e => setFilterVendedor(e.target.value)} style={sel}>
           <option value="all">Todos os vendedores</option>
@@ -5927,7 +5931,7 @@ function AdminPage({ user }) {
                 <input value={cancelJustificativa} onChange={e => setCancelJustificativa(e.target.value)} placeholder="Motivo do cancelamento..." style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button onClick={() => { setCancelandoNfe(null); setCancelRef(""); setCancelJustificativa(""); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
+                <button onClick={() => { setCancelandoNfe(null); setCancelRef(""); setCancelJustificativa(""); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
                 <button onClick={() => cancelarNfe(cancelRef, cancelJustificativa)} disabled={!cancelRef || cancelJustificativa.length < 15} style={{ flex: 1, background: !cancelRef || cancelJustificativa.length < 15 ? COLORS.textDim : COLORS.danger, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !cancelRef || cancelJustificativa.length < 15 ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar NF-e</button>
               </div>
             </div>
@@ -5993,7 +5997,7 @@ function AdminPage({ user }) {
                   <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 4 }}>{fmt(confirmEmitir.total)}</div>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
+                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
                   <button onClick={() => emitirNfe(confirmEmitir)} style={{ flex: 1, background: "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Sim, Emitir NF-e</button>
                 </div>
               </>
@@ -6023,7 +6027,7 @@ function AdminPage({ user }) {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
+                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
                   <button
                     onClick={() => emitirNfe(confirmEmitir, { emitente: "instalacoes", ambiente: "homologacao" })}
                     disabled={!confirmEmitir.comissao || confirmEmitir.comissao <= 0}
@@ -6073,7 +6077,7 @@ function AdminPage({ user }) {
                         <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, textTransform: "uppercase" }}>Justificativa do cancelamento (mín. 15 caracteres)</div>
                         <input value={cancelJustificativa} onChange={e => setCancelJustificativa(e.target.value)} placeholder="Motivo do cancelamento..." style={{ width: "100%", padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => setCancelandoNfe(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
+                          <button onClick={() => setCancelandoNfe(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "8px", borderRadius: 7, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
                           <button onClick={() => cancelarNfe(nfeResult.ref, cancelJustificativa)} disabled={cancelJustificativa.length < 15} style={{ flex: 1, background: cancelJustificativa.length < 15 ? COLORS.textDim : COLORS.danger, color: "#fff", border: "none", padding: "8px", borderRadius: 7, fontWeight: 700, cursor: cancelJustificativa.length < 15 ? "not-allowed" : "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Confirmar Cancelamento</button>
                         </div>
                       </div>
@@ -6089,7 +6093,7 @@ function AdminPage({ user }) {
                 {nfeResult.erros && <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", marginTop: 8, whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto" }}>{JSON.stringify(nfeResult.erros, null, 2)}</div>}
               </div>
             )}
-            <button onClick={() => { setNfeResult(null); setCancelandoNfe(null); setCancelJustificativa(""); }} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 12 }}>Fechar</button>
+            <button onClick={() => { setNfeResult(null); setCancelandoNfe(null); setCancelJustificativa(""); }} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 12 }}>Fechar</button>
           </div>
         </div>
       )}
@@ -6178,7 +6182,7 @@ function AdminPage({ user }) {
         const vstSc = { "Em Aberto": "#F59E0B", "Pago": "#10B981" };
 
         return concluidos.length > 0 ? (
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
             <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
               <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#10B981", fontSize: 18, margin: 0 }}>Vendas Concluídas</h2>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -6324,7 +6328,7 @@ function AdminPage({ user }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtered.map(o => (
-            <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden" }}>
+            <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, overflow: "hidden" }}>
               <div onClick={() => showPdfAdm(o)} title="Clique para ver o orçamento em PDF" style={{ padding: "14px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>#{o.id.slice(0, 6).toUpperCase()} · {new Date(o.date).toLocaleDateString("pt-BR")} · {o.items?.length || 0} itens</div>
@@ -6432,7 +6436,7 @@ function AdminPage({ user }) {
                         <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={3} style={{ width: "100%", padding: "8px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", resize: "vertical" }} />
                       </div>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button onClick={(e) => { e.stopPropagation(); cancelEditOrder(); }} disabled={savingEdit} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: savingEdit ? "not-allowed" : "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                        <button onClick={(e) => { e.stopPropagation(); cancelEditOrder(); }} disabled={savingEdit} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: savingEdit ? "not-allowed" : "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                         <button onClick={(e) => { e.stopPropagation(); saveEditOrder(o.id); }} disabled={savingEdit} style={{ background: "#3B82F6", border: "none", color: "#fff", padding: "7px 16px", borderRadius: 7, cursor: savingEdit ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{savingEdit ? "Salvando..." : "💾 Salvar"}</button>
                       </div>
                     </div>
@@ -6446,7 +6450,7 @@ function AdminPage({ user }) {
                       <>
                         <span style={{ color: COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif", alignSelf: "center" }}>Tem certeza?</span>
                         <button onClick={async (e) => { e.stopPropagation(); await supabase.from("orcamentos").delete().eq("id", o.id); setAllOrders(allOrders.filter(x => x.id !== o.id)); setConfirmDel(null); setExpanded(null); }} style={{ background: COLORS.danger, border: "none", color: "#fff", padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Sim, excluir</button>
-                        <button onClick={(e) => { e.stopPropagation(); setConfirmDel(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDel(null); }} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                       </>
                     ) : editingId !== o.id && (
                       <button onClick={(e) => { e.stopPropagation(); setConfirmDel(o.id); }} style={{ background: COLORS.danger + "10", border: `1px solid ${COLORS.danger}30`, color: COLORS.danger, padding: "7px 16px", borderRadius: 7, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🗑️ Excluir orçamento</button>
@@ -6488,7 +6492,7 @@ function AdminPage({ user }) {
                 </div>
 
                 {/* Pagamento 1 */}
-                <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+                <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
                   <label style={lblStyle}>Forma de Pagamento 1 *</label>
                   <select value={cd.pag1} onChange={e => setConcluidoDataAdm({ ...cd, pag1: e.target.value, pag1_parcelas: "" })} style={selStyle}>
                     <option value="">Selecione...</option>
@@ -6524,7 +6528,7 @@ function AdminPage({ user }) {
                 </div>
 
                 {/* Pagamento 2 (opcional) */}
-                <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+                <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
                   <label style={lblStyle}>Forma de Pagamento 2 (opcional)</label>
                   <select value={cd.pag2} onChange={e => setConcluidoDataAdm({ ...cd, pag2: e.target.value, pag2_parcelas: "", pag2_valor: "" })} style={selStyle}>
                     <option value="">Sem segundo pagamento</option>
@@ -6560,7 +6564,7 @@ function AdminPage({ user }) {
                 </div>
 
                 <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-                  <button onClick={() => setConcluidoIdAdm(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>Cancelar</button>
+                  <button onClick={() => setConcluidoIdAdm(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>Cancelar</button>
                   <button onClick={saveConcluidoAdm} disabled={!canSave} style={{ flex: 1, background: !canSave ? COLORS.textDim : "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !canSave ? "not-allowed" : "pointer", fontSize: 13 }}>Concluir</button>
                 </div>
               </div>
@@ -6602,7 +6606,7 @@ function GaugeChart({ value, max, name, color }) {
   };
 
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: "20px 16px 14px", textAlign: "center" }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 14, padding: "20px 16px 14px", textAlign: "center" }}>
       <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{name}</div>
       <svg viewBox="0 0 200 120" style={{ width: "100%", maxWidth: 240 }}>
         {/* Background arc */}
@@ -6710,7 +6714,7 @@ function GraficosPage({ user }) {
       </div>
 
       {/* Filtro por mês — disponível pra todos os usuários */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: "12px 16px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>📅 Filtrar por mês:</span>
         <select
           value={activeMes}
@@ -6759,7 +6763,7 @@ function GraficosPage({ user }) {
       </div>
 
       {/* Ranking */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginTop: 20, overflow: "hidden" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, marginTop: 20, overflow: "hidden" }}>
         <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}` }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Ranking do Mês</h2>
         </div>
@@ -7189,11 +7193,11 @@ function FinanceiroPage({ user }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <select value={empresaSel} onChange={e => setEmpresaSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+          <select value={empresaSel} onChange={e => setEmpresaSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
             <option value="gondolas_suprema">Gôndolas Suprema</option>
             <option value="suprema_instalacoes">Suprema Instalações</option>
           </select>
-          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
             {Array.from({ length: 12 }, (_, i) => {
               const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
               const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
@@ -7212,19 +7216,19 @@ function FinanceiroPage({ user }) {
 
       {/* Cards resumo */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, padding: 12 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Total Geral</div>
           <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalMes)}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, padding: 12 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Fixas: {fmt(totalFixas)}</div>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Variáveis: {fmt(totalVar)}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, padding: 12 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Pago</div>
           <div style={{ color: "#10B981", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalPago)}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 12 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, padding: 12 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Aberto</div>
           <div style={{ color: "#F87171", fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalAberto)}</div>
         </div>
@@ -7283,7 +7287,7 @@ function FinanceiroPage({ user }) {
 
       {/* Tabela Fixas/Variáveis */}
       {(subTab === "fixas" || subTab === "variaveis") && (
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", color: subTab === "fixas" ? COLORS.orange : "#8B5CF6", fontSize: 15, margin: 0 }}>{subTab === "fixas" ? "Despesas Fixas" : "Despesas Variáveis"} — {mesNomes[mesSel.split("-")[1]]}</h2>
         </div>
@@ -7361,7 +7365,7 @@ function FinanceiroPage({ user }) {
                       <input type="number" min="0" step="0.01" value={varForm.valor} onChange={e => setVarForm({ ...varForm, valor: e.target.value })} placeholder="0,00" style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textAlign: "right" }} />
                     </div>
                     <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                      <button onClick={() => { setShowAddVar(false); setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                      <button onClick={() => { setShowAddVar(false); setVarForm({ categoria: "", socio: "", vencimento_dia: "", vencimento_mes: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                       <button onClick={() => { adicionarVariavel(); setShowAddVar(false); }} disabled={!varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) || !varForm.valor} style={{ flex: 1, background: !varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) || !varForm.valor ? COLORS.textDim : "#8B5CF6", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !varForm.categoria || (varForm.categoria === "Pagamento Socios" && !varForm.socio) || !varForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Salvar</button>
                     </div>
                   </div>
@@ -7436,7 +7440,7 @@ function FinanceiroPage({ user }) {
         const renderFornCard = (t, items, isGondolas, isMdf) => {
               const totalForn = items.reduce((s, f) => s + (f.valor || 0), 0);
               return (
-                <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+                <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
                   <div style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: t.color + "10" }}>
                     <h3 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 13, margin: 0 }}>{t.label}</h3>
                     <span style={{ color: t.color, fontSize: 12, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalForn)}</span>
@@ -7539,7 +7543,7 @@ function FinanceiroPage({ user }) {
                             </div>
                           )}
                           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                            <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                            <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                             <button onClick={adicionarGondolas} disabled={!gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor} style={{ flex: 1, background: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Gerar Parcelas</button>
                           </div>
                         </div>
@@ -7580,7 +7584,7 @@ function FinanceiroPage({ user }) {
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                            <button onClick={() => { setShowAddForn(""); setMdfForm({ dia: "", mes: "", qtd: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                            <button onClick={() => { setShowAddForn(""); setMdfForm({ dia: "", mes: "", qtd: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                             <button onClick={adicionarMdf} disabled={!mdfForm.dia || !mdfForm.mes || !mdfForm.valor} style={{ flex: 1, background: !mdfForm.dia || !mdfForm.mes || !mdfForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !mdfForm.dia || !mdfForm.mes || !mdfForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Salvar</button>
                           </div>
                         </div>
@@ -7619,7 +7623,7 @@ function FinanceiroPage({ user }) {
                             <input type="number" min="0" step="0.01" placeholder="0,00" value={outrosForm.valor} onChange={e => setOutrosForm({ ...outrosForm, valor: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textAlign: "right" }} />
                           </div>
                           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                            <button onClick={() => { setShowAddForn(""); setOutrosForm({ dia: "", mes: "", fornecedor: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                            <button onClick={() => { setShowAddForn(""); setOutrosForm({ dia: "", mes: "", fornecedor: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
                             <button onClick={adicionarOutros} disabled={!outrosForm.dia || !outrosForm.mes || !outrosForm.fornecedor || !outrosForm.valor} style={{ flex: 1, background: !outrosForm.dia || !outrosForm.mes || !outrosForm.fornecedor || !outrosForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !outrosForm.dia || !outrosForm.mes || !outrosForm.fornecedor || !outrosForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Salvar</button>
                           </div>
                         </div>
@@ -7635,7 +7639,7 @@ function FinanceiroPage({ user }) {
             };
         return (
           <div>
-            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Total Fornecedores</span>
               <span style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalFornGeral)}</span>
             </div>
@@ -7654,7 +7658,7 @@ function FinanceiroPage({ user }) {
 
       {/* Bloco BOLETOS — aparece dentro do sub-tab Fornecedores */}
       {subTab === "fornecedores" && (
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden", marginTop: 16 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden", marginTop: 16 }}>
           <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 18, margin: 0 }}>📄 Boletos a Pagar</h2>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -8017,7 +8021,7 @@ function DrePage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <select value={empresaSel} onChange={e => setEmpresaSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+          <select value={empresaSel} onChange={e => setEmpresaSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
             <option value="todos">🏢 Consolidado</option>
             <option value="gondolas_suprema">Gôndolas Suprema</option>
             <option value="suprema_instalacoes">Suprema Instalações</option>
@@ -8025,7 +8029,7 @@ function DrePage() {
           <button onClick={() => setComparacao(!comparacao)} style={{ background: comparacao ? COLORS.orange + "20" : COLORS.card, border: `1px solid ${comparacao ? COLORS.orange + "60" : COLORS.border}`, color: comparacao ? COLORS.orange : COLORS.textMuted, padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
             {comparacao ? "Comparação 3M" : "Mês único"}
           </button>
-          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
             {Array.from({ length: 18 }, (_, i) => {
               const d = new Date(); d.setMonth(d.getMonth() - 9 + i);
               const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
@@ -8123,17 +8127,17 @@ function DrePage() {
       })()}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4 }}>Receita Líquida</div>
           <div style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(dadosAtual.receitaLiquida)}</div>
           <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>{dadosAtual.qtdVendas} vendas</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4 }}>Lucro Bruto</div>
           <div style={{ color: dadosAtual.lucroBruto >= 0 ? "#10B981" : COLORS.danger, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmtNeg(dadosAtual.lucroBruto)}</div>
           <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Margem {dadosAtual.margemBruta.toFixed(1)}%</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4 }}>EBIT (Operacional)</div>
           <div style={{ color: dadosAtual.ebit >= 0 ? "#3B82F6" : COLORS.danger, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmtNeg(dadosAtual.ebit)}</div>
           <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Margem {dadosAtual.margemOp.toFixed(1)}%</div>
@@ -8145,7 +8149,7 @@ function DrePage() {
         </div>
       </div>
 
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: colTemplate, padding: "12px 14px", background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}` }}>
           <span style={{ color: COLORS.white, fontSize: 13, fontWeight: 700, fontFamily: "'Playfair Display', serif" }}>DRE</span>
           {dados.map(d => {
@@ -8222,7 +8226,7 @@ function DrePage() {
         <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, marginBottom: 12 }}>Detalhamento — {mesNomesLongo[mesSel.split("-")[1]]} {mesSel.split("-")[0]}</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
           {TIPOS_DESPESA.filter(t => (dadosAtual.itens[t.key] || []).length > 0).map(t => (
-            <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+            <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
               <div style={{ color: t.color, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>{t.label}</div>
               {(dadosAtual.itens[t.key] || []).map((it, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: i < dadosAtual.itens[t.key].length - 1 ? `1px solid ${COLORS.border}40` : "none" }}>
@@ -8634,12 +8638,12 @@ function NFPage({ user }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <select value={filtroPag} onChange={e => setFiltroPag(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+          <select value={filtroPag} onChange={e => setFiltroPag(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
             <option value="pagas">Pagas</option>
             <option value="em_aberto">Em Aberto</option>
             <option value="todas">Todas</option>
           </select>
-          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+          <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
             <option value="all">Todos os meses</option>
             {Array.from({ length: 12 }, (_, i) => {
               const d = new Date(); d.setMonth(d.getMonth() - 6 + i);
@@ -8653,26 +8657,26 @@ function NFPage({ user }) {
 
       {/* Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 20 }}>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Vendas Concluídas</div>
           <div style={{ color: COLORS.white, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{vendasMes.length}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Faturado</div>
           <div style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalFaturado)}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 10 }}>NF Emitidas</div>
           <div style={{ color: "#10B981", fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{qtdNfEmitidas}</div>
         </div>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 10 }}>Pendentes</div>
           <div style={{ color: qtdNfPendentes > 0 ? "#F59E0B" : COLORS.textMuted, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{qtdNfPendentes}</div>
         </div>
       </div>
 
       {/* Tabela de vendas concluídas */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Vendas — {mesSel === "all" ? "todos os meses" : `${mesNomes[mesSel.split("-")[1]]} ${mesSel.split("-")[0]}`}</h2>
         </div>
@@ -8852,7 +8856,7 @@ function NFPage({ user }) {
           </tr>
         );
         const renderCard = (titulo, cor, notasLista, total) => (
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: cor + "08" }}>
               <h3 style={{ fontFamily: "'Playfair Display', serif", color: cor, fontSize: 15, margin: 0 }}>{titulo}</h3>
               <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{notasLista.length} nota{notasLista.length === 1 ? "" : "s"}</span>
@@ -8895,7 +8899,7 @@ function NFPage({ user }) {
               {renderCard("🏪 Gôndolas Suprema", COLORS.orange, nfsGondolas, totalGondolas)}
               {renderCard("🔧 Suprema Instalações", "#3B82F6", nfsInstalacoes, totalInstalacoes)}
             </div>
-            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>💰 Total geral emitido em {mesNomes[mesSel.split("-")[1]]}</span>
               <span style={{ color: COLORS.orange, fontSize: 22, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalGeral)}</span>
             </div>
@@ -8919,7 +8923,7 @@ function NFPage({ user }) {
                 <input value={cancelJustificativa} onChange={e => setCancelJustificativa(e.target.value)} placeholder="Motivo do cancelamento..." style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button onClick={() => { setCancelandoNfe(null); setCancelRef(""); setCancelJustificativa(""); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
+                <button onClick={() => { setCancelandoNfe(null); setCancelRef(""); setCancelJustificativa(""); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
                 <button onClick={() => cancelarNfe(cancelRef, cancelJustificativa)} disabled={!cancelRef || cancelJustificativa.length < 15} style={{ flex: 1, background: !cancelRef || cancelJustificativa.length < 15 ? COLORS.textDim : COLORS.danger, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !cancelRef || cancelJustificativa.length < 15 ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar NF</button>
               </div>
             </div>
@@ -8945,7 +8949,7 @@ function NFPage({ user }) {
             />
             <div style={{ color: correcaoTexto.trim().length < 15 ? COLORS.danger : COLORS.textDim, fontSize: 10, marginTop: 4, textAlign: "right" }}>{correcaoTexto.trim().length}/1000 {correcaoTexto.trim().length < 15 ? "(mínimo 15)" : ""}</div>
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <button onClick={() => { setCartaCorrecaoRef(null); setCorrecaoTexto(""); }} disabled={enviandoCorrecao} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: enviandoCorrecao ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
+              <button onClick={() => { setCartaCorrecaoRef(null); setCorrecaoTexto(""); }} disabled={enviandoCorrecao} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: enviandoCorrecao ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Voltar</button>
               <button
                 onClick={() => emitirCartaCorrecao(cartaCorrecaoRef, correcaoTexto)}
                 disabled={correcaoTexto.trim().length < 15 || enviandoCorrecao}
@@ -8981,7 +8985,7 @@ function NFPage({ user }) {
                 <div style={{ color: COLORS.danger, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{correcaoResult.mensagem || "Erro desconhecido"}</div>
               </div>
             )}
-            <button onClick={() => { setCorrecaoResult(null); setCartaCorrecaoRef(null); setCorrecaoTexto(""); }} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 12 }}>Fechar</button>
+            <button onClick={() => { setCorrecaoResult(null); setCartaCorrecaoRef(null); setCorrecaoTexto(""); }} style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginTop: 12 }}>Fechar</button>
           </div>
         </div>
       )}
@@ -9094,7 +9098,7 @@ function NFPage({ user }) {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
+                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
                   <button
                     onClick={async () => {
                       const ieFinal = (ieEditNfe || "").trim();
@@ -9219,7 +9223,7 @@ function NFPage({ user }) {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
+                  <button onClick={() => setEmitenteSel(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>← Voltar</button>
                   <button
                     onClick={() => emitirNfe(
                       { ...confirmEmitir, comissao: Number(valorEditado) || Number(confirmEmitir.comissao) },
@@ -9347,7 +9351,7 @@ function NFPage({ user }) {
               <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
                 <button
                   onClick={() => { setUsarTransportadora(false); setTransportadoraData(TRANSPORTADORA_VAZIA); setErroTransp(""); setTransportadoraModalOpen(false); }}
-                  style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
+                  style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
                 >Cancelar</button>
                 <button
                   onClick={() => setTransportadoraModalOpen(false)}
@@ -9378,7 +9382,7 @@ function NFPage({ user }) {
                 <div style={{ color: COLORS.danger, fontSize: 13, fontWeight: 600 }}>{nfeResult.mensagem || "Erro desconhecido"}</div>
               </div>
             )}
-            <button onClick={() => { setNfeResult(null); setEmitenteSel(null); setCancelandoNfe(null); setCancelRef(""); setCancelJustificativa(""); }} style={{ marginTop: 14, width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>Fechar</button>
+            <button onClick={() => { setNfeResult(null); setEmitenteSel(null); setCancelandoNfe(null); setCancelRef(""); setCancelJustificativa(""); }} style={{ marginTop: 14, width: "100%", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.text, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13 }}>Fechar</button>
           </div>
         </div>
       )}
@@ -9609,7 +9613,7 @@ function ConciliacaoPage({ user }) {
         </div>
 
         {/* Filtro banco + mês + upload */}
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 18, marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 18, marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ display: "flex", gap: 4, background: COLORS.bg, padding: 3, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
             {BANCOS.map(b => (
               <button
@@ -9675,22 +9679,22 @@ function ConciliacaoPage({ user }) {
 
         {/* Totais */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
             <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Entradas</div>
             <div style={{ color: "#10B981", fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalEntradas)}</div>
           </div>
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
             <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Saídas</div>
             <div style={{ color: COLORS.danger, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalSaidas)}</div>
           </div>
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
             <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Saldo do mês</div>
             <div style={{ color: COLORS.orange, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalEntradas - totalSaidas)}</div>
           </div>
         </div>
 
         {/* Tabela de lançamentos */}
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", color: bancoAtual?.cor || COLORS.orange, fontSize: 16, margin: 0 }}>{bancoAtual?.l} — {lancamentos.length} lançamento{lancamentos.length === 1 ? "" : "s"}</h2>
             <span style={{ color: COLORS.textMuted, fontSize: 11, fontStyle: "italic" }}>matching com despesas/vendas: Fase 2</span>
@@ -9839,7 +9843,7 @@ function ConciliacaoPage({ user }) {
               )}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-              <button onClick={() => setVincularVenda(null)} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Fechar</button>
+              <button onClick={() => setVincularVenda(null)} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.text, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>Fechar</button>
             </div>
           </div>
         </div>
