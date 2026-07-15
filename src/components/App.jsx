@@ -20,7 +20,7 @@ const COLORS = {
 
 // Contorno neon dourado sutil aplicado a todos os cards/painéis do sistema.
 // Ring fino no dourado da marca + brilho suave — discreto pra não poluir.
-const CARD_GLOW = "0 0 0 1px rgba(245,166,35,0.18), 0 0 12px rgba(245,166,35,0.07)";
+const CARD_GLOW = "0 0 0 1px rgba(245,166,35,0.24), 0 0 12px rgba(245,166,35,0.11)";
 
 const CATEGORIES = [
   { key: "gondolas-parede", label: "Gôndolas de Parede" },
