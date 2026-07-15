@@ -3,7 +3,7 @@ import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
 
 const COLORS = {
-  bg: "#0A0E18",
+  bg: "#000000",
   surface: "#111728",
   card: "#151B2D",
   border: "#1D2540",
