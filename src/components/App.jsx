@@ -2299,7 +2299,8 @@ function Login({ onLogin, setPage }) {
 
   const inp = { width: "100%", padding: "11px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 60px)", padding: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 60px)", padding: 20, gap: 26 }}>
+      <img src="/Logo.png" alt="Gôndolas Suprema" style={{ width: 190, maxWidth: "58%", opacity: 0.85 }} />
       <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 36, width: 380, maxWidth: "100%" }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 6px" }}>Entrar</h2>
         <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 24px", fontFamily: "'DM Sans', sans-serif" }}>Acesse com suas credenciais</p>
@@ -10024,8 +10025,9 @@ export default function App() {
       {/* Camada de fundo fixa (cor do tema) — fica atrás de todo o conteúdo */}
       <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: COLORS.bg, zIndex: -2, pointerEvents: "none" }} />
       {/* Marca d'água da logo — fixa, centralizada, discreta e não clicável.
-          Cobre login + todas as telas do sistema por ficar no container raiz. */}
-      <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, pointerEvents: "none", backgroundImage: "url(/Logo.png)", backgroundRepeat: "no-repeat", backgroundPosition: "center", backgroundSize: "min(640px, 70vw)", opacity: 0.09 }} />
+          Só aparece quando logado (nas telas do sistema). No login ela ficaria
+          escondida atrás do card, então lá mostramos a logo acima da caixa. */}
+      {user && <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, pointerEvents: "none", backgroundImage: "url(/Logo.png)", backgroundRepeat: "no-repeat", backgroundPosition: "center", backgroundSize: "min(640px, 70vw)", opacity: 0.09 }} />}
       <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
