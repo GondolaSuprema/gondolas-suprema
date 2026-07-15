@@ -10026,7 +10026,7 @@ export default function App() {
       {/* Marca d'água premium — emblema dourado (águia) da marca, fixo e
           centralizado, atrás de todo o conteúdo e não clicável. As asas
           emolduram o conteúdo (aparece no login e em todas as telas). */}
-      <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, pointerEvents: "none", backgroundImage: "url(/watermark3.png)", backgroundRepeat: "no-repeat", backgroundPosition: "center", backgroundSize: "min(680px, 80vw)", opacity: 0.1 }} />
+      <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, pointerEvents: "none", backgroundImage: "url(/watermark3.png)", backgroundRepeat: "no-repeat", backgroundPosition: "center", backgroundSize: "min(680px, 80vw)", opacity: 0.06 }} />
       <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
