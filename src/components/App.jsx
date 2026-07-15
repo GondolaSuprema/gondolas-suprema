@@ -10019,8 +10019,13 @@ export default function App() {
   };
 
   return (
-    <div style={{ background: COLORS.bg, minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ background: "transparent", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet" />
+      {/* Camada de fundo fixa (cor do tema) — fica atrás de todo o conteúdo */}
+      <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: COLORS.bg, zIndex: -2, pointerEvents: "none" }} />
+      {/* Marca d'água da logo — fixa, centralizada, discreta e não clicável.
+          Cobre login + todas as telas do sistema por ficar no container raiz. */}
+      <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, pointerEvents: "none", backgroundImage: "url(/Logo.png)", backgroundRepeat: "no-repeat", backgroundPosition: "center", backgroundSize: "min(640px, 70vw)", opacity: 0.09 }} />
       <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
