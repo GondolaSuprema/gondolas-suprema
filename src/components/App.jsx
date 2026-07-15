@@ -7091,11 +7091,15 @@ function FinanceiroPage({ user }) {
 
   const hoje = new Date().toISOString().split("T")[0];
   const fixas = despesas.filter(d => d.fixa);
-  const variaveis = despesas.filter(d => !d.fixa);
+  // Variáveis = despesas variáveis reais (pagas via extrato bancário ou
+  // lançadas à mão). Exclui os lançamentos de fornecedor (nome "forn_..."),
+  // que pertencem SÓ à aba Fornecedores e não devem poluir a aba Variáveis.
+  const variaveis = despesas.filter(d => !d.fixa && !String(d.nome || "").startsWith("forn_"));
   const current = subTab === "fixas" ? fixas : variaveis;
   const totalFixas = fixas.reduce((s, d) => s + (d.valor || 0), 0);
   const totalVar = variaveis.reduce((s, d) => s + (d.valor || 0), 0);
-  const totalMes = totalFixas + totalVar;
+  const totalForn = fornecedores.reduce((s, f) => s + (f.valor || 0), 0);
+  const totalMes = totalFixas + totalVar + totalForn;
   const totalPago = despesas.filter(d => d.status === "Pago").reduce((s, d) => s + (d.valor || 0), 0);
   const totalAberto = totalMes - totalPago;
 
@@ -7223,6 +7227,7 @@ function FinanceiroPage({ user }) {
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, padding: 12 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Fixas: {fmt(totalFixas)}</div>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Variáveis: {fmt(totalVar)}</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Fornec.: {fmt(totalForn)}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, padding: 12 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Pago</div>
