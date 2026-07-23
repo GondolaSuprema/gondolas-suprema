@@ -5088,11 +5088,41 @@ function ComissoesPage({ user }) {
     load();
   }, [user?.id, isAdmin]);
 
-  // Toggle pago/a pagar (so admin) — atualiza banco e estado local
+  // Toggle pago/a pagar (so admin) — atualiza banco e estado local, e espelha
+  // a comissão paga como DESPESA variável no financeiro/DRE.
   const togglePago = async (id, novoStatus) => {
     if (!isAdmin) return;
     await supabase.from("orcamentos").update({ comissao_paga: novoStatus }).eq("id", id);
     setVendas(prev => prev.map(v => v.id === id ? { ...v, comissaoPaga: novoStatus } : v));
+    const venda = vendas.find(v => v.id === id);
+    if (venda) await sincronizarDespesaComissao(venda, novoStatus);
+  };
+
+  // Espelha a comissão do vendedor como despesa variável paga (DESPESA_VENDAS/
+  // Comissões). Id estável "comissao-<orcamentoId>" → idempotente: marcar pago
+  // cria/atualiza a despesa; reabrir remove. Assim toda comissão paga entra no
+  // DRE como despesa, no mesmo mês da venda.
+  const sincronizarDespesaComissao = async (venda, paga) => {
+    if (!isAdmin) return;
+    const despId = "comissao-" + venda.id;
+    if (paga) {
+      const d = venda.data ? new Date(venda.data) : new Date();
+      const yyyy = d.getFullYear(), mm = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+      await supabase.from("despesas").upsert({
+        id: despId,
+        nome: "Comissão " + (venda.vendedor || "vendedor") + (venda.empresa && venda.empresa !== "—" ? " · " + venda.empresa : "") + (venda.numeroPedido ? " #" + venda.numeroPedido : ""),
+        vencimento: `${yyyy}-${mm}-${dd}`,
+        valor: Math.round((Number(venda.comissaoVendedor) || 0) * 100) / 100,
+        status: "Pago",
+        mes: `${yyyy}-${mm}`,
+        fixa: false,
+        tipo: "DESPESA_VENDAS",
+        categoria: "Comissões",
+        empresa: "gondolas_suprema",
+      }, { onConflict: "id" });
+    } else {
+      await supabase.from("despesas").delete().eq("id", despId);
+    }
   };
 
   // Confirma antes de excluir (so admin). Marca comissao_excluida=true,
