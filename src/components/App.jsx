@@ -6822,6 +6822,8 @@ function FinanceiroPage({ user }) {
   const [boletos, setBoletos] = useState([]);
   // Filtro de status dos boletos: "em_aberto" (default) | "pagos" | "todos"
   const [boletoStatusFiltro, setBoletoStatusFiltro] = useState("em_aberto");
+  // Célula de boleto em edição inline: { id, campo: "vencimento"|"valor" }
+  const [editBoleto, setEditBoleto] = useState({ id: null, campo: null });
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
@@ -6843,6 +6845,24 @@ function FinanceiroPage({ user }) {
     if (somenteLeitura) return;
     await supabase.from("boletos_a_pagar").update({ status: "pendente", data_pagamento: null }).eq("id", id);
     setBoletos(prev => prev.map(b => b.id === id ? { ...b, status: "pendente", data_pagamento: null } : b));
+  };
+
+  // Edição inline de vencimento/valor direto na lista de boletos.
+  // Clica em cima → vira input → salva no blur/Enter. Escape cancela.
+  const atualizarBoletoCampo = async (id, campo, valorRaw) => {
+    if (somenteLeitura) { setEditBoleto({ id: null, campo: null }); return; }
+    let valor = valorRaw;
+    if (campo === "valor") {
+      valor = Number(String(valorRaw).replace(",", "."));
+      if (!isFinite(valor) || valor < 0) { setEditBoleto({ id: null, campo: null }); return; }
+    }
+    if (campo === "vencimento" && !valorRaw) { setEditBoleto({ id: null, campo: null }); return; }
+    // Sem mudança real → só fecha o editor
+    const atual = boletos.find(b => b.id === id);
+    if (atual && String(atual[campo]) === String(valor)) { setEditBoleto({ id: null, campo: null }); return; }
+    await supabase.from("boletos_a_pagar").update({ [campo]: valor }).eq("id", id);
+    setBoletos(prev => prev.map(b => b.id === id ? { ...b, [campo]: valor } : b));
+    setEditBoleto({ id: null, campo: null });
   };
 
   // Quantos boletos atrasados (vencidos e não pagos)
@@ -7432,300 +7452,67 @@ function FinanceiroPage({ user }) {
         );
       })()}
 
-      {/* Fornecedores */}
-      {subTab === "fornecedores" && (() => {
-        const tipos = [
-          { key: "gondolas", label: "Gôndolas Brasil", color: "#F5A623" },
-          { key: "mdf", label: "MDF", color: "#3B82F6" },
-          { key: "outros", label: "Outros Fornecedores", color: "#10B981" },
-        ];
-        const parseForn = (f) => {
-          const parts = f.nome.replace("forn_", "").split("|");
-          return { tipo: parts[0], pedido: parts[1] || "", parcela: parts[2] || "", pagador: parts[3] || "" };
-        };
-        const totalFornGeral = fornecedores.reduce((s, f) => s + (f.valor || 0), 0);
-        const renderFornCard = (t, items, isGondolas, isMdf) => {
-              const totalForn = items.reduce((s, f) => s + (f.valor || 0), 0);
-              return (
-                <div key={t.key} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
-                  <div style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: t.color + "10" }}>
-                    <h3 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 13, margin: 0 }}>{t.label}</h3>
-                    <span style={{ color: t.color, fontSize: 12, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalForn)}</span>
-                  </div>
-                  <div style={{ maxHeight: 280, overflowY: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>
-                      <thead>
-                        <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                          <th style={{ padding: "4px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Data</th>
-                          <th style={{ padding: "4px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Pedido</th>
-                          <th style={{ padding: "4px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Parc.</th>
-                          <th style={{ padding: "4px 6px", textAlign: "right", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Valor</th>
-                          <th style={{ padding: "4px 4px", textAlign: "center", color: COLORS.textMuted, fontSize: 8, textTransform: "uppercase" }}>Sit.</th>
-                          <th style={{ padding: "4px 2px", width: 14 }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...items].sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || "")).map(f => {
-                          const p = parseForn(f);
-                          const sit = getSituacao(f);
-                          return (
-                            <tr key={f.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                              <td style={{ padding: "4px 6px", color: COLORS.text, fontSize: 10 }}>{f.vencimento ? f.vencimento.split("-")[2] + "/" + f.vencimento.split("-")[1] : "--"}</td>
-                              <td style={{ padding: "4px 6px", color: COLORS.textMuted, fontSize: 10 }}>{p.pedido || "-"}</td>
-                              <td style={{ padding: "4px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 10 }}>{p.parcela || "-"}</td>
-                              <td style={{ padding: "4px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontSize: 10 }}>{fmt(f.valor)}</td>
-                              <td style={{ padding: "3px 3px", textAlign: "center" }}>
-                                <select disabled={somenteLeitura} value={f.status} onChange={e => atualizarFornecedor(f.id, "status", e.target.value)} style={{ background: f.status === "Pago" ? "#10B98120" : "#F59E0B20", color: f.status === "Pago" ? "#10B981" : "#F59E0B", border: "none", padding: "2px 3px", borderRadius: 8, fontSize: 8, fontWeight: 700, cursor: somenteLeitura ? "default" : "pointer", outline: "none" }}>
-                                  <option value="Em Aberto">Aberto</option>
-                                  <option value="Pago">Pago</option>
-                                </select>
-                              </td>
-                              <td style={{ padding: "2px", textAlign: "center" }}>
-                                {!somenteLeitura && (
-                                <button onClick={() => excluirFornecedor(f.id)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 10, padding: 0, lineHeight: 1 }}>✕</button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {items.length === 0 && <div style={{ padding: 14, textAlign: "center", color: COLORS.textDim, fontSize: 10 }}>Nenhuma despesa</div>}
-                  </div>
-                  {showAddForn === t.key && isGondolas ? (
-                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-                      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 420, maxWidth: "100%" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                          <h2 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 18, margin: 0 }}>Novo Boleto — Gôndolas Brasil</h2>
-                          <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                          <div>
-                            <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Nº do Documento *</div>
-                            <input placeholder="Ex: NF-1234" value={gondForm.documento} onChange={e => setGondForm({ ...gondForm, documento: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
-                          </div>
-                          <div>
-                            <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Nome do Pagador</div>
-                            <input placeholder="Ex: Gôndolas Brasil Ltda" value={gondForm.pagador} onChange={e => setGondForm({ ...gondForm, pagador: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Dia do Vencimento *</div>
-                              <select value={gondForm.dia} onChange={e => setGondForm({ ...gondForm, dia: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
-                                <option value="">Selecione...</option>
-                                {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Mês 1ª Parcela *</div>
-                              <select value={gondForm.mes} onChange={e => setGondForm({ ...gondForm, mes: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
-                                <option value="">Selecione...</option>
-                                <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option><option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option><option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Quantidade de Parcelas</div>
-                              <select value={gondForm.qtdParcelas} onChange={e => setGondForm({ ...gondForm, qtdParcelas: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
-                                {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x{i === 0 ? " (única)" : ""}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Valor da Parcela (R$) *</div>
-                              <input type="number" min="0" step="0.01" placeholder="0,00" value={gondForm.valor} onChange={e => setGondForm({ ...gondForm, valor: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textAlign: "right" }} />
-                            </div>
-                          </div>
-                          {gondForm.qtdParcelas > 1 && gondForm.dia && gondForm.mes && gondForm.valor && (
-                            <div style={{ background: t.color + "10", border: `1px solid ${t.color}25`, borderRadius: 8, padding: "10px 14px" }}>
-                              <div style={{ color: t.color, fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>Parcelas a serem geradas:</div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
-                                {Array.from({ length: Number(gondForm.qtdParcelas) }, (_, i) => {
-                                  let m = Number(gondForm.mes) + i; let a = Number(mesSel.split("-")[0]);
-                                  while (m > 12) { m -= 12; a++; }
-                                  return <div key={i}>{i + 1}/{gondForm.qtdParcelas} — {gondForm.dia}/{String(m).padStart(2, "0")} — R$ {Number(gondForm.valor).toFixed(2)}</div>;
-                                })}
-                              </div>
-                              <div style={{ color: t.color, fontSize: 12, fontWeight: 800, fontFamily: "'Playfair Display', serif", marginTop: 6 }}>Total: {fmt(Number(gondForm.valor) * Number(gondForm.qtdParcelas))}</div>
-                            </div>
-                          )}
-                          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                            <button onClick={() => { setShowAddForn(""); setGondForm({ documento: "", pagador: "", dia: "", mes: "", qtdParcelas: "1", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
-                            <button onClick={adicionarGondolas} disabled={!gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor} style={{ flex: 1, background: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !gondForm.documento || !gondForm.dia || !gondForm.mes || !gondForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Gerar Parcelas</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : showAddForn === t.key && isMdf ? (
-                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-                      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 380, maxWidth: "100%" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                          <h2 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 18, margin: 0 }}>Nova Despesa — MDF</h2>
-                          <button onClick={() => { setShowAddForn(""); setMdfForm({ dia: "", mes: "", qtd: "", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Dia *</div>
-                              <select value={mdfForm.dia} onChange={e => setMdfForm({ ...mdfForm, dia: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
-                                <option value="">Selecione...</option>
-                                {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Mês *</div>
-                              <select value={mdfForm.mes} onChange={e => setMdfForm({ ...mdfForm, mes: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
-                                <option value="">Selecione...</option>
-                                <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option><option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option><option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Quantidade</div>
-                              <input type="number" min="1" placeholder="1" value={mdfForm.qtd} onChange={e => setMdfForm({ ...mdfForm, qtd: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
-                            </div>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Valor (R$) *</div>
-                              <input type="number" min="0" step="0.01" placeholder="0,00" value={mdfForm.valor} onChange={e => setMdfForm({ ...mdfForm, valor: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textAlign: "right" }} />
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                            <button onClick={() => { setShowAddForn(""); setMdfForm({ dia: "", mes: "", qtd: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
-                            <button onClick={adicionarMdf} disabled={!mdfForm.dia || !mdfForm.mes || !mdfForm.valor} style={{ flex: 1, background: !mdfForm.dia || !mdfForm.mes || !mdfForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !mdfForm.dia || !mdfForm.mes || !mdfForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Salvar</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : showAddForn === t.key && !isGondolas && !isMdf ? (
-                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-                      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24, width: 380, maxWidth: "100%" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                          <h2 style={{ fontFamily: "'Playfair Display', serif", color: t.color, fontSize: 18, margin: 0 }}>Nova Despesa — Fornecedor</h2>
-                          <button onClick={() => { setShowAddForn(""); setOutrosForm({ dia: "", mes: "", fornecedor: "", valor: "" }); }} style={{ background: "transparent", border: "none", color: COLORS.textMuted, cursor: "pointer", fontSize: 16 }}>✕</button>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Dia *</div>
-                              <select value={outrosForm.dia} onChange={e => setOutrosForm({ ...outrosForm, dia: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
-                                <option value="">Selecione...</option>
-                                {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1).padStart(2, "0")}>{i + 1}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Mês *</div>
-                              <select value={outrosForm.mes} onChange={e => setOutrosForm({ ...outrosForm, mes: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
-                                <option value="">Selecione...</option>
-                                <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option><option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option><option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div>
-                            <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Nome do Fornecedor *</div>
-                            <input placeholder="Ex: Fornecedor XYZ" value={outrosForm.fornecedor} onChange={e => setOutrosForm({ ...outrosForm, fornecedor: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
-                          </div>
-                          <div>
-                            <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>Valor (R$) *</div>
-                            <input type="number" min="0" step="0.01" placeholder="0,00" value={outrosForm.valor} onChange={e => setOutrosForm({ ...outrosForm, valor: e.target.value })} style={{ width: "100%", padding: "10px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", textAlign: "right" }} />
-                          </div>
-                          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                            <button onClick={() => { setShowAddForn(""); setOutrosForm({ dia: "", mes: "", fornecedor: "", valor: "" }); }} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
-                            <button onClick={adicionarOutros} disabled={!outrosForm.dia || !outrosForm.mes || !outrosForm.fornecedor || !outrosForm.valor} style={{ flex: 1, background: !outrosForm.dia || !outrosForm.mes || !outrosForm.fornecedor || !outrosForm.valor ? COLORS.textDim : t.color, color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !outrosForm.dia || !outrosForm.mes || !outrosForm.fornecedor || !outrosForm.valor ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Salvar</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : somenteLeitura ? null : (
-                    <div style={{ padding: "6px 10px", borderTop: `1px solid ${COLORS.border}`, textAlign: "center" }}>
-                      <button onClick={() => setShowAddForn(t.key)} style={{ background: t.color + "15", border: `1px solid ${t.color}30`, color: t.color, padding: "4px 12px", borderRadius: 5, fontWeight: 700, fontSize: 9, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Adicionar</button>
-                    </div>
-                  )}
-                </div>
-              );
-            };
-        return (
-          <div>
-            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Total Fornecedores</span>
-              <span style={{ color: COLORS.orange, fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalFornGeral)}</span>
-            </div>
-            {/* Gôndolas Brasil - largura total */}
-            <div style={{ marginBottom: 12 }}>
-              {renderFornCard(tipos[0], fornecedores.filter(f => f.nome.startsWith("forn_gondolas")), true)}
-            </div>
-            {/* MDF + Outros lado a lado */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {renderFornCard(tipos[1], fornecedores.filter(f => f.nome.startsWith("forn_mdf")), false, true)}
-              {renderFornCard(tipos[2], fornecedores.filter(f => f.nome.startsWith("forn_outros")), false, false)}
-            </div>
-          </div>
-        );
-      })()}
 
-      {/* Bloco BOLETOS — aparece dentro do sub-tab Fornecedores */}
+      {/* Bloco BOLETOS — lista única de contas a pagar (substitui os cards agrupados) */}
       {subTab === "fornecedores" && (
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden", marginTop: 16 }}>
-          <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 18, margin: 0 }}>📄 Boletos a Pagar</h2>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", gap: 4, background: COLORS.bg, padding: 3, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
-                {[
-                  { v: "em_aberto", lbl: "Em Aberto", col: "#F59E0B" },
-                  { v: "pagos",     lbl: "Pagos",     col: "#10B981" },
-                  { v: "todos",     lbl: "Todos",     col: COLORS.text },
-                ].map(opt => (
-                  <button
-                    key={opt.v}
-                    onClick={() => setBoletoStatusFiltro(opt.v)}
-                    style={{
-                      background: boletoStatusFiltro === opt.v ? opt.col + "20" : "transparent",
-                      border: boletoStatusFiltro === opt.v ? `1px solid ${opt.col}60` : "1px solid transparent",
-                      color: boletoStatusFiltro === opt.v ? opt.col : COLORS.textMuted,
-                      padding: "4px 10px", borderRadius: 6,
-                      fontSize: 10, fontWeight: 700, cursor: "pointer",
-                      fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.4,
-                    }}
-                  >{opt.lbl}</button>
-                ))}
-              </div>
-              <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}>
-                Manda o boleto pelo chat que o Claude cadastra aqui.
-              </span>
-            </div>
-          </div>
           {(() => {
-            // Aplica filtro de status (em_aberto = pendente, pagos = pago, todos = tudo)
+            // Filtro de status (em_aberto = pendente, pagos = pago, todos = tudo)
             const passaFiltro = (b) => {
               if (boletoStatusFiltro === "todos") return true;
               if (boletoStatusFiltro === "pagos") return b.status === "pago";
               return b.status === "pendente"; // em_aberto
             };
-            // Boletos do mês selecionado (filtra pelo vencimento)
-            const boletosDoMes = boletos.filter(b => (b.vencimento || "").startsWith(mesSel) && passaFiltro(b));
-            // Atrasados de meses ANTERIORES (qualquer mês) — destaque no topo (só faz sentido quando filtro mostra pendentes)
-            const mostrarAtrasadosAntigos = boletoStatusFiltro !== "pagos";
-            const atrasadosAntigos = mostrarAtrasadosAntigos
-              ? boletos.filter(b => b.status === "pendente" && b.vencimento < hojeISO && !b.vencimento.startsWith(mesSel))
-              : [];
-            if (boletosDoMes.length === 0 && atrasadosAntigos.length === 0) {
-              const labelFiltro = boletoStatusFiltro === "pagos" ? "pago" : boletoStatusFiltro === "em_aberto" ? "em aberto" : "";
-              return (
-                <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
-                  <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
-                  Nenhum boleto{labelFiltro ? ` ${labelFiltro}` : ""} em {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}.
-                </div>
-              );
-            }
+            // Lista ÚNICA: todos os boletos (qualquer mês), ordem crescente de vencimento
+            const lista = boletos.filter(passaFiltro).sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || ""));
+            const vencidos = boletos.filter(b => b.status === "pendente" && b.vencimento && b.vencimento < hojeISO);
+            const totalAberto = boletos.filter(b => b.status === "pendente").reduce((s, b) => s + (Number(b.valor) || 0), 0);
             return (
               <>
-                {atrasadosAntigos.length > 0 && (
+                <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+                    <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#F59E0B", fontSize: 18, margin: 0 }}>📄 Boletos a Pagar</h2>
+                    <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Em aberto: <strong style={{ color: COLORS.orange, fontFamily: "'Playfair Display', serif" }}>{fmt(totalAberto)}</strong></span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 4, background: COLORS.bg, padding: 3, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
+                      {[
+                        { v: "em_aberto", lbl: "Em Aberto", col: "#F59E0B" },
+                        { v: "pagos",     lbl: "Pagos",     col: "#10B981" },
+                        { v: "todos",     lbl: "Todos",     col: COLORS.text },
+                      ].map(opt => (
+                        <button
+                          key={opt.v}
+                          onClick={() => setBoletoStatusFiltro(opt.v)}
+                          style={{
+                            background: boletoStatusFiltro === opt.v ? opt.col + "20" : "transparent",
+                            border: boletoStatusFiltro === opt.v ? `1px solid ${opt.col}60` : "1px solid transparent",
+                            color: boletoStatusFiltro === opt.v ? opt.col : COLORS.textMuted,
+                            padding: "4px 10px", borderRadius: 6,
+                            fontSize: 10, fontWeight: 700, cursor: "pointer",
+                            fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.4,
+                          }}
+                        >{opt.lbl}</button>
+                      ))}
+                    </div>
+                    <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}>
+                      Manda o boleto pelo chat que o Claude cadastra aqui.
+                    </span>
+                  </div>
+                </div>
+                {vencidos.length > 0 && boletoStatusFiltro !== "pagos" && (
                   <div style={{ background: COLORS.danger + "10", borderBottom: `2px solid ${COLORS.danger}30`, padding: "10px 18px" }}>
                     <div style={{ color: COLORS.danger, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                      ⚠️ {atrasadosAntigos.length} boleto{atrasadosAntigos.length > 1 ? "s" : ""} atrasado{atrasadosAntigos.length > 1 ? "s" : ""} de meses anteriores · total {fmt(atrasadosAntigos.reduce((s, b) => s + Number(b.valor || 0), 0))}
+                      ⚠️ {vencidos.length} boleto{vencidos.length > 1 ? "s" : ""} vencido{vencidos.length > 1 ? "s" : ""} · total {fmt(vencidos.reduce((s, b) => s + Number(b.valor || 0), 0))}
                     </div>
                   </div>
                 )}
+                {lista.length === 0 ? (
+                  <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+                    <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
+                    Nenhum boleto {boletoStatusFiltro === "pagos" ? "pago" : boletoStatusFiltro === "em_aberto" ? "em aberto" : "cadastrado"}.
+                  </div>
+                ) : (
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>
                     <thead>
@@ -7733,50 +7520,90 @@ function FinanceiroPage({ user }) {
                         <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Beneficiário</th>
                         <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vencimento</th>
                         <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
+                        <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Situação</th>
                         <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Status</th>
                         <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Código de Barras</th>
                         <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Ação</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[...atrasadosAntigos, ...boletosDoMes].sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || "")).map(b => {
-                    const atrasado = b.status === "pendente" && b.vencimento < hojeISO;
-                    const pago = b.status === "pago";
-                    const cancelado = b.status === "cancelado";
-                    const statusLabel = pago ? "✓ Pago" : cancelado ? "Cancelado" : atrasado ? "⚠ ATRASADO" : "Em Dia";
-                    const stCol = pago ? "#10B981" : cancelado ? COLORS.textDim : atrasado ? COLORS.danger : "#F59E0B";
-                    const vencFmt = b.vencimento ? new Date(b.vencimento + "T00:00:00").toLocaleDateString("pt-BR") : "—";
-                    return (
-                      <tr key={b.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: atrasado ? COLORS.danger + "08" : "transparent" }}>
-                        <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500 }}>{b.beneficiario}{b.observacao && <div style={{ color: COLORS.textDim, fontSize: 9 }}>{b.observacao}</div>}</td>
-                        <td style={{ padding: "10px 12px", textAlign: "center", color: atrasado ? COLORS.danger : COLORS.text, fontWeight: 600, fontSize: 11 }}>{vencFmt}</td>
-                        <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.orange, fontWeight: 700, fontFamily: "'Playfair Display', serif", fontSize: 13 }}>{fmt(Number(b.valor) || 0)}</td>
-                        <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                          <span style={{ background: stCol + "20", color: stCol, border: `1px solid ${stCol}40`, padding: "3px 10px", borderRadius: 12, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{statusLabel}</span>
-                        </td>
-                        <td style={{ padding: "10px 12px", color: COLORS.textDim, fontSize: 9, fontFamily: "monospace", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {b.codigo_barras ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }} title={b.codigo_barras}>{b.codigo_barras}</span>
-                              <button onClick={() => { navigator.clipboard.writeText(b.codigo_barras); }} title="Copiar" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.accent, padding: "2px 8px", borderRadius: 5, fontSize: 10, cursor: "pointer", flexShrink: 0 }}>📋</button>
-                            </div>
-                          ) : <span style={{ color: COLORS.textDim }}>—</span>}
-                        </td>
-                        <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                          {somenteLeitura ? (
-                            <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>
-                          ) : !pago ? (
-                            <button onClick={() => marcarBoletoPago(b.id)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✓ Marcar Pago</button>
-                          ) : (
-                            <button onClick={() => desmarcarBoletoPago(b.id)} title="Voltar pra pendente" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "4px 8px", borderRadius: 6, fontSize: 10, cursor: "pointer" }}>↩ Reabrir</button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      {lista.map(b => {
+                        const pago = b.status === "pago";
+                        const cancelado = b.status === "cancelado";
+                        const aberto = !pago && !cancelado;
+                        const vencido = aberto && b.vencimento && b.vencimento < hojeISO;
+                        const venceHoje = aberto && b.vencimento === hojeISO;
+                        const diasDelta = b.vencimento ? Math.round((new Date(b.vencimento + "T00:00:00") - new Date(hojeISO + "T00:00:00")) / 86400000) : null;
+                        const vencFmt = b.vencimento ? new Date(b.vencimento + "T00:00:00").toLocaleDateString("pt-BR") : "—";
+                        const stLabel = pago ? "Pago" : cancelado ? "Cancelado" : vencido ? "Vencida" : "Em aberto";
+                        const stCol = pago ? "#10B981" : cancelado ? COLORS.textDim : vencido ? COLORS.danger : "#F59E0B";
+                        const editandoVenc = editBoleto.id === b.id && editBoleto.campo === "vencimento";
+                        const editandoValor = editBoleto.id === b.id && editBoleto.campo === "valor";
+                        return (
+                          <tr key={b.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: vencido ? COLORS.danger + "08" : "transparent" }}>
+                            <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500 }}>{b.beneficiario}{b.observacao && <div style={{ color: COLORS.textDim, fontSize: 9 }}>{b.observacao}</div>}</td>
+                            <td style={{ padding: "10px 12px", textAlign: "center", fontSize: 11 }}>
+                              {editandoVenc ? (
+                                <input type="date" autoFocus defaultValue={b.vencimento || ""}
+                                  onChange={e => atualizarBoletoCampo(b.id, "vencimento", e.target.value)}
+                                  onBlur={() => setEditBoleto({ id: null, campo: null })}
+                                  onKeyDown={e => { if (e.key === "Escape") setEditBoleto({ id: null, campo: null }); }}
+                                  style={{ background: COLORS.bg, border: `1px solid ${COLORS.accent}`, borderRadius: 6, color: COLORS.text, padding: "4px 6px", fontSize: 11, fontFamily: "'DM Sans', sans-serif", outline: "none", colorScheme: "dark" }} />
+                              ) : (
+                                <span onClick={() => !somenteLeitura && setEditBoleto({ id: b.id, campo: "vencimento" })}
+                                  title={somenteLeitura ? "" : "Clique para alterar o vencimento"}
+                                  style={{ cursor: somenteLeitura ? "default" : "pointer", color: vencido ? COLORS.danger : COLORS.text, fontWeight: 600, borderBottom: somenteLeitura ? "none" : `1px dashed ${COLORS.textDim}`, paddingBottom: 1 }}>{vencFmt}</span>
+                              )}
+                            </td>
+                            <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                              {editandoValor ? (
+                                <input type="number" min="0" step="0.01" autoFocus defaultValue={Number(b.valor) || 0}
+                                  onBlur={e => atualizarBoletoCampo(b.id, "valor", e.target.value)}
+                                  onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setEditBoleto({ id: null, campo: null }); }}
+                                  style={{ width: 110, background: COLORS.bg, border: `1px solid ${COLORS.accent}`, borderRadius: 6, color: COLORS.orange, padding: "4px 6px", fontSize: 13, fontWeight: 700, textAlign: "right", fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                              ) : (
+                                <span onClick={() => !somenteLeitura && setEditBoleto({ id: b.id, campo: "valor" })}
+                                  title={somenteLeitura ? "" : "Clique para alterar o valor"}
+                                  style={{ cursor: somenteLeitura ? "default" : "pointer", color: COLORS.orange, fontWeight: 700, fontFamily: "'Playfair Display', serif", fontSize: 13, borderBottom: somenteLeitura ? "none" : `1px dashed ${COLORS.textDim}`, paddingBottom: 1 }}>{fmt(Number(b.valor) || 0)}</span>
+                              )}
+                            </td>
+                            <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                              {(pago || cancelado) ? (
+                                <span style={{ color: COLORS.textDim, fontSize: 11 }}>—</span>
+                              ) : (
+                                <span style={{ background: (vencido ? COLORS.danger : "#F59E0B") + "18", color: vencido ? COLORS.danger : "#F59E0B", border: `1px solid ${(vencido ? COLORS.danger : "#F59E0B")}40`, padding: "3px 10px", borderRadius: 12, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>
+                                  {vencido ? "Vencido" : "A vencer"}
+                                  <span style={{ opacity: 0.75, marginLeft: 4, fontWeight: 600 }}>{venceHoje ? "hoje" : vencido ? `há ${Math.abs(diasDelta)}d` : `em ${diasDelta}d`}</span>
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                              <span style={{ background: stCol + "20", color: stCol, border: `1px solid ${stCol}40`, padding: "3px 10px", borderRadius: 12, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{stLabel}</span>
+                            </td>
+                            <td style={{ padding: "10px 12px", color: COLORS.textDim, fontSize: 9, fontFamily: "monospace", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {b.codigo_barras ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }} title={b.codigo_barras}>{b.codigo_barras}</span>
+                                  <button onClick={() => { navigator.clipboard.writeText(b.codigo_barras); }} title="Copiar" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.accent, padding: "2px 8px", borderRadius: 5, fontSize: 10, cursor: "pointer", flexShrink: 0 }}>📋</button>
+                                </div>
+                              ) : <span style={{ color: COLORS.textDim }}>—</span>}
+                            </td>
+                            <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                              {somenteLeitura ? (
+                                <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>
+                              ) : !pago ? (
+                                <button onClick={() => marcarBoletoPago(b.id)} style={{ background: "#10B98115", border: "1px solid #10B98140", color: "#10B981", padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✓ Marcar Pago</button>
+                              ) : (
+                                <button onClick={() => desmarcarBoletoPago(b.id)} title="Voltar pra pendente" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "4px 8px", borderRadius: 6, fontSize: 10, cursor: "pointer" }}>↩ Reabrir</button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                )}
               </>
             );
           })()}
