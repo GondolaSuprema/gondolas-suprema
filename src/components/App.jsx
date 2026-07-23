@@ -5115,9 +5115,16 @@ function ComissoesPage({ user }) {
   // Comissao aparece no mes em que a venda foi CONCLUIDA (data do orcamento),
   // nao no mes da entrega futura. Se a entrega for em outro mes, isso nao
   // afeta o calculo da comissao do vendedor.
-  const vendasFiltradas = vendas.filter(v => {
+  // Base do mês: filtra por mês + vendedor, mas NÃO pelo status de pagamento.
+  // Alimenta os CARDS do topo (A Pagar / Já Pago) — assim o "Já Pago" soma
+  // certo mesmo com o filtro da tabela em "A Pagar".
+  const vendasDoMes = vendas.filter(v => {
     if (!noMes(v.data)) return false;
     if (filtroVendedor !== "all" && v.vendedorId !== filtroVendedor) return false;
+    return true;
+  });
+  // A tabela aplica também o filtro de status escolhido no dropdown.
+  const vendasFiltradas = vendasDoMes.filter(v => {
     if (filtroPagamento === "pago" && !v.comissaoPaga) return false;
     if (filtroPagamento === "apagar" && v.comissaoPaga) return false;
     return true;
@@ -5129,12 +5136,17 @@ function ComissoesPage({ user }) {
         .filter(Boolean)
     : [];
 
-  // Resumos
-  const totalComissaoSuprema  = vendasFiltradas.reduce((s, v) => s + v.comissaoSuprema, 0);
-  const totalComissaoVendedor = vendasFiltradas.reduce((s, v) => s + v.comissaoVendedor, 0);
-  const totalAPagar           = vendasFiltradas.filter(v => !v.comissaoPaga).reduce((s, v) => s + v.comissaoVendedor, 0);
-  const totalPago             = vendasFiltradas.filter(v => v.comissaoPaga).reduce((s, v) => s + v.comissaoVendedor, 0);
-  const qtdVendas             = vendasFiltradas.length;
+  // Resumos — os CARDS do topo somam o MÊS INTEIRO (vendasDoMes), independente
+  // do filtro de status, pra "A Pagar" e "Já Pago" atualizarem na hora que
+  // marca uma comissão como paga.
+  const totalAPagar             = vendasDoMes.filter(v => !v.comissaoPaga).reduce((s, v) => s + v.comissaoVendedor, 0);
+  const totalPago               = vendasDoMes.filter(v => v.comissaoPaga).reduce((s, v) => s + v.comissaoVendedor, 0);
+  const totalComissaoSupremaMes = vendasDoMes.reduce((s, v) => s + v.comissaoSuprema, 0);
+  const qtdVendas               = vendasDoMes.length;
+  // Totais da linha TOTAL da tabela — batem com as linhas visíveis (filtradas).
+  const totalComissaoSuprema    = vendasFiltradas.reduce((s, v) => s + v.comissaoSuprema, 0);
+  const totalComissaoVendedor   = vendasFiltradas.reduce((s, v) => s + v.comissaoVendedor, 0);
+  const totalAPagarTabela       = vendasFiltradas.filter(v => !v.comissaoPaga).reduce((s, v) => s + v.comissaoVendedor, 0);
 
   const fmtData = (s) => {
     if (!s) return "—";
@@ -5185,9 +5197,9 @@ function ComissoesPage({ user }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 20 }}>
         {statCard("A Pagar (Vendedor)", fmtMoney(totalAPagar), "#F59E0B")}
-        {statCard("Já Pago (Vendedor)", fmtMoney(totalPago), COLORS.success)}
+        {statCard("Já Pago (Vendedor)", fmtMoney(totalPago), "#3B82F6")}
         {statCard("Vendas Concluídas", qtdVendas, COLORS.orange, true)}
-        {isAdmin && statCard("Total Comissão Suprema", fmtMoney(totalComissaoSuprema), COLORS.text, true)}
+        {isAdmin && statCard("Total Comissão Suprema", fmtMoney(totalComissaoSupremaMes), COLORS.text, true)}
       </div>
 
       {/* Tabela de comissoes */}
@@ -5219,7 +5231,7 @@ function ComissoesPage({ user }) {
               </thead>
               <tbody>
                 {vendasFiltradas.map(v => {
-                  const corStatus = v.comissaoPaga ? "#10B981" : "#F59E0B";
+                  const corStatus = v.comissaoPaga ? "#3B82F6" : "#F59E0B";
                   const labelStatus = v.comissaoPaga ? "✓ Pago" : "A Pagar";
                   return (
                   <tr key={v.id} style={{ borderTop: `1px solid ${COLORS.border}`, opacity: v.comissaoPaga ? 0.7 : 1 }}>
@@ -5259,7 +5271,7 @@ function ComissoesPage({ user }) {
                   <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.text, fontWeight: 800, fontSize: 13, whiteSpace: "nowrap" }}>{fmtMoney(totalComissaoSuprema)}</td>
                   <td style={{ padding: "12px 14px", textAlign: "right", color: COLORS.success, fontWeight: 800, fontSize: 14, whiteSpace: "nowrap" }}>{fmtMoney(totalComissaoVendedor)}</td>
                   <td style={{ padding: "12px 14px", textAlign: "center", color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>
-                    A pagar: <strong style={{ color: "#F59E0B" }}>{fmtMoney(totalAPagar)}</strong>
+                    A pagar: <strong style={{ color: "#F59E0B" }}>{fmtMoney(totalAPagarTabela)}</strong>
                   </td>
                 </tr>
               </tbody>
