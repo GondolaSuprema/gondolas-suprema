@@ -7463,10 +7463,11 @@ function FinanceiroPage({ user }) {
               if (boletoStatusFiltro === "pagos") return b.status === "pago";
               return b.status === "pendente"; // em_aberto
             };
-            // Lista ÚNICA: todos os boletos (qualquer mês), ordem crescente de vencimento
-            const lista = boletos.filter(passaFiltro).sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || ""));
-            const vencidos = boletos.filter(b => b.status === "pendente" && b.vencimento && b.vencimento < hojeISO);
-            const totalAberto = boletos.filter(b => b.status === "pendente").reduce((s, b) => s + (Number(b.valor) || 0), 0);
+            // Cada boleto aparece SÓ no seu mês de vencimento (acompanha o seletor de mês).
+            const noMes = (b) => (b.vencimento || "").startsWith(mesSel);
+            const lista = boletos.filter(b => noMes(b) && passaFiltro(b)).sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || ""));
+            const vencidos = boletos.filter(b => b.status === "pendente" && b.vencimento && b.vencimento < hojeISO && noMes(b));
+            const totalAberto = boletos.filter(b => b.status === "pendente" && noMes(b)).reduce((s, b) => s + (Number(b.valor) || 0), 0);
             return (
               <>
                 <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
@@ -7510,7 +7511,7 @@ function FinanceiroPage({ user }) {
                 {lista.length === 0 ? (
                   <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
                     <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
-                    Nenhum boleto {boletoStatusFiltro === "pagos" ? "pago" : boletoStatusFiltro === "em_aberto" ? "em aberto" : "cadastrado"}.
+                    Nenhum boleto {boletoStatusFiltro === "pagos" ? "pago" : boletoStatusFiltro === "em_aberto" ? "em aberto" : "cadastrado"} em {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}.
                   </div>
                 ) : (
                 <div style={{ overflowX: "auto" }}>
