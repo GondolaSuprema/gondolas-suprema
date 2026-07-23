@@ -2174,6 +2174,15 @@ const STATUS_ENTREGA_COLORS = {
   "Reagendada": "#8B5CF6",
 };
 
+// Detecta venda com boleto parcelado pro fornecedor (RRE): o cliente paga o
+// boleto direto pro fornecedor, então quando a venda é marcada "Pago" só a
+// COMISSÃO da Suprema entra como receita (não o total). Lê do texto de
+// pagamento gravado nas notes do orçamento (ex: "... + Boleto 3x ...").
+function isBoletoParceladoRRE(notes) {
+  const m = (notes || "").match(/Boleto\s+(\d+)\s*x/i);
+  return !!(m && parseInt(m[1], 10) > 1);
+}
+
 // ─── CONTABILIDADE: TIPOS PARA DRE ───
 // Cada despesa/movimentação tem um tipo contabil que define onde aparece na DRE.
 // Receitas de venda vem da tabela orcamentos (status='Concluído'), nao de despesas.
@@ -3659,11 +3668,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     // - Pag2 = Boleto parcelado (>1x) → só a ENTRADA (Pag 1) entra no DRE;
     //   o restante vai pra RRE (cliente paga direto pro fornecedor)
     // - demais casos → total da venda
-    const ord = orders.find(o => o.id === concluidoId);
-    const totalOrd = Number(ord?.total) || 0;
-    const pag2BoletoParcRRE = cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1;
-    const entradaOrd = Number(cd.pag1_valor || 0) || 0;
-    const valorRecebidoFinal = (pag2BoletoParcRRE && entradaOrd > 0) ? entradaOrd : totalOrd;
+    // Venda nasce "a receber": valor_recebido = 0 até ser marcada "Pago" no ADM
+    // (cliente só paga após a montagem). O método de pagamento fica nas notes.
     await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
@@ -3675,9 +3681,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       status_entrega: cd.data_entrega ? "Agendada" : null,
       // Momento em que a venda foi marcada como Concluída — base do gráfico mensal
       data_conclusao: new Date().toISOString(),
-      // Contábil: default Gôndolas Suprema; valor recebido auto (entrada se boleto parcelado)
+      // Contábil: default Gôndolas Suprema. Receita entra só quando marcar "Pago".
       venda_empresa_recebedora: "gondolas_suprema",
-      valor_recebido: valorRecebidoFinal,
+      valor_recebido: 0,
     }).eq("id", concluidoId);
 
     // Ponte CAPI (Fase 1 - coleta): manda a verdade da venda pro Meta aprender.
@@ -5561,11 +5567,7 @@ function AdminPage({ user }) {
     }
     const info = "\n📋 CONCLUÍDO — Entrega: " + cd.data_entrega + " | Pedido: " + cd.numero_pedido + " | Pagamento: " + pagStr;
     const existingNotes = allOrders.find(o => o.id === concluidoIdAdm)?.notes || "";
-    const ordAdm = allOrders.find(o => o.id === concluidoIdAdm);
-    const totalOrdAdm = Number(ordAdm?.total) || 0;
-    const pag2BoletoParcRREAdm = cd.pag2 === "Boleto" && Number(cd.pag2_parcelas || 0) > 1;
-    const entradaOrdAdm = Number(cd.pag1_valor || 0) || 0;
-    const valorRecebidoAdm = (pag2BoletoParcRREAdm && entradaOrdAdm > 0) ? entradaOrdAdm : totalOrdAdm;
+    // Venda nasce "a receber": valor_recebido = 0 até ser marcada "Pago" no ADM.
     await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
@@ -5575,7 +5577,7 @@ function AdminPage({ user }) {
       status_entrega: cd.data_entrega ? "Agendada" : null,
       data_conclusao: new Date().toISOString(),
       venda_empresa_recebedora: "gondolas_suprema",
-      valor_recebido: valorRecebidoAdm,
+      valor_recebido: 0,
     }).eq("id", concluidoIdAdm);
 
     // Ponte CAPI (Fase 1 - coleta): manda a verdade da venda pro Meta aprender.
@@ -6159,24 +6161,31 @@ function AdminPage({ user }) {
 
         const updateVendaStatus = async (orderId, newSt) => {
           setVendaStatus(prev => ({ ...prev, [orderId]: newSt }));
-          const existingNotes = allOrders.find(o => o.id === orderId)?.notes || "";
+          const ord = allOrders.find(x => x.id === orderId);
+          const existingNotes = ord?.notes || "";
           const cleanNotes = existingNotes.replace(/\n🏷️ Status venda:.*$/m, "");
-          // Atualiza notes + grava/limpa data_pagamento conforme o status
+          // Atualiza notes + grava/limpa data_pagamento e valor_recebido conforme status
           const update = { notes: cleanNotes + "\n🏷️ Status venda: " + newSt };
           if (newSt === "Pago") {
             update.data_pagamento = new Date().toISOString();
+            // Receita da venda entra agora: valor TOTAL, ou só a COMISSÃO se for
+            // boleto parcelado pro fornecedor (cliente paga o boleto direto pra RRE).
+            const boleto = isBoletoParceladoRRE(ord?.notes);
+            update.valor_recebido = boleto ? (Number(ord?.comissao) || 0) : (Number(ord?.total) || 0);
           }
           await supabase.from("orcamentos").update(update).eq("id", orderId);
-          // Se voltou pra "Em Aberto", limpa empresa, banco recebedor e data_pagamento
+          // Se voltou pra "Em Aberto", vira "a receber": zera valor_recebido e
+          // limpa empresa, banco recebedor e data_pagamento.
           if (newSt === "Em Aberto") {
             await supabase.from("orcamentos").update({
               venda_empresa_recebedora: null,
               venda_banco_recebedor: null,
               data_pagamento: null,
+              valor_recebido: 0,
             }).eq("id", orderId);
-            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendaEmpresaRecebedora: null, vendaBancoRecebedor: null, data_pagamento: null } : o));
+            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendaEmpresaRecebedora: null, vendaBancoRecebedor: null, data_pagamento: null, valor_recebido: 0 } : o));
           } else if (newSt === "Pago") {
-            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, data_pagamento: update.data_pagamento } : o));
+            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, data_pagamento: update.data_pagamento, valor_recebido: update.valor_recebido } : o));
           }
         };
 
