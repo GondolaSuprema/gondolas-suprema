@@ -95,7 +95,7 @@ export async function POST(request) {
   }
 
   // EMISSAO
-  const cfop = ordem.client?.estado?.toUpperCase() === "SC" ? "5102" : "6102";
+  const cfop = ordem.client?.estado?.toUpperCase() === "SC" ? "5101" : "6101";
 
   const totalItens = (ordem.items || []).reduce((s, it) => s + (it.total || 0), 0);
   const frete = ordem.frete || 0;
