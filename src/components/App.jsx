@@ -5579,6 +5579,8 @@ function AdminPage({ user }) {
   const [confirmDel, setConfirmDel] = useState(null);
   // Edicao inline do orcamento direto da ADM (admin/gestor — Ale e Zanella)
   const [editingId, setEditingId] = useState(null);
+  // Edição inline (clique no valor) do total da venda e da comissão, direto na ADM
+  const [editVenda, setEditVenda] = useState({ id: null, campo: null });
   const [editFrete, setEditFrete] = useState(0);
   const [editMarkup, setEditMarkup] = useState(0);
   const [editNotes, setEditNotes] = useState("");
@@ -5741,6 +5743,27 @@ function AdminPage({ user }) {
   // exige preencher CNPJ, data entrega, número pedido e formas de pagamento.
   const [concluidoIdAdm, setConcluidoIdAdm] = useState(null);
   const [concluidoDataAdm, setConcluidoDataAdm] = useState({ cnpj: "", data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "", venda_empresa_recebedora: "", venda_banco_recebedor: "", valor_recebido: "" });
+
+  // Salva edição inline do total (valor de venda) ou da comissão direto na ADM.
+  // Se a venda está marcada "Pago", recalcula o valor_recebido (o que entra no
+  // DRE e na entrada de valores): total normal, ou só a comissão se for boleto RRE.
+  const salvarCampoVenda = async (o, campo, valorRaw) => {
+    if (!canEditAdm) { setEditVenda({ id: null, campo: null }); return; }
+    const valor = Number(String(valorRaw).replace(",", "."));
+    if (!isFinite(valor) || valor < 0) { setEditVenda({ id: null, campo: null }); return; }
+    const update = { [campo]: valor };
+    const m = (o.notes || "").match(/🏷️ Status venda: (.+)$/m);
+    const st = m ? m[1] : "Em Aberto";
+    const pago = st === "Pago" || st === "Concluído" || st === "Gerar NF";
+    if (pago) {
+      const novoTotal = campo === "total" ? valor : (Number(o.total) || 0);
+      const novaComissao = campo === "comissao" ? valor : (Number(o.comissao) || 0);
+      update.valor_recebido = isBoletoParceladoRRE(o.notes) ? novaComissao : novoTotal;
+    }
+    await supabase.from("orcamentos").update(update).eq("id", o.id);
+    setAllOrders(prev => prev.map(x => x.id === o.id ? { ...x, ...update } : x));
+    setEditVenda({ id: null, campo: null });
+  };
 
   const updateOrderStatus = async (orderId, novoStatus) => {
     if (!novoStatus) return;
@@ -6654,21 +6677,48 @@ function AdminPage({ user }) {
                   </div>
                   </>)}
 
-                  {/* Resumo financeiro do orcamento (visivel apenas no ADM) */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, margin: "4px 0 10px", padding: "10px 12px", background: COLORS.bg, borderRadius: 7, border: `1px solid ${COLORS.border}` }}>
-                    <div>
-                      <div style={{ color: COLORS.textDim, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif", marginBottom: 2 }}>Custo</div>
-                      <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{fmt(Math.max(0, (o.total || 0) - (o.comissao || 0) - (o.frete || 0)))}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: COLORS.textDim, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif", marginBottom: 2 }}>Comissão</div>
-                      <div style={{ color: COLORS.success, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{fmt(o.comissao || 0)}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: COLORS.textDim, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif", marginBottom: 2 }}>Frete</div>
-                      <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{fmt(o.frete || 0)}</div>
-                    </div>
-                  </div>
+                  {/* Resumo financeiro do orcamento (visivel apenas no ADM).
+                      Valor da Venda e Comissão são editáveis no clique (Ale/Zanella). */}
+                  {(() => {
+                    const custo = Math.max(0, (o.total || 0) - (o.comissao || 0) - (o.frete || 0));
+                    const lblDim = { color: COLORS.textDim, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'DM Sans', sans-serif", marginBottom: 2 };
+                    const roStyle = { color: COLORS.text, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" };
+                    const editando = (campo) => editVenda.id === o.id && editVenda.campo === campo;
+                    const cellEdit = (campo, cor) => (
+                      <input type="number" min="0" step="0.01" autoFocus defaultValue={Number(o[campo]) || 0}
+                        onClick={e => e.stopPropagation()}
+                        onBlur={e => salvarCampoVenda(o, campo, e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setEditVenda({ id: null, campo: null }); }}
+                        style={{ width: "100%", background: COLORS.card, border: `1px solid ${COLORS.accent}`, borderRadius: 6, color: cor, padding: "4px 6px", fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                    );
+                    const cellView = (campo, cor) => (
+                      <div onClick={canEditAdm ? (e) => { e.stopPropagation(); setEditVenda({ id: o.id, campo }); } : undefined}
+                        title={canEditAdm ? "Clique para editar" : ""}
+                        style={{ color: cor, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: canEditAdm ? "pointer" : "default", borderBottom: canEditAdm ? `1px dashed ${COLORS.textDim}` : "none", display: "inline-block", paddingBottom: 1 }}>
+                        {fmt(Number(o[campo]) || 0)}
+                      </div>
+                    );
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, margin: "4px 0 10px", padding: "10px 12px", background: COLORS.bg, borderRadius: 7, border: `1px solid ${COLORS.border}` }}>
+                        <div>
+                          <div style={lblDim}>Valor da Venda</div>
+                          {editando("total") ? cellEdit("total", COLORS.orange) : cellView("total", COLORS.orange)}
+                        </div>
+                        <div>
+                          <div style={lblDim}>Comissão</div>
+                          {editando("comissao") ? cellEdit("comissao", COLORS.success) : cellView("comissao", COLORS.success)}
+                        </div>
+                        <div>
+                          <div style={lblDim}>Custo</div>
+                          <div style={roStyle}>{fmt(custo)}</div>
+                        </div>
+                        <div>
+                          <div style={lblDim}>Frete</div>
+                          <div style={roStyle}>{fmt(o.frete || 0)}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {o.notes && <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 8, fontStyle: "italic" }}>Obs: {o.notes}</div>}
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {(o.items || []).map((it, j) => (
