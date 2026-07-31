@@ -95,7 +95,22 @@ export async function POST(request) {
   }
 
   // EMISSAO
-  const cfop = ordem.client?.estado?.toUpperCase() === "SC" ? "5101" : "6101";
+  // CFOP de produção própria (orientação do contador, 23-jul-2026):
+  //   - Dentro de SC → 5101. PF e PJ usam o MESMO código: dentro do estado não
+  //     existe distinção entre contribuinte e não contribuinte.
+  //   - Fora de SC, destinatário CONTRIBUINTE (PJ com IE) → 6101
+  //   - Fora de SC, destinatário NÃO CONTRIBUINTE (pessoa física/CPF, ou PJ
+  //     isenta/sem IE) → 6107. Nesse caso incide DIFAL.
+  // Antes era 5102/6102 (revenda de mercadoria de terceiros).
+  const docDest = (ordem.client?.cnpj || "").replace(/\D/g, "");
+  const destEhCpf = docDest.length === 11;
+  const ieDest = String(ordem.client?.ie || "").trim().toUpperCase();
+  const ieDestLimpa = ieDest.replace(/\D/g, "");
+  // Contribuinte = PJ com inscrição estadual numérica preenchida (e não ISENTO).
+  // Mesma regra usada mais abaixo no indicador_inscricao_estadual_destinatario.
+  const destEhContribuinte = !destEhCpf && !!ieDestLimpa && !ieDest.startsWith("ISENT");
+  const dentroSC = ordem.client?.estado?.toUpperCase() === "SC";
+  const cfop = dentroSC ? "5101" : (destEhContribuinte ? "6101" : "6107");
 
   const totalItens = (ordem.items || []).reduce((s, it) => s + (it.total || 0), 0);
   const frete = ordem.frete || 0;
