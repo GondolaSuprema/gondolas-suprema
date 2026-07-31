@@ -1662,6 +1662,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "resumo", l: "Resumo" },
     { k: "orders", l: "Orçamentos" },
     { k: "graficos", l: "Gráficos" },
+    { k: "mariana", l: "Painel Mariana" },
     { k: "logistica", l: "Logística" },
     { k: "comissoes", l: "Comissões" },
     { k: "adm", l: "ADM" },
@@ -2019,11 +2020,11 @@ const VENDEDORES = [
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
-  admin:           ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  admin:           ["client", "catalog", "resumo", "orders", "graficos", "mariana", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
   // gestor (Zanella) — SEM comissoes (regra do Ale). TEM financeiro mas SOMENTE
   // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage). TEM nf
   // com acesso COMPLETO (pode emitir/cancelar/CC-e via podeEmitir=gestor).
-  gestor:          ["client", "catalog", "resumo", "orders", "graficos", "logistica", "adm", "financeiro", "nf"],
+  gestor:          ["client", "catalog", "resumo", "orders", "graficos", "mariana", "logistica", "adm", "financeiro", "nf"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
@@ -2049,6 +2050,216 @@ function canAccess(user, tab) {
   if (ALE_ONLY_TABS.includes(tab)) return user.id === "v1";
   const role = user.role || (user.isAdmin ? "admin" : "vendedor");
   return (ROLE_PERMISSIONS[role] || []).includes(tab);
+}
+
+// ─── PAINEL MARIANA (performance do agente de IA) ───
+// Le tudo da funcao SECURITY DEFINER mariana_dashboard() no Supabase.
+function fillDiasMariana(arr) {
+  if (!arr || !arr.length) return [];
+  const toDate = (s) => { const p = String(s).split("/"); return new Date(2026, Number(p[1]) - 1, Number(p[0])); };
+  const map = {}; arr.forEach((x) => { map[x.d] = x.n; });
+  const out = []; const last = toDate(arr[arr.length - 1].d);
+  for (let t = toDate(arr[0].d); t <= last; t.setDate(t.getDate() + 1)) {
+    const dd = String(t.getDate()).padStart(2, "0"), mm = String(t.getMonth() + 1).padStart(2, "0");
+    const key = dd + "/" + mm; out.push({ d: key, n: map[key] || 0 });
+  }
+  return out;
+}
+
+function PainelMarianaPage() {
+  const [d, setD] = useState(null);
+  const [erro, setErro] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const C = COLORS;
+
+  const load = async () => {
+    setLoading(true); setErro(null);
+    const { data, error } = await supabase.rpc("mariana_dashboard");
+    if (error) setErro(error.message); else setD(data);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const wrap = { maxWidth: 1000, margin: "0 auto", padding: "24px 18px 64px", fontFamily: "'DM Sans', sans-serif" };
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 };
+  const secLabel = { fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: C.textMuted, fontWeight: 700, margin: "28px 0 12px" };
+  const num = { fontVariantNumeric: "tabular-nums" };
+
+  if (loading && !d) return <div style={wrap}><p style={{ color: C.textMuted }}>Carregando painel da Mariana…</p></div>;
+  if (erro) return <div style={wrap}><p style={{ color: C.danger, marginBottom: 12 }}>Nao consegui carregar o painel: {erro}</p><button onClick={load} style={{ background: C.orange, color: "#000", border: "none", borderRadius: 8, padding: "9px 16px", fontWeight: 700, cursor: "pointer" }}>Tentar de novo</button></div>;
+  if (!d) return null;
+
+  const t = d.temp || {}, sat = d.satisfacao || {}, prod = d.produto || {}, re = d.reengaj || {};
+  const tempTot = (t.quente || 0) + (t.morno || 0) + (t.frio || 0);
+  const prodTot = Math.max(1, (prod.gondola || 0) + (prod.mpp || 0) + (prod.ambos || 0) + (prod.duvida || 0));
+  const p = (n, tot) => (tot ? Math.round((100 * n) / tot) : 0);
+  const dias = fillDiasMariana(d.por_dia);
+  const maxDia = Math.max(1, ...dias.map((x) => x.n));
+  const cons = d.consultores || [];
+  const maxCons = Math.max(1, ...cons.map((c) => c.leads || 0));
+  const comentarios = d.comentarios || [];
+  const positivos = comentarios.filter((c) => c.nota >= 9).slice(0, 2);
+  const detrator = comentarios.find((c) => c.nota <= 6);
+  const dist = sat.dist || {};
+
+  const Kpi = ({ cap, big, foot, accent }) => (
+    <div style={{ background: C.card, border: `1px solid ${accent ? C.accent + "66" : C.border}`, borderRadius: 12, padding: "18px 18px 15px" }}>
+      <p style={{ fontSize: 12.5, color: C.textMuted, margin: 0 }}>{cap}</p>
+      <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, lineHeight: 1, margin: "10px 0 4px", color: accent ? C.accent : C.white, ...num }}>{big}</p>
+      <p style={{ fontSize: 12, color: C.textMuted, margin: 0 }}>{foot}</p>
+    </div>
+  );
+  const Meter = ({ label, right, w, color }) => (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6, color: C.text }}>
+        <b style={{ fontWeight: 600 }}>{label}</b><span style={{ color: C.textMuted, fontWeight: 600, ...num }}>{right}</span>
+      </div>
+      <div style={{ height: 9, background: C.bg, borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: Math.max(w, 2) + "%", background: color, borderRadius: 6, transition: "width .8s ease" }} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={wrap}>
+      {/* Header */}
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: 14, borderBottom: `1px solid ${C.border}`, paddingBottom: 18 }}>
+        <div>
+          <p style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: C.orange, fontWeight: 700, margin: "0 0 6px" }}>Pré-atendimento WhatsApp</p>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 26, margin: 0 }}>Painel da Mariana</h1>
+          <p style={{ color: C.textMuted, fontSize: 13, margin: "6px 0 0" }}>Agente de IA que qualifica leads e encaminha pros consultores</p>
+        </div>
+        <div style={{ textAlign: "right", fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
+          <div>Período <b style={{ color: C.text }}>{d.periodo_ini} – {d.periodo_fim}</b></div>
+          <div>Atualizado <b style={{ color: C.text }}>{d.gerado_em}</b></div>
+          <button onClick={load} style={{ marginTop: 6, background: "transparent", color: C.orange, border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 12px", fontWeight: 600, cursor: "pointer", fontSize: 12 }}>↻ Atualizar</button>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginTop: 18 }}>
+        <Kpi cap="Conversão (conversa → lead)" big={(d.conv_pct ?? "–") + "%"} foot={`${d.leads_unicos} leads de ${d.conversas} conversas`} accent />
+        <Kpi cap="NPS da satisfação" big={sat.nps ?? "–"} foot="acima de 70 = excelência" accent />
+        <Kpi cap="Nota média" big={String(sat.media ?? "–").replace(".", ",")} foot={`${sat.aval || 0} avaliações`} />
+        <Kpi cap="Leads gerados" big={d.leads_unicos ?? "–"} foot={`~${String(d.msgs_media ?? "").replace(".", ",")} msgs por conversa`} />
+      </div>
+
+      {/* Trend */}
+      <p style={secLabel}>Leads por dia</p>
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 168, overflowX: "auto" }}>
+          {dias.map((x, i) => (
+            <div key={i} style={{ flex: 1, minWidth: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+              <div style={{ fontSize: 10.5, color: C.text, fontWeight: 600, ...num }}>{x.n || ""}</div>
+              <div style={{ width: "100%", maxWidth: 30, height: Math.max((x.n / maxDia) * 128, x.n === 0 ? 3 : 5) + "px", borderRadius: "4px 4px 2px 2px", background: x.n === 0 ? C.border : (x.n >= 12 ? C.accentHover : C.accent), transition: "height .7s ease" }} />
+              <div style={{ fontSize: 9, color: C.textMuted, whiteSpace: "nowrap" }}>{x.d.slice(0, 2)}</div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: 12, color: C.textMuted, margin: "12px 0 0" }}>Dias com barra cinza = sem leads (ex.: campanha Meta sem crédito). Volume acompanha o tráfego pago.</p>
+      </div>
+
+      {/* Temperatura + Produto */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginTop: 4 }}>
+        <div>
+          <p style={secLabel}>Temperatura dos leads</p>
+          <div style={card}>
+            <Meter label="🔥 Quente" right={`${t.quente || 0} · ${p(t.quente, tempTot)}%`} w={p(t.quente, tempTot)} color="#E0703A" />
+            <Meter label="🌤 Morno" right={`${t.morno || 0} · ${p(t.morno, tempTot)}%`} w={p(t.morno, tempTot)} color={C.accent} />
+            <Meter label="❄ Frio" right={`${t.frio || 0} · ${p(t.frio, tempTot)}%`} w={p(t.frio, tempTot)} color="#6F93AD" />
+            <p style={{ fontSize: 12, color: C.textMuted, margin: "12px 0 0" }}>Pesquisa de satisfação sai só pros quentes.</p>
+          </div>
+        </div>
+        <div>
+          <p style={secLabel}>Interesse por produto</p>
+          <div style={card}>
+            <Meter label="Gôndolas" right={prod.gondola || 0} w={p(prod.gondola, prodTot)} color={C.accent} />
+            <Meter label="Mini Porta Palete" right={prod.mpp || 0} w={p(prod.mpp, prodTot)} color={C.accentHover} />
+            <Meter label="Ambos / em dúvida" right={(prod.ambos || 0) + (prod.duvida || 0)} w={p((prod.ambos || 0) + (prod.duvida || 0), prodTot)} color="#6F93AD" />
+          </div>
+        </div>
+      </div>
+
+      {/* Satisfação */}
+      <p style={secLabel}>Notas de atendimento</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+        <div style={{ ...card, textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 52, lineHeight: 1, color: C.success, ...num }}>{String(sat.media ?? "–").replace(".", ",")}</div>
+          <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: C.textMuted, marginTop: 6, fontWeight: 600 }}>Média / 10</div>
+          <div style={{ display: "flex", gap: 5, marginTop: 14 }}>
+            <div style={{ flex: Math.max(sat.promotores || 1, 1), height: 8, borderRadius: 4, background: C.success }} title="promotores" />
+            <div style={{ flex: Math.max(sat.neutros || 0, 0.4), height: 8, borderRadius: 4, background: C.accent }} title="neutros" />
+            <div style={{ flex: Math.max(sat.detratores || 0, 0.4), height: 8, borderRadius: 4, background: C.danger }} title="detratores" />
+          </div>
+          <p style={{ fontSize: 11.5, color: C.textMuted, margin: "10px 0 0" }}>{sat.promotores || 0} promotores · {sat.neutros || 0} neutro · {sat.detratores || 0} detrator</p>
+        </div>
+        <div style={card}>
+          {[10, 9, 8, 7, 6, 1].filter((n) => dist[n]).map((n) => (
+            <div key={n} style={{ display: "grid", gridTemplateColumns: "42px 1fr 26px", alignItems: "center", gap: 10, marginBottom: 8, fontSize: 13 }}>
+              <span style={{ color: C.accent, fontWeight: 700 }}>{n} ★</span>
+              <div style={{ height: 9, background: C.bg, borderRadius: 6, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: p(dist[n], sat.aval) + "%", background: n >= 9 ? C.success : (n <= 6 ? C.danger : C.accent), borderRadius: 6 }} />
+              </div>
+              <span style={{ textAlign: "right", color: C.textMuted, fontWeight: 600, ...num }}>{dist[n]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {positivos.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginTop: 12 }}>
+          {positivos.map((c, i) => (
+            <div key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "13px 15px" }}>
+              <p style={{ margin: "0 0 8px", fontStyle: "italic", color: C.text, fontSize: 13.5 }}>“{c.comentario}”</p>
+              <span style={{ fontSize: 11.5, color: C.textMuted, fontWeight: 600 }}>Cliente · lead do {c.consultor || "—"} · {c.nota}★</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {detrator && (
+        <div style={{ background: C.danger + "18", border: `1px solid ${C.danger}55`, borderRadius: 10, padding: "13px 15px", marginTop: 12, fontSize: 13.5, color: C.text, display: "flex", gap: 12 }}>
+          <b style={{ color: C.danger, whiteSpace: "nowrap" }}>{detrator.nota}★</b>
+          <div>Única nota baixa: <i>“{detrator.comentario}”</i> — geralmente cliente que queria falar com uma pessoa. Padrão a vigiar; já reforçado no prompt (aceitar e transferir na hora).</div>
+        </div>
+      )}
+
+      {/* Consultores + Reengajamento/Cidades */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginTop: 4 }}>
+        <div>
+          <p style={secLabel}>Rodízio entre consultores</p>
+          <div style={card}>
+            {cons.map((c, i) => (
+              <Meter key={i} label={c.nome} right={`${c.leads} leads${c.nota ? " · nota " + String(c.nota).replace(".", ",") : ""}`} w={p(c.leads, maxCons)} color={C.accent} />
+            ))}
+            <p style={{ fontSize: 12, color: C.textMuted, margin: "12px 0 0" }}>Distribuição equilibrada — rodízio girando justo.</p>
+          </div>
+        </div>
+        <div>
+          <p style={secLabel}>Follow-up automático</p>
+          <div style={{ ...card, display: "flex", gap: 12 }}>
+            <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: C.success, lineHeight: 1, ...num }}>{re.recuperados || 0}</div>
+              <p style={{ fontSize: 12, color: C.textMuted, margin: "6px 0 0" }}>recuperados<br />(voltaram após o nudge)</p>
+            </div>
+            <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: C.accent, lineHeight: 1, ...num }}>{re.followup_ativo || 0}</div>
+              <p style={{ fontSize: 12, color: C.textMuted, margin: "6px 0 0" }}>na fila ativa<br />(sendo reengajados)</p>
+            </div>
+          </div>
+          <p style={secLabel}>Alcance · {d.cidades_distintas || 0} cidades</p>
+          <div style={{ ...card, display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {(d.top_cidades || []).map((c, i) => (
+              <span key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: "5px 12px", fontSize: 12.5, color: C.text }}>{c.cidade} <b style={{ color: C.accent }}>{c.n}</b></span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p style={{ fontSize: 12, color: C.textMuted, marginTop: 26, lineHeight: 1.7, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+        <b style={{ color: C.text }}>Leitura:</b> a Mariana converte muito bem e encanta (nota alta / NPS alto). O limite hoje é o <b style={{ color: C.text }}>volume de entrada</b> — mais tráfego no Meta = mais leads, porque o atendimento aguenta. Dados ao vivo, direto do banco.
+      </p>
+    </div>
+  );
 }
 
 // ─── REGIOES DE ENTREGA (LOGISTICA) ───
@@ -9941,6 +10152,8 @@ export default function App() {
       {page === "conciliacao" && !canAccess(user, "conciliacao") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage user={user} />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
+      {page === "mariana" && canAccess(user, "mariana") && <PainelMarianaPage />}
+      {page === "mariana" && !canAccess(user, "mariana") && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
       {page === "logistica" && !canAccess(user, "logistica") && <Login onLogin={login} setPage={setPage} />}
       {page === "comissoes" && canAccess(user, "comissoes") && <ComissoesPage user={user} />}
