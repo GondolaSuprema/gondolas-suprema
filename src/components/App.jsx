@@ -5557,6 +5557,112 @@ function ComissoesPage({ user }) {
 }
 
 // ─── ADMIN ───
+function LeadsPage({ user }) {
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
+  const [filtro, setFiltro] = useState("todos"); // todos | novo | atendido
+
+  const carregar = async () => {
+    setLoading(true); setErro("");
+    const { data, error } = await supabase
+      .from("site_leads")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) setErro(error.message);
+    else setLeads(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { carregar(); }, []);
+
+  const toggleStatus = async (lead) => {
+    const novo = lead.status === "atendido" ? "novo" : "atendido";
+    setLeads(ls => ls.map(l => l.id === lead.id ? { ...l, status: novo } : l));
+    const { error } = await supabase.from("site_leads").update({ status: novo }).eq("id", lead.id);
+    if (error) { setErro(error.message); carregar(); }
+  };
+
+  const fmt = (iso) => {
+    try { return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
+    catch { return iso; }
+  };
+  const wppLink = (tel) => {
+    const d = String(tel || "").replace(/\D/g, "");
+    if (d.length < 10) return null;
+    return `https://wa.me/${d.length <= 11 ? "55" + d : d}`;
+  };
+
+  const filtrados = leads.filter(l => filtro === "todos" ? true : l.status === filtro);
+  const novos = leads.filter(l => l.status === "novo").length;
+
+  const chip = (txt, cor) => (
+    <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: cor + "1A", color: cor, border: `1px solid ${cor}44` }}>{txt}</span>
+  );
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 96px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: COLORS.text, margin: 0 }}>Leads do Site</h1>
+        {novos > 0 && chip(`${novos} novo${novos > 1 ? "s" : ""}`, COLORS.accent)}
+      </div>
+      <p style={{ color: COLORS.textMuted, fontSize: 14, margin: "0 0 18px" }}>
+        Contatos que preencheram o formulário em gondolasuprema.com — inclusive quem não concluiu no WhatsApp. Ligue e faça o follow-up.
+      </p>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+        {[["todos", "Todos"], ["novo", "Novos"], ["atendido", "Atendidos"]].map(([k, l]) => (
+          <button key={k} onClick={() => setFiltro(k)} style={{
+            padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            background: filtro === k ? COLORS.accent : COLORS.card,
+            color: filtro === k ? "#000" : COLORS.textMuted,
+            border: `1px solid ${filtro === k ? COLORS.accent : COLORS.border}`,
+          }}>{l}</button>
+        ))}
+        <button onClick={carregar} style={{ marginLeft: "auto", padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: COLORS.card, color: COLORS.textMuted, border: `1px solid ${COLORS.border}` }}>Atualizar</button>
+      </div>
+
+      {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 14 }}>Erro ao carregar: {erro}</div>}
+      {loading && <div style={{ color: COLORS.textMuted, fontSize: 14 }}>Carregando…</div>}
+      {!loading && filtrados.length === 0 && (
+        <div style={{ color: COLORS.textDim, fontSize: 14, textAlign: "center", padding: "48px 0" }}>Nenhum lead {filtro !== "todos" ? `(${filtro})` : ""} por aqui ainda.</div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {filtrados.map((l) => {
+          const wpp = wppLink(l.telefone);
+          const atendido = l.status === "atendido";
+          return (
+            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${atendido ? COLORS.border : COLORS.accent + "55"}`, borderRadius: 12, padding: 16, opacity: atendido ? 0.7 : 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.created_at)}</span>
+                {chip(atendido ? "Atendido" : "Novo", atendido ? COLORS.success : COLORS.accent)}
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>{l.nome || "Sem nome"}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
+                {l.segmento && chip(l.segmento, COLORS.textMuted)}
+                {l.interesse && chip(l.interesse, COLORS.accent)}
+              </div>
+              {l.detalhe && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.detalhe}</p>}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+                {wpp ? (
+                  <a href={wpp} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}>
+                    Chamar no WhatsApp{l.telefone ? ` · ${l.telefone}` : ""}
+                  </a>
+                ) : (
+                  <span style={{ fontSize: 13, color: COLORS.textDim, alignSelf: "center" }}>{l.telefone ? `Tel.: ${l.telefone}` : "Sem telefone informado"}</span>
+                )}
+                <button onClick={() => toggleStatus(l)} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.border}` }}>
+                  {atendido ? "Reabrir" : "Marcar como atendido"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AdminPage({ user }) {
   const [allOrders, setAllOrders] = useState([]);
   const [deletedCount, setDeletedCount] = useState({});
