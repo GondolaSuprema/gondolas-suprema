@@ -8045,6 +8045,7 @@ function DrePage() {
   const mesNomesLongo = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
   const [boletosAbertos, setBoletosAbertos] = useState([]);
+  const [lancamentos, setLancamentos] = useState([]);
 
   useEffect(() => {
     const load = async () => {
@@ -8054,6 +8055,9 @@ function DrePage() {
       if (despData) setDespesas(despData);
       const { data: bolData } = await supabase.from("boletos_a_pagar").select("*").eq("status", "pendente");
       if (bolData) setBoletosAbertos(bolData);
+      // Receita do DRE = entradas reais dos extratos (regime de caixa — decisão do Ale 02-ago).
+      const { data: lancData } = await supabase.from("lancamentos_bancarios").select("*").eq("tipo", "entrada");
+      if (lancData) setLancamentos(lancData);
     };
     load();
   }, []);
@@ -8063,6 +8067,26 @@ function DrePage() {
     if (empresaSel === "todos") return true;
     return (item[campoEmpresa] || "gondolas_suprema") === empresaSel;
   };
+
+  // ─── Receita do DRE em regime de CAIXA (dos extratos) — decisão do Ale 02-ago ───
+  // Cada banco pertence a uma empresa. Receita = soma das ENTRADAS de venda reais
+  // nos extratos, excluindo transferências entre contas e PIX pessoal do Ale.
+  const BANCO_EMPRESA = {
+    sicredi_gondolas: "gondolas_suprema",
+    mercadopago_gondolas: "gondolas_suprema",
+    c6_instalacoes: "suprema_instalacoes",
+  };
+  const entradaEhReceita = (l) => {
+    const obs = (l.observacao || "").toLowerCase();
+    if (/transfer|pessoal|não é receita|nao e receita|aporte|empr[eé]stimo/.test(obs)) return false;
+    const desc = (l.descricao || "").toUpperCase();
+    if (/G[OÔ]NDOLAS SUPREMA|SUPREMA INSTALAC/.test(desc)) return false;
+    return true;
+  };
+  const receitaCaixaMes = (mes) => lancamentos
+    .filter(l => l.tipo === "entrada" && l.mes === mes && entradaEhReceita(l))
+    .filter(l => empresaSel === "todos" || (BANCO_EMPRESA[l.banco] || "gondolas_suprema") === empresaSel)
+    .reduce((s, l) => s + (Number(l.valor) || 0), 0);
 
   // ─── Sprint 3.3 — Fluxo de caixa projetado 30 dias ───
   const calcularFluxo30d = () => {
@@ -8165,7 +8189,12 @@ function DrePage() {
       }
       return Number(o.valor_recebido != null ? o.valor_recebido : (o.total || 0)) || 0;
     };
-    const receitaBruta = vendasMes.reduce((s, o) => s + valorReceitaConta(o), 0);
+    // Receita = entradas reais dos extratos (caixa). Fallback pro modo antigo
+    // (valor_recebido das vendas) quando o mês não tem extrato lançado.
+    const temExtrato = lancamentos.some(l => l.mes === mes && (empresaSel === "todos" || (BANCO_EMPRESA[l.banco] || "gondolas_suprema") === empresaSel));
+    const receitaBruta = temExtrato
+      ? receitaCaixaMes(mes)
+      : vendasMes.reduce((s, o) => s + valorReceitaConta(o), 0);
     const comissoes    = vendasMes.reduce((s, o) => s + (Number(o.comissao) || 0), 0);
     // Vendas sem data_entrega: caem no mês do orçamento por fallback, mas contabilmente
     // são "sem competência definida" — flaggamos pra visibilidade.
