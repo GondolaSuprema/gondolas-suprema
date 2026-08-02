@@ -1661,6 +1661,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "catalog", l: "Produtos" },
     { k: "resumo", l: "Resumo" },
     { k: "orders", l: "Orçamentos" },
+    { k: "leads", l: "Leads do Site" },
     { k: "graficos", l: "Gráficos" },
     { k: "mariana", l: "Painel Mariana" },
     { k: "logistica", l: "Logística" },
@@ -2020,11 +2021,11 @@ const VENDEDORES = [
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
-  admin:           ["client", "catalog", "resumo", "orders", "graficos", "mariana", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  admin:           ["client", "catalog", "resumo", "orders", "leads", "graficos", "mariana", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
   // gestor (Zanella) — SEM comissoes (regra do Ale). TEM financeiro mas SOMENTE
   // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage). TEM nf
   // com acesso COMPLETO (pode emitir/cancelar/CC-e via podeEmitir=gestor).
-  gestor:          ["client", "catalog", "resumo", "orders", "graficos", "mariana", "logistica", "adm", "financeiro", "nf"],
+  gestor:          ["client", "catalog", "resumo", "orders", "leads", "graficos", "mariana", "logistica", "adm", "financeiro", "nf"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
@@ -10325,6 +10326,8 @@ export default function App() {
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
+      {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} />}
+      {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
       {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroPage user={user} />}
