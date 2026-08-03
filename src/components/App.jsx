@@ -5593,65 +5593,99 @@ function LeadsPage({ user }) {
     return `https://wa.me/${d.length <= 11 ? "55" + d : d}`;
   };
 
-  const filtrados = leads.filter(l => filtro === "todos" ? true : l.status === filtro);
-  const novos = leads.filter(l => l.status === "novo").length;
+  const [filtroTipo, setFiltroTipo] = useState("formulario"); // formulario | whatsapp | todos
+  const isClique = (l) => l.tipo === "whatsapp";
+
+  const filtrados = leads.filter(l =>
+    (filtro === "todos" ? true : l.status === filtro) &&
+    (filtroTipo === "todos" ? true : (filtroTipo === "formulario" ? !isClique(l) : isClique(l)))
+  );
+  const novosForm = leads.filter(l => !isClique(l) && l.status === "novo").length;
+  const totalCliques = leads.filter(isClique).length;
 
   const chip = (txt, cor) => (
     <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: cor + "1A", color: cor, border: `1px solid ${cor}44` }}>{txt}</span>
   );
 
+  const paginaLabel = (o) => {
+    if (!o || o === "site" || o === "home") return "Página inicial";
+    const m = String(o).match(/\/produtos\/([^/]+)/);
+    if (m) return "Página: " + m[1];
+    if (String(o).startsWith("/blog")) return "Blog";
+    return "Página: " + o;
+  };
+
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 96px" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: COLORS.text, margin: 0 }}>Leads do Site</h1>
-        {novos > 0 && chip(`${novos} novo${novos > 1 ? "s" : ""}`, COLORS.accent)}
+        {novosForm > 0 && chip(`${novosForm} formulário${novosForm > 1 ? "s" : ""} novo${novosForm > 1 ? "s" : ""}`, COLORS.accent)}
       </div>
       <p style={{ color: COLORS.textMuted, fontSize: 14, margin: "0 0 18px" }}>
-        Contatos que preencheram o formulário em gondolasuprema.com — inclusive quem não concluiu no WhatsApp. Ligue e faça o follow-up.
+        Movimento do site gondolasuprema.com. Os <strong style={{ color: COLORS.text }}>formulários</strong> trazem nome e WhatsApp pra você ligar. Os <strong style={{ color: COLORS.text }}>cliques no WhatsApp</strong> mostram o interesse de quem clicou pra falar (sem telefone — a conversa em si cai no seu WhatsApp).
       </p>
 
+      {/* filtro por tipo */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        {[["formulario", `Formulários`], ["whatsapp", `Cliques no WhatsApp (${totalCliques})`], ["todos", "Tudo"]].map(([k, l]) => (
+          <button key={k} onClick={() => setFiltroTipo(k)} style={{
+            padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer",
+            background: filtroTipo === k ? COLORS.text : COLORS.card,
+            color: filtroTipo === k ? "#000" : COLORS.textMuted,
+            border: `1px solid ${filtroTipo === k ? COLORS.text : COLORS.border}`,
+          }}>{l}</button>
+        ))}
+      </div>
+      {/* filtro por status */}
       <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
         {[["todos", "Todos"], ["novo", "Novos"], ["atendido", "Atendidos"]].map(([k, l]) => (
           <button key={k} onClick={() => setFiltro(k)} style={{
-            padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
             background: filtro === k ? COLORS.accent : COLORS.card,
             color: filtro === k ? "#000" : COLORS.textMuted,
             border: `1px solid ${filtro === k ? COLORS.accent : COLORS.border}`,
           }}>{l}</button>
         ))}
-        <button onClick={carregar} style={{ marginLeft: "auto", padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: COLORS.card, color: COLORS.textMuted, border: `1px solid ${COLORS.border}` }}>Atualizar</button>
+        <button onClick={carregar} style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: COLORS.card, color: COLORS.textMuted, border: `1px solid ${COLORS.border}` }}>Atualizar</button>
       </div>
 
       {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 14 }}>Erro ao carregar: {erro}</div>}
       {loading && <div style={{ color: COLORS.textMuted, fontSize: 14 }}>Carregando…</div>}
       {!loading && filtrados.length === 0 && (
-        <div style={{ color: COLORS.textDim, fontSize: 14, textAlign: "center", padding: "48px 0" }}>Nenhum lead {filtro !== "todos" ? `(${filtro})` : ""} por aqui ainda.</div>
+        <div style={{ color: COLORS.textDim, fontSize: 14, textAlign: "center", padding: "48px 0" }}>Nada por aqui ainda neste filtro.</div>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {filtrados.map((l) => {
+          const clique = isClique(l);
           const wpp = wppLink(l.telefone);
           const atendido = l.status === "atendido";
           return (
-            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${atendido ? COLORS.border : COLORS.accent + "55"}`, borderRadius: 12, padding: 16, opacity: atendido ? 0.7 : 1 }}>
+            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${atendido ? COLORS.border : (clique ? COLORS.border : COLORS.accent + "55")}`, borderRadius: 12, padding: 16, opacity: atendido ? 0.65 : 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.created_at)}</span>
-                {chip(atendido ? "Atendido" : "Novo", atendido ? COLORS.success : COLORS.accent)}
+                <div style={{ display: "flex", gap: 6 }}>
+                  {clique ? chip("Clique WhatsApp", COLORS.textMuted) : chip("Formulário", "#25D366")}
+                  {chip(atendido ? "Atendido" : "Novo", atendido ? COLORS.success : COLORS.accent)}
+                </div>
               </div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>{l.nome || "Sem nome"}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>
+                {clique ? "Clique pra falar no WhatsApp" : (l.nome || "Sem nome informado")}
+              </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
-                {l.segmento && chip(l.segmento, COLORS.textMuted)}
+                {clique && chip(paginaLabel(l.origem), COLORS.textMuted)}
+                {!clique && l.segmento && chip(l.segmento, COLORS.textMuted)}
                 {l.interesse && chip(l.interesse, COLORS.accent)}
               </div>
               {l.detalhe && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.detalhe}</p>}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-                {wpp ? (
+                {!clique && (wpp ? (
                   <a href={wpp} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}>
                     Chamar no WhatsApp{l.telefone ? ` · ${l.telefone}` : ""}
                   </a>
                 ) : (
                   <span style={{ fontSize: 13, color: COLORS.textDim, alignSelf: "center" }}>{l.telefone ? `Tel.: ${l.telefone}` : "Sem telefone informado"}</span>
-                )}
+                ))}
                 <button onClick={() => toggleStatus(l)} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.border}` }}>
                   {atendido ? "Reabrir" : "Marcar como atendido"}
                 </button>
