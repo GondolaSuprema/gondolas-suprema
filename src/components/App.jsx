@@ -1661,7 +1661,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "catalog", l: "Produtos" },
     { k: "resumo", l: "Resumo" },
     { k: "orders", l: "Orçamentos" },
-    { k: "leads", l: "Leads do Site" },
+    { k: "leads", l: "Leads" },
     { k: "graficos", l: "Gráficos" },
     { k: "mariana", l: "Painel Mariana" },
     { k: "logistica", l: "Logística" },
@@ -5559,19 +5559,23 @@ function ComissoesPage({ user }) {
 
 // ─── ADMIN ───
 function LeadsPage({ user }) {
-  const [leads, setLeads] = useState([]);
+  const [sub, setSub] = useState("visao"); // visao | site | meta
+  const [leads, setLeads] = useState([]);          // site_leads
+  const [mariana, setMariana] = useState([]);      // mariana_leads (Meta)
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
-  const [filtro, setFiltro] = useState("todos"); // todos | novo | atendido
+  const [filtro, setFiltro] = useState("todos");         // status site
+  const [filtroTipo, setFiltroTipo] = useState("formulario"); // tipo site
+  const [filtroTemp, setFiltroTemp] = useState("todas");      // temperatura meta
 
   const carregar = async () => {
     setLoading(true); setErro("");
-    const { data, error } = await supabase
-      .from("site_leads")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) setErro(error.message);
-    else setLeads(data || []);
+    const [s, m] = await Promise.all([
+      supabase.from("site_leads").select("*").order("created_at", { ascending: false }),
+      supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }),
+    ]);
+    if (s.error) setErro(s.error.message); else setLeads(s.data || []);
+    if (m.error && !s.error) setErro(m.error.message); else if (!m.error) setMariana(m.data || []);
     setLoading(false);
   };
   useEffect(() => { carregar(); }, []);
@@ -5592,108 +5596,216 @@ function LeadsPage({ user }) {
     if (d.length < 10) return null;
     return `https://wa.me/${d.length <= 11 ? "55" + d : d}`;
   };
-
-  const [filtroTipo, setFiltroTipo] = useState("formulario"); // formulario | whatsapp | todos
-  const isClique = (l) => l.tipo === "whatsapp";
-
-  const filtrados = leads.filter(l =>
-    (filtro === "todos" ? true : l.status === filtro) &&
-    (filtroTipo === "todos" ? true : (filtroTipo === "formulario" ? !isClique(l) : isClique(l)))
-  );
-  const novosForm = leads.filter(l => !isClique(l) && l.status === "novo").length;
-  const totalCliques = leads.filter(isClique).length;
-
   const chip = (txt, cor) => (
     <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: cor + "1A", color: cor, border: `1px solid ${cor}44` }}>{txt}</span>
   );
-
   const paginaLabel = (o) => {
     if (!o || o === "site" || o === "home") return "Página inicial";
-    const m = String(o).match(/\/produtos\/([^/]+)/);
-    if (m) return "Página: " + m[1];
+    const mm = String(o).match(/\/produtos\/([^/]+)/);
+    if (mm) return "Página: " + mm[1];
     if (String(o).startsWith("/blog")) return "Blog";
     return "Página: " + o;
   };
+  const corTemp = (t) => {
+    const s = String(t || "").toLowerCase();
+    if (s.includes("quente")) return COLORS.danger;
+    if (s.includes("morno")) return COLORS.accent;
+    if (s.includes("frio")) return "#3B82F6";
+    return COLORS.textMuted;
+  };
+
+  // ── contagens ──
+  const isClique = (l) => l.tipo === "whatsapp";
+  const noMes = (iso) => {
+    if (!iso) return false;
+    const d = new Date(iso), h = new Date();
+    return d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth();
+  };
+  const siteForm = leads.filter(l => !isClique(l));
+  const siteCliques = leads.filter(isClique);
+  const totalSite = leads.length;
+  const totalMeta = mariana.length;
+  const totalGeral = totalSite + totalMeta;
+  const siteMes = leads.filter(l => noMes(l.created_at)).length;
+  const metaMes = mariana.filter(l => noMes(l.criado_em)).length;
+  const metaQuentes = mariana.filter(l => corTemp(l.temperatura) === COLORS.danger).length;
+  const metaMornos = mariana.filter(l => String(l.temperatura || "").toLowerCase().includes("morno")).length;
+  const metaFrios = mariana.filter(l => String(l.temperatura || "").toLowerCase().includes("frio")).length;
+
+  // ── sub-navegação ──
+  const subTab = (k, label) => (
+    <button key={k} onClick={() => setSub(k)} style={{
+      padding: "9px 16px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer",
+      background: sub === k ? COLORS.accent : COLORS.card,
+      color: sub === k ? "#000" : COLORS.textMuted,
+      border: `1px solid ${sub === k ? COLORS.accent : COLORS.border}`,
+    }}>{label}</button>
+  );
+
+  const kpi = (label, valor, sub2, cor) => (
+    <div style={{ flex: "1 1 160px", background: COLORS.card, border: `1px solid ${cor ? cor + "55" : COLORS.border}`, borderRadius: 12, padding: 18 }}>
+      <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: .5, color: COLORS.textMuted, fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 34, fontWeight: 800, color: cor || COLORS.text, marginTop: 6, lineHeight: 1 }}>{valor}</div>
+      {sub2 && <div style={{ fontSize: 12.5, color: COLORS.textMuted, marginTop: 8 }}>{sub2}</div>}
+    </div>
+  );
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 96px" }}>
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: COLORS.text, margin: 0 }}>Leads do Site</h1>
-        {novosForm > 0 && chip(`${novosForm} formulário${novosForm > 1 ? "s" : ""} novo${novosForm > 1 ? "s" : ""}`, COLORS.accent)}
+    <div style={{ maxWidth: 940, margin: "0 auto", padding: "24px 16px 96px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: COLORS.text, margin: 0 }}>Leads</h1>
+        <button onClick={carregar} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: COLORS.card, color: COLORS.textMuted, border: `1px solid ${COLORS.border}` }}>Atualizar</button>
       </div>
-      <p style={{ color: COLORS.textMuted, fontSize: 14, margin: "0 0 18px" }}>
-        Movimento do site gondolasuprema.com. Os <strong style={{ color: COLORS.text }}>formulários</strong> trazem nome e WhatsApp pra você ligar. Os <strong style={{ color: COLORS.text }}>cliques no WhatsApp</strong> mostram o interesse de quem clicou pra falar (sem telefone — a conversa em si cai no seu WhatsApp).
-      </p>
 
-      {/* filtro por tipo */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-        {[["formulario", `Formulários`], ["whatsapp", `Cliques no WhatsApp (${totalCliques})`], ["todos", "Tudo"]].map(([k, l]) => (
-          <button key={k} onClick={() => setFiltroTipo(k)} style={{
-            padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer",
-            background: filtroTipo === k ? COLORS.text : COLORS.card,
-            color: filtroTipo === k ? "#000" : COLORS.textMuted,
-            border: `1px solid ${filtroTipo === k ? COLORS.text : COLORS.border}`,
-          }}>{l}</button>
-        ))}
-      </div>
-      {/* filtro por status */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-        {[["todos", "Todos"], ["novo", "Novos"], ["atendido", "Atendidos"]].map(([k, l]) => (
-          <button key={k} onClick={() => setFiltro(k)} style={{
-            padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
-            background: filtro === k ? COLORS.accent : COLORS.card,
-            color: filtro === k ? "#000" : COLORS.textMuted,
-            border: `1px solid ${filtro === k ? COLORS.accent : COLORS.border}`,
-          }}>{l}</button>
-        ))}
-        <button onClick={carregar} style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: COLORS.card, color: COLORS.textMuted, border: `1px solid ${COLORS.border}` }}>Atualizar</button>
+      <div style={{ display: "flex", gap: 8, marginBottom: 22, flexWrap: "wrap" }}>
+        {subTab("visao", "Visão geral")}
+        {subTab("site", `Site (${totalSite})`)}
+        {subTab("meta", `Meta / Mariana (${totalMeta})`)}
       </div>
 
       {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 14 }}>Erro ao carregar: {erro}</div>}
       {loading && <div style={{ color: COLORS.textMuted, fontSize: 14 }}>Carregando…</div>}
-      {!loading && filtrados.length === 0 && (
-        <div style={{ color: COLORS.textDim, fontSize: 14, textAlign: "center", padding: "48px 0" }}>Nada por aqui ainda neste filtro.</div>
+
+      {/* ═══════════ VISÃO GERAL ═══════════ */}
+      {!loading && sub === "visao" && (
+        <div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
+            {kpi("Total de leads", totalGeral, `${siteMes + metaMes} neste mês`, COLORS.accent)}
+            {kpi("Pelo site", totalSite, `${siteForm.length} formulários · ${siteCliques.length} cliques`, "#25D366")}
+            {kpi("Pela Mariana (Meta)", totalMeta, `${metaQuentes} quentes · ${metaMornos} mornos · ${metaFrios} frios`, COLORS.danger)}
+          </div>
+
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginBottom: 14 }}>Quanto cada canal rende</div>
+            {[
+              { nome: "Meta (Mariana)", val: totalMeta, mes: metaMes, cor: COLORS.danger },
+              { nome: "Site", val: totalSite, mes: siteMes, cor: "#25D366" },
+            ].map((c) => {
+              const pct = totalGeral ? Math.round((c.val / totalGeral) * 100) : 0;
+              return (
+                <div key={c.nome} style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: COLORS.text, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 600 }}>{c.nome}</span>
+                    <span style={{ color: COLORS.textMuted }}>{c.val} leads · {pct}% · {c.mes} no mês</span>
+                  </div>
+                  <div style={{ height: 10, borderRadius: 999, background: COLORS.surface, overflow: "hidden" }}>
+                    <div style={{ width: pct + "%", height: "100%", background: c.cor, borderRadius: 999 }} />
+                  </div>
+                </div>
+              );
+            })}
+            <p style={{ fontSize: 12.5, color: COLORS.textDim, marginTop: 8, marginBottom: 0 }}>
+              Meta = leads qualificados pela Mariana (anúncios do Facebook/Instagram). Site = formulários e cliques no WhatsApp em gondolasuprema.com.
+            </p>
+          </div>
+        </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {filtrados.map((l) => {
-          const clique = isClique(l);
-          const wpp = wppLink(l.telefone);
-          const atendido = l.status === "atendido";
-          return (
-            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${atendido ? COLORS.border : (clique ? COLORS.border : COLORS.accent + "55")}`, borderRadius: 12, padding: 16, opacity: atendido ? 0.65 : 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.created_at)}</span>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {clique ? chip("Clique WhatsApp", COLORS.textMuted) : chip("Formulário", "#25D366")}
-                  {chip(atendido ? "Atendido" : "Novo", atendido ? COLORS.success : COLORS.accent)}
-                </div>
-              </div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>
-                {clique ? "Clique pra falar no WhatsApp" : (l.nome || "Sem nome informado")}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
-                {clique && chip(paginaLabel(l.origem), COLORS.textMuted)}
-                {!clique && l.segmento && chip(l.segmento, COLORS.textMuted)}
-                {l.interesse && chip(l.interesse, COLORS.accent)}
-              </div>
-              {l.detalhe && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.detalhe}</p>}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-                {!clique && (wpp ? (
-                  <a href={wpp} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}>
-                    Chamar no WhatsApp{l.telefone ? ` · ${l.telefone}` : ""}
-                  </a>
-                ) : (
-                  <span style={{ fontSize: 13, color: COLORS.textDim, alignSelf: "center" }}>{l.telefone ? `Tel.: ${l.telefone}` : "Sem telefone informado"}</span>
-                ))}
-                <button onClick={() => toggleStatus(l)} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.border}` }}>
-                  {atendido ? "Reabrir" : "Marcar como atendido"}
-                </button>
-              </div>
+      {/* ═══════════ SITE ═══════════ */}
+      {!loading && sub === "site" && (() => {
+        const filtrados = leads.filter(l =>
+          (filtro === "todos" ? true : l.status === filtro) &&
+          (filtroTipo === "todos" ? true : (filtroTipo === "formulario" ? !isClique(l) : isClique(l)))
+        );
+        return (
+          <div>
+            <p style={{ color: COLORS.textMuted, fontSize: 14, margin: "0 0 16px" }}>
+              Movimento do site. <strong style={{ color: COLORS.text }}>Formulários</strong> trazem nome e WhatsApp pra ligar. <strong style={{ color: COLORS.text }}>Cliques</strong> mostram o interesse de quem clicou pra falar (sem telefone — a conversa cai no seu WhatsApp).
+            </p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              {[["formulario", "Formulários"], ["whatsapp", `Cliques no WhatsApp (${siteCliques.length})`], ["todos", "Tudo"]].map(([k, l]) => (
+                <button key={k} onClick={() => setFiltroTipo(k)} style={{ padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", background: filtroTipo === k ? COLORS.text : COLORS.card, color: filtroTipo === k ? "#000" : COLORS.textMuted, border: `1px solid ${filtroTipo === k ? COLORS.text : COLORS.border}` }}>{l}</button>
+              ))}
             </div>
-          );
-        })}
-      </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+              {[["todos", "Todos"], ["novo", "Novos"], ["atendido", "Atendidos"]].map(([k, l]) => (
+                <button key={k} onClick={() => setFiltro(k)} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: filtro === k ? COLORS.accent : COLORS.card, color: filtro === k ? "#000" : COLORS.textMuted, border: `1px solid ${filtro === k ? COLORS.accent : COLORS.border}` }}>{l}</button>
+              ))}
+            </div>
+            {filtrados.length === 0 && <div style={{ color: COLORS.textDim, fontSize: 14, textAlign: "center", padding: "48px 0" }}>Nada por aqui ainda neste filtro.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {filtrados.map((l) => {
+                const clique = isClique(l);
+                const wpp = wppLink(l.telefone);
+                const atendido = l.status === "atendido";
+                return (
+                  <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${atendido ? COLORS.border : (clique ? COLORS.border : COLORS.accent + "55")}`, borderRadius: 12, padding: 16, opacity: atendido ? 0.65 : 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.created_at)}</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {clique ? chip("Clique WhatsApp", COLORS.textMuted) : chip("Formulário", "#25D366")}
+                        {chip(atendido ? "Atendido" : "Novo", atendido ? COLORS.success : COLORS.accent)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>{clique ? "Clique pra falar no WhatsApp" : (l.nome || "Sem nome informado")}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
+                      {clique && chip(paginaLabel(l.origem), COLORS.textMuted)}
+                      {!clique && l.segmento && chip(l.segmento, COLORS.textMuted)}
+                      {l.interesse && chip(l.interesse, COLORS.accent)}
+                    </div>
+                    {l.detalhe && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.detalhe}</p>}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+                      {!clique && (wpp ? (
+                        <a href={wpp} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}>Chamar no WhatsApp{l.telefone ? ` · ${l.telefone}` : ""}</a>
+                      ) : (
+                        <span style={{ fontSize: 13, color: COLORS.textDim, alignSelf: "center" }}>{l.telefone ? `Tel.: ${l.telefone}` : "Sem telefone informado"}</span>
+                      ))}
+                      <button onClick={() => toggleStatus(l)} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.border}` }}>{atendido ? "Reabrir" : "Marcar como atendido"}</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ═══════════ META / MARIANA ═══════════ */}
+      {!loading && sub === "meta" && (() => {
+        const filtrados = mariana.filter(l =>
+          filtroTemp === "todas" ? true : String(l.temperatura || "").toLowerCase().includes(filtroTemp)
+        );
+        return (
+          <div>
+            <p style={{ color: COLORS.textMuted, fontSize: 14, margin: "0 0 16px" }}>
+              Leads dos anúncios do Meta, qualificados pela <strong style={{ color: COLORS.text }}>Mariana</strong> (agente de WhatsApp). Já vêm com telefone, cidade e interesse.
+            </p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+              {[["todas", `Todas (${totalMeta})`], ["quente", `Quentes (${metaQuentes})`], ["morno", `Mornos (${metaMornos})`], ["frio", `Frios (${metaFrios})`]].map(([k, l]) => (
+                <button key={k} onClick={() => setFiltroTemp(k)} style={{ padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", background: filtroTemp === k ? COLORS.accent : COLORS.card, color: filtroTemp === k ? "#000" : COLORS.textMuted, border: `1px solid ${filtroTemp === k ? COLORS.accent : COLORS.border}` }}>{l}</button>
+              ))}
+            </div>
+            {filtrados.length === 0 && <div style={{ color: COLORS.textDim, fontSize: 14, textAlign: "center", padding: "48px 0" }}>Nenhum lead nesse filtro.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {filtrados.map((l) => {
+                const wpp = wppLink(l.telefone);
+                const ct = corTemp(l.temperatura);
+                return (
+                  <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${ct}55`, borderRadius: 12, padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
+                      {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>{l.nome || "Sem nome"}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
+                      {l.cidade && chip(l.cidade, COLORS.textMuted)}
+                      {l.interesse && chip(l.interesse, COLORS.accent)}
+                      {l.ramo_uso && chip(l.ramo_uso, COLORS.textMuted)}
+                      {l.consultor && chip("Consultor: " + l.consultor, COLORS.textMuted)}
+                    </div>
+                    {(l.duvidas || l.lead_texto) && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.duvidas || l.lead_texto}</p>}
+                    {wpp && (
+                      <div style={{ marginTop: 14 }}>
+                        <a href={wpp} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}>Chamar no WhatsApp · {l.telefone}</a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
