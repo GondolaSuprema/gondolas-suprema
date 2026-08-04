@@ -5559,6 +5559,12 @@ function ComissoesPage({ user }) {
 
 // ─── ADMIN ───
 function LeadsPage({ user }) {
+  // Consultor do usuário logado = primeiro nome (bate com mariana_leads.consultor)
+  const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
+  const ehGestao = user?.role === "admin" || user?.role === "gestor";
+  const CONSULTORES = ["Willian", "Alessandro", "Adelmo"];
+  const souConsultor = CONSULTORES.includes(meuConsultor);
+
   const [sub, setSub] = useState("visao"); // visao | site | meta
   const [leads, setLeads] = useState([]);          // site_leads
   const [mariana, setMariana] = useState([]);      // mariana_leads (Meta)
@@ -5568,11 +5574,8 @@ function LeadsPage({ user }) {
   const [filtro, setFiltro] = useState("todos");         // status site
   const [filtroTipo, setFiltroTipo] = useState("formulario"); // tipo site
   const [filtroTemp, setFiltroTemp] = useState("todas");      // temperatura meta
-  const [filtroConsultor, setFiltroConsultor] = useState("todos"); // meta (só gestão)
-
-  // Consultor do usuário logado = primeiro nome (bate com mariana_leads.consultor)
-  const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
-  const ehGestao = user?.role === "admin" || user?.role === "gestor";
+  // Gestão abre já nos SEUS leads (eles também atendem), com opção de trocar o filtro.
+  const [filtroConsultor, setFiltroConsultor] = useState(ehGestao && souConsultor ? meuConsultor : "todos");
 
   const carregar = async () => {
     setLoading(true); setErro("");
@@ -5647,8 +5650,10 @@ function LeadsPage({ user }) {
     const d = new Date(iso), h = new Date();
     return d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth();
   };
-  // Vendedor comum vê só os SEUS leads da Mariana; admin/gestor vê todos.
-  const marianaVisivel = ehGestao ? mariana : mariana.filter(l => l.consultor === meuConsultor);
+  // Gestão vê o que o filtro escolher (abre nos seus); vendedor vê só os seus.
+  const marianaVisivel = ehGestao
+    ? (filtroConsultor === "todos" ? mariana : mariana.filter(l => l.consultor === filtroConsultor))
+    : mariana.filter(l => l.consultor === meuConsultor);
 
   const siteForm = leads.filter(l => !isClique(l));
   const siteCliques = leads.filter(isClique);
@@ -5721,7 +5726,7 @@ function LeadsPage({ user }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
             {kpi("Total de leads", totalGeral, `${siteMes + metaMes} neste mês`, COLORS.accent)}
             {kpi("Pelo site", totalSite, `${siteForm.length} formulários · ${siteCliques.length} cliques`, "#25D366")}
-            {kpi(ehGestao ? "Pela Mariana (Meta)" : "Meus leads (Meta)", totalMeta, `${metaQuentes} quentes · ${metaMornos} mornos · ${metaFrios} frios`, COLORS.danger)}
+            {kpi(!ehGestao ? "Meus leads (Meta)" : filtroConsultor === "todos" ? "Pela Mariana (Meta)" : "Leads de " + filtroConsultor, totalMeta, `${metaQuentes} quentes · ${metaMornos} mornos · ${metaFrios} frios`, COLORS.danger)}
             {kpi("Vendas fechadas", metaVendasQtd, `${brl(metaVendasValor)} · ${metaConversao}% de conversão`, COLORS.success)}
           </div>
 
@@ -5846,8 +5851,7 @@ function LeadsPage({ user }) {
       {/* ═══════════ META / MARIANA ═══════════ */}
       {!loading && sub === "meta" && (() => {
         const filtrados = marianaVisivel.filter(l =>
-          (filtroTemp === "todas" ? true : String(l.temperatura || "").toLowerCase().includes(filtroTemp)) &&
-          (filtroConsultor === "todos" ? true : l.consultor === filtroConsultor)
+          filtroTemp === "todas" ? true : String(l.temperatura || "").toLowerCase().includes(filtroTemp)
         );
         const stBtn = (l, k, label, cor) => {
           const on = (l.status_atendimento || "pendente") === k;
