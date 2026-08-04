@@ -5702,7 +5702,11 @@ function LeadsPage({ user, setClientData, setPage }) {
   const ordemStatus = { pendente: 0, atendido: 1, aguardando: 2, desistiu: 3 };
   const listaFiltrada = (filtroStatus === "a_trabalhar" ? aTrabalhar : semOrc.filter(l => st(l) === filtroStatus))
     .slice()
-    .sort((a, b) => (ordemStatus[st(a)] ?? 9) - (ordemStatus[st(b)] ?? 9)); // pendentes primeiro; dentro de cada grupo mantém a ordem por data
+    .sort((a, b) => {
+      const s = (ordemStatus[st(a)] ?? 9) - (ordemStatus[st(b)] ?? 9); // pendentes primeiro
+      if (s !== 0) return s;
+      return new Date(a.criado_em || 0) - new Date(b.criado_em || 0); // dentro do grupo: mais antigo primeiro
+    });
 
   const selStyle = { padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: COLORS.card, color: COLORS.text, border: `1px solid ${COLORS.border}`, cursor: "pointer" };
   const acaoBtn = (label, cor, on, onClick) => (
