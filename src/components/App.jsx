@@ -10306,6 +10306,9 @@ export default function App() {
     };
   }, []);
   const [cart, setCart] = useState([]);
+  // Modal "adicionar continuação": abre quando um modelo INICIAL de gôndola é
+  // adicionado ao orçamento, oferecendo incluir N continuações do mesmo modelo.
+  const [contGondolaModal, setContGondolaModal] = useState(null); // { cont, sel, qtd, perguntarQtd }
   const EMPTY_CLIENT = { empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" };
   const [clientData, setClientData] = useState(EMPTY_CLIENT);
   const [editingOrderId, setEditingOrderId] = useState(null);
@@ -10428,18 +10431,37 @@ export default function App() {
     setUser(null);
     setPage("login");
   };
-  const addToQuote = (p, selectedVariants, qty) => {
+  // Adiciona/mescla um produto no carrinho (sem navegar nem abrir modal).
+  const mergeIntoCart = (p, selectedVariants, qty) => {
     const addQty = Math.max(1, Number(qty) || 1);
     const sameVariants = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {});
-    const ex = cart.findIndex(i => i.product.id === p.id && sameVariants(i.selVariants, selectedVariants));
-    if (ex >= 0) { const c = [...cart]; c[ex] = { ...c[ex], qty: c[ex].qty + addQty }; setCart(c); }
-    else setCart([...cart, {
-      product: p,
-      qty: addQty,
-      selOpts: p.options && p.options.length > 0 ? [0] : [],
-      selVariants: selectedVariants || null,
-    }]);
+    setCart(prev => {
+      const ex = prev.findIndex(i => i.product.id === p.id && sameVariants(i.selVariants, selectedVariants));
+      if (ex >= 0) { const c = [...prev]; c[ex] = { ...c[ex], qty: c[ex].qty + addQty }; return c; }
+      return [...prev, {
+        product: p,
+        qty: addQty,
+        selOpts: p.options && p.options.length > 0 ? [0] : [],
+        selVariants: selectedVariants || null,
+      }];
+    });
+  };
+
+  // Acha o modelo "Continuação" correspondente a um "Inicial" (mesmo nome com
+  // "Inicial"→"Continuação", mesma categoria). Só existe para gôndolas.
+  const acharContinuacaoGondola = (p) => {
+    const nome = p?.name || "";
+    if (!/inicial/i.test(nome)) return null;
+    const alvo = nome.replace(/inicial/gi, "Continuação").toLowerCase().trim();
+    return PRODUCTS.find(x => x.category === p.category && (x.name || "").toLowerCase().trim() === alvo) || null;
+  };
+
+  const addToQuote = (p, selectedVariants, qty) => {
+    mergeIntoCart(p, selectedVariants, qty);
     setPage("quote");
+    // Se for um modelo INICIAL de gôndola, oferece adicionar a continuação.
+    const cont = acharContinuacaoGondola(p);
+    if (cont) setContGondolaModal({ cont, sel: selectedVariants || null, qtd: "1", perguntarQtd: false });
   };
 
   return (
@@ -10483,6 +10505,36 @@ export default function App() {
       {page === "logistica" && !canAccess(user, "logistica") && <Login onLogin={login} setPage={setPage} />}
       {page === "comissoes" && canAccess(user, "comissoes") && <ComissoesPage user={user} />}
       {page === "comissoes" && !canAccess(user, "comissoes") && <Login onLogin={login} setPage={setPage} />}
+
+      {/* Modal continuação de gôndola — abre ao adicionar um modelo Inicial */}
+      {contGondolaModal && (
+        <div onClick={() => setContGondolaModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 14, padding: 24, maxWidth: 420, width: "100%", boxSizing: "border-box" }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20, margin: "0 0 6px" }}>Adicionar continuação?</h3>
+            <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 18px", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif" }}>
+              Você adicionou um modelo <b style={{ color: COLORS.text }}>Inicial</b>. Deseja incluir a <b style={{ color: COLORS.orange }}>{contGondolaModal.cont.name}</b> do mesmo modelo?
+            </p>
+            {contGondolaModal.perguntarQtd ? (
+              <>
+                <label style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 6 }}>Quantas continuações?</label>
+                <input type="number" min="1" autoFocus value={contGondolaModal.qtd}
+                  onChange={e => setContGondolaModal(m => ({ ...m, qtd: e.target.value }))}
+                  onKeyDown={e => { if (e.key === "Enter") { mergeIntoCart(contGondolaModal.cont, contGondolaModal.sel, contGondolaModal.qtd); setContGondolaModal(null); } }}
+                  style={{ width: "100%", padding: "11px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 15, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", marginBottom: 18 }} />
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setContGondolaModal(null)} style={{ flex: 1, background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                  <button onClick={() => { mergeIntoCart(contGondolaModal.cont, contGondolaModal.sel, contGondolaModal.qtd); setContGondolaModal(null); }} style={{ flex: 2, background: COLORS.orange, border: "none", color: "#000", padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Adicionar {Math.max(1, Number(contGondolaModal.qtd) || 1)} ao orçamento</button>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setContGondolaModal(null)} style={{ flex: 1, background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "12px", borderRadius: 9, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>Não</button>
+                <button onClick={() => setContGondolaModal(m => ({ ...m, perguntarQtd: true }))} style={{ flex: 1, background: COLORS.orange, border: "none", color: "#000", padding: "12px", borderRadius: 9, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Sim</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
