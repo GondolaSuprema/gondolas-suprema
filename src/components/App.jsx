@@ -5628,7 +5628,7 @@ function ComissoesPage({ user }) {
 }
 
 // ─── ADMIN ───
-function LeadsPage({ user }) {
+function LeadsPage({ user, setClientData, setPage }) {
   const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
   const ehGestao = user?.role === "admin" || user?.role === "gestor";
   const CONSULTORES = ["Willian", "Alessandro", "Adelmo"];
@@ -5665,28 +5665,46 @@ function LeadsPage({ user }) {
     if (error) { setErro(error.message); carregar(); }
   };
 
+  // "Fazer orçamento": leva os dados coletados pela Mariana pra aba Cliente e abre ela
+  const fazerOrcamento = (l) => {
+    setClientData({
+      empresa: "", cnpj: "", responsavel: l.nome || "", telefone: l.telefone || "",
+      email: "", endereco: "", numero: "", bairro: "", cidade: l.cidade || "", estado: "", cep: "",
+    });
+    if (String(l.status_atendimento || "pendente") === "pendente") setStatus(l, "atendido");
+    setPage("client");
+  };
+
   const fmt = (iso) => { try { return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return iso; } };
   const wppLink = (tel) => { const d = String(tel || "").replace(/\D/g, ""); if (d.length < 10) return null; return `https://wa.me/${d.length <= 11 ? "55" + d : d}`; };
   const chip = (txt, cor) => <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: cor + "1A", color: cor, border: `1px solid ${cor}44` }}>{txt}</span>;
   const corTemp = (t) => { const s = String(t || "").toLowerCase(); if (s.includes("quente")) return COLORS.danger; if (s.includes("morno")) return COLORS.accent; if (s.includes("frio")) return "#3B82F6"; return COLORS.textMuted; };
+  const AZUL = "#3B82F6";
+  const corStatus = (s) => s === "atendido" ? COLORS.success : s === "aguardando" ? AZUL : s === "desistiu" ? COLORS.danger : COLORS.accent;
+  const labelStatus = (s) => s === "atendido" ? "Atendido" : s === "aguardando" ? "Aguardando cliente" : s === "desistiu" ? "Desistiu" : "Pendente";
   const temOrcamento = (l) => orcFones.has(fone8(l.telefone));
 
   const base = ehGestao
     ? (consultorSel === "todos" ? mariana : mariana.filter(l => l.consultor === consultorSel))
     : mariana.filter(l => l.consultor === meuConsultor);
 
-  const semOrc = base.filter(l => !temOrcamento(l)); // quem virou orçamento sai da aba
+  const semOrc = base.filter(l => !temOrcamento(l)); // quem virou orçamento sai da aba (foi pra Orçamentos)
   const st = (l) => l.status_atendimento || "pendente";
+  const ativo = (l) => st(l) === "pendente" || st(l) === "atendido" || st(l) === "aguardando";
   const cont = {
     pendente: semOrc.filter(l => st(l) === "pendente").length,
     atendido: semOrc.filter(l => st(l) === "atendido").length,
-    sem_retorno: semOrc.filter(l => st(l) === "sem_retorno").length,
+    aguardando: semOrc.filter(l => st(l) === "aguardando").length,
+    desistiu: semOrc.filter(l => st(l) === "desistiu").length,
   };
-  const aTrabalhar = semOrc.filter(l => st(l) === "pendente" || st(l) === "atendido");
+  const aTrabalhar = semOrc.filter(ativo);
   const viraramOrc = base.filter(temOrcamento).length;
   const listaFiltrada = filtroStatus === "a_trabalhar" ? aTrabalhar : semOrc.filter(l => st(l) === filtroStatus);
 
   const selStyle = { padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: COLORS.card, color: COLORS.text, border: `1px solid ${COLORS.border}`, cursor: "pointer" };
+  const acaoBtn = (label, cor, on, onClick) => (
+    <button onClick={onClick} style={{ padding: "8px 13px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", background: on ? cor : COLORS.surface, color: on ? "#000" : COLORS.text, border: `1px solid ${on ? cor : COLORS.border}` }}>{label}</button>
+  );
 
   return (
     <div style={{ maxWidth: 940, margin: "0 auto", padding: "24px 16px 96px" }}>
@@ -5695,7 +5713,7 @@ function LeadsPage({ user }) {
         <button onClick={carregar} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: COLORS.card, color: COLORS.textMuted, border: `1px solid ${COLORS.border}` }}>Atualizar</button>
       </div>
       <p style={{ color: COLORS.textMuted, fontSize: 14, margin: "0 0 18px" }}>
-        Leads da Mariana pra você atender. Quando você faz o orçamento, o lead sai daqui e vai pra aba Orçamentos. Marque "Sem retorno" quando o cliente não responder.
+        Leads da Mariana pra você atender. Ao chamar no WhatsApp o lead já vira "Atendido". Fazendo o orçamento ele sai daqui e vai pra aba Orçamentos.
       </p>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
@@ -5710,7 +5728,8 @@ function LeadsPage({ user }) {
           <option value="a_trabalhar">A trabalhar ({aTrabalhar.length})</option>
           <option value="pendente">Pendentes ({cont.pendente})</option>
           <option value="atendido">Atendidos ({cont.atendido})</option>
-          <option value="sem_retorno">Sem retorno ({cont.sem_retorno})</option>
+          <option value="aguardando">Aguardando cliente ({cont.aguardando})</option>
+          <option value="desistiu">Desistiram ({cont.desistiu})</option>
         </select>
       </div>
 
@@ -5728,12 +5747,14 @@ function LeadsPage({ user }) {
           const wpp = wppLink(l.telefone);
           const ct = corTemp(l.temperatura);
           const cur = st(l);
-          const borda = cur === "atendido" ? COLORS.success : cur === "sem_retorno" ? COLORS.danger : COLORS.accent;
           return (
-            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${borda}55`, borderRadius: 12, padding: 16 }}>
+            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${corStatus(cur)}55`, borderRadius: 12, padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
-                {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {chip(labelStatus(cur), corStatus(cur))}
+                  {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
+                </div>
               </div>
               <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>{l.nome || "Sem nome"}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
@@ -5743,14 +5764,29 @@ function LeadsPage({ user }) {
                 {ehGestao && l.consultor && chip("Consultor: " + l.consultor, COLORS.textMuted)}
               </div>
               {(l.duvidas || l.lead_texto) && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.duvidas || l.lead_texto}</p>}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 14, alignItems: "center" }}>
-                {wpp && <a href={wpp} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}>Chamar no WhatsApp · {l.telefone}</a>}
-                <select value={cur} onChange={e => setStatus(l, e.target.value)} style={{ ...selStyle, borderColor: borda }}>
-                  <option value="pendente">Pendente</option>
-                  <option value="atendido">Atendido</option>
-                  <option value="sem_retorno">Sem retorno</option>
-                </select>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14, alignItems: "center" }}>
+                {wpp && (
+                  <a
+                    href={wpp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => { if (cur === "pendente") setStatus(l, "atendido"); }}
+                    style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}
+                  >Chamar no WhatsApp · {l.telefone}</a>
+                )}
+                {cur === "pendente" && acaoBtn("Marcar como atendido", COLORS.success, false, () => setStatus(l, "atendido"))}
               </div>
+
+              {/* Depois de atendido, aparecem as opções do CRM */}
+              {(cur === "atendido" || cur === "aguardando") && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, alignItems: "center", borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
+                  <span style={{ fontSize: 12, color: COLORS.textDim, marginRight: 2 }}>E agora:</span>
+                  {acaoBtn("Aguardando cliente", AZUL, cur === "aguardando", () => setStatus(l, "aguardando"))}
+                  {acaoBtn("Fazer orçamento", COLORS.accent, false, () => fazerOrcamento(l))}
+                  {acaoBtn("Desistir", COLORS.danger, false, () => setStatus(l, "desistiu"))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -10421,7 +10457,7 @@ export default function App() {
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} />}
+      {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} setClientData={setClientData} setPage={setPage} />}
       {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
