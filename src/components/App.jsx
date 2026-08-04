@@ -5667,8 +5667,12 @@ function LeadsPage({ user, setClientData, setPage }) {
 
   // "Fazer orçamento": leva os dados coletados pela Mariana pra aba Cliente e abre ela
   const fazerOrcamento = (l) => {
+    // Telefone do lead vem do WhatsApp com DDI (55 + DDD + número = 12/13 díg).
+    // Remove o "55" pra bater com a validação (DDD + número = 10/11 díg) e formata.
+    const raw = String(l.telefone || "").replace(/\D/g, "");
+    const semDDI = (raw.length === 12 || raw.length === 13) && raw.startsWith("55") ? raw.slice(2) : raw;
     setClientData({
-      empresa: "", cnpj: "", responsavel: l.nome || "", telefone: l.telefone || "",
+      empresa: l.nome || "", cnpj: "", responsavel: l.nome || "", telefone: formatarCelular(semDDI),
       email: "", endereco: "", numero: "", bairro: "", cidade: l.cidade || "", estado: "", cep: "",
     });
     if (String(l.status_atendimento || "pendente") === "pendente") setStatus(l, "atendido");
