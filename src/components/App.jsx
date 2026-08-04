@@ -5775,7 +5775,6 @@ function LeadsPage({ user, setClientData, setPage }) {
                     style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}
                   >Chamar no WhatsApp · {l.telefone}</a>
                 )}
-                {cur === "pendente" && acaoBtn("Marcar como atendido", COLORS.success, false, () => setStatus(l, "atendido"))}
               </div>
 
               {/* Depois de atendido, aparecem as opções do CRM */}
