@@ -2029,7 +2029,7 @@ const ROLE_PERMISSIONS = {
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
-  vendedor:        ["client", "catalog", "resumo", "orders", "graficos", "logistica", "comissoes", "adm"],
+  vendedor:        ["client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm"],
   // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
   // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes"],
@@ -5562,23 +5562,49 @@ function LeadsPage({ user }) {
   const [sub, setSub] = useState("visao"); // visao | site | meta
   const [leads, setLeads] = useState([]);          // site_leads
   const [mariana, setMariana] = useState([]);      // mariana_leads (Meta)
+  const [vendas, setVendas] = useState([]);        // orcamentos Concluído (pra detectar venda do lead)
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [filtro, setFiltro] = useState("todos");         // status site
   const [filtroTipo, setFiltroTipo] = useState("formulario"); // tipo site
   const [filtroTemp, setFiltroTemp] = useState("todas");      // temperatura meta
+  const [filtroConsultor, setFiltroConsultor] = useState("todos"); // meta (só gestão)
+
+  // Consultor do usuário logado = primeiro nome (bate com mariana_leads.consultor)
+  const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
+  const ehGestao = user?.role === "admin" || user?.role === "gestor";
 
   const carregar = async () => {
     setLoading(true); setErro("");
-    const [s, m] = await Promise.all([
+    const [s, m, o] = await Promise.all([
       supabase.from("site_leads").select("*").order("created_at", { ascending: false }),
       supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }),
+      supabase.from("orcamentos").select("cliente_telefone,total,valor_recebido,vendedor_nome,data_conclusao,data").eq("status", "Concluído"),
     ]);
     if (s.error) setErro(s.error.message); else setLeads(s.data || []);
     if (m.error && !s.error) setErro(m.error.message); else if (!m.error) setMariana(m.data || []);
+    if (!o.error) setVendas(o.data || []);
     setLoading(false);
   };
   useEffect(() => { carregar(); }, []);
+
+  // ── venda por telefone (casa lead da Mariana com orçamento Concluído) ──
+  const fone8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
+  const vendaPorFone = {};
+  vendas.forEach((v) => {
+    const k = fone8(v.cliente_telefone);
+    if (k && k.length === 8) {
+      const val = Number(v.total) || 0;
+      if (!vendaPorFone[k] || val > vendaPorFone[k].total) vendaPorFone[k] = { total: val, data: v.data_conclusao || v.data };
+    }
+  });
+  const vendaDoLead = (l) => vendaPorFone[fone8(l.telefone)] || null;
+
+  const toggleStatusMariana = async (lead, novo) => {
+    setMariana(ls => ls.map(l => l.id === lead.id ? { ...l, status_atendimento: novo } : l));
+    const { error } = await supabase.from("mariana_leads").update({ status_atendimento: novo }).eq("id", lead.id);
+    if (error) { setErro(error.message); carregar(); }
+  };
 
   const toggleStatus = async (lead) => {
     const novo = lead.status === "atendido" ? "novo" : "atendido";
@@ -5621,16 +5647,39 @@ function LeadsPage({ user }) {
     const d = new Date(iso), h = new Date();
     return d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth();
   };
+  // Vendedor comum vê só os SEUS leads da Mariana; admin/gestor vê todos.
+  const marianaVisivel = ehGestao ? mariana : mariana.filter(l => l.consultor === meuConsultor);
+
   const siteForm = leads.filter(l => !isClique(l));
   const siteCliques = leads.filter(isClique);
   const totalSite = leads.length;
-  const totalMeta = mariana.length;
+  const totalMeta = marianaVisivel.length;
   const totalGeral = totalSite + totalMeta;
   const siteMes = leads.filter(l => noMes(l.created_at)).length;
-  const metaMes = mariana.filter(l => noMes(l.criado_em)).length;
-  const metaQuentes = mariana.filter(l => corTemp(l.temperatura) === COLORS.danger).length;
-  const metaMornos = mariana.filter(l => String(l.temperatura || "").toLowerCase().includes("morno")).length;
-  const metaFrios = mariana.filter(l => String(l.temperatura || "").toLowerCase().includes("frio")).length;
+  const metaMes = marianaVisivel.filter(l => noMes(l.criado_em)).length;
+  const metaQuentes = marianaVisivel.filter(l => corTemp(l.temperatura) === COLORS.danger).length;
+  const metaMornos = marianaVisivel.filter(l => String(l.temperatura || "").toLowerCase().includes("morno")).length;
+  const metaFrios = marianaVisivel.filter(l => String(l.temperatura || "").toLowerCase().includes("frio")).length;
+  const metaVendas = marianaVisivel.filter(vendaDoLead);
+  const metaVendasQtd = metaVendas.length;
+  const metaVendasValor = metaVendas.reduce((s, l) => s + (vendaDoLead(l)?.total || 0), 0);
+  const metaAtendidos = marianaVisivel.filter(l => l.status_atendimento === "atendido").length;
+  const metaConversao = totalMeta ? Math.round((metaVendasQtd / totalMeta) * 100) : 0;
+
+  // rendimento por consultor (só faz sentido pra gestão)
+  const porConsultor = ["Willian", "Alessandro", "Adelmo"].map((c) => {
+    const ls = mariana.filter(l => l.consultor === c);
+    const vd = ls.filter(vendaDoLead);
+    return {
+      nome: c,
+      total: ls.length,
+      atendidos: ls.filter(l => l.status_atendimento === "atendido").length,
+      vendas: vd.length,
+      valor: vd.reduce((s, l) => s + (vendaDoLead(l)?.total || 0), 0),
+      conv: ls.length ? Math.round((vd.length / ls.length) * 100) : 0,
+    };
+  });
+  const brl = (n) => "R$ " + (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   // ── sub-navegação ──
   const subTab = (k, label) => (
@@ -5672,7 +5721,8 @@ function LeadsPage({ user }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
             {kpi("Total de leads", totalGeral, `${siteMes + metaMes} neste mês`, COLORS.accent)}
             {kpi("Pelo site", totalSite, `${siteForm.length} formulários · ${siteCliques.length} cliques`, "#25D366")}
-            {kpi("Pela Mariana (Meta)", totalMeta, `${metaQuentes} quentes · ${metaMornos} mornos · ${metaFrios} frios`, COLORS.danger)}
+            {kpi(ehGestao ? "Pela Mariana (Meta)" : "Meus leads (Meta)", totalMeta, `${metaQuentes} quentes · ${metaMornos} mornos · ${metaFrios} frios`, COLORS.danger)}
+            {kpi("Vendas fechadas", metaVendasQtd, `${brl(metaVendasValor)} · ${metaConversao}% de conversão`, COLORS.success)}
           </div>
 
           <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 20 }}>
@@ -5698,6 +5748,39 @@ function LeadsPage({ user }) {
               Meta = leads qualificados pela Mariana (anúncios do Facebook/Instagram). Site = formulários e cliques no WhatsApp em gondolasuprema.com.
             </p>
           </div>
+
+          {ehGestao && (
+            <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 20, marginTop: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginBottom: 6 }}>Rendimento por consultor (Meta)</div>
+              <p style={{ fontSize: 12.5, color: COLORS.textDim, margin: "0 0 14px" }}>Leads recebidos → atendidos → vendas fechadas (orçamento Concluído com o telefone do lead).</p>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 480 }}>
+                  <thead>
+                    <tr style={{ color: COLORS.textMuted, textAlign: "left" }}>
+                      <th style={{ padding: "8px 10px", fontWeight: 600 }}>Consultor</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 600, textAlign: "center" }}>Leads</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 600, textAlign: "center" }}>Atendidos</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 600, textAlign: "center" }}>Vendas</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 600, textAlign: "right" }}>Valor</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 600, textAlign: "center" }}>Conversão</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {porConsultor.map((c) => (
+                      <tr key={c.nome} style={{ borderTop: `1px solid ${COLORS.border}`, color: COLORS.text }}>
+                        <td style={{ padding: "10px", fontWeight: 700 }}>{c.nome}</td>
+                        <td style={{ padding: "10px", textAlign: "center" }}>{c.total}</td>
+                        <td style={{ padding: "10px", textAlign: "center", color: COLORS.textMuted }}>{c.atendidos}</td>
+                        <td style={{ padding: "10px", textAlign: "center", fontWeight: 700, color: COLORS.success }}>{c.vendas}</td>
+                        <td style={{ padding: "10px", textAlign: "right", color: COLORS.success }}>{brl(c.valor)}</td>
+                        <td style={{ padding: "10px", textAlign: "center", fontWeight: 700, color: c.conv >= 20 ? COLORS.success : c.conv > 0 ? COLORS.accent : COLORS.textDim }}>{c.conv}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -5762,14 +5845,30 @@ function LeadsPage({ user }) {
 
       {/* ═══════════ META / MARIANA ═══════════ */}
       {!loading && sub === "meta" && (() => {
-        const filtrados = mariana.filter(l =>
-          filtroTemp === "todas" ? true : String(l.temperatura || "").toLowerCase().includes(filtroTemp)
+        const filtrados = marianaVisivel.filter(l =>
+          (filtroTemp === "todas" ? true : String(l.temperatura || "").toLowerCase().includes(filtroTemp)) &&
+          (filtroConsultor === "todos" ? true : l.consultor === filtroConsultor)
         );
+        const stBtn = (l, k, label, cor) => {
+          const on = (l.status_atendimento || "pendente") === k;
+          return (
+            <button key={k} onClick={() => toggleStatusMariana(l, k)} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", background: on ? cor : COLORS.surface, color: on ? "#000" : COLORS.textMuted, border: `1px solid ${on ? cor : COLORS.border}` }}>{label}</button>
+          );
+        };
         return (
           <div>
             <p style={{ color: COLORS.textMuted, fontSize: 14, margin: "0 0 16px" }}>
-              Leads dos anúncios do Meta, qualificados pela <strong style={{ color: COLORS.text }}>Mariana</strong> (agente de WhatsApp). Já vêm com telefone, cidade e interesse.
+              {ehGestao
+                ? <>Leads dos anúncios do Meta, qualificados pela <strong style={{ color: COLORS.text }}>Mariana</strong>. Cada consultor vê os seus; você (gestão) vê todos.</>
+                : <>Seus leads dos anúncios do Meta, qualificados pela <strong style={{ color: COLORS.text }}>Mariana</strong>. Já vêm com telefone, cidade e interesse.</>}
             </p>
+            {ehGestao && (
+              <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                {[["todos", "Todos"], ["Willian", "Willian"], ["Alessandro", "Alessandro"], ["Adelmo", "Adelmo"]].map(([k, l]) => (
+                  <button key={k} onClick={() => setFiltroConsultor(k)} style={{ padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", background: filtroConsultor === k ? COLORS.text : COLORS.card, color: filtroConsultor === k ? "#000" : COLORS.textMuted, border: `1px solid ${filtroConsultor === k ? COLORS.text : COLORS.border}` }}>{l}</button>
+                ))}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
               {[["todas", `Todas (${totalMeta})`], ["quente", `Quentes (${metaQuentes})`], ["morno", `Mornos (${metaMornos})`], ["frio", `Frios (${metaFrios})`]].map(([k, l]) => (
                 <button key={k} onClick={() => setFiltroTemp(k)} style={{ padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", background: filtroTemp === k ? COLORS.accent : COLORS.card, color: filtroTemp === k ? "#000" : COLORS.textMuted, border: `1px solid ${filtroTemp === k ? COLORS.accent : COLORS.border}` }}>{l}</button>
@@ -5780,25 +5879,36 @@ function LeadsPage({ user }) {
               {filtrados.map((l) => {
                 const wpp = wppLink(l.telefone);
                 const ct = corTemp(l.temperatura);
+                const venda = vendaDoLead(l);
+                const st = l.status_atendimento || "pendente";
+                const borda = venda ? COLORS.success : (st === "perdido" ? COLORS.danger : st === "atendido" ? COLORS.success : ct);
                 return (
-                  <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${ct}55`, borderRadius: 12, padding: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${borda}66`, borderRadius: 12, padding: 16, opacity: st === "perdido" && !venda ? 0.7 : 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
-                      {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {venda && chip("VENDA · " + brl(venda.total), COLORS.success)}
+                        {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
+                      </div>
                     </div>
                     <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>{l.nome || "Sem nome"}</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
                       {l.cidade && chip(l.cidade, COLORS.textMuted)}
                       {l.interesse && chip(l.interesse, COLORS.accent)}
                       {l.ramo_uso && chip(l.ramo_uso, COLORS.textMuted)}
-                      {l.consultor && chip("Consultor: " + l.consultor, COLORS.textMuted)}
+                      {ehGestao && l.consultor && chip("Consultor: " + l.consultor, COLORS.textMuted)}
                     </div>
                     {(l.duvidas || l.lead_texto) && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.duvidas || l.lead_texto}</p>}
-                    {wpp && (
-                      <div style={{ marginTop: 14 }}>
-                        <a href={wpp} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}>Chamar no WhatsApp · {l.telefone}</a>
-                      </div>
-                    )}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14, alignItems: "center" }}>
+                      {wpp && <a href={wpp} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}>Chamar no WhatsApp · {l.telefone}</a>}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10, alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: COLORS.textDim, marginRight: 2 }}>Status:</span>
+                      {stBtn(l, "pendente", "Pendente", COLORS.accent)}
+                      {stBtn(l, "atendido", "Atendido", COLORS.success)}
+                      {stBtn(l, "perdido", "Perdido", COLORS.danger)}
+                      {venda && <span style={{ fontSize: 12, color: COLORS.success, fontWeight: 700, marginLeft: 4 }}>Venda detectada pelo orçamento</span>}
+                    </div>
                   </div>
                 );
               })}
