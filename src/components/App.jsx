@@ -1376,10 +1376,11 @@ const PRODUCTS = [
   { id: 400, name: "MPP 2000×800 Inicial S/MDF",     category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   { id: 401, name: "MPP 2000×800 Continuação S/MDF", category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   // ── MDF ──
-  { id: 52, name: "MDF 1200x600", category: "mdf", icon: "🪵", price: 43.80, specs: { dimensao: "1200x600mm" }, options: [] },
-  { id: 53, name: "MDF 1200x800", category: "mdf", icon: "🪵", price: 54.75, specs: { dimensao: "1200x800mm" }, options: [] },
-  { id: 54, name: "MDF 1800x600", category: "mdf", icon: "🪵", price: 54.75, specs: { dimensao: "1800x600mm" }, options: [] },
-  { id: 55, name: "MDF 1800x800", category: "mdf", icon: "🪵", price: 73.00, specs: { dimensao: "1800x800mm" }, options: [] },
+  // Preço por peça = chapa MDF (R$ 229,00) ÷ nº de peças por chapa.
+  { id: 52, name: "MDF 1200x600", category: "mdf", icon: "🪵", price: 38.17, specs: { dimensao: "1200x600mm" }, options: [] }, // 229 ÷ 6
+  { id: 53, name: "MDF 1200x800", category: "mdf", icon: "🪵", price: 45.80, specs: { dimensao: "1200x800mm" }, options: [] }, // 229 ÷ 5
+  { id: 54, name: "MDF 1800x600", category: "mdf", icon: "🪵", price: 57.25, specs: { dimensao: "1800x600mm" }, options: [] }, // 229 ÷ 4
+  { id: 55, name: "MDF 1800x800", category: "mdf", icon: "🪵", price: 76.33, specs: { dimensao: "1800x800mm" }, options: [] }, // 229 ÷ 3
 ];
 
 const fmt = (v) => v === 0 ? "Sob consulta" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
