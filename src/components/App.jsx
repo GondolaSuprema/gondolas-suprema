@@ -5637,7 +5637,7 @@ function LeadsPage({ user, setClientData, setPage }) {
 
   const [mariana, setMariana] = useState([]);
   const [orcFones, setOrcFones] = useState(new Set()); // telefones (8 díg) que já têm orçamento
-  const [vendaFones, setVendaFones] = useState(new Set()); // telefones (8 díg) com orçamento Concluído (venda)
+  const [orcMap, setOrcMap] = useState(new Map()); // fone8 → { orc:[ts], venda:[ts] } p/ casar conversão por data
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [consultorSel, setConsultorSel] = useState(ehGestao && souConsultor ? meuConsultor : "todos");
@@ -5645,6 +5645,7 @@ function LeadsPage({ user, setClientData, setPage }) {
   const [notaEdit, setNotaEdit] = useState({ id: null, texto: "" }); // anotação sendo editada
   const [salvandoNota, setSalvandoNota] = useState(false);
   const [desistindo, setDesistindo] = useState(null); // id do lead escolhendo o motivo da desistência
+  const [periodoDes, setPeriodoDes] = useState("mes"); // período do painel de desempenho: "mes" | "tudo"
 
   const fone8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
 
@@ -5652,13 +5653,19 @@ function LeadsPage({ user, setClientData, setPage }) {
     setLoading(true); setErro("");
     const [m, o] = await Promise.all([
       supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }),
-      supabase.from("orcamentos").select("cliente_telefone, status"),
+      supabase.from("orcamentos").select("cliente_telefone, status, data"),
     ]);
     if (m.error) setErro(m.error.message); else setMariana(m.data || []);
     if (!o.error) {
-      const s = new Set(), v = new Set();
-      (o.data || []).forEach(r => { const f = fone8(r.cliente_telefone); if (f.length === 8) { s.add(f); if (String(r.status) === "Concluído") v.add(f); } });
-      setOrcFones(s); setVendaFones(v);
+      const s = new Set(), map = new Map();
+      (o.data || []).forEach(r => {
+        const f = fone8(r.cliente_telefone); if (f.length !== 8) return;
+        s.add(f);
+        const venda = String(r.status) === "Concluído";
+        const ts = Date.parse(r.data);
+        if (!Number.isNaN(ts)) { const e = map.get(f) || { orc: [], venda: [] }; e.orc.push(ts); if (venda) e.venda.push(ts); map.set(f, e); }
+      });
+      setOrcFones(s); setOrcMap(map);
     }
     setLoading(false);
   };
@@ -5706,7 +5713,6 @@ function LeadsPage({ user, setClientData, setPage }) {
   const corStatus = (s) => s === "atendido" ? COLORS.success : s === "aguardando" ? AZUL : s === "desistiu" ? COLORS.danger : COLORS.accent;
   const labelStatus = (s) => s === "atendido" ? "Atendido" : s === "aguardando" ? "Aguardando cliente" : s === "desistiu" ? "Desistiu" : "Pendente";
   const temOrcamento = (l) => orcFones.has(fone8(l.telefone));
-  const temVenda = (l) => vendaFones.has(fone8(l.telefone));
 
   const base = ehGestao
     ? (consultorSel === "todos" ? mariana : mariana.filter(l => l.consultor === consultorSel))
@@ -5715,11 +5721,11 @@ function LeadsPage({ user, setClientData, setPage }) {
   const semOrc = base.filter(l => !temOrcamento(l)); // quem virou orçamento sai da aba (foi pra Orçamentos)
   const st = (l) => l.status_atendimento || "pendente";
   const ativo = (l) => st(l) === "pendente" || st(l) === "atendido" || st(l) === "aguardando";
-  // Follow-up: lead já atendido/aguardando que esfriou (sem contato há ≥ FOLLOWUP_DIAS).
+  // Follow-up: lead atendido/aguardando com CONTATO REGISTRADO que esfriou (≥ FOLLOWUP_DIAS).
+  // Só conta quando há ultimo_contato_em real — nunca desde a criação (evita número falso em lead legado).
   const FOLLOWUP_DIAS = 2;
-  const ultToque = (l) => l.ultimo_contato_em || l.criado_em;
   const diasDesde = (iso) => Math.floor((Date.now() - new Date(iso || Date.now()).getTime()) / 86400000);
-  const precisaFollowup = (l) => (st(l) === "atendido" || st(l) === "aguardando") && diasDesde(ultToque(l)) >= FOLLOWUP_DIAS;
+  const precisaFollowup = (l) => (st(l) === "atendido" || st(l) === "aguardando") && !!l.ultimo_contato_em && diasDesde(l.ultimo_contato_em) >= FOLLOWUP_DIAS;
   const cont = {
     pendente: semOrc.filter(l => st(l) === "pendente").length,
     atendido: semOrc.filter(l => st(l) === "atendido").length,
@@ -5732,19 +5738,24 @@ function LeadsPage({ user, setClientData, setPage }) {
   // 📊 Desempenho: funil lead → atendido → orçamento → venda + tempo de resposta + motivos.
   const pct = (n, d) => d ? Math.round((n / d) * 100) : 0;
   const fmtDur = (min) => { if (min == null) return "—"; if (min < 60) return `${Math.round(min)} min`; const h = min / 60; if (h < 24) return `${h.toFixed(1)}h`; return `${(h / 24).toFixed(1)} dias`; };
+  // Período do painel (mês atual vs tudo) e conversão casada por DATA (orçamento a partir do lead).
+  const _agora = new Date();
+  const noPeriodo = (l) => { if (periodoDes !== "mes") return true; const d = new Date(l.criado_em); return d.getFullYear() === _agora.getFullYear() && d.getMonth() === _agora.getMonth(); };
+  const converteu = (l, tipo) => { const e = orcMap.get(fone8(l.telefone)); if (!e) return false; const corte = Date.parse(l.criado_em) - 86400000; return (tipo === "venda" ? e.venda : e.orc).some(ts => ts >= corte); };
   const desempenho = (() => {
-    const total = base.length;
-    const naoAtend = base.filter(l => (l.status_atendimento || "pendente") === "pendente" && !temOrcamento(l)).length;
+    const bp = base.filter(noPeriodo);
+    const total = bp.length;
+    const naoAtend = bp.filter(l => (l.status_atendimento || "pendente") === "pendente").length;
     const atend = total - naoAtend;
-    const orc = base.filter(temOrcamento).length;
-    const venda = base.filter(temVenda).length;
-    const resp = base
+    const orc = bp.filter(l => converteu(l, "orc")).length;
+    const venda = bp.filter(l => converteu(l, "venda")).length;
+    const resp = bp
       .filter(l => l.primeiro_contato_em && l.criado_em)
       .map(l => (new Date(l.primeiro_contato_em) - new Date(l.criado_em)) / 60000)
       .filter(m => m >= 0);
     const respMed = resp.length ? resp.reduce((a, b) => a + b, 0) / resp.length : null;
     const motivos = {};
-    base.filter(l => (l.status_atendimento || "") === "desistiu" && l.motivo_desistencia)
+    bp.filter(l => (l.status_atendimento || "") === "desistiu" && l.motivo_desistencia)
       .forEach(l => { motivos[l.motivo_desistencia] = (motivos[l.motivo_desistencia] || 0) + 1; });
     const topMotivo = Object.entries(motivos).sort((a, b) => b[1] - a[1])[0] || null;
     return { total, naoAtend, atend, orc, venda, respMed, respN: resp.length, topMotivo };
@@ -5826,31 +5837,42 @@ function LeadsPage({ user, setClientData, setPage }) {
           </span>
         </div>
       )}
-      {ehGestao && !loading && desempenho.total > 0 && (
+      {ehGestao && !loading && base.length > 0 && (
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, marginBottom: 12 }}>
-            Desempenho dos leads{consultorSel !== "todos" ? ` · ${consultorSel}` : ""}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>Desempenho dos leads{consultorSel !== "todos" ? ` · ${consultorSel}` : ""}</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[["mes", "Este mês"], ["tudo", "Tudo"]].map(([v, lab]) => (
+                <button key={v} onClick={() => setPeriodoDes(v)} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: "pointer", background: periodoDes === v ? COLORS.accent : COLORS.surface, color: periodoDes === v ? "#000" : COLORS.textMuted, border: `1px solid ${periodoDes === v ? COLORS.accent : COLORS.border}` }}>{lab}</button>
+              ))}
+            </div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {[
-              { label: "Leads", n: desempenho.total, p: null, cor: COLORS.textMuted },
-              { label: "Atendidos", n: desempenho.atend, p: pct(desempenho.atend, desempenho.total), cor: COLORS.success },
-              { label: "Viraram orçamento", n: desempenho.orc, p: pct(desempenho.orc, desempenho.total), cor: COLORS.accent },
-              { label: "Viraram venda", n: desempenho.venda, p: pct(desempenho.venda, desempenho.total), cor: "#22C55E" },
-            ].map((s) => (
-              <div key={s.label} style={{ flex: "1 1 120px", minWidth: 120, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "10px 12px" }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: s.cor }}>
-                  {s.n}{s.p != null && <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textDim, marginLeft: 6 }}>{s.p}%</span>}
-                </div>
-                <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{s.label}</div>
+          {desempenho.total === 0 ? (
+            <div style={{ fontSize: 13, color: COLORS.textDim, padding: "8px 0" }}>Nenhum lead neste período.</div>
+          ) : (
+            <>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {[
+                  { label: "Leads", n: desempenho.total, p: null, cor: COLORS.textMuted },
+                  { label: "Atendidos", n: desempenho.atend, p: pct(desempenho.atend, desempenho.total), cor: COLORS.success },
+                  { label: "Viraram orçamento", n: desempenho.orc, p: pct(desempenho.orc, desempenho.total), cor: COLORS.accent },
+                  { label: "Viraram venda", n: desempenho.venda, p: pct(desempenho.venda, desempenho.total), cor: "#22C55E" },
+                ].map((s) => (
+                  <div key={s.label} style={{ flex: "1 1 120px", minWidth: 120, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: s.cor }}>
+                      {s.n}{s.p != null && <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textDim, marginLeft: 6 }}>{s.p}%</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{s.label}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, fontSize: 12.5, color: COLORS.textMuted }}>
-            <span>🚫 Não atendidos: <b style={{ color: desempenho.naoAtend ? COLORS.danger : COLORS.text }}>{desempenho.naoAtend}</b> ({pct(desempenho.naoAtend, desempenho.total)}%)</span>
-            {desempenho.respN > 0 && <span>⏱ Tempo médio até 1º contato: <b style={{ color: COLORS.text }}>{fmtDur(desempenho.respMed)}</b> <span style={{ color: COLORS.textDim }}>({desempenho.respN})</span></span>}
-            {desempenho.topMotivo && <span>💬 Maior motivo de desistência: <b style={{ color: COLORS.text }}>{desempenho.topMotivo[0]}</b> ({desempenho.topMotivo[1]})</span>}
-          </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, fontSize: 12.5, color: COLORS.textMuted }}>
+                <span>🚫 Não atendidos: <b style={{ color: desempenho.naoAtend ? COLORS.danger : COLORS.text }}>{desempenho.naoAtend}</b> ({pct(desempenho.naoAtend, desempenho.total)}%)</span>
+                {desempenho.respN > 0 && <span>⏱ Tempo médio até 1º contato: <b style={{ color: COLORS.text }}>{fmtDur(desempenho.respMed)}</b> <span style={{ color: COLORS.textDim }}>({desempenho.respN})</span></span>}
+                {desempenho.topMotivo && <span>💬 Maior motivo de desistência: <b style={{ color: COLORS.text }}>{desempenho.topMotivo[0]}</b> ({desempenho.topMotivo[1]})</span>}
+              </div>
+            </>
+          )}
         </div>
       )}
       {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 14 }}>Erro: {erro}</div>}
@@ -5873,7 +5895,7 @@ function LeadsPage({ user, setClientData, setPage }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
                   {cur === "pendente" && (() => { const tt = tempoDesde(l.criado_em); return <span style={{ fontSize: 11, fontWeight: 700, color: tt.cor }}>{tt.atrasado ? "⏱ parado " : "⏱ novo · "}{tt.label}</span>; })()}
-                  {precisaFollowup(l) && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent }}>🔔 {diasDesde(ultToque(l))} dias sem contato</span>}
+                  {precisaFollowup(l) && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent }}>🔔 {diasDesde(l.ultimo_contato_em)} dias sem contato</span>}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {chip(labelStatus(cur), corStatus(cur))}
@@ -5950,6 +5972,13 @@ function LeadsPage({ user, setClientData, setPage }) {
                       {acaoBtn("Desistir", COLORS.danger, false, () => setDesistindo(l.id))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Lead desistido: pode ser reaberto se o cliente voltar */}
+              {cur === "desistiu" && (
+                <div style={{ marginTop: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
+                  {acaoBtn("Reabrir lead", COLORS.success, false, () => setStatus(l, "atendido", { motivo_desistencia: null }))}
                 </div>
               )}
             </div>
