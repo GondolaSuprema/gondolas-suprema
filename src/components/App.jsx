@@ -5641,6 +5641,9 @@ function LeadsPage({ user, setClientData, setPage }) {
   const [erro, setErro] = useState("");
   const [consultorSel, setConsultorSel] = useState(ehGestao && souConsultor ? meuConsultor : "todos");
   const [filtroStatus, setFiltroStatus] = useState("a_trabalhar");
+  const [notaEdit, setNotaEdit] = useState({ id: null, texto: "" }); // anotação sendo editada
+  const [salvandoNota, setSalvandoNota] = useState(false);
+  const [desistindo, setDesistindo] = useState(null); // id do lead escolhendo o motivo da desistência
 
   const fone8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
 
@@ -5660,10 +5663,21 @@ function LeadsPage({ user, setClientData, setPage }) {
   };
   useEffect(() => { carregar(); }, []);
 
-  const setStatus = async (lead, novo) => {
-    setMariana(ls => ls.map(l => l.id === lead.id ? { ...l, status_atendimento: novo } : l));
-    const { error } = await supabase.from("mariana_leads").update({ status_atendimento: novo }).eq("id", lead.id);
+  const setStatus = async (lead, novo, extra = {}) => {
+    const patch = { status_atendimento: novo, ultimo_contato_em: new Date().toISOString(), ...extra };
+    setMariana(ls => ls.map(l => l.id === lead.id ? { ...l, ...patch } : l));
+    const { error } = await supabase.from("mariana_leads").update(patch).eq("id", lead.id);
     if (error) { setErro(error.message); carregar(); }
+  };
+  // Salva a anotação do vendedor no lead (e carimba o último contato).
+  const salvarNota = async (lead) => {
+    const texto = notaEdit.texto.trim();
+    setSalvandoNota(true);
+    const patch = { observacao_vendedor: texto || null, ultimo_contato_em: new Date().toISOString() };
+    setMariana(ls => ls.map(l => l.id === lead.id ? { ...l, ...patch } : l));
+    const { error } = await supabase.from("mariana_leads").update(patch).eq("id", lead.id);
+    setSalvandoNota(false);
+    if (error) { setErro(error.message); carregar(); } else setNotaEdit({ id: null, texto: "" });
   };
 
   // "Fazer orçamento": leva os dados coletados pela Mariana pra aba Cliente e abre ela
@@ -5696,21 +5710,32 @@ function LeadsPage({ user, setClientData, setPage }) {
   const semOrc = base.filter(l => !temOrcamento(l)); // quem virou orçamento sai da aba (foi pra Orçamentos)
   const st = (l) => l.status_atendimento || "pendente";
   const ativo = (l) => st(l) === "pendente" || st(l) === "atendido" || st(l) === "aguardando";
+  // Follow-up: lead já atendido/aguardando que esfriou (sem contato há ≥ FOLLOWUP_DIAS).
+  const FOLLOWUP_DIAS = 2;
+  const ultToque = (l) => l.ultimo_contato_em || l.criado_em;
+  const diasDesde = (iso) => Math.floor((Date.now() - new Date(iso || Date.now()).getTime()) / 86400000);
+  const precisaFollowup = (l) => (st(l) === "atendido" || st(l) === "aguardando") && diasDesde(ultToque(l)) >= FOLLOWUP_DIAS;
   const cont = {
     pendente: semOrc.filter(l => st(l) === "pendente").length,
     atendido: semOrc.filter(l => st(l) === "atendido").length,
     aguardando: semOrc.filter(l => st(l) === "aguardando").length,
     desistiu: semOrc.filter(l => st(l) === "desistiu").length,
+    followup: semOrc.filter(precisaFollowup).length,
   };
   const aTrabalhar = semOrc.filter(ativo);
   const viraramOrc = base.filter(temOrcamento).length;
-  const ordemStatus = { pendente: 0, atendido: 1, aguardando: 2, desistiu: 3 };
   // Prioridade por temperatura: quente > morno > frio > (sem temperatura).
   const ordemTemp = (l) => { const t = String(l.temperatura || "").toLowerCase(); return t.includes("quente") ? 0 : t.includes("morno") ? 1 : t.includes("frio") ? 2 : 3; };
-  const listaFiltrada = (filtroStatus === "a_trabalhar" ? aTrabalhar : semOrc.filter(l => st(l) === filtroStatus))
+  // Ordem de trabalho: pendente (speed-to-lead) → follow-up esquecido → atendido → aguardando.
+  const ordemTrabalho = (l) => { const s = st(l); if (s === "pendente") return 0; if (precisaFollowup(l)) return 1; if (s === "atendido") return 2; if (s === "aguardando") return 3; return 4; };
+  const listaFiltrada = (
+    filtroStatus === "a_trabalhar" ? aTrabalhar
+      : filtroStatus === "followup" ? semOrc.filter(precisaFollowup)
+        : semOrc.filter(l => st(l) === filtroStatus)
+  )
     .slice()
     .sort((a, b) => {
-      const s = (ordemStatus[st(a)] ?? 9) - (ordemStatus[st(b)] ?? 9); // 1) pendentes primeiro
+      const s = ordemTrabalho(a) - ordemTrabalho(b);                   // 1) pendente → follow-up → resto
       if (s !== 0) return s;
       const tp = ordemTemp(a) - ordemTemp(b);                          // 2) mais quente primeiro
       if (tp !== 0) return tp;
@@ -5751,6 +5776,7 @@ function LeadsPage({ user, setClientData, setPage }) {
         )}
         <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} style={selStyle}>
           <option value="a_trabalhar">A trabalhar ({aTrabalhar.length})</option>
+          <option value="followup">🔔 Follow-up ({cont.followup})</option>
           <option value="pendente">Pendentes ({cont.pendente})</option>
           <option value="atendido">Atendidos ({cont.atendido})</option>
           <option value="aguardando">Aguardando cliente ({cont.aguardando})</option>
@@ -5763,6 +5789,15 @@ function LeadsPage({ user, setClientData, setPage }) {
           <span style={{ fontSize: 20 }}>⚠️</span>
           <span style={{ color: COLORS.text, fontSize: 14, fontWeight: 600 }}>
             Você tem <b style={{ color: COLORS.danger }}>{cont.pendente} lead{cont.pendente > 1 ? "s" : ""} pendente{cont.pendente > 1 ? "s" : ""}</b> esperando. Quanto mais rápido chamar, maior a chance de fechar.
+          </span>
+        </div>
+      )}
+      {!loading && cont.followup > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: COLORS.accent + "18", border: `1px solid ${COLORS.accent}55`, borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
+          <span style={{ fontSize: 20 }}>🔔</span>
+          <span style={{ color: COLORS.text, fontSize: 14, fontWeight: 600 }}>
+            <b style={{ color: COLORS.accent }}>{cont.followup} lead{cont.followup > 1 ? "s" : ""}</b> esperando follow-up (sem contato há {FOLLOWUP_DIAS}+ dias). Um retorno agora pode reativar a conversa.{" "}
+            <button onClick={() => setFiltroStatus("followup")} style={{ background: "none", border: "none", color: COLORS.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 14 }}>Ver</button>
           </span>
         </div>
       )}
@@ -5786,6 +5821,7 @@ function LeadsPage({ user, setClientData, setPage }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
                   {cur === "pendente" && (() => { const tt = tempoDesde(l.criado_em); return <span style={{ fontSize: 11, fontWeight: 700, color: tt.cor }}>{tt.atrasado ? "⏱ parado " : "⏱ novo · "}{tt.label}</span>; })()}
+                  {precisaFollowup(l) && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent }}>🔔 {diasDesde(ultToque(l))} dias sem contato</span>}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {chip(labelStatus(cur), corStatus(cur))}
@@ -5803,6 +5839,7 @@ function LeadsPage({ user, setClientData, setPage }) {
                 {l.interesse && chip(l.interesse, COLORS.accent)}
                 {l.ramo_uso && chip(l.ramo_uso, COLORS.textMuted)}
                 {ehGestao && l.consultor && chip("Consultor: " + l.consultor, COLORS.textMuted)}
+                {cur === "desistiu" && l.motivo_desistencia && chip("Motivo: " + l.motivo_desistencia, COLORS.danger)}
               </div>
               {(l.duvidas || l.lead_texto) && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.duvidas || l.lead_texto}</p>}
 
@@ -5816,15 +5853,51 @@ function LeadsPage({ user, setClientData, setPage }) {
                     style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}
                   >Chamar no WhatsApp · {l.telefone}</a>
                 )}
+                <button onClick={() => setNotaEdit({ id: l.id, texto: l.observacao_vendedor || "" })} style={{ padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.border}` }}>📝 {l.observacao_vendedor ? "Editar anotação" : "Anotar"}</button>
               </div>
+
+              {/* Anotação do vendedor (leitura) */}
+              {l.observacao_vendedor && notaEdit.id !== l.id && (
+                <div style={{ marginTop: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: COLORS.text, display: "flex", gap: 8 }}>
+                  <span>📝</span><span style={{ whiteSpace: "pre-wrap" }}>{l.observacao_vendedor}</span>
+                </div>
+              )}
+              {/* Anotação do vendedor (edição) */}
+              {notaEdit.id === l.id && (
+                <div style={{ marginTop: 10 }}>
+                  <textarea
+                    value={notaEdit.texto}
+                    onChange={e => setNotaEdit({ id: l.id, texto: e.target.value })}
+                    placeholder="Anotação sobre esse lead (o que combinaram, quando retornar, objeção…)"
+                    rows={2}
+                    style={{ width: "100%", boxSizing: "border-box", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontFamily: "inherit", resize: "vertical" }}
+                  />
+                  <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                    <button onClick={() => salvarNota(l)} disabled={salvandoNota} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", background: COLORS.accent, color: "#000", border: "none", opacity: salvandoNota ? 0.6 : 1 }}>{salvandoNota ? "Salvando…" : "Salvar anotação"}</button>
+                    <button onClick={() => setNotaEdit({ id: null, texto: "" })} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: COLORS.surface, color: COLORS.textMuted, border: `1px solid ${COLORS.border}` }}>Cancelar</button>
+                  </div>
+                </div>
+              )}
 
               {/* Depois de atendido, aparecem as opções do CRM */}
               {(cur === "atendido" || cur === "aguardando") && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, alignItems: "center", borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
-                  <span style={{ fontSize: 12, color: COLORS.textDim, marginRight: 2 }}>E agora:</span>
-                  {acaoBtn("Aguardando cliente", AZUL, cur === "aguardando", () => setStatus(l, "aguardando"))}
-                  {acaoBtn("Fazer orçamento", COLORS.accent, false, () => fazerOrcamento(l))}
-                  {acaoBtn("Desistir", COLORS.danger, false, () => setStatus(l, "desistiu"))}
+                <div style={{ marginTop: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
+                  {desistindo === l.id ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: COLORS.textDim, marginRight: 2 }}>Por que desistiu?</span>
+                      {["Preço", "Prazo", "Sumiu", "Concorrente", "Outro"].map(m => (
+                        <button key={m} onClick={() => { setStatus(l, "desistiu", { motivo_desistencia: m }); setDesistindo(null); }} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.danger}66` }}>{m}</button>
+                      ))}
+                      <button onClick={() => setDesistindo(null)} style={{ padding: "6px 10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: "none", color: COLORS.textMuted, border: "none" }}>Cancelar</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: COLORS.textDim, marginRight: 2 }}>E agora:</span>
+                      {acaoBtn("Aguardando cliente", AZUL, cur === "aguardando", () => setStatus(l, "aguardando"))}
+                      {acaoBtn("Fazer orçamento", COLORS.accent, false, () => fazerOrcamento(l))}
+                      {acaoBtn("Desistir", COLORS.danger, false, () => setDesistindo(l.id))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
