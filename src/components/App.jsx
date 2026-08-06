@@ -5637,6 +5637,7 @@ function LeadsPage({ user, setClientData, setPage }) {
 
   const [mariana, setMariana] = useState([]);
   const [orcFones, setOrcFones] = useState(new Set()); // telefones (8 díg) que já têm orçamento
+  const [vendaFones, setVendaFones] = useState(new Set()); // telefones (8 díg) com orçamento Concluído (venda)
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [consultorSel, setConsultorSel] = useState(ehGestao && souConsultor ? meuConsultor : "todos");
@@ -5651,20 +5652,23 @@ function LeadsPage({ user, setClientData, setPage }) {
     setLoading(true); setErro("");
     const [m, o] = await Promise.all([
       supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }),
-      supabase.from("orcamentos").select("cliente_telefone"),
+      supabase.from("orcamentos").select("cliente_telefone, status"),
     ]);
     if (m.error) setErro(m.error.message); else setMariana(m.data || []);
     if (!o.error) {
-      const s = new Set();
-      (o.data || []).forEach(r => { const f = fone8(r.cliente_telefone); if (f.length === 8) s.add(f); });
-      setOrcFones(s);
+      const s = new Set(), v = new Set();
+      (o.data || []).forEach(r => { const f = fone8(r.cliente_telefone); if (f.length === 8) { s.add(f); if (String(r.status) === "Concluído") v.add(f); } });
+      setOrcFones(s); setVendaFones(v);
     }
     setLoading(false);
   };
   useEffect(() => { carregar(); }, []);
 
   const setStatus = async (lead, novo, extra = {}) => {
-    const patch = { status_atendimento: novo, ultimo_contato_em: new Date().toISOString(), ...extra };
+    const agora = new Date().toISOString();
+    const patch = { status_atendimento: novo, ultimo_contato_em: agora, ...extra };
+    // 1º contato: carimba uma única vez, quando o lead sai de "pendente".
+    if (!lead.primeiro_contato_em && novo !== "pendente") patch.primeiro_contato_em = agora;
     setMariana(ls => ls.map(l => l.id === lead.id ? { ...l, ...patch } : l));
     const { error } = await supabase.from("mariana_leads").update(patch).eq("id", lead.id);
     if (error) { setErro(error.message); carregar(); }
@@ -5702,6 +5706,7 @@ function LeadsPage({ user, setClientData, setPage }) {
   const corStatus = (s) => s === "atendido" ? COLORS.success : s === "aguardando" ? AZUL : s === "desistiu" ? COLORS.danger : COLORS.accent;
   const labelStatus = (s) => s === "atendido" ? "Atendido" : s === "aguardando" ? "Aguardando cliente" : s === "desistiu" ? "Desistiu" : "Pendente";
   const temOrcamento = (l) => orcFones.has(fone8(l.telefone));
+  const temVenda = (l) => vendaFones.has(fone8(l.telefone));
 
   const base = ehGestao
     ? (consultorSel === "todos" ? mariana : mariana.filter(l => l.consultor === consultorSel))
@@ -5724,6 +5729,26 @@ function LeadsPage({ user, setClientData, setPage }) {
   };
   const aTrabalhar = semOrc.filter(ativo);
   const viraramOrc = base.filter(temOrcamento).length;
+  // 📊 Desempenho: funil lead → atendido → orçamento → venda + tempo de resposta + motivos.
+  const pct = (n, d) => d ? Math.round((n / d) * 100) : 0;
+  const fmtDur = (min) => { if (min == null) return "—"; if (min < 60) return `${Math.round(min)} min`; const h = min / 60; if (h < 24) return `${h.toFixed(1)}h`; return `${(h / 24).toFixed(1)} dias`; };
+  const desempenho = (() => {
+    const total = base.length;
+    const naoAtend = base.filter(l => (l.status_atendimento || "pendente") === "pendente" && !temOrcamento(l)).length;
+    const atend = total - naoAtend;
+    const orc = base.filter(temOrcamento).length;
+    const venda = base.filter(temVenda).length;
+    const resp = base
+      .filter(l => l.primeiro_contato_em && l.criado_em)
+      .map(l => (new Date(l.primeiro_contato_em) - new Date(l.criado_em)) / 60000)
+      .filter(m => m >= 0);
+    const respMed = resp.length ? resp.reduce((a, b) => a + b, 0) / resp.length : null;
+    const motivos = {};
+    base.filter(l => (l.status_atendimento || "") === "desistiu" && l.motivo_desistencia)
+      .forEach(l => { motivos[l.motivo_desistencia] = (motivos[l.motivo_desistencia] || 0) + 1; });
+    const topMotivo = Object.entries(motivos).sort((a, b) => b[1] - a[1])[0] || null;
+    return { total, naoAtend, atend, orc, venda, respMed, respN: resp.length, topMotivo };
+  })();
   // Prioridade por temperatura: quente > morno > frio > (sem temperatura).
   const ordemTemp = (l) => { const t = String(l.temperatura || "").toLowerCase(); return t.includes("quente") ? 0 : t.includes("morno") ? 1 : t.includes("frio") ? 2 : 3; };
   // Ordem de trabalho: pendente (speed-to-lead) → follow-up esquecido → atendido → aguardando.
@@ -5799,6 +5824,33 @@ function LeadsPage({ user, setClientData, setPage }) {
             <b style={{ color: COLORS.accent }}>{cont.followup} lead{cont.followup > 1 ? "s" : ""}</b> esperando follow-up (sem contato há {FOLLOWUP_DIAS}+ dias). Um retorno agora pode reativar a conversa.{" "}
             <button onClick={() => setFiltroStatus("followup")} style={{ background: "none", border: "none", color: COLORS.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 14 }}>Ver</button>
           </span>
+        </div>
+      )}
+      {ehGestao && !loading && desempenho.total > 0 && (
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, marginBottom: 12 }}>
+            Desempenho dos leads{consultorSel !== "todos" ? ` · ${consultorSel}` : ""}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {[
+              { label: "Leads", n: desempenho.total, p: null, cor: COLORS.textMuted },
+              { label: "Atendidos", n: desempenho.atend, p: pct(desempenho.atend, desempenho.total), cor: COLORS.success },
+              { label: "Viraram orçamento", n: desempenho.orc, p: pct(desempenho.orc, desempenho.total), cor: COLORS.accent },
+              { label: "Viraram venda", n: desempenho.venda, p: pct(desempenho.venda, desempenho.total), cor: "#22C55E" },
+            ].map((s) => (
+              <div key={s.label} style={{ flex: "1 1 120px", minWidth: 120, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: s.cor }}>
+                  {s.n}{s.p != null && <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.textDim, marginLeft: 6 }}>{s.p}%</span>}
+                </div>
+                <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, fontSize: 12.5, color: COLORS.textMuted }}>
+            <span>🚫 Não atendidos: <b style={{ color: desempenho.naoAtend ? COLORS.danger : COLORS.text }}>{desempenho.naoAtend}</b> ({pct(desempenho.naoAtend, desempenho.total)}%)</span>
+            {desempenho.respN > 0 && <span>⏱ Tempo médio até 1º contato: <b style={{ color: COLORS.text }}>{fmtDur(desempenho.respMed)}</b> <span style={{ color: COLORS.textDim }}>({desempenho.respN})</span></span>}
+            {desempenho.topMotivo && <span>💬 Maior motivo de desistência: <b style={{ color: COLORS.text }}>{desempenho.topMotivo[0]}</b> ({desempenho.topMotivo[1]})</span>}
+          </div>
         </div>
       )}
       {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 14 }}>Erro: {erro}</div>}
