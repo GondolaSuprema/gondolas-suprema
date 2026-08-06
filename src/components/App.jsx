@@ -5705,13 +5705,26 @@ function LeadsPage({ user, setClientData, setPage }) {
   const aTrabalhar = semOrc.filter(ativo);
   const viraramOrc = base.filter(temOrcamento).length;
   const ordemStatus = { pendente: 0, atendido: 1, aguardando: 2, desistiu: 3 };
+  // Prioridade por temperatura: quente > morno > frio > (sem temperatura).
+  const ordemTemp = (l) => { const t = String(l.temperatura || "").toLowerCase(); return t.includes("quente") ? 0 : t.includes("morno") ? 1 : t.includes("frio") ? 2 : 3; };
   const listaFiltrada = (filtroStatus === "a_trabalhar" ? aTrabalhar : semOrc.filter(l => st(l) === filtroStatus))
     .slice()
     .sort((a, b) => {
-      const s = (ordemStatus[st(a)] ?? 9) - (ordemStatus[st(b)] ?? 9); // pendentes primeiro
+      const s = (ordemStatus[st(a)] ?? 9) - (ordemStatus[st(b)] ?? 9); // 1) pendentes primeiro
       if (s !== 0) return s;
-      return new Date(a.criado_em || 0) - new Date(b.criado_em || 0); // dentro do grupo: mais antigo primeiro
+      const tp = ordemTemp(a) - ordemTemp(b);                          // 2) mais quente primeiro
+      if (tp !== 0) return tp;
+      return new Date(a.criado_em || 0) - new Date(b.criado_em || 0);  // 3) mais antigo primeiro
     });
+  // ⏱ SLA — há quanto tempo o lead está esperando (pra alertar lead parado).
+  const tempoDesde = (iso) => {
+    const min = Math.max(0, Math.floor((Date.now() - new Date(iso || Date.now()).getTime()) / 60000));
+    if (min < 60) return { label: `há ${min} min`, cor: min < 15 ? COLORS.success : COLORS.accent, atrasado: min >= 60 };
+    const h = Math.floor(min / 60);
+    if (h < 24) return { label: `há ${h}h`, cor: COLORS.accent, atrasado: true };
+    const d = Math.floor(h / 24);
+    return { label: `há ${d} dia${d > 1 ? "s" : ""}`, cor: COLORS.danger, atrasado: true };
+  };
 
   const selStyle = { padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: COLORS.card, color: COLORS.text, border: `1px solid ${COLORS.border}`, cursor: "pointer" };
   const acaoBtn = (label, cor, on, onClick) => (
@@ -5745,6 +5758,14 @@ function LeadsPage({ user, setClientData, setPage }) {
         </select>
       </div>
 
+      {!loading && cont.pendente > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: COLORS.danger + "18", border: `1px solid ${COLORS.danger}55`, borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
+          <span style={{ fontSize: 20 }}>⚠️</span>
+          <span style={{ color: COLORS.text, fontSize: 14, fontWeight: 600 }}>
+            Você tem <b style={{ color: COLORS.danger }}>{cont.pendente} lead{cont.pendente > 1 ? "s" : ""} pendente{cont.pendente > 1 ? "s" : ""}</b> esperando. Quanto mais rápido chamar, maior a chance de fechar.
+          </span>
+        </div>
+      )}
       {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 14 }}>Erro: {erro}</div>}
       {loading && <div style={{ color: COLORS.textMuted, fontSize: 14 }}>Carregando…</div>}
       {!loading && listaFiltrada.length === 0 && (
@@ -5762,13 +5783,21 @@ function LeadsPage({ user, setClientData, setPage }) {
           return (
             <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${corStatus(cur)}55`, borderRadius: 12, padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
+                  {cur === "pendente" && (() => { const tt = tempoDesde(l.criado_em); return <span style={{ fontSize: 11, fontWeight: 700, color: tt.cor }}>{tt.atrasado ? "⏱ parado " : "⏱ novo · "}{tt.label}</span>; })()}
+                </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {chip(labelStatus(cur), corStatus(cur))}
                   {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
                 </div>
               </div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>{l.nome || "Sem nome"}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>{(() => {
+                const n = (l.nome || "").trim();
+                if (n && !/^(sem nome|não informado|nao informado)$/i.test(n)) return n;
+                const alt = [l.interesse, l.cidade].filter(Boolean).join(" · ");
+                return alt || l.telefone || "Lead sem nome";
+              })()}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0" }}>
                 {l.cidade && chip(l.cidade, COLORS.textMuted)}
                 {l.interesse && chip(l.interesse, COLORS.accent)}
