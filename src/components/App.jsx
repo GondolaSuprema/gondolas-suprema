@@ -2170,15 +2170,28 @@ function PainelMarianaPage() {
   const [orcs, setOrcs] = useState([]);
   const [aba, setAba] = useState("mariana"); // sub-aba: "mariana" | "site"
   const [site, setSite] = useState(null);
+  const [periodo, setPeriodo] = useState(""); // "" = todo o período | "YYYY-MM"
   const C = COLORS;
 
-  const load = async () => {
+  // Deriva as datas do mês escolhido (p_ini/p_fim pro RPC; prox = 1º dia do mês seguinte pro filtro do funil)
+  const rangeDe = (per) => {
+    if (!per) return { p_ini: null, p_fim: null, prox: null };
+    const [y, m] = per.split("-").map(Number);
+    const ult = new Date(y, m, 0).getDate();
+    const prox = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    return { p_ini: `${per}-01`, p_fim: `${per}-${String(ult).padStart(2, "0")}`, prox };
+  };
+
+  const load = async (per = periodo) => {
     setLoading(true); setErro(null);
+    const { p_ini, p_fim, prox } = rangeDe(per);
+    let mlQ = supabase.from("mariana_leads").select("consultor,telefone,status_atendimento,criado_em");
+    if (p_ini) mlQ = mlQ.gte("criado_em", p_ini).lt("criado_em", prox);
     const [dash, ml, oc, sd] = await Promise.all([
-      supabase.rpc("mariana_dashboard"),
-      supabase.from("mariana_leads").select("consultor,telefone,status_atendimento"),
+      supabase.rpc("mariana_dashboard", { p_ini, p_fim }),
+      mlQ,
       supabase.from("orcamentos").select("cliente_telefone,status,total"),
-      supabase.rpc("site_dashboard"),
+      supabase.rpc("site_dashboard", { p_ini, p_fim }),
     ]);
     if (dash.error) setErro(dash.error.message); else setD(dash.data);
     if (!ml.error) setLeadsF(ml.data || []);
@@ -2187,6 +2200,7 @@ function PainelMarianaPage() {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+  const mesMax = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`; })();
 
   // ── funil de leads: recebidos → viraram orçamento → concluídos ──
   const _f8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
@@ -2215,10 +2229,11 @@ function PainelMarianaPage() {
   const num = { fontVariantNumeric: "tabular-nums" };
 
   if (loading && !d) return <div style={wrap}><p style={{ color: C.textMuted }}>Carregando painel da Mariana…</p></div>;
-  if (erro) return <div style={wrap}><p style={{ color: C.danger, marginBottom: 12 }}>Nao consegui carregar o painel: {erro}</p><button onClick={load} style={{ background: C.orange, color: "#000", border: "none", borderRadius: 8, padding: "9px 16px", fontWeight: 700, cursor: "pointer" }}>Tentar de novo</button></div>;
+  if (erro) return <div style={wrap}><p style={{ color: C.danger, marginBottom: 12 }}>Nao consegui carregar o painel: {erro}</p><button onClick={() => load()} style={{ background: C.orange, color: "#000", border: "none", borderRadius: 8, padding: "9px 16px", fontWeight: 700, cursor: "pointer" }}>Tentar de novo</button></div>;
   if (!d) return null;
 
   const t = d.temp || {}, sat = d.satisfacao || {}, prod = d.produto || {}, re = d.reengaj || {};
+  const semChat = d.conversas == null; // filtrando por período: métricas do chat (sem data) não se aplicam
   const tempTot = (t.quente || 0) + (t.morno || 0) + (t.frio || 0);
   const prodTot = Math.max(1, (prod.gondola || 0) + (prod.mpp || 0) + (prod.ambos || 0) + (prod.duvida || 0));
   const p = (n, tot) => (tot ? Math.round((100 * n) / tot) : 0);
@@ -2259,9 +2274,14 @@ function PainelMarianaPage() {
           <p style={{ color: C.textMuted, fontSize: 13, margin: "6px 0 0" }}>Do lead da Mariana à venda: performance do agente e conversão dos consultores</p>
         </div>
         <div style={{ textAlign: "right", fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
-          <div>Período <b style={{ color: C.text }}>{d.periodo_ini} – {d.periodo_fim}</b></div>
+          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+            <input type="month" value={periodo} max={mesMax} onChange={(e) => { setPeriodo(e.target.value); load(e.target.value); }}
+              style={{ background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 9px", fontSize: 12, fontFamily: "inherit", colorScheme: "dark" }} />
+            <button onClick={() => { setPeriodo(""); load(""); }} title="Ver todo o período" style={{ background: periodo ? "transparent" : C.orange, color: periodo ? C.textMuted : "#000", border: `1px solid ${periodo ? C.border : C.orange}`, borderRadius: 7, padding: "5px 11px", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Tudo</button>
+          </div>
+          <div>Período <b style={{ color: C.text }}>{periodo ? periodo.split("-").reverse().join("/") : `${d.periodo_ini || "–"} – ${d.periodo_fim || "–"}`}</b></div>
           <div>Atualizado <b style={{ color: C.text }}>{d.gerado_em}</b></div>
-          <button onClick={load} style={{ marginTop: 6, background: "transparent", color: C.orange, border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 12px", fontWeight: 600, cursor: "pointer", fontSize: 12 }}>↻ Atualizar</button>
+          <button onClick={() => load()} style={{ marginTop: 6, background: "transparent", color: C.orange, border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 12px", fontWeight: 600, cursor: "pointer", fontSize: 12 }}>↻ Atualizar</button>
         </div>
       </div>
 
@@ -2316,10 +2336,10 @@ function PainelMarianaPage() {
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginTop: 18 }}>
-        <Kpi cap="Conversão (conversa → lead)" big={(d.conv_pct ?? "–") + "%"} foot={`${d.leads_unicos} leads de ${d.conversas} conversas`} accent />
+        <Kpi cap={semChat ? "Leads no período" : "Conversão (conversa → lead)"} big={semChat ? (d.leads_unicos ?? "–") : (d.conv_pct ?? "–") + "%"} foot={semChat ? "conversão do chat só no modo Tudo" : `${d.leads_unicos} leads de ${d.conversas} conversas`} accent />
         <Kpi cap="NPS da satisfação" big={sat.nps ?? "–"} foot="acima de 70 = excelência" accent />
         <Kpi cap="Nota média" big={String(sat.media ?? "–").replace(".", ",")} foot={`${sat.aval || 0} avaliações`} />
-        <Kpi cap="Leads gerados" big={d.leads_unicos ?? "–"} foot={`~${String(d.msgs_media ?? "").replace(".", ",")} msgs por conversa`} />
+        <Kpi cap="Leads gerados" big={d.leads_unicos ?? "–"} foot={semChat ? "no período selecionado" : `~${String(d.msgs_media ?? "").replace(".", ",")} msgs por conversa`} />
       </div>
 
       {/* Trend */}
@@ -2443,8 +2463,8 @@ function PainelMarianaPage() {
         !site ? <p style={{ color: C.textMuted, marginTop: 24 }}>Carregando leads do site…</p> : (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginTop: 20 }}>
-              <Kpi cap="Leads do site (total)" big={site.total || 0} foot="formulário + cliques no WhatsApp do site" />
-              <Kpi cap="Últimos 30 dias" big={site.ult30d || 0} foot="novos leads do site" accent />
+              <Kpi cap={periodo ? "Leads do site (mês)" : "Leads do site (total)"} big={site.total || 0} foot="formulário + cliques no WhatsApp do site" />
+              <Kpi cap="Últimos 30 dias" big={site.ult30d || 0} foot="novos leads do site (sempre corrido)" accent />
             </div>
 
             <p style={secLabel}>Por status</p>
