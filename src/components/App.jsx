@@ -49,8 +49,9 @@ const VARIANTS_PONTA_FIT40 = [
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
 
-// Canto: só 1,70m e 2,00m (recipe do Ale); cor Branca/Preta.
+// Canto: Fit 40/Fit 60; só 1,70m e 2,00m (recipe do Ale); cor Branca/Preta.
 const VARIANTS_CANTO = [
+  { key: "linha", label: "Linha", options: ["Fit 40", "Fit 60"] },
   { key: "altura", label: "Altura", options: ["1,70m", "2,00m"] },
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
@@ -1363,6 +1364,11 @@ const FIT60_SUBST = {
   "nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22": "nome:amapa-fit-60kg-bandeja-ponta-50-98cm-preta-unidade-ch-22",
   "nome:amapa-fit-painel-ponta-78-34cm-branco-unidade": "nome:amapa-fit-painel-ponta-98-34cm-branco-unidade-ch-26",
   "nome:amapa-fit-painel-ponta-78-34cm-preto-unidade": "nome:amapa-fit-painel-ponta-98-34cm-preto-unidade-ch-26",
+  // Canto Fit 60: bandeja fundo 40→50, prateleiras 30→40. (par SLG 30→40cm já mapeado; painel de canto e porta-etiqueta não mudam.)
+  "nome:amapa-fit-bandeja-canto-40cm-branca-unidade-ch24": "nome:amapa-fit-bandeja-canto-50cm-branca-unidade-ch24",
+  "nome:amapa-fit-bandeja-canto-40cm-preta-unidade-ch24": "nome:amapa-fit-bandeja-canto-50cm-preta-unidade-ch24",
+  "nome:amapa-fit-bandeja-canto-30cm-branca-unidade-ch24": "nome:amapa-fit-bandeja-canto-40cm-branca-unidade-ch24",
+  "nome:amapa-fit-bandeja-canto-30cm-preta-unidade-ch24": "nome:amapa-fit-bandeja-canto-40cm-preta-unidade-ch24",
 };
 // Aplica a substituição Fit 60 sobre uma receita Fit 40 (peça não mapeada = igual).
 function aplicarLinhaFit60(receita, selVariants) {
