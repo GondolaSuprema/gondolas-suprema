@@ -5629,7 +5629,53 @@ function ComissoesPage({ user }) {
 }
 
 // ─── ADMIN ───
-function LeadsPage({ user, setClientData, setPage }) {
+// Modal com o resumo da conversa do lead — aparece ao chegar na aba Produtos
+// vindo de um "Fazer orçamento", pra o consultor lembrar quem é o cliente.
+function LeadContextoModal({ lead, onClose }) {
+  if (!lead) return null;
+  const l = lead;
+  const linha = (rot, val) => val ? (
+    <div style={{ display: "flex", gap: 8, fontSize: 13, marginBottom: 6 }}>
+      <span style={{ color: COLORS.textDim, minWidth: 96, flexShrink: 0 }}>{rot}</span>
+      <span style={{ color: COLORS.text, whiteSpace: "pre-wrap" }}>{val}</span>
+    </div>
+  ) : null;
+  const ct = (t) => { const s = String(t || "").toLowerCase(); if (s.includes("quente")) return COLORS.danger; if (s.includes("morno")) return COLORS.accent; if (s.includes("frio")) return "#3B82F6"; return COLORS.textMuted; };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 1000 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 20, maxWidth: 560, width: "100%", maxHeight: "85vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: COLORS.text }}>Lembrete da conversa</h3>
+          {l.temperatura && <span style={{ fontSize: 12, fontWeight: 700, color: ct(l.temperatura), border: `1px solid ${ct(l.temperatura)}55`, borderRadius: 999, padding: "2px 10px" }}>{String(l.temperatura).toUpperCase()}</span>}
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          {linha("Cliente", l.nome)}
+          {linha("Telefone", l.telefone)}
+          {linha("Cidade", l.cidade)}
+          {linha("Interesse", l.interesse)}
+          {linha("Ramo/uso", l.ramo_uso)}
+          {linha("Medidas", l.medidas)}
+          {linha("Altura", l.altura)}
+          {linha("Modelo MPP", l.modelo_mpp)}
+          {linha("Dúvidas", l.duvidas)}
+          {linha("Outras infos", l.outras)}
+          {linha("Consultor", l.consultor)}
+        </div>
+        {l.lead_texto && (
+          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 12, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.textDim, marginBottom: 6, textTransform: "uppercase", letterSpacing: .5 }}>Resumo da Mariana</div>
+            <div style={{ fontSize: 13, color: COLORS.text, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{l.lead_texto}</div>
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "9px 22px", borderRadius: 9, fontSize: 14, fontWeight: 700, cursor: "pointer", background: COLORS.accent, color: "#000", border: "none" }}>Fechar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
   const ehGestao = user?.role === "admin" || user?.role === "gestor";
   const CONSULTORES = ["Willian", "Alessandro", "Adelmo"];
@@ -5702,6 +5748,7 @@ function LeadsPage({ user, setClientData, setPage }) {
       email: "", endereco: "", numero: "", bairro: "", cidade: l.cidade || "", estado: "", cep: "",
     });
     if (String(l.status_atendimento || "pendente") === "pendente") setStatus(l, "atendido");
+    if (setLeadContexto) setLeadContexto(l); // guarda a conversa p/ o modal aparecer na aba Produtos
     setPage("client");
   };
 
@@ -5953,8 +6000,8 @@ function LeadsPage({ user, setClientData, setPage }) {
                 </div>
               )}
 
-              {/* Depois de atendido, aparecem as opções do CRM */}
-              {(cur === "atendido" || cur === "aguardando") && (
+              {/* Ações: Fazer orçamento e Desistir sempre à mão; "Aguardando" só após atendido */}
+              {cur !== "desistiu" && (
                 <div style={{ marginTop: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
                   {desistindo === l.id ? (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
@@ -5967,7 +6014,7 @@ function LeadsPage({ user, setClientData, setPage }) {
                   ) : (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                       <span style={{ fontSize: 12, color: COLORS.textDim, marginRight: 2 }}>E agora:</span>
-                      {acaoBtn("Aguardando cliente", AZUL, cur === "aguardando", () => setStatus(l, "aguardando"))}
+                      {(cur === "atendido" || cur === "aguardando") && acaoBtn("Aguardando cliente", AZUL, cur === "aguardando", () => setStatus(l, "aguardando"))}
                       {acaoBtn("Fazer orçamento", COLORS.accent, false, () => fazerOrcamento(l))}
                       {acaoBtn("Desistir", COLORS.danger, false, () => setDesistindo(l.id))}
                     </div>
@@ -10499,6 +10546,7 @@ export default function App() {
   const [contGondolaModal, setContGondolaModal] = useState(null); // { cont, sel, qtd, perguntarQtd }
   const EMPTY_CLIENT = { empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" };
   const [clientData, setClientData] = useState(EMPTY_CLIENT);
+  const [leadContexto, setLeadContexto] = useState(null); // conversa do lead p/ o modal na aba Produtos
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [editingOrderInfo, setEditingOrderInfo] = useState(null); // { num, empresa, qtdItens, totalAtual } — mostrado no banner do Resumo
   const [ordersRefreshKey, setOrdersRefreshKey] = useState(0); // incrementado apos salvar pra forcar reload da lista
@@ -10666,6 +10714,7 @@ export default function App() {
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "catalog" && user && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} mppChinaProducts={mppChinaProducts} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "catalog" && user && leadContexto && <LeadContextoModal lead={leadContexto} onClose={() => setLeadContexto(null)} />}
       {page === "catalog" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
       {page === "quote" && !user && <Login onLogin={login} setPage={setPage} />}
@@ -10673,7 +10722,7 @@ export default function App() {
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} setClientData={setClientData} setPage={setPage} />}
+      {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} setClientData={setClientData} setPage={setPage} setLeadContexto={setLeadContexto} />}
       {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
