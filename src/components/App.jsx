@@ -26,6 +26,7 @@ const CATEGORIES = [
   { key: "gondolas-parede", label: "Gôndolas de Parede" },
   { key: "gondolas-centro", label: "Gôndolas de Centro" },
   { key: "ponta-gondola", label: "Ponta de Gôndola" },
+  { key: "canto", label: "Canto de Gôndola" },
   { key: "mpp", label: "MPP" },
   { key: "slim", label: "Slim" },
   { key: "moveis", label: "Móveis" },
@@ -45,6 +46,12 @@ const VARIANTS_GONDOLA_PAREDE = [
 // sem a variante "linha", não mostra a pill Fit 40/Fit 60 e fica sempre Fit 40.
 const VARIANTS_PONTA_FIT40 = [
   { key: "altura", label: "Altura", options: ["1,37m", "1,70m", "2,00m"] },
+  { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
+];
+
+// Canto: só 1,70m e 2,00m (recipe do Ale); cor Branca/Preta.
+const VARIANTS_CANTO = [
+  { key: "altura", label: "Altura", options: ["1,70m", "2,00m"] },
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
 
@@ -68,6 +75,35 @@ const VARIANTS_SLIM_SA = [
 // Receitas: cada produto + variante recebe uma lista [uniplusId, qtd]
 // Quando o preco do componente muda em produtos_uniplus, o preco da gondola se atualiza automaticamente.
 const PRODUCT_RECIPES = {
+  // ── CANTO (id 600) — 1,70m: 5 painéis de canto; 2,00m: 6 (só +1 painel); resto igual ──
+  "600|1,70m|Branca": [
+    ["nome:amapa-fit-painel-canto-branco-unidade-ch-26", 5],   // PAINEL CANTO BRANCO
+    ["nome:amapa-fit-bandeja-canto-40cm-branca-unidade-ch24", 1],   // BANDEJA CANTO 40 (fundo)
+    ["nome:amapa-fit-bandeja-canto-30cm-branca-unidade-ch24", 4],   // BANDEJA CANTO 30 (prateleiras)
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 4],   // PAR SLG 30CM
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],   // PORTA ETIQUETA
+  ],
+  "600|2,00m|Branca": [
+    ["nome:amapa-fit-painel-canto-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-bandeja-canto-40cm-branca-unidade-ch24", 1],
+    ["nome:amapa-fit-bandeja-canto-30cm-branca-unidade-ch24", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+  ],
+  "600|1,70m|Preta": [
+    ["nome:amapa-fit-painel-canto-preto-unidade-ch-26", 5],
+    ["nome:amapa-fit-bandeja-canto-40cm-preta-unidade-ch24", 1],
+    ["nome:amapa-fit-bandeja-canto-30cm-preta-unidade-ch24", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+  ],
+  "600|2,00m|Preta": [
+    ["nome:amapa-fit-painel-canto-preto-unidade-ch-26", 6],
+    ["nome:amapa-fit-bandeja-canto-40cm-preta-unidade-ch24", 1],
+    ["nome:amapa-fit-bandeja-canto-30cm-preta-unidade-ch24", 4],
+    ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
+    ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+  ],
   // Parede Inicial c/ Bandeja - 1,37m - Branca
   "100|1,37m|Branca": [
     ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
@@ -1416,6 +1452,9 @@ const PRODUCTS = [
   // ── PONTA DE GÔNDOLA (novo modelo com variantes) ──
   { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
   { id: 302, name: "Ponta c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_PONTA_FIT40 },
+
+  // ── CANTO DE GÔNDOLA ──
+  { id: 600, name: "Canto c/ Bandeja",     category: "canto", icon: "◣", price: 0, specs: {}, options: [], variants: VARIANTS_CANTO },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
@@ -2928,7 +2967,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
         </div>
           );
         })()
-      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "mpp" || filter === "slim" || filter === "mdf" ? (
+      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "canto" || filter === "mpp" || filter === "slim" || filter === "mdf" ? (
         // Visualização em lista para Gôndolas de Parede, Centro, Ponta, MPP, Slim e MDF
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
