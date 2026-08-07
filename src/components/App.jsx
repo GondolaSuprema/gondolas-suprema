@@ -41,6 +41,13 @@ const VARIANTS_GONDOLA_PAREDE = [
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
 
+// Ponta c/ Gancho existe SÓ na Fit 40 (sem Fit 60, decisão do Ale 06-ago):
+// sem a variante "linha", não mostra a pill Fit 40/Fit 60 e fica sempre Fit 40.
+const VARIANTS_PONTA_FIT40 = [
+  { key: "altura", label: "Altura", options: ["1,37m", "1,70m", "2,00m"] },
+  { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
+];
+
 const VARIANTS_MPP = [
   { key: "largura", label: "Largura", options: ["1200mm", "1800mm"] },
   { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
@@ -1408,7 +1415,7 @@ const PRODUCTS = [
   { id: 36, name: "Centro Continuação 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2155.65, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 2021.3 }] },
   // ── PONTA DE GÔNDOLA (novo modelo com variantes) ──
   { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  { id: 302, name: "Ponta c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 302, name: "Ponta c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_PONTA_FIT40 },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
