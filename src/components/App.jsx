@@ -36,6 +36,14 @@ const CATEGORIES = [
 ];
 
 const VARIANTS_GONDOLA_PAREDE = [
+  { key: "linha", label: "Linha", options: ["Fit 40", "Fit 60"] },
+  { key: "altura", label: "Altura", options: ["1,37m", "1,70m", "2,00m"] },
+  { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
+];
+
+// Ponta ainda NÃO tem o split Fit 40/Fit 60 (usa peças de ponta próprias:
+// bandeja ponta 40×98/50×98 + painel ponta 98). Fica sem "linha" até implementar.
+const VARIANTS_PONTA = [
   { key: "altura", label: "Altura", options: ["1,37m", "1,70m", "2,00m"] },
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
@@ -1289,9 +1297,40 @@ const PRODUCT_RECIPES = {
   ],
 };
 
+// Fit 60 = Fit 40 com peças reforçadas. Só mudam: coluna (base 50cm/60kg),
+// bandeja (60kg — fundo 50×90 / prateleiras 40×90) e par SLG (40cm). As peças
+// compartilhadas (painel, cesto, gancho, porta-etiqueta, divisórias) NÃO mudam.
+// A receita Fit 60 é gerada a partir da Fit 40 trocando só as peças abaixo.
+const FIT60_SUBST = {
+  "nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18": "nome:amapa-fit-60kg-coluna-parede-1-06m-base-50cm-branca-unidade",
+  "nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-preto-unidade-ch-18": "nome:amapa-fit-60kg-coluna-parede-1-06m-base-50cm-preta-unidade",
+  "nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-branco-unidade": "nome:amapa-fit-60kg-coluna-centro-1-06m-base-50cm-branca-unidade-ch-22",
+  "nome:amapa-fit-40kg-coluna-centro-1-06m-base-40cm-preto-unidade-ch-18": "nome:amapa-fit-60kg-coluna-centro-1-06m-base-50cm-preta-unidade-ch-22",
+  "nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18": "nome:amapa-fit-60kg-coluna-complementar-p-1-37m-branco-unidade-ch-18",
+  "nome:amapa-fit-40kg-coluna-complementar-p-1-37m-preto-unidade-ch-18": "nome:amapa-fit-60kg-coluna-complementar-p-1-37m-preto-unidade-ch-18",
+  "nome:amapa-fit-40kg-coluna-complementar-p-1-70m-branco-unidade-ch-18": "nome:amapa-fit-60kg-coluna-complementar-p-1-70m-branco-unidade-ch-14",
+  "nome:amapa-fit-40kg-coluna-complementar-p-1-70m-preto-unidade-ch-18": "nome:amapa-fit-60kg-coluna-complementar-p-1-70m-preto-unidade-ch-14",
+  "nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18": "nome:amapa-fit-60kg-coluna-complementar-p-2-02m-branco-unidade-ch-14",
+  "nome:amapa-fit-40kg-coluna-complementar-p-2-02m-preto-unidade-ch-18": "nome:amapa-fit-60kg-coluna-complementar-p-2-02m-preto-un-ch-14",
+  "nome:amapa-fit-40kg-bandeja-40-90cm-branca-unidade-ch-26": "nome:amapa-fit-60kg-bandeja-50-90cm-branco-unidade-ch-22",
+  "nome:amapa-fit-40kg-bandeja-40-90cm-preta-unidade-ch-26": "nome:amapa-fit-60kg-bandeja-50-90cm-preto-unidade-ch-22",
+  "nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26": "nome:amapa-fit-60kg-bandeja-40-90cm-branco-unidade-ch-22",
+  "nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26": "nome:amapa-fit-60kg-bandeja-40-90cm-preto-unidade-ch-22",
+  "nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16": "nome:amapa-fit-60kg-par-slg-40cm-branco-ch-14",
+  "nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16": "nome:amapa-fit-60kg-par-slg-40cm-preto-ch-14",
+};
+// Aplica a substituição Fit 60 sobre uma receita Fit 40 (peça não mapeada = igual).
+function aplicarLinhaFit60(receita, selVariants) {
+  if (!Array.isArray(receita) || selVariants?.linha !== "Fit 60") return receita;
+  return receita.map(([id, q]) => [FIT60_SUBST[id] || id, q]);
+}
+
 function recipeKeyForProduct(product, selVariants) {
   if (!product || !selVariants || !product.variants) return null;
-  const parts = product.variants.map(v => selVariants[v.key]);
+  // "linha" (Fit 40/Fit 60) NÃO entra na chave: a receita base é a Fit 40 e a
+  // Fit 60 é derivada por substituição (aplicarLinhaFit60).
+  const vars = product.variants.filter(v => v.key !== "linha");
+  const parts = vars.map(v => selVariants[v.key]);
   if (parts.some(p => !p)) return null;
   return [product.id, ...parts].join("|");
 }
@@ -1299,7 +1338,8 @@ function recipeKeyForProduct(product, selVariants) {
 function computeProductPrice(product, selVariants, selOpts, uniplusPriceMap) {
   const key = recipeKeyForProduct(product, selVariants);
   if (key && PRODUCT_RECIPES[key]) {
-    return PRODUCT_RECIPES[key].reduce((sum, [id, qty]) => sum + ((uniplusPriceMap || {})[id] || 0) * qty, 0);
+    const receita = aplicarLinhaFit60(PRODUCT_RECIPES[key], selVariants);
+    return receita.reduce((sum, [id, qty]) => sum + ((uniplusPriceMap || {})[id] || 0) * qty, 0);
   }
   const optPrice = (product.options || [])[selOpts?.[0]]?.price;
   return optPrice ?? product.price ?? 0;
@@ -1365,8 +1405,8 @@ const PRODUCTS = [
   { id: 35, name: "Centro Inicial 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2294.05, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 2159.25 }] },
   { id: 36, name: "Centro Continuação 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2155.65, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 2021.3 }] },
   // ── PONTA DE GÔNDOLA (novo modelo com variantes) ──
-  { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
-  { id: 302, name: "Ponta c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_PONTA },
+  { id: 302, name: "Ponta c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_PONTA },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
@@ -3608,18 +3648,23 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         ? recipeKeyForProduct(orig, sel)
         : null;
 
+      // "linha" (Fit 40/Fit 60) não entra na chave da receita; detecta Fit 60
+      // (por selVariants OU pelos opts salvos) pra trocar as peças no desmembramento.
+      const ehFit60 = sel.linha === "Fit 60" || (Array.isArray(it.opts) && it.opts.includes("Fit 60"));
+
       // Fallback: monta key com it.opts. A ordem salva em it.opts depende
       // de em qual sequência o vendedor clicou as variantes — NÃO é
       // confiável. Tenta a ordem como veio e, se não bater, reordena
       // conforme orig.variants (cada valor casado com a variante cujas
-      // options o contêm).
+      // options o contêm). Ignora "Fit 40"/"Fit 60" (linha não entra na chave).
       if (!key && orig && orig.id != null && Array.isArray(it.opts) && it.opts.length) {
-        const candidate = [orig.id, ...it.opts].join("|");
+        const optsBase = it.opts.filter(o => o !== "Fit 40" && o !== "Fit 60");
+        const candidate = [orig.id, ...optsBase].join("|");
         if (PRODUCT_RECIPES[candidate]) {
           key = candidate;
         } else if (Array.isArray(orig.variants) && orig.variants.length) {
-          const ordenado = orig.variants.map(v =>
-            it.opts.find(o => (v.options || []).includes(o))
+          const ordenado = orig.variants.filter(v => v.key !== "linha").map(v =>
+            optsBase.find(o => (v.options || []).includes(o))
           );
           if (ordenado.every(Boolean)) {
             const c2 = [orig.id, ...ordenado].join("|");
@@ -3628,7 +3673,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         }
       }
 
-      const receita = key && PRODUCT_RECIPES[key];
+      const receitaBase = key && PRODUCT_RECIPES[key];
+      const receita = receitaBase && (ehFit60 ? receitaBase.map(([id, q]) => [FIT60_SUBST[id] || id, q]) : receitaBase);
       if (!receita) {
         // Não é um conjunto com receita. Antes de marcar como "sem receita",
         // verifica se o item JÁ É uma peça UniPlus avulsa (ex: "Outros Produtos").
