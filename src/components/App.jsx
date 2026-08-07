@@ -41,13 +41,6 @@ const VARIANTS_GONDOLA_PAREDE = [
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
 
-// Ponta ainda NÃO tem o split Fit 40/Fit 60 (usa peças de ponta próprias:
-// bandeja ponta 40×98/50×98 + painel ponta 98). Fica sem "linha" até implementar.
-const VARIANTS_PONTA = [
-  { key: "altura", label: "Altura", options: ["1,37m", "1,70m", "2,00m"] },
-  { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
-];
-
 const VARIANTS_MPP = [
   { key: "largura", label: "Largura", options: ["1200mm", "1800mm"] },
   { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
@@ -1318,6 +1311,15 @@ const FIT60_SUBST = {
   "nome:amapa-fit-40kg-bandeja-30-90cm-preta-unidade-ch-26": "nome:amapa-fit-60kg-bandeja-40-90cm-preto-unidade-ch-22",
   "nome:amapa-fit-40kg-par-slg-30cm-branco-ch-16": "nome:amapa-fit-60kg-par-slg-40cm-branco-ch-14",
   "nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16": "nome:amapa-fit-60kg-par-slg-40cm-preto-ch-14",
+  // Ponta Fit 60: bandeja fundo 40×78→50×98, prateleiras 30×78→40×98, painel 78→98.
+  // (coluna/complementar/SLG usam os mesmos mapeamentos da parede, acima.)
+  // Régua fica 78cm (não existe régua 98) e gancho/porta-etiqueta não mudam.
+  "nome:amapa-fit-40kg-bandeja-ponta-30-78cm-branca-unidade-ch-26": "nome:amapa-fit-60kg-bandeja-ponta-40-98cm-branca-unidade-ch-22",
+  "nome:amapa-fit-40kg-bandeja-ponta-30-78cm-preta-unidade-ch-26": "nome:amapa-fit-60kg-bandeja-ponta-40-98cm-preta-unidade-ch-22",
+  "nome:amapa-fit-60kg-bandeja-ponta-40-78cm-branca-unidade-ch-22": "nome:amapa-fit-60kg-bandeja-ponta-50-98cm-branca-unidade-ch-22",
+  "nome:amapa-fit-60kg-bandeja-ponta-40-78cm-preta-unidade-ch-22": "nome:amapa-fit-60kg-bandeja-ponta-50-98cm-preta-unidade-ch-22",
+  "nome:amapa-fit-painel-ponta-78-34cm-branco-unidade": "nome:amapa-fit-painel-ponta-98-34cm-branco-unidade-ch-26",
+  "nome:amapa-fit-painel-ponta-78-34cm-preto-unidade": "nome:amapa-fit-painel-ponta-98-34cm-preto-unidade-ch-26",
 };
 // Aplica a substituição Fit 60 sobre uma receita Fit 40 (peça não mapeada = igual).
 function aplicarLinhaFit60(receita, selVariants) {
@@ -1405,8 +1407,8 @@ const PRODUCTS = [
   { id: 35, name: "Centro Inicial 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2294.05, specs: { altura: "2,00m", tipo: "Inicial" }, options: [{ label: "Branca" }, { label: "Preta", price: 2159.25 }] },
   { id: 36, name: "Centro Continuação 2,00 c/ Cestos", category: "centro-cestos", icon: "🧺", price: 2155.65, specs: { altura: "2,00m", tipo: "Continuação" }, options: [{ label: "Branca" }, { label: "Preta", price: 2021.3 }] },
   // ── PONTA DE GÔNDOLA (novo modelo com variantes) ──
-  { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_PONTA },
-  { id: 302, name: "Ponta c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_PONTA },
+  { id: 300, name: "Ponta c/ Bandeja", category: "ponta-gondola", icon: "▶️", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
+  { id: 302, name: "Ponta c/ Gancho",     category: "ponta-gondola", icon: "🪝", price: 0, specs: {}, options: [], variants: VARIANTS_GONDOLA_PAREDE },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
