@@ -2190,7 +2190,7 @@ function PainelMarianaPage() {
     const [dash, ml, oc, sd] = await Promise.all([
       supabase.rpc("mariana_dashboard", { p_ini, p_fim }),
       mlQ,
-      supabase.from("orcamentos").select("cliente_telefone,status,total"),
+      supabase.from("orcamentos").select("cliente_telefone,status,total,valor_recebido,data_pagamento"),
       supabase.rpc("site_dashboard", { p_ini, p_fim }),
     ]);
     if (dash.error) setErro(dash.error.message); else setD(dash.data);
@@ -2204,23 +2204,25 @@ function PainelMarianaPage() {
 
   // ── funil de leads: recebidos → viraram orçamento → concluídos ──
   const _f8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
-  const _foneOrc = {}, _foneConcl = {};
+  const _foneOrc = {}, _fonePago = {};
   (orcs || []).forEach((o) => {
     const f = _f8(o.cliente_telefone); if (f.length !== 8) return;
     _foneOrc[f] = true;
-    if (o.status === "Concluído") _foneConcl[f] = { total: Number(o.total) || 0 };
+    // Venda entra no funil só quando marcada "Pago" na aba ADM (data_pagamento preenchido).
+    // Valor = o que realmente entrou (valor_recebido); cai pro total só em venda antiga sem o campo.
+    if (o.data_pagamento) _fonePago[f] = { valor: Number(o.valor_recebido) > 0 ? Number(o.valor_recebido) : (Number(o.total) || 0) };
   });
   const funilRecebidos = (leadsF || []).length;
   const funilOrcamento = (leadsF || []).filter(l => _foneOrc[_f8(l.telefone)]).length;
-  const funilConcluido = (leadsF || []).filter(l => _foneConcl[_f8(l.telefone)]).length;
-  const funilValor = (leadsF || []).reduce((s, l) => s + (_foneConcl[_f8(l.telefone)]?.total || 0), 0);
+  const funilPago = (leadsF || []).filter(l => _fonePago[_f8(l.telefone)]).length;
+  const funilValor = (leadsF || []).reduce((s, l) => s + (_fonePago[_f8(l.telefone)]?.valor || 0), 0);
   const funilSemRetorno = (leadsF || []).filter(l => (l.status_atendimento || "") === "sem_retorno").length;
   const _brl = (n) => "R$ " + (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const _pctR = (n) => funilRecebidos ? Math.round((100 * n) / funilRecebidos) : 0;
   const funilConsultor = ["Willian", "Alessandro", "Adelmo"].map((c) => {
     const ls = (leadsF || []).filter(l => l.consultor === c);
-    const vd = ls.filter(l => _foneConcl[_f8(l.telefone)]);
-    return { nome: c, total: ls.length, orc: ls.filter(l => _foneOrc[_f8(l.telefone)]).length, venda: vd.length, valor: vd.reduce((s, l) => s + (_foneConcl[_f8(l.telefone)]?.total || 0), 0), conv: ls.length ? Math.round(100 * vd.length / ls.length) : 0 };
+    const vd = ls.filter(l => _fonePago[_f8(l.telefone)]);
+    return { nome: c, total: ls.length, orc: ls.filter(l => _foneOrc[_f8(l.telefone)]).length, venda: vd.length, valor: vd.reduce((s, l) => s + (_fonePago[_f8(l.telefone)]?.valor || 0), 0), conv: ls.length ? Math.round(100 * vd.length / ls.length) : 0 };
   });
 
   const wrap = { maxWidth: 1000, margin: "0 auto", padding: "24px 18px 64px", fontFamily: "'DM Sans', sans-serif" };
@@ -2298,8 +2300,8 @@ function PainelMarianaPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
         <Kpi cap="Leads recebidos" big={funilRecebidos} foot="qualificados pela Mariana" accent />
         <Kpi cap="Viraram orçamento" big={funilOrcamento} foot={`${_pctR(funilOrcamento)}% dos leads`} />
-        <Kpi cap="Vendas concluídas" big={funilConcluido} foot={`${_pctR(funilConcluido)}% de conversão`} />
-        <Kpi cap="Valor fechado" big={_brl(funilValor)} foot="orçamentos concluídos" />
+        <Kpi cap="Vendas pagas" big={funilPago} foot={`${_pctR(funilPago)}% de conversão`} />
+        <Kpi cap="Valor recebido" big={_brl(funilValor)} foot="vendas marcadas Pago no ADM" />
         <Kpi cap="Sem retorno" big={funilSemRetorno} foot="cliente não respondeu" />
       </div>
 
@@ -2331,7 +2333,7 @@ function PainelMarianaPage() {
             </tbody>
           </table>
         </div>
-        <p style={{ fontSize: 12, color: C.textDim, margin: "12px 0 0" }}>Venda = orçamento com status "Concluído" e o mesmo telefone do lead. Fica ainda mais preciso quando o consultor cria o orçamento pelo botão do lead.</p>
+        <p style={{ fontSize: 12, color: C.textDim, margin: "12px 0 0" }}>Venda = orçamento marcado "Pago" na aba ADM (recebido), com o mesmo telefone do lead. O gráfico preenche conforme você marca as vendas como pagas. Fica ainda mais preciso quando o consultor cria o orçamento pelo botão do lead.</p>
       </div>
 
       {/* KPIs */}
@@ -5891,7 +5893,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     setLoading(true); setErro("");
     const [m, o] = await Promise.all([
       supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }),
-      supabase.from("orcamentos").select("cliente_telefone, status, data"),
+      supabase.from("orcamentos").select("cliente_telefone, status, data, data_pagamento"),
     ]);
     if (m.error) setErro(m.error.message); else setMariana(m.data || []);
     if (!o.error) {
@@ -5899,9 +5901,10 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
       (o.data || []).forEach(r => {
         const f = fone8(r.cliente_telefone); if (f.length !== 8) return;
         s.add(f);
-        const venda = String(r.status) === "Concluído";
+        const venda = !!r.data_pagamento; // venda = marcada "Pago" na aba ADM
         const ts = Date.parse(r.data);
-        if (!Number.isNaN(ts)) { const e = map.get(f) || { orc: [], venda: [] }; e.orc.push(ts); if (venda) e.venda.push(ts); map.set(f, e); }
+        const tsV = Date.parse(r.data_pagamento);
+        if (!Number.isNaN(ts)) { const e = map.get(f) || { orc: [], venda: [] }; e.orc.push(ts); if (venda) e.venda.push(Number.isNaN(tsV) ? ts : tsV); map.set(f, e); }
       });
       setOrcFones(s); setOrcMap(map);
     }
@@ -6095,7 +6098,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                   { label: "Leads", n: desempenho.total, p: null, cor: COLORS.textMuted },
                   { label: "Atendidos", n: desempenho.atend, p: pct(desempenho.atend, desempenho.total), cor: COLORS.success },
                   { label: "Viraram orçamento", n: desempenho.orc, p: pct(desempenho.orc, desempenho.total), cor: COLORS.accent },
-                  { label: "Viraram venda", n: desempenho.venda, p: pct(desempenho.venda, desempenho.total), cor: "#22C55E" },
+                  { label: "Viraram venda (paga)", n: desempenho.venda, p: pct(desempenho.venda, desempenho.total), cor: "#22C55E" },
                 ].map((s) => (
                   <div key={s.label} style={{ flex: "1 1 120px", minWidth: 120, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "10px 12px" }}>
                     <div style={{ fontSize: 22, fontWeight: 800, color: s.cor }}>
