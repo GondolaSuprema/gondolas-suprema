@@ -2168,18 +2168,22 @@ function PainelMarianaPage() {
   const [loading, setLoading] = useState(true);
   const [leadsF, setLeadsF] = useState([]);
   const [orcs, setOrcs] = useState([]);
+  const [aba, setAba] = useState("mariana"); // sub-aba: "mariana" | "site"
+  const [site, setSite] = useState(null);
   const C = COLORS;
 
   const load = async () => {
     setLoading(true); setErro(null);
-    const [dash, ml, oc] = await Promise.all([
+    const [dash, ml, oc, sd] = await Promise.all([
       supabase.rpc("mariana_dashboard"),
       supabase.from("mariana_leads").select("consultor,telefone,status_atendimento"),
       supabase.from("orcamentos").select("cliente_telefone,status,total"),
+      supabase.rpc("site_dashboard"),
     ]);
     if (dash.error) setErro(dash.error.message); else setD(dash.data);
     if (!ml.error) setLeadsF(ml.data || []);
     if (!oc.error) setOrcs(oc.data || []);
+    if (!sd.error) setSite(sd.data);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -2261,6 +2265,14 @@ function PainelMarianaPage() {
         </div>
       </div>
 
+      {/* ═══ SUB-ABAS: Leads da Mariana | Leads do Site ═══ */}
+      <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
+        {[["mariana", "Leads da Mariana"], ["site", "Leads do Site" + (site?.total ? ` (${site.total})` : "")]].map(([k, lab]) => (
+          <button key={k} onClick={() => setAba(k)} style={{ padding: "8px 16px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", background: aba === k ? C.orange : C.card, color: aba === k ? "#000" : C.textMuted, border: `1px solid ${aba === k ? C.orange : C.border}` }}>{lab}</button>
+        ))}
+      </div>
+
+      {aba === "mariana" && (<>
       {/* ═══ FUNIL DE LEADS (recebidos → orçamento → venda) ═══ */}
       <p style={secLabel}>Funil de leads (todos os canais da Mariana)</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
@@ -2424,6 +2436,60 @@ function PainelMarianaPage() {
       <p style={{ fontSize: 12, color: C.textMuted, marginTop: 26, lineHeight: 1.7, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
         <b style={{ color: C.text }}>Leitura:</b> a Mariana converte muito bem e encanta (nota alta / NPS alto). O limite hoje é o <b style={{ color: C.text }}>volume de entrada</b> — mais tráfego no Meta = mais leads, porque o atendimento aguenta. Dados ao vivo, direto do banco.
       </p>
+      </>)}
+
+      {/* ═══ VISÃO: LEADS DO SITE ═══ */}
+      {aba === "site" && (
+        !site ? <p style={{ color: C.textMuted, marginTop: 24 }}>Carregando leads do site…</p> : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginTop: 20 }}>
+              <Kpi cap="Leads do site (total)" big={site.total || 0} foot="formulário + cliques no WhatsApp do site" />
+              <Kpi cap="Últimos 30 dias" big={site.ult30d || 0} foot="novos leads do site" accent />
+            </div>
+
+            <p style={secLabel}>Por status</p>
+            <div style={card}>
+              {Object.keys(site.por_status || {}).length === 0
+                ? <span style={{ color: C.textMuted, fontSize: 13 }}>Sem leads ainda.</span>
+                : Object.entries(site.por_status).sort((a, b) => b[1] - a[1]).map(([k, n]) => (
+                  <Meter key={k} label={k} right={n} w={site.total ? (100 * n) / site.total : 0} color={C.orange} />
+                ))}
+            </div>
+
+            <p style={secLabel}>Por origem</p>
+            <div style={{ ...card, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {Object.keys(site.por_origem || {}).length === 0
+                ? <span style={{ color: C.textMuted, fontSize: 13 }}>—</span>
+                : Object.entries(site.por_origem).map(([k, n]) => (
+                  <span key={k} style={{ fontSize: 12, fontWeight: 600, color: C.text, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 12px" }}>{k}: <b style={{ ...num }}>{n}</b></span>
+                ))}
+            </div>
+
+            <p style={secLabel}>Últimos leads do site</p>
+            <div style={card}>
+              {(site.recentes || []).length === 0
+                ? <span style={{ color: C.textMuted, fontSize: 13 }}>Nenhum lead do site ainda. A estrutura já está pronta pra quando começarem a chegar.</span>
+                : (site.recentes || []).map((l, i) => {
+                  const sub = [l.segmento, l.interesse, l.detalhe].filter(Boolean).join(" · ");
+                  return (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: i < site.recentes.length - 1 ? `1px solid ${C.border}` : "none", fontSize: 13, flexWrap: "wrap" }}>
+                      <div style={{ color: C.text, minWidth: 0 }}>
+                        <b>{l.nome || l.interesse || "Lead do site"}</b>
+                        {sub && <span style={{ color: C.textMuted }}> · {sub}</span>}
+                        {l.telefone && <span style={{ color: C.textMuted }}> · {l.telefone}</span>}
+                      </div>
+                      <div style={{ color: C.textMuted, whiteSpace: "nowrap" }}>{l.origem || "—"} · {l.status || "—"}</div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <p style={{ fontSize: 12, color: C.textMuted, marginTop: 20, lineHeight: 1.7, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+              Leads do site = formulário público e cliques no botão de WhatsApp do site (tabela <code>site_leads</code>). Volume ainda baixo — a estrutura já está pronta pra crescer conforme o site gerar tráfego.
+            </p>
+          </>
+        )
+      )}
     </div>
   );
 }
