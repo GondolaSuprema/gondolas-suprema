@@ -5929,6 +5929,13 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     setSalvandoNota(false);
     if (error) { setErro(error.message); carregar(); } else setNotaEdit({ id: null, texto: "" });
   };
+  // Reatribui o lead a outro consultor (só gestão). Atualiza otimista + persiste.
+  const trocarConsultor = async (lead, novo) => {
+    if (!novo || novo === lead.consultor) return;
+    setMariana(ls => ls.map(l => l.id === lead.id ? { ...l, consultor: novo } : l));
+    const { error } = await supabase.from("mariana_leads").update({ consultor: novo }).eq("id", lead.id);
+    if (error) { setErro(error.message); carregar(); }
+  };
 
   // "Fazer orçamento": leva os dados coletados pela Mariana pra aba Cliente e abre ela
   const fazerOrcamento = (l) => {
@@ -6152,7 +6159,16 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                 {l.cidade && chip(l.cidade, COLORS.textMuted)}
                 {l.interesse && chip(l.interesse, COLORS.accent)}
                 {l.ramo_uso && chip(l.ramo_uso, COLORS.textMuted)}
-                {ehGestao && l.consultor && chip("Consultor: " + l.consultor, COLORS.textMuted)}
+                {ehGestao && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 6px 2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: COLORS.textMuted + "1A", color: COLORS.textMuted, border: `1px solid ${COLORS.textMuted}44` }} title="Trocar o consultor deste lead">
+                    Consultor:
+                    <select value={l.consultor || ""} onChange={e => trocarConsultor(l, e.target.value)} onClick={e => e.stopPropagation()}
+                      style={{ background: "transparent", color: COLORS.text, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", outline: "none", fontFamily: "inherit", colorScheme: "dark" }}>
+                      {l.consultor && !CONSULTORES.includes(l.consultor) && <option value={l.consultor}>{l.consultor}</option>}
+                      {CONSULTORES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </span>
+                )}
                 {cur === "desistiu" && l.motivo_desistencia && chip("Motivo: " + l.motivo_desistencia, COLORS.danger)}
               </div>
               {(l.duvidas || l.lead_texto) && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.duvidas || l.lead_texto}</p>}
