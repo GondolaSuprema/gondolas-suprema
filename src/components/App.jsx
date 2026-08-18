@@ -2764,7 +2764,8 @@ function Login({ onLogin, setPage }) {
       if (msg.toLowerCase().includes("invalid")) return setErr("E-mail ou senha incorretos.");
       return setErr(msg);
     }
-    const meta = data.user?.user_metadata || {};
+    // role/legacy_id vêm do app_metadata (seguro, não editável pelo usuário); name/isAdmin do user_metadata como reserva
+    const meta = { ...(data.user?.user_metadata || {}), ...(data.user?.app_metadata || {}) };
     const u = {
       id: meta.legacy_id || data.user.id,
       name: meta.name || data.user.email,
@@ -10844,7 +10845,7 @@ export default function App() {
 
     const mapSessionUser = (sessionUser) => {
       if (!sessionUser) return null;
-      const meta = sessionUser.user_metadata || {};
+      const meta = { ...(sessionUser.user_metadata || {}), ...(sessionUser.app_metadata || {}) }; // app_metadata (seguro) tem prioridade
       return {
         id: meta.legacy_id || sessionUser.id,
         name: meta.name || sessionUser.email,
