@@ -7820,6 +7820,7 @@ function FinanceiroPage({ user }) {
   const [atrasadas, setAtrasadas] = useState([]);
   // Boletos a pagar — tabela boletos_a_pagar
   const [boletos, setBoletos] = useState([]);
+  const [copiadoBoleto, setCopiadoBoleto] = useState(null); // feedback "Copiado!" no botão do código de barras
   // Filtro de status dos boletos: "em_aberto" (default) | "pagos" | "todos"
   const [boletoStatusFiltro, setBoletoStatusFiltro] = useState("em_aberto");
   // Célula de boleto em edição inline: { id, campo: "vencimento"|"valor" }
@@ -8585,7 +8586,12 @@ function FinanceiroPage({ user }) {
                               {b.codigo_barras ? (
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }} title={b.codigo_barras}>{b.codigo_barras}</span>
-                                  <button onClick={() => { navigator.clipboard.writeText(b.codigo_barras); }} title="Copiar" style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.accent, padding: "2px 8px", borderRadius: 5, fontSize: 10, cursor: "pointer", flexShrink: 0 }}>📋</button>
+                                  <button
+                                    onClick={() => { navigator.clipboard?.writeText(b.codigo_barras); setCopiadoBoleto(b.id); setTimeout(() => setCopiadoBoleto(c => c === b.id ? null : c), 1500); }}
+                                    title="Copiar código de barras"
+                                    style={{ background: copiadoBoleto === b.id ? "#10B98122" : "transparent", border: `1px solid ${copiadoBoleto === b.id ? "#10B981" : COLORS.border}`, color: copiadoBoleto === b.id ? "#10B981" : COLORS.accent, padding: "3px 9px", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap", fontFamily: "'DM Sans', sans-serif" }}>
+                                    {copiadoBoleto === b.id ? "✓ Copiado!" : "📋 Copiar"}
+                                  </button>
                                 </div>
                               ) : <span style={{ color: COLORS.textDim }}>—</span>}
                             </td>
