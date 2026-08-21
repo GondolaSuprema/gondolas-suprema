@@ -1764,7 +1764,6 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "adm", l: "ADM" },
     { k: "financeiro", l: "Financeiro" },
     { k: "nf", l: "NF" },
-    { k: "conciliacao", l: "Conciliação" },
     { k: "marcenaria", l: "Marcenaria" },
   ].filter(i => canAccess(user, i.k));
 
@@ -7801,6 +7800,7 @@ const DESPESAS_FIXAS = [
 function FinanceiroWrapper({ user }) {
   const [sub, setSub] = useState("financeiro");
   const podeDre = canAccess(user, "dre");
+  const podeConc = canAccess(user, "conciliacao");
   const C = COLORS;
   const btn = (k, l) => (
     <button key={k} onClick={() => setSub(k)} style={{ padding: "8px 18px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", background: sub === k ? C.orange : C.card, color: sub === k ? "#000" : C.textMuted, border: `1px solid ${sub === k ? C.orange : C.border}`, fontFamily: "'DM Sans', sans-serif" }}>{l}</button>
@@ -7810,8 +7810,11 @@ function FinanceiroWrapper({ user }) {
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px 20px 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {btn("financeiro", "Financeiro")}
         {podeDre && btn("dre", "DRE")}
+        {podeConc && btn("conciliacao", "Conciliação")}
       </div>
-      {sub === "dre" && podeDre ? <DrePage /> : <FinanceiroPage user={user} />}
+      {sub === "dre" && podeDre ? <DrePage />
+        : sub === "conciliacao" && podeConc ? <ConciliacaoPage user={user} />
+        : <FinanceiroPage user={user} />}
     </div>
   );
 }
@@ -11032,8 +11035,6 @@ export default function App() {
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
       {page === "nf" && canAccess(user, "nf") && <NFPage user={user} />}
       {page === "nf" && !canAccess(user, "nf") && <Login onLogin={login} setPage={setPage} />}
-      {page === "conciliacao" && canAccess(user, "conciliacao") && <ConciliacaoPage user={user} />}
-      {page === "conciliacao" && !canAccess(user, "conciliacao") && <Login onLogin={login} setPage={setPage} />}
       {page === "marcenaria" && canAccess(user, "marcenaria") && <MarcenariaPage />}
       {page === "marcenaria" && !canAccess(user, "marcenaria") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage user={user} />}
