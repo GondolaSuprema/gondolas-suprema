@@ -1766,6 +1766,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "dre", l: "DRE" },
     { k: "nf", l: "NF" },
     { k: "conciliacao", l: "Conciliação" },
+    { k: "marcenaria", l: "Marcenaria" },
   ].filter(i => canAccess(user, i.k));
 
   const activeTab = tabs.find(t => t.k === page);
@@ -2136,7 +2137,7 @@ const ROLE_PERMISSIONS = {
 // financeiro e nf SAÍRAM desta lista: Zanella (gestor) VÊ o financeiro (só
 // leitura) e tem acesso COMPLETO à NF (emite). DRE e Conciliação seguem
 // exclusivos do Ale.
-const ALE_ONLY_TABS = ["dre", "conciliacao"];
+const ALE_ONLY_TABS = ["dre", "conciliacao", "marcenaria"];
 
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
@@ -10353,6 +10354,70 @@ function BoletosAtrasadosBanner({ user, setPage }) {
 // ─── Conciliação Bancária ─────────────────────────────────────────────
 // Fase 1 (upload PDF) + Fase 2 (matching automático) + Fase 3 (ações
 // inline: criar despesa, marcar ignorado, vincular venda).
+// ─── MARCENARIA (orçamentos de móveis sob medida — exclusivo do Ale/v1) ───
+// Dados na tabela marc_orcamentos (RLS: só is_ale()). O html_conteudo é o
+// orçamento pronto (formato celular, com logo/marca d'água) — abre em nova aba
+// para visualizar/imprimir em PDF. Carregado sob demanda (é grande).
+function MarcenariaPage() {
+  const [orcs, setOrcs] = useState(null);
+  const [erro, setErro] = useState("");
+  const [abrindo, setAbrindo] = useState(null);
+
+  useEffect(() => {
+    supabase.from("marc_orcamentos")
+      .select("id,numero,nome_movel,dimensoes,preco_venda,custo_material,mao_obra,lucro,margem")
+      .order("ordem", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) setErro(error.message);
+        else setOrcs(data || []);
+      });
+  }, []);
+
+  async function abrir(id) {
+    setAbrindo(id);
+    const { data, error } = await supabase.from("marc_orcamentos").select("html_conteudo").eq("id", id).single();
+    setAbrindo(null);
+    if (error || !data) { alert("Não foi possível abrir: " + (error?.message || "sem dados")); return; }
+    const w = window.open("", "_blank");
+    if (!w) { alert("Permita pop-ups para visualizar/imprimir o orçamento."); return; }
+    w.document.open(); w.document.write(data.html_conteudo); w.document.close();
+  }
+
+  const fmt = (n) => (n == null ? "—" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px 60px" }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ color: COLORS.text, fontSize: 24, fontWeight: 800, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Marcenaria — Orçamentos</h1>
+        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "6px 0 0" }}>Móveis sob medida — visível somente para você. Toque em Ver / Imprimir para abrir o orçamento e salvar em PDF.</p>
+      </div>
+      {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12 }}>Erro ao carregar: {erro}</div>}
+      {orcs === null && !erro && <div style={{ color: COLORS.textMuted }}>Carregando…</div>}
+      {orcs && orcs.length === 0 && <div style={{ color: COLORS.textMuted }}>Nenhum orçamento cadastrado ainda.</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+        {orcs && orcs.map(o => (
+          <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 18, boxShadow: CARD_GLOW, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div>
+              <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.2 }}>{o.nome_movel}</div>
+              <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 3 }}>Nº {o.numero} · {o.dimensoes}</div>
+            </div>
+            <div style={{ color: COLORS.orange, fontSize: 22, fontWeight: 800, fontFamily: "'DM Sans', sans-serif" }}>{fmt(o.preco_venda)}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12, color: COLORS.textMuted, borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 }}>
+              <span>Material: <b style={{ color: COLORS.text }}>{fmt(o.custo_material)}</b></span>
+              <span>Mão de obra: <b style={{ color: COLORS.text }}>{fmt(o.mao_obra)}</b></span>
+              <span>Lucro: <b style={{ color: COLORS.success }}>{fmt(o.lucro)}</b></span>
+              <span>Margem: <b style={{ color: COLORS.text }}>{o.margem != null ? o.margem + "%" : "—"}</b></span>
+            </div>
+            <button onClick={() => abrir(o.id)} disabled={abrindo === o.id} style={{ marginTop: 6, background: COLORS.orange, color: "#000", border: "none", borderRadius: 9, padding: "10px 14px", fontSize: 13, fontWeight: 700, cursor: abrindo === o.id ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", opacity: abrindo === o.id ? 0.6 : 1 }}>
+              {abrindo === o.id ? "Abrindo…" : "Ver / Imprimir PDF"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ConciliacaoPage({ user }) {
   const BANCOS = [
     { k: "c6_instalacoes",   l: "C6 (Suprema Instalações)",     cor: "#3B82F6" },
@@ -10950,6 +11015,8 @@ export default function App() {
       {page === "nf" && !canAccess(user, "nf") && <Login onLogin={login} setPage={setPage} />}
       {page === "conciliacao" && canAccess(user, "conciliacao") && <ConciliacaoPage user={user} />}
       {page === "conciliacao" && !canAccess(user, "conciliacao") && <Login onLogin={login} setPage={setPage} />}
+      {page === "marcenaria" && canAccess(user, "marcenaria") && <MarcenariaPage />}
+      {page === "marcenaria" && !canAccess(user, "marcenaria") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage user={user} />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "mariana" && canAccess(user, "mariana") && <PainelMarianaPage />}
