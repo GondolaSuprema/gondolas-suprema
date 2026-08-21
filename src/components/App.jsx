@@ -1763,7 +1763,6 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "comissoes", l: "Comissões" },
     { k: "adm", l: "ADM" },
     { k: "financeiro", l: "Financeiro" },
-    { k: "dre", l: "DRE" },
     { k: "nf", l: "NF" },
     { k: "conciliacao", l: "Conciliação" },
     { k: "marcenaria", l: "Marcenaria" },
@@ -7797,6 +7796,26 @@ const DESPESAS_FIXAS = [
   "Sistema", "Aluguel Barracão", "Carro HR", "Contabilidade", "INSS", "SIMPLES", "FGTS"
 ];
 
+// Envolve o Financeiro com sub-abas: [Financeiro | DRE]. A DRE saiu do menu de cima
+// e agora vive aqui dentro (só o Ale/v1 vê a sub-aba DRE, mesmo acesso de antes).
+function FinanceiroWrapper({ user }) {
+  const [sub, setSub] = useState("financeiro");
+  const podeDre = canAccess(user, "dre");
+  const C = COLORS;
+  const btn = (k, l) => (
+    <button key={k} onClick={() => setSub(k)} style={{ padding: "8px 18px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", background: sub === k ? C.orange : C.card, color: sub === k ? "#000" : C.textMuted, border: `1px solid ${sub === k ? C.orange : C.border}`, fontFamily: "'DM Sans', sans-serif" }}>{l}</button>
+  );
+  return (
+    <div>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px 20px 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {btn("financeiro", "Financeiro")}
+        {podeDre && btn("dre", "DRE")}
+      </div>
+      {sub === "dre" && podeDre ? <DrePage /> : <FinanceiroPage user={user} />}
+    </div>
+  );
+}
+
 function FinanceiroPage({ user }) {
   // Somente leitura: só o Ale (admin/v1) edita o Financeiro. Zanella (gestor)
   // e qualquer outro que tenha acesso à aba enxergam tudo mas não alteram nada.
@@ -11007,7 +11026,7 @@ export default function App() {
       {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
-      {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroPage user={user} />}
+      {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroWrapper user={user} />}
       {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
       {page === "dre" && canAccess(user, "dre") && <DrePage />}
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
