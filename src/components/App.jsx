@@ -10439,6 +10439,13 @@ function MarcenariaPage() {
     window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
   }
 
+  async function excluir(o) {
+    if (!window.confirm(`Excluir o orçamento "${o.nome_movel}" (Nº ${o.numero})?\n\nEssa ação apaga o orçamento do sistema e não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("marc_orcamentos").delete().eq("id", o.id);
+    if (error) { setErro("Erro ao excluir: " + error.message); return; }
+    setOrcs(prev => prev.filter(x => x.id !== o.id));
+  }
+
   const fmt = (n) => (n == null ? "—" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const inp = { background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "7px 9px", color: COLORS.text, fontSize: 12.5, fontFamily: "'DM Sans', sans-serif", width: "100%", boxSizing: "border-box" };
 
@@ -10524,6 +10531,7 @@ function MarcenariaPage() {
               <button onClick={() => abrir(o.id)} disabled={abrindo === o.id} style={{ marginTop: 2, background: COLORS.orange, color: "#000", border: "none", borderRadius: 9, padding: "10px 14px", fontSize: 13, fontWeight: 700, cursor: abrindo === o.id ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", opacity: abrindo === o.id ? 0.6 : 1 }}>
                 {abrindo === o.id ? "Abrindo…" : "Ver / Imprimir PDF"}
               </button>
+              <button onClick={() => excluir(o)} style={{ background: "transparent", border: "none", color: COLORS.textDim, fontSize: 11.5, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", alignSelf: "center", padding: "2px 6px" }}>Excluir orçamento</button>
             </div>
           );
         })}
