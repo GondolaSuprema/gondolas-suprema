@@ -10406,7 +10406,7 @@ function MarcenariaPage() {
 
   useEffect(() => {
     supabase.from("marc_orcamentos")
-      .select("id,numero,nome_movel,cliente,cliente_telefone,dimensoes,preco_venda,custo_material,mao_obra,lucro,margem,status_crm,retorno_em,motivo_perda,obs")
+      .select("id,numero,nome_movel,cliente,cliente_telefone,cliente_cidade,dimensoes,preco_venda,custo_material,mao_obra,lucro,margem,status_crm,retorno_em,motivo_perda,obs")
       .order("ordem", { ascending: true })
       .then(({ data, error }) => {
         if (error) setErro(error.message);
@@ -10480,7 +10480,7 @@ function MarcenariaPage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.2 }}>{o.nome_movel}</div>
-                  <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 3 }}>Nº {o.numero} · {o.dimensoes}</div>
+                  <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 3 }}>Nº {o.numero} · {o.dimensoes}{o.cliente_cidade ? ` · ${o.cliente_cidade}` : ""}</div>
                 </div>
                 <span style={{ flexShrink: 0, width: 10, height: 10, borderRadius: "50%", background: st.cor, marginTop: 5 }} />
               </div>
@@ -10497,7 +10497,10 @@ function MarcenariaPage() {
 
               {/* Cliente + telefone */}
               <div style={{ display: "grid", gap: 6 }}>
-                <input placeholder="Nome do cliente" value={o.cliente || ""} onChange={e => setLocal(o.id, { cliente: e.target.value })} onBlur={e => persist(o.id, { cliente: e.target.value })} style={inp} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input placeholder="Nome do cliente" value={o.cliente || ""} onChange={e => setLocal(o.id, { cliente: e.target.value })} onBlur={e => persist(o.id, { cliente: e.target.value })} style={{ ...inp, flex: 1.4 }} />
+                  <input placeholder="Cidade" value={o.cliente_cidade || ""} onChange={e => setLocal(o.id, { cliente_cidade: e.target.value })} onBlur={e => persist(o.id, { cliente_cidade: e.target.value })} style={{ ...inp, flex: 1 }} />
+                </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <input placeholder="WhatsApp (só números)" value={o.cliente_telefone || ""} onChange={e => setLocal(o.id, { cliente_telefone: e.target.value })} onBlur={e => persist(o.id, { cliente_telefone: e.target.value })} style={{ ...inp, flex: 1 }} />
                   <button onClick={() => abrirWhats(o)} title="Chamar no WhatsApp" style={{ flexShrink: 0, background: "#25D366", color: "#fff", border: "none", borderRadius: 8, padding: "0 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>WhatsApp</button>
