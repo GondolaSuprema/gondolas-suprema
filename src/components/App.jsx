@@ -1755,7 +1755,6 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "leads", l: "Leads" },
     { k: "client", l: "Cliente" },
     { k: "catalog", l: "Produtos" },
-    { k: "resumo", l: "Resumo" },
     { k: "orders", l: "Orçamentos" },
     { k: "graficos", l: "Gráficos" },
     { k: "mariana", l: "Painel de Leads" },
