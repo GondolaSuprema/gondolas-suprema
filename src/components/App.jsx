@@ -1765,7 +1765,11 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "financeiro", l: "Financeiro" },
     { k: "nf", l: "NF" },
     { k: "marcenaria", l: "Marcenaria" },
-  ].filter(i => canAccess(user, i.k));
+  ].filter(i => canAccess(user, i.k))
+   // Comissões: pra quem tem Financeiro (Ale/admin) ela vive DENTRO do Financeiro
+   // como sub-aba, então sai do menu de cima. Adelmo (vendedor, sem Financeiro)
+   // continua com Comissões no topo.
+   .filter(i => !(i.k === "comissoes" && canAccess(user, "financeiro")));
 
   const activeTab = tabs.find(t => t.k === page);
 
@@ -5546,7 +5550,7 @@ function ComissoesPage({ user }) {
         // Comissão é só pra Adelmo (v2) e João (v4). Alessandro (v1) e
         // Zanella (v3) são sócios e não entram no cálculo de comissão —
         // suas vendas ficam fora desta aba mesmo quando concluídas.
-        const VENDEDORES_COM_COMISSAO = ["v2", "v4"];
+        const VENDEDORES_COM_COMISSAO = ["v2"];
         const visiveis = data
           .filter(o => !isOrcamentoRsOculto(o))
           .filter(o => VENDEDORES_COM_COMISSAO.includes(o.vendedor_id));
@@ -7801,6 +7805,8 @@ function FinanceiroWrapper({ user }) {
   const [sub, setSub] = useState("financeiro");
   const podeDre = canAccess(user, "dre");
   const podeConc = canAccess(user, "conciliacao");
+  // Comissões dentro do Financeiro: só quem tem Financeiro E comissões = admin (Ale).
+  const podeComissoes = canAccess(user, "comissoes") && canAccess(user, "financeiro");
   const C = COLORS;
   const btn = (k, l) => (
     <button key={k} onClick={() => setSub(k)} style={{ padding: "8px 18px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", background: sub === k ? C.orange : C.card, color: sub === k ? "#000" : C.textMuted, border: `1px solid ${sub === k ? C.orange : C.border}`, fontFamily: "'DM Sans', sans-serif" }}>{l}</button>
@@ -7811,9 +7817,11 @@ function FinanceiroWrapper({ user }) {
         {btn("financeiro", "Financeiro")}
         {podeDre && btn("dre", "DRE")}
         {podeConc && btn("conciliacao", "Conciliação")}
+        {podeComissoes && btn("comissoes", "Comissões")}
       </div>
       {sub === "dre" && podeDre ? <DrePage />
         : sub === "conciliacao" && podeConc ? <ConciliacaoPage user={user} />
+        : sub === "comissoes" && podeComissoes ? <ComissoesPage user={user} />
         : <FinanceiroPage user={user} />}
     </div>
   );
