@@ -10387,20 +10387,39 @@ function BoletosAtrasadosBanner({ user, setPage }) {
 // Dados na tabela marc_orcamentos (RLS: só is_ale()). O html_conteudo é o
 // orçamento pronto (formato celular, com logo/marca d'água) — abre em nova aba
 // para visualizar/imprimir em PDF. Carregado sob demanda (é grande).
+// Funil (CRM) da marcenaria. Ordem e cor de cada etapa.
+const MARC_STATUS = [
+  { k: "enviado",  l: "Enviado",  cor: "#60A5FA" },
+  { k: "pensando", l: "Pensando", cor: "#FBBF24" },
+  { k: "retornar", l: "Retornar", cor: "#FB923C" },
+  { k: "fechado",  l: "Fechado",  cor: "#34D399" },
+  { k: "perdido",  l: "Perdido",  cor: "#F87171" },
+];
+const MARC_STATUS_MAP = Object.fromEntries(MARC_STATUS.map(s => [s.k, s]));
+
 function MarcenariaPage() {
   const [orcs, setOrcs] = useState(null);
   const [erro, setErro] = useState("");
   const [abrindo, setAbrindo] = useState(null);
+  const [filtro, setFiltro] = useState("todos");
+  const hoje = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     supabase.from("marc_orcamentos")
-      .select("id,numero,nome_movel,dimensoes,preco_venda,custo_material,mao_obra,lucro,margem")
+      .select("id,numero,nome_movel,cliente,cliente_telefone,dimensoes,preco_venda,custo_material,mao_obra,lucro,margem,status_crm,retorno_em,motivo_perda,obs")
       .order("ordem", { ascending: true })
       .then(({ data, error }) => {
         if (error) setErro(error.message);
         else setOrcs(data || []);
       });
   }, []);
+
+  const setLocal = (id, campos) => setOrcs(prev => prev.map(o => o.id === id ? { ...o, ...campos } : o));
+  const persist = async (id, campos) => {
+    const { error } = await supabase.from("marc_orcamentos").update(campos).eq("id", id);
+    if (error) setErro("Erro ao salvar: " + error.message);
+  };
+  const mudar = (id, campos) => { setLocal(id, campos); persist(id, campos); };
 
   async function abrir(id) {
     setAbrindo(id);
@@ -10412,36 +10431,102 @@ function MarcenariaPage() {
     w.document.open(); w.document.write(data.html_conteudo); w.document.close();
   }
 
+  function abrirWhats(o) {
+    const tel = (o.cliente_telefone || "").replace(/\D/g, "");
+    if (!tel) { alert("Adicione o telefone do cliente primeiro."); return; }
+    const num = tel.startsWith("55") ? tel : "55" + tel;
+    const msg = encodeURIComponent(`Olá! Aqui é da Gôndolas Suprema, sobre o orçamento do seu ${o.nome_movel}. Posso te ajudar em algo?`);
+    window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
+  }
+
   const fmt = (n) => (n == null ? "—" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  const inp = { background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "7px 9px", color: COLORS.text, fontSize: 12.5, fontFamily: "'DM Sans', sans-serif", width: "100%", boxSizing: "border-box" };
+
+  const lista = orcs ? (filtro === "todos" ? orcs : orcs.filter(o => (o.status_crm || "enviado") === filtro)) : [];
+  const contagem = (k) => orcs ? orcs.filter(o => (o.status_crm || "enviado") === k).length : 0;
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px 60px" }}>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ color: COLORS.text, fontSize: 24, fontWeight: 800, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Marcenaria — Orçamentos</h1>
-        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "6px 0 0" }}>Móveis sob medida — visível somente para você. Toque em Ver / Imprimir para abrir o orçamento e salvar em PDF.</p>
+    <div style={{ maxWidth: 1150, margin: "0 auto", padding: "24px 20px 60px" }}>
+      <div style={{ marginBottom: 16 }}>
+        <h1 style={{ color: COLORS.text, fontSize: 24, fontWeight: 800, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Marcenaria — Acompanhamento</h1>
+        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "6px 0 0" }}>Seu funil de orçamentos de móveis sob medida — visível somente para você. Acompanhe cada cliente, agende retornos e chame no WhatsApp.</p>
       </div>
-      {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12 }}>Erro ao carregar: {erro}</div>}
-      {orcs === null && !erro && <div style={{ color: COLORS.textMuted }}>Carregando…</div>}
-      {orcs && orcs.length === 0 && <div style={{ color: COLORS.textMuted }}>Nenhum orçamento cadastrado ainda.</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
-        {orcs && orcs.map(o => (
-          <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 18, boxShadow: CARD_GLOW, display: "flex", flexDirection: "column", gap: 10 }}>
-            <div>
-              <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.2 }}>{o.nome_movel}</div>
-              <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 3 }}>Nº {o.numero} · {o.dimensoes}</div>
-            </div>
-            <div style={{ color: COLORS.orange, fontSize: 22, fontWeight: 800, fontFamily: "'DM Sans', sans-serif" }}>{fmt(o.preco_venda)}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12, color: COLORS.textMuted, borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 }}>
-              <span>Material: <b style={{ color: COLORS.text }}>{fmt(o.custo_material)}</b></span>
-              <span>Mão de obra: <b style={{ color: COLORS.text }}>{fmt(o.mao_obra)}</b></span>
-              <span>Lucro: <b style={{ color: COLORS.success }}>{fmt(o.lucro)}</b></span>
-              <span>Margem: <b style={{ color: COLORS.text }}>{o.margem != null ? o.margem + "%" : "—"}</b></span>
-            </div>
-            <button onClick={() => abrir(o.id)} disabled={abrindo === o.id} style={{ marginTop: 6, background: COLORS.orange, color: "#000", border: "none", borderRadius: 9, padding: "10px 14px", fontSize: 13, fontWeight: 700, cursor: abrindo === o.id ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", opacity: abrindo === o.id ? 0.6 : 1 }}>
-              {abrindo === o.id ? "Abrindo…" : "Ver / Imprimir PDF"}
-            </button>
-          </div>
+
+      {/* Filtro por etapa do funil */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+        <button onClick={() => setFiltro("todos")} style={{ padding: "7px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: filtro === "todos" ? COLORS.orange : COLORS.card, color: filtro === "todos" ? "#000" : COLORS.textMuted, border: `1px solid ${filtro === "todos" ? COLORS.orange : COLORS.border}` }}>Todos ({orcs ? orcs.length : 0})</button>
+        {MARC_STATUS.map(s => (
+          <button key={s.k} onClick={() => setFiltro(s.k)} style={{ padding: "7px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: filtro === s.k ? s.cor : COLORS.card, color: filtro === s.k ? "#000" : COLORS.textMuted, border: `1px solid ${filtro === s.k ? s.cor : COLORS.border}` }}>{s.l} ({contagem(s.k)})</button>
         ))}
+      </div>
+
+      {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12 }}>{erro}</div>}
+      {orcs === null && !erro && <div style={{ color: COLORS.textMuted }}>Carregando…</div>}
+      {orcs && lista.length === 0 && <div style={{ color: COLORS.textMuted }}>Nenhum orçamento nesta etapa.</div>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(330px, 1fr))", gap: 16 }}>
+        {lista.map(o => {
+          const st = MARC_STATUS_MAP[o.status_crm] || MARC_STATUS_MAP.enviado;
+          const atrasado = o.status_crm === "retornar" && o.retorno_em && o.retorno_em < hoje;
+          return (
+            <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${atrasado ? COLORS.danger : COLORS.border}`, borderRadius: 14, padding: 18, boxShadow: CARD_GLOW, display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.2 }}>{o.nome_movel}</div>
+                  <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 3 }}>Nº {o.numero} · {o.dimensoes}</div>
+                </div>
+                <span style={{ flexShrink: 0, width: 10, height: 10, borderRadius: "50%", background: st.cor, marginTop: 5 }} />
+              </div>
+
+              <div style={{ color: COLORS.orange, fontSize: 22, fontWeight: 800, fontFamily: "'DM Sans', sans-serif" }}>{fmt(o.preco_venda)}</div>
+
+              {/* Etapa do funil */}
+              <div>
+                <label style={{ fontSize: 10.5, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>Etapa</label>
+                <select value={o.status_crm || "enviado"} onChange={e => mudar(o.id, { status_crm: e.target.value })} style={{ ...inp, borderColor: st.cor, color: st.cor, fontWeight: 700, marginTop: 3 }}>
+                  {MARC_STATUS.map(s => <option key={s.k} value={s.k} style={{ color: COLORS.text, background: COLORS.card }}>{s.l}</option>)}
+                </select>
+              </div>
+
+              {/* Cliente + telefone */}
+              <div style={{ display: "grid", gap: 6 }}>
+                <input placeholder="Nome do cliente" value={o.cliente || ""} onChange={e => setLocal(o.id, { cliente: e.target.value })} onBlur={e => persist(o.id, { cliente: e.target.value })} style={inp} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input placeholder="WhatsApp (só números)" value={o.cliente_telefone || ""} onChange={e => setLocal(o.id, { cliente_telefone: e.target.value })} onBlur={e => persist(o.id, { cliente_telefone: e.target.value })} style={{ ...inp, flex: 1 }} />
+                  <button onClick={() => abrirWhats(o)} title="Chamar no WhatsApp" style={{ flexShrink: 0, background: "#25D366", color: "#fff", border: "none", borderRadius: 8, padding: "0 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>WhatsApp</button>
+                </div>
+              </div>
+
+              {/* Retorno (só quando etapa = Retornar) */}
+              {o.status_crm === "retornar" && (
+                <div>
+                  <label style={{ fontSize: 10.5, color: atrasado ? COLORS.danger : COLORS.textDim, textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>{atrasado ? "Retorno vencido!" : "Retornar em"}</label>
+                  <input type="date" value={o.retorno_em || ""} onChange={e => mudar(o.id, { retorno_em: e.target.value || null })} style={{ ...inp, borderColor: atrasado ? COLORS.danger : COLORS.border, marginTop: 3 }} />
+                </div>
+              )}
+
+              {/* Motivo da perda (só quando etapa = Perdido) */}
+              {o.status_crm === "perdido" && (
+                <input placeholder="Motivo da perda (preço, prazo, concorrência…)" value={o.motivo_perda || ""} onChange={e => setLocal(o.id, { motivo_perda: e.target.value })} onBlur={e => persist(o.id, { motivo_perda: e.target.value })} style={{ ...inp, borderColor: COLORS.danger }} />
+              )}
+
+              {/* Observações */}
+              <textarea placeholder="Observações / o que rolou na conversa…" value={o.obs || ""} onChange={e => setLocal(o.id, { obs: e.target.value })} onBlur={e => persist(o.id, { obs: e.target.value })} rows={2} style={{ ...inp, resize: "vertical" }} />
+
+              {/* Números internos */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11.5, color: COLORS.textMuted, borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 }}>
+                <span>Material: <b style={{ color: COLORS.text }}>{fmt(o.custo_material)}</b></span>
+                <span>Mão de obra: <b style={{ color: COLORS.text }}>{fmt(o.mao_obra)}</b></span>
+                <span>Lucro: <b style={{ color: COLORS.success }}>{fmt(o.lucro)}</b></span>
+                <span>Margem: <b style={{ color: COLORS.text }}>{o.margem != null ? o.margem + "%" : "—"}</b></span>
+              </div>
+
+              <button onClick={() => abrir(o.id)} disabled={abrindo === o.id} style={{ marginTop: 2, background: COLORS.orange, color: "#000", border: "none", borderRadius: 9, padding: "10px 14px", fontSize: 13, fontWeight: 700, cursor: abrindo === o.id ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", opacity: abrindo === o.id ? 0.6 : 1 }}>
+                {abrindo === o.id ? "Abrindo…" : "Ver / Imprimir PDF"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
