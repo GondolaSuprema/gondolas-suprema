@@ -10389,6 +10389,7 @@ function BoletosAtrasadosBanner({ user, setPage }) {
 // para visualizar/imprimir em PDF. Carregado sob demanda (é grande).
 // Funil (CRM) da marcenaria. Ordem e cor de cada etapa.
 const MARC_STATUS = [
+  { k: "fazer",    l: "Fazer Orçamento", cor: "#A78BFA" },
   { k: "enviado",  l: "Enviado",  cor: "#60A5FA" },
   { k: "pensando", l: "Pensando", cor: "#FBBF24" },
   { k: "retornar", l: "Retornar", cor: "#FB923C" },
