@@ -10403,6 +10403,8 @@ function MarcenariaPage() {
   const [erro, setErro] = useState("");
   const [abrindo, setAbrindo] = useState(null);
   const [filtro, setFiltro] = useState("todos");
+  const [novo, setNovo] = useState(null); // null = fechado; objeto = formulário aberto
+  const [salvando, setSalvando] = useState(false);
   const hoje = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
@@ -10426,7 +10428,8 @@ function MarcenariaPage() {
     setAbrindo(id);
     const { data, error } = await supabase.from("marc_orcamentos").select("html_conteudo").eq("id", id).single();
     setAbrindo(null);
-    if (error || !data) { alert("Não foi possível abrir: " + (error?.message || "sem dados")); return; }
+    if (error) { alert("Não foi possível abrir: " + error.message); return; }
+    if (!data || !data.html_conteudo) { alert("Este orçamento ainda não tem PDF gerado.\n\nPeça pro Claude gerar o PDF a partir das medidas."); return; }
     const w = window.open("", "_blank");
     if (!w) { alert("Permita pop-ups para visualizar/imprimir o orçamento."); return; }
     w.document.open(); w.document.write(data.html_conteudo); w.document.close();
@@ -10447,6 +10450,30 @@ function MarcenariaPage() {
     setOrcs(prev => prev.filter(x => x.id !== o.id));
   }
 
+  async function criar() {
+    const f = novo || {};
+    if (!f.nome_movel || !f.nome_movel.trim()) { alert("Preencha ao menos o nome do móvel."); return; }
+    const preco = f.preco_venda ? Number(String(f.preco_venda).replace(",", ".")) : null;
+    const custo = f.custo_material ? Number(String(f.custo_material).replace(",", ".")) : null;
+    const mo = preco != null ? Math.round(preco * 0.15 * 100) / 100 : null;
+    const lucro = (preco != null && custo != null && mo != null) ? Math.round((preco - custo - mo) * 100) / 100 : null;
+    const margem = (lucro != null && preco) ? Math.round((lucro / preco) * 1000) / 10 : null;
+    const ordem = (orcs && orcs.length ? Math.max(...orcs.map(o => o.ordem || 0)) : 0) + 1;
+    const row = {
+      ordem, numero: f.numero || null, nome_movel: f.nome_movel.trim(),
+      cliente: f.cliente || null, cliente_cidade: f.cliente_cidade || null, cliente_telefone: f.cliente_telefone || null,
+      dimensoes: f.dimensoes || null, preco_venda: preco, custo_material: custo, mao_obra: mo, lucro, margem,
+      status_crm: f.status_crm || "fazer", obs: f.obs || null,
+    };
+    setSalvando(true);
+    const { data, error } = await supabase.from("marc_orcamentos").insert(row)
+      .select("id,numero,nome_movel,cliente,cliente_telefone,cliente_cidade,dimensoes,preco_venda,custo_material,mao_obra,lucro,margem,status_crm,retorno_em,motivo_perda,obs").single();
+    setSalvando(false);
+    if (error) { setErro("Erro ao criar: " + error.message); return; }
+    setOrcs(prev => [...(prev || []), data]);
+    setNovo(null);
+  }
+
   const fmt = (n) => (n == null ? "—" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const inp = { background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "7px 9px", color: COLORS.text, fontSize: 12.5, fontFamily: "'DM Sans', sans-serif", width: "100%", boxSizing: "border-box" };
 
@@ -10455,10 +10482,41 @@ function MarcenariaPage() {
 
   return (
     <div style={{ maxWidth: 1150, margin: "0 auto", padding: "24px 20px 60px" }}>
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={{ color: COLORS.text, fontSize: 24, fontWeight: 800, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Marcenaria — Acompanhamento</h1>
-        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "6px 0 0" }}>Seu funil de orçamentos de móveis sob medida — visível somente para você. Acompanhe cada cliente, agende retornos e chame no WhatsApp.</p>
+      <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ color: COLORS.text, fontSize: 24, fontWeight: 800, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Marcenaria — Acompanhamento</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "6px 0 0" }}>Seu funil de orçamentos de móveis sob medida — visível somente para você. Acompanhe cada cliente, agende retornos e chame no WhatsApp.</p>
+        </div>
+        <button onClick={() => setNovo(novo ? null : { status_crm: "fazer" })} style={{ flexShrink: 0, background: novo ? COLORS.card : COLORS.orange, color: novo ? COLORS.textMuted : "#000", border: `1px solid ${novo ? COLORS.border : COLORS.orange}`, borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+          {novo ? "Cancelar" : "+ Novo orçamento"}
+        </button>
       </div>
+
+      {novo && (
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.orange}`, borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: CARD_GLOW }}>
+          <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 800, marginBottom: 4, fontFamily: "'DM Sans', sans-serif" }}>Novo orçamento</div>
+          <div style={{ color: COLORS.textDim, fontSize: 11.5, marginBottom: 14 }}>Preencha o que tiver. Só o nome do móvel é obrigatório — o PDF você pede pro Claude gerar depois.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+            <input placeholder="Nome do móvel *" value={novo.nome_movel || ""} onChange={e => setNovo({ ...novo, nome_movel: e.target.value })} style={inp} />
+            <input placeholder="Nº do orçamento" value={novo.numero || ""} onChange={e => setNovo({ ...novo, numero: e.target.value })} style={inp} />
+            <input placeholder="Medidas (ex: 1,50 × 1,00 × 0,60 m)" value={novo.dimensoes || ""} onChange={e => setNovo({ ...novo, dimensoes: e.target.value })} style={inp} />
+            <input placeholder="Cliente" value={novo.cliente || ""} onChange={e => setNovo({ ...novo, cliente: e.target.value })} style={inp} />
+            <input placeholder="Cidade" value={novo.cliente_cidade || ""} onChange={e => setNovo({ ...novo, cliente_cidade: e.target.value })} style={inp} />
+            <input placeholder="WhatsApp (só números)" value={novo.cliente_telefone || ""} onChange={e => setNovo({ ...novo, cliente_telefone: e.target.value })} style={inp} />
+            <input placeholder="Preço de venda (R$)" value={novo.preco_venda || ""} onChange={e => setNovo({ ...novo, preco_venda: e.target.value })} style={inp} />
+            <input placeholder="Custo de material (R$) — opcional" value={novo.custo_material || ""} onChange={e => setNovo({ ...novo, custo_material: e.target.value })} style={inp} />
+            <select value={novo.status_crm || "fazer"} onChange={e => setNovo({ ...novo, status_crm: e.target.value })} style={inp}>
+              {MARC_STATUS.map(s => <option key={s.k} value={s.k} style={{ color: COLORS.text, background: COLORS.card }}>{s.l}</option>)}
+            </select>
+          </div>
+          <textarea placeholder="Observações" value={novo.obs || ""} onChange={e => setNovo({ ...novo, obs: e.target.value })} rows={2} style={{ ...inp, marginTop: 10, resize: "vertical" }} />
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+            <button onClick={criar} disabled={salvando} style={{ background: COLORS.orange, color: "#000", border: "none", borderRadius: 9, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: salvando ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", opacity: salvando ? 0.6 : 1 }}>{salvando ? "Salvando…" : "Criar orçamento"}</button>
+            <button onClick={() => setNovo(null)} style={{ background: "transparent", color: COLORS.textMuted, border: `1px solid ${COLORS.border}`, borderRadius: 9, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+          </div>
+          <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 8 }}>Mão de obra (15%), lucro e margem são calculados automaticamente se você informar preço e custo.</div>
+        </div>
+      )}
 
       {/* Filtro por etapa do funil */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
