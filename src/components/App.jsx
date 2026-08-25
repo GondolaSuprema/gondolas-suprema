@@ -8720,14 +8720,18 @@ function DrePage() {
       .filter(d => filtroEmpresa(d, "empresa"))
       .filter(d => inRange(d.vencimento))
       .reduce((s, d) => s + (Number(d.valor) || 0), 0);
-    // A Receber: vendas concluídas com data_pagamento futura (que ainda não caiu)
+    // A Receber = vendas CONCLUÍDAS ainda NÃO PAGAS (cliente ainda deve).
+    // (Corrige bug da auditoria: antes filtrava por data_pagamento no futuro — mas data_pagamento
+    //  é carimbado quando a venda JÁ foi paga (passado), então o card mostrava o que ACABOU de entrar,
+    //  o oposto de "a receber". Agora conta o que falta receber: sem data_pagamento e sem valor_recebido.)
     const receber30d = vendas
       .filter(o => !isOrcamentoRsOculto(o))
       .filter(o => filtroEmpresa(o, "venda_empresa_recebedora"))
-      .filter(o => o.data_pagamento && inRange(o.data_pagamento.slice(0, 10)))
+      .filter(o => !o.data_pagamento && !(Number(o.valor_recebido) > 0))
       .reduce((s, o) => {
+        // Instalações recebe a comissão; Gôndolas recebe o total da venda.
         if (o.venda_empresa_recebedora === "suprema_instalacoes") {
-          return s + (Number(o.valor_recebido != null ? o.valor_recebido : (o.comissao || 0)) || 0);
+          return s + (Number(o.comissao) || 0);
         }
         return s + (Number(o.total) || 0);
       }, 0);
@@ -8814,7 +8818,11 @@ function DrePage() {
     const receitaBruta = temExtrato
       ? receitaCaixaMes(mes)
       : vendasMes.reduce((s, o) => s + valorReceitaConta(o), 0);
-    const comissoes    = vendasMes.reduce((s, o) => s + (Number(o.comissao) || 0), 0);
+    // Comissão de vendas = REPASSE ao vendedor (20% da comissão da venda), NÃO o markup inteiro.
+    // Conta só as NÃO pagas: as pagas já entram em porTipo("DESPESA_VENDAS") pelo espelho
+    // (despesa id "comissao-<orcId>"), então somá-las aqui de novo dobraria.
+    // (Corrige bug da auditoria: antes somava o markup CHEIO de todas + o espelho = dobro e 5× o valor.)
+    const comissoes    = vendasMes.reduce((s, o) => s + (o.comissao_paga ? 0 : (Number(o.comissao) || 0) * 0.20), 0);
     // Vendas sem data_entrega: caem no mês do orçamento por fallback, mas contabilmente
     // são "sem competência definida" — flaggamos pra visibilidade.
     const vendasSemEntrega = vendasMes.filter(o => !o.data_entrega).length;
@@ -8947,9 +8955,9 @@ function DrePage() {
           <div style={{ background: "#3B82F608", border: `1px solid #3B82F630`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
               <div>
-                <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>💰 A Receber (próximos 30 dias)</div>
+                <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>💰 A Receber (em aberto)</div>
                 <div style={{ color: "#10B981", fontSize: 18, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(fluxo.aReceber)}</div>
-                <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Vendas concluídas com pagamento futuro</div>
+                <div style={{ color: COLORS.textDim, fontSize: 9, marginTop: 2 }}>Vendas concluídas ainda não pagas</div>
               </div>
               <div>
                 <div style={{ color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>💸 A Pagar (próximos 30 dias)</div>
