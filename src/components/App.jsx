@@ -10435,6 +10435,17 @@ function MarcenariaPage() {
     w.document.open(); w.document.write(data.html_conteudo); w.document.close();
   }
 
+  async function abrirPlano(id) {
+    setAbrindo("plano-" + id);
+    const { data, error } = await supabase.from("marc_orcamentos").select("plano_corte").eq("id", id).single();
+    setAbrindo(null);
+    if (error) { alert("Não foi possível abrir: " + error.message); return; }
+    if (!data || !data.plano_corte) { alert("Este orçamento ainda não tem plano de corte.\n\nPeça pro Claude gerar o plano de corte das chapas."); return; }
+    const w = window.open("", "_blank");
+    if (!w) { alert("Permita pop-ups para visualizar/imprimir o plano de corte."); return; }
+    w.document.open(); w.document.write(data.plano_corte); w.document.close();
+  }
+
   function abrirWhats(o) {
     const tel = (o.cliente_telefone || "").replace(/\D/g, "");
     if (!tel) { alert("Adicione o telefone do cliente primeiro."); return; }
@@ -10590,9 +10601,14 @@ function MarcenariaPage() {
                 <span>Margem: <b style={{ color: COLORS.text }}>{o.margem != null ? o.margem + "%" : "—"}</b></span>
               </div>
 
-              <button onClick={() => abrir(o.id)} disabled={abrindo === o.id} style={{ marginTop: 2, background: COLORS.orange, color: "#000", border: "none", borderRadius: 9, padding: "10px 14px", fontSize: 13, fontWeight: 700, cursor: abrindo === o.id ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", opacity: abrindo === o.id ? 0.6 : 1 }}>
-                {abrindo === o.id ? "Abrindo…" : "Ver / Imprimir PDF"}
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                <button onClick={() => abrir(o.id)} disabled={abrindo === o.id} style={{ flex: 1, background: COLORS.orange, color: "#000", border: "none", borderRadius: 9, padding: "10px 12px", fontSize: 12.5, fontWeight: 700, cursor: abrindo === o.id ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", opacity: abrindo === o.id ? 0.6 : 1 }}>
+                  {abrindo === o.id ? "Abrindo…" : "Ver / Imprimir PDF"}
+                </button>
+                <button onClick={() => abrirPlano(o.id)} disabled={abrindo === "plano-" + o.id} title="Ver plano de corte das chapas" style={{ flex: 1, background: "transparent", color: COLORS.orange, border: `1px solid ${COLORS.orange}`, borderRadius: 9, padding: "10px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                  {abrindo === "plano-" + o.id ? "Abrindo…" : "Plano de corte"}
+                </button>
+              </div>
               <button onClick={() => excluir(o)} style={{ background: "transparent", border: "none", color: COLORS.textDim, fontSize: 11.5, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", alignSelf: "center", padding: "2px 6px" }}>Excluir orçamento</button>
             </div>
           );
