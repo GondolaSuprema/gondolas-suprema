@@ -2187,7 +2187,7 @@ function PainelMarianaPage() {
   const load = async (per = periodo) => {
     setLoading(true); setErro(null);
     const { p_ini, p_fim, prox } = rangeDe(per);
-    let mlQ = supabase.from("mariana_leads").select("consultor,telefone,status_atendimento,criado_em");
+    let mlQ = supabase.from("mariana_leads").select("consultor,telefone,status_atendimento,criado_em,origem,origem_campanha");
     if (p_ini) mlQ = mlQ.gte("criado_em", p_ini).lt("criado_em", prox);
     const [dash, ml, oc, sd] = await Promise.all([
       supabase.rpc("mariana_dashboard", { p_ini, p_fim }),
@@ -2218,6 +2218,16 @@ function PainelMarianaPage() {
   const funilConcluido = (leadsF || []).filter(l => _foneConcl[_f8(l.telefone)]).length;
   const funilValor = (leadsF || []).reduce((s, l) => s + (_foneConcl[_f8(l.telefone)]?.total || 0), 0);
   const funilSemRetorno = (leadsF || []).filter(l => (l.status_atendimento || "") === "sem_retorno").length;
+  // Por origem/campanha (quando a Mariana capturar de qual anúncio veio o lead)
+  const porOrigem = (() => {
+    const m = {};
+    (leadsF || []).forEach(l => {
+      const k = (l.origem_campanha && l.origem_campanha.trim()) || (l.origem && l.origem.trim()) || "Direto / orgânico";
+      m[k] = (m[k] || 0) + 1;
+    });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  })();
+  const temOrigemReal = porOrigem.some(([k]) => k !== "Direto / orgânico");
   const _brl = (n) => "R$ " + (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const _pctR = (n) => funilRecebidos ? Math.round((100 * n) / funilRecebidos) : 0;
   const funilConsultor = ["Willian", "Alessandro", "Adelmo"].map((c) => {
@@ -2446,6 +2456,14 @@ function PainelMarianaPage() {
               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: C.accent, lineHeight: 1, ...num }}>{re.followup_ativo || 0}</div>
               <p style={{ fontSize: 12, color: C.textMuted, margin: "6px 0 0" }}>na fila ativa<br />(sendo reengajados)</p>
             </div>
+          </div>
+          <p style={secLabel}>Por origem / campanha</p>
+          <div style={{ ...card, display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {!temOrigemReal
+              ? <span style={{ color: C.textMuted, fontSize: 13, lineHeight: 1.6 }}>Origem ainda não capturada. Quando a Mariana registrar de qual anúncio veio o lead (clique-para-WhatsApp do Meta), o ranking por campanha aparece aqui — e dá pra medir CPL/ROAS por anúncio.</span>
+              : porOrigem.map(([k, n]) => (
+                <span key={k} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: "5px 12px", fontSize: 12.5, color: C.text }}>{k} <b style={{ color: C.accent }}>{n}</b></span>
+              ))}
           </div>
           <p style={secLabel}>Alcance · {d.cidades_distintas || 0} cidades</p>
           <div style={{ ...card, display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -6162,6 +6180,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                 {l.cidade && chip(l.cidade, COLORS.textMuted)}
                 {l.interesse && chip(l.interesse, COLORS.accent)}
                 {l.ramo_uso && chip(l.ramo_uso, COLORS.textMuted)}
+                {(l.origem_campanha || l.origem) && chip("Origem: " + (l.origem_campanha || l.origem), "#8B5CF6")}
                 {ehGestao && (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 6px 2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: COLORS.textMuted + "1A", color: COLORS.textMuted, border: `1px solid ${COLORS.textMuted}44` }} title="Trocar o consultor deste lead">
                     Consultor:
