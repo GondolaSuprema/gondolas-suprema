@@ -67,6 +67,11 @@ const VARIANTS_FARMACIA = [
   { key: "cor", label: "Cor", options: ["Branca"] },
 ];
 
+// Ponta de farmácia: config fixa (1,37m, 55cm, face única) — só cor.
+const VARIANTS_FARMACIA_PONTA = [
+  { key: "cor", label: "Cor", options: ["Branca"] },
+];
+
 const VARIANTS_MPP = [
   { key: "largura", label: "Largura", options: ["1200mm", "1800mm"] },
   { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
@@ -198,6 +203,18 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-30kg-bandeja-ponta-25-55cm-branca-ch-26", 8],
     ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 8],
     ["nome:fit-porta-etiqueta-895mm-verde-claro", 10],
+  ],
+  // ── FARMÁCIA PONTA (id 704) — parede 55cm a 1,37m, face única ──
+  // Complementar 1,37; 4 painéis ponta 55; 1 fundo + 4 prateleiras 25; 4 SLG;
+  // 5 porta-etiqueta. Peças "ponta" de 55 (verificadas). Config do Ale 26-ago.
+  "704|Branca": [
+    ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 2],        // COLUNA PAREDE FIT 30 1,06 BASE 30
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],    // COMPLEMENTAR 1,37
+    ["nome:amapa-fit-painel-ponta-55-34cm-branco-unidade", 4],                      // PAINEL PONTA 55*34
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-55cm-branca-unidade", 1],                // BANDEJA PONTA 30*55 (fundo)
+    ["nome:amapa-fit-30kg-bandeja-ponta-25-55cm-branca-ch-26", 4],                  // BANDEJA PONTA 25*55 (prateleiras)
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 4],                           // PAR SLG 25
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 5],                              // PORTA ETIQUETA VERDE
   ],
   // Parede Inicial c/ Bandeja - 1,37m - Branca
   "100|1,37m|Branca": [
@@ -1560,6 +1577,7 @@ const PRODUCTS = [
   { id: 701, name: "Farmácia Parede Continuação", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
   { id: 702, name: "Farmácia Centro Inicial",     category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
   { id: 703, name: "Farmácia Centro Continuação", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
+  { id: 704, name: "Farmácia Ponta (55cm · 1,37m)", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA_PONTA },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
