@@ -2998,6 +2998,18 @@ function useIsMobile(breakpoint = 720) {
 }
 
 // ─── CATALOG ───
+// MPP China: separa a lista em 2 grupos com cabeçalho — "Módulos" (produtos
+// com variante/receita) e "Avulso" (peças soltas sem variante). Retorna a lista
+// intercalada com marcadores { __header }.
+function mppChinaComGrupos(lista) {
+  const mods = lista.filter(p => (p.variants || []).length > 0);
+  const avulsos = lista.filter(p => !(p.variants || []).length);
+  const out = [];
+  if (mods.length) out.push({ __header: "Módulos" }, ...mods);
+  if (avulsos.length) out.push({ __header: "Avulso" }, ...avulsos);
+  return out;
+}
+
 function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mppChinaFromApp, uniplusPriceMap }) {
   const [filter, setFilter] = useState("gondolas-parede");
   const [search, setSearch] = useState("");
@@ -3256,7 +3268,10 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
           )}
-          {filtered.map((p, idx) => {
+          {(filter === "mpp-china" ? mppChinaComGrupos(filtered) : filtered).map((p, idx, arr) => {
+            if (p.__header) return (
+              <div key={"grp-" + p.__header} style={{ padding: "9px 16px", background: COLORS.bg, borderTop: idx > 0 ? `1px solid ${COLORS.border}` : "none", borderBottom: `1px solid ${COLORS.border}`, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 1.4, color: COLORS.orange, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{p.__header}</div>
+            );
             const sel = getProductVariantSel(p);
             const qty = getProductQty(p);
             const computedPrice = computeProductPrice(p, sel, [0], uniplusPriceMap);
@@ -3266,7 +3281,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
             // horizontal (padrão original).
             if (isMobile) {
               return (
-                <div key={p.id} style={{ padding: "12px 14px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div key={p.id} style={{ padding: "12px 14px", borderBottom: idx < arr.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexDirection: "column", gap: 10 }}>
                   {/* Linha 1: nome + preço */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
                     <div style={{ flex: 1, minWidth: 0, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.3 }} title={p.name}>{p.name}</div>
@@ -3306,7 +3321,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
               );
             }
             return (
-              <div key={p.id} style={{ padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "nowrap", alignItems: "center", gap: 14, minWidth: 0 }}>
+              <div key={p.id} style={{ padding: "10px 16px", borderBottom: idx < arr.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "nowrap", alignItems: "center", gap: 14, minWidth: 0 }}>
                 <div style={{ flex: "0 1 220px", minWidth: 0, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={p.name}>{p.name}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 auto", flexWrap: "nowrap", justifyContent: "flex-start", minWidth: 0 }}>
                   {(p.variants || []).map(v => (
