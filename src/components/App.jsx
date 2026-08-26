@@ -8518,6 +8518,9 @@ function FinanceiroPage({ user }) {
             const noMes = (b) => (b.vencimento || "").startsWith(mesSel);
             const lista = boletos.filter(b => noMes(b) && passaFiltro(b)).sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || ""));
             const vencidos = boletos.filter(b => b.status === "pendente" && b.vencimento && b.vencimento < hojeISO && noMes(b));
+            // Proativo: boletos NÃO vencidos mas vencendo em até 3 dias (qualquer mês) — pagar antes de virar juros.
+            const em3diasISO = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            const venceEmBreve = boletos.filter(b => b.status === "pendente" && b.vencimento && b.vencimento >= hojeISO && b.vencimento <= em3diasISO);
             const totalAberto = boletos.filter(b => b.status === "pendente" && noMes(b)).reduce((s, b) => s + (Number(b.valor) || 0), 0);
             return (
               <>
@@ -8556,6 +8559,13 @@ function FinanceiroPage({ user }) {
                   <div style={{ background: COLORS.danger + "10", borderBottom: `2px solid ${COLORS.danger}30`, padding: "10px 18px" }}>
                     <div style={{ color: COLORS.danger, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>
                       ⚠️ {vencidos.length} boleto{vencidos.length > 1 ? "s" : ""} vencido{vencidos.length > 1 ? "s" : ""} · total {fmt(vencidos.reduce((s, b) => s + Number(b.valor || 0), 0))}
+                    </div>
+                  </div>
+                )}
+                {venceEmBreve.length > 0 && boletoStatusFiltro !== "pagos" && (
+                  <div style={{ background: "#F59E0B10", borderBottom: "2px solid #F59E0B30", padding: "10px 18px" }}>
+                    <div style={{ color: "#F59E0B", fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      ⏰ {venceEmBreve.length} boleto{venceEmBreve.length > 1 ? "s" : ""} vencendo em até 3 dias · total {fmt(venceEmBreve.reduce((s, b) => s + Number(b.valor || 0), 0))} — pague antes de virar juros
                     </div>
                   </div>
                 )}
