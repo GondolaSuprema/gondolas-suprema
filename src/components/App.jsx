@@ -157,6 +157,48 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 6],
     ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],
   ],
+  // ── GÔNDOLA DE FARMÁCIA DE CENTRO (id 702 inicial / 703 continuação) ──
+  // Altura 1,37m, DUPLA FACE. Coluna de centro Fit 30 1,06 base 30 + complementar
+  // 1,37; 4 painéis; prateleiras nos 2 lados (1 fundo 30 + 4 rasas 25 por lado
+  // = 2 fundos + 8 bandejas); 8 SLG; 10 porta-etiqueta. Config do Ale 26-ago.
+  "702|90cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-centro-1-06m-base-30cm-branco-unidade", 2],        // COLUNA CENTRO FIT 30 1,06 BASE 30
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],    // COLUNA COMPLEMENTAR 1,37
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],                      // 4 PAINÉIS 90*34
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],                // FUNDO 30*90 (1 por lado)
+    ["nome:amapa-fit-30kg-bandeja-25-90cm-branca-unidade-ch-26", 8],                // 25*90 (4 por lado)
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 8],                           // 8 PAR SLG 25
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 10],                             // 10 PORTA ETIQUETA VERDE
+  ],
+  // Centro 55cm (estreito) — mesma regra da parede: troca painel/bandejas p/ peças "ponta" 55.
+  "702|55cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-centro-1-06m-base-30cm-branco-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-55-34cm-branco-unidade", 4],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-55cm-branca-unidade", 2],
+    ["nome:amapa-fit-30kg-bandeja-ponta-25-55cm-branca-ch-26", 8],
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 10],
+  ],
+  // Continuação = inicial c/ 1 coluna a menos de cada tipo
+  "703|90cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-centro-1-06m-base-30cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 4],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 2],
+    ["nome:amapa-fit-30kg-bandeja-25-90cm-branca-unidade-ch-26", 8],
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 10],
+  ],
+  "703|55cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-centro-1-06m-base-30cm-branco-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-1-37m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-ponta-55-34cm-branco-unidade", 4],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-55cm-branca-unidade", 2],
+    ["nome:amapa-fit-30kg-bandeja-ponta-25-55cm-branca-ch-26", 8],
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 8],
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 10],
+  ],
   // Parede Inicial c/ Bandeja - 1,37m - Branca
   "100|1,37m|Branca": [
     ["nome:amapa-fit-40kg-coluna-parede-1-06m-base-40cm-branco-unidade-ch-18", 2],   // COLUNA PAREDE 1,06M BASE 40CM BRANCO
@@ -1516,6 +1558,8 @@ const PRODUCTS = [
   // ── GÔNDOLA DE FARMÁCIA (colunas 2,02m, prateleiras rasas 25cm) ──
   { id: 700, name: "Farmácia Parede Inicial",     category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
   { id: 701, name: "Farmácia Parede Continuação", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
+  { id: 702, name: "Farmácia Centro Inicial",     category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
+  { id: 703, name: "Farmácia Centro Continuação", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
