@@ -78,7 +78,10 @@ const VARIANTS_MPP = [
 ];
 
 // MPP China: cada nível = 1 par de longarina + 1 plano (deck). 2 laterais fixos.
+// Comprimento 1,00m (longarina 920 + MDF 1200×600) ou 1,50m (longarina 1340 +
+// MDF 1800×600). Lateral não muda com o comprimento.
 const VARIANTS_MPP_CHINA = [
+  { key: "comp", label: "Comprimento", options: ["1,00m", "1,50m"] },
   { key: "niveis", label: "Níveis", options: ["3", "4", "5", "6"] },
 ];
 
@@ -1243,50 +1246,27 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-par-longarina-z-mpp-500kg-1800mm-laranja", 5],
     ["nome:amapa-transversina-lateral-de-800mm-laranja", 15],
   ],
-  // ── MPP CHINA 200KG INICIAL (id 800) — 2000×1000×600, deck MDF 1200×600 ──
-  // Cada nível = 1 par longarina 920 + 1 plano MDF. 2 laterais fixos.
-  // Peças da tabela produtos_mpp_china (200kg) + MDF da sub-aba MDF (id 52).
-  "800|3": [
-    ["nome:lateral-mini-porta-pallet-2000x600", 2],   // LATERAL 2000×600 200KG
-    ["nome:par-de-longarina-920mm-p-200kg", 3],        // PAR LONGARINA 920 200KG
-    ["nome:mdf-1200x600", 3],                          // PLANO MDF 1200×600 (sub-aba MDF)
-  ],
-  "800|4": [
-    ["nome:lateral-mini-porta-pallet-2000x600", 2],
-    ["nome:par-de-longarina-920mm-p-200kg", 4],
-    ["nome:mdf-1200x600", 4],
-  ],
-  "800|5": [
-    ["nome:lateral-mini-porta-pallet-2000x600", 2],
-    ["nome:par-de-longarina-920mm-p-200kg", 5],
-    ["nome:mdf-1200x600", 5],
-  ],
-  "800|6": [
-    ["nome:lateral-mini-porta-pallet-2000x600", 2],
-    ["nome:par-de-longarina-920mm-p-200kg", 6],
-    ["nome:mdf-1200x600", 6],
-  ],
-  // ── MPP CHINA 200KG CONTINUAÇÃO (id 801) — 1 lateral (compartilha c/ o anterior) ──
-  "801|3": [
-    ["nome:lateral-mini-porta-pallet-2000x600", 1],
-    ["nome:par-de-longarina-920mm-p-200kg", 3],
-    ["nome:mdf-1200x600", 3],
-  ],
-  "801|4": [
-    ["nome:lateral-mini-porta-pallet-2000x600", 1],
-    ["nome:par-de-longarina-920mm-p-200kg", 4],
-    ["nome:mdf-1200x600", 4],
-  ],
-  "801|5": [
-    ["nome:lateral-mini-porta-pallet-2000x600", 1],
-    ["nome:par-de-longarina-920mm-p-200kg", 5],
-    ["nome:mdf-1200x600", 5],
-  ],
-  "801|6": [
-    ["nome:lateral-mini-porta-pallet-2000x600", 1],
-    ["nome:par-de-longarina-920mm-p-200kg", 6],
-    ["nome:mdf-1200x600", 6],
-  ],
+  // ── MPP CHINA 200KG (id 800 inicial / 801 continuação) — alt 2,00 × prof 0,60 ──
+  // Chave: id|comprimento|níveis. Cada nível = 1 par longarina + 1 plano MDF.
+  // 1,00m: longarina 920 + MDF 1200×600 | 1,50m: longarina 1340 + MDF 1800×600.
+  // Lateral não muda com o comprimento. MDF vem da sub-aba MDF (ids 52/54).
+  // Inicial = 2 laterais; Continuação = 1 lateral (compartilha com o anterior).
+  "800|1,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 3], ["nome:mdf-1200x600", 3]],
+  "800|1,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 4], ["nome:mdf-1200x600", 4]],
+  "800|1,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 5], ["nome:mdf-1200x600", 5]],
+  "800|1,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 6], ["nome:mdf-1200x600", 6]],
+  "800|1,50m|3": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 3], ["nome:mdf-1800x600", 3]],
+  "800|1,50m|4": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 4], ["nome:mdf-1800x600", 4]],
+  "800|1,50m|5": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 5], ["nome:mdf-1800x600", 5]],
+  "800|1,50m|6": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 6], ["nome:mdf-1800x600", 6]],
+  "801|1,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 3], ["nome:mdf-1200x600", 3]],
+  "801|1,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 4], ["nome:mdf-1200x600", 4]],
+  "801|1,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 5], ["nome:mdf-1200x600", 5]],
+  "801|1,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 6], ["nome:mdf-1200x600", 6]],
+  "801|1,50m|3": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 3], ["nome:mdf-1800x600", 3]],
+  "801|1,50m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 4], ["nome:mdf-1800x600", 4]],
+  "801|1,50m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 5], ["nome:mdf-1800x600", 5]],
+  "801|1,50m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 6], ["nome:mdf-1800x600", 6]],
 
   // ── MPP 2000×1200×800 CONTINUAÇÃO S/MDF (id 401) ──
   "401|1200mm|3": [
@@ -1636,8 +1616,8 @@ const PRODUCTS = [
   { id: 400, name: "MPP 2000×800 Inicial S/MDF",     category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   { id: 401, name: "MPP 2000×800 Continuação S/MDF", category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   // ── MPP CHINA (preto) — módulos montados por receita, deck MDF ──
-  { id: 800, name: "MPP China 200kg Inicial (2,00×1,00×0,60)",     category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
-  { id: 801, name: "MPP China 200kg Continuação (2,00×1,00×0,60)", category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
+  { id: 800, name: "MPP China 200kg Inicial (2,00 alt · 0,60 prof)",     category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
+  { id: 801, name: "MPP China 200kg Continuação (2,00 alt · 0,60 prof)", category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
   // ── MDF ──
   // Preço por peça = chapa MDF (R$ 229,00) ÷ nº de peças por chapa.
   { id: 52, name: "MDF 1200x600", category: "mdf", icon: "🪵", price: 45.80, specs: { dimensao: "1200x600mm" }, options: [] }, // 229 ÷ 5
