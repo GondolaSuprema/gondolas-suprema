@@ -5595,10 +5595,12 @@ function ComissoesPage({ user }) {
   // a comissão paga como DESPESA variável no financeiro/DRE.
   const togglePago = async (id, novoStatus) => {
     if (!isAdmin) return;
-    await supabase.from("orcamentos").update({ comissao_paga: novoStatus }).eq("id", id);
+    const { error } = await supabase.from("orcamentos").update({ comissao_paga: novoStatus }).eq("id", id);
+    if (error) { notify("Não foi possível atualizar a comissão: " + error.message, "erro"); return; }
     setVendas(prev => prev.map(v => v.id === id ? { ...v, comissaoPaga: novoStatus } : v));
     const venda = vendas.find(v => v.id === id);
     if (venda) await sincronizarDespesaComissao(venda, novoStatus);
+    notify(novoStatus ? "Comissão marcada como paga (lançada no DRE)" : "Comissão reaberta (removida do DRE)", novoStatus ? "ok" : "info");
   };
 
   // Espelha a comissão do vendedor como despesa variável paga (DESPESA_VENDAS/
@@ -5955,7 +5957,8 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     if (!novo || novo === lead.consultor) return;
     setMariana(ls => ls.map(l => l.id === lead.id ? { ...l, consultor: novo } : l));
     const { error } = await supabase.from("mariana_leads").update({ consultor: novo }).eq("id", lead.id);
-    if (error) { setErro(error.message); carregar(); }
+    if (error) { setErro(error.message); notify("Não foi possível trocar o consultor: " + error.message, "erro"); carregar(); return; }
+    notify("Lead atribuído a " + novo, "ok");
   };
 
   // "Fazer orçamento": leva os dados coletados pela Mariana pra aba Cliente e abre ela
@@ -7887,15 +7890,20 @@ function FinanceiroPage({ user }) {
   // Marca boleto como pago
   const marcarBoletoPago = async (id) => {
     if (somenteLeitura) return;
-    await supabase.from("boletos_a_pagar").update({ status: "pago", data_pagamento: new Date().toISOString() }).eq("id", id);
-    setBoletos(prev => prev.map(b => b.id === id ? { ...b, status: "pago", data_pagamento: new Date().toISOString() } : b));
+    const agora = new Date().toISOString();
+    const { error } = await supabase.from("boletos_a_pagar").update({ status: "pago", data_pagamento: agora }).eq("id", id);
+    if (error) { notify("Não foi possível marcar como pago: " + error.message, "erro"); return; }
+    setBoletos(prev => prev.map(b => b.id === id ? { ...b, status: "pago", data_pagamento: agora } : b));
+    notify("Boleto marcado como pago", "ok");
   };
 
   // Volta boleto pra pendente (se marcou pago por engano)
   const desmarcarBoletoPago = async (id) => {
     if (somenteLeitura) return;
-    await supabase.from("boletos_a_pagar").update({ status: "pendente", data_pagamento: null }).eq("id", id);
+    const { error } = await supabase.from("boletos_a_pagar").update({ status: "pendente", data_pagamento: null }).eq("id", id);
+    if (error) { notify("Não foi possível reabrir: " + error.message, "erro"); return; }
     setBoletos(prev => prev.map(b => b.id === id ? { ...b, status: "pendente", data_pagamento: null } : b));
+    notify("Boleto reaberto (voltou a pendente)", "info");
   };
 
   // Edição inline de vencimento/valor direto na lista de boletos.
@@ -11025,6 +11033,49 @@ function ConciliacaoPage({ user }) {
   );
 }
 
+// ── Toaster premium ──────────────────────────────────────────────
+// Feedback visual não-bloqueante. Qualquer parte do app chama
+// notify("Boleto pago", "ok") e um card sobe no canto e some sozinho —
+// substitui o alert() nativo (que trava a tela, ruim no iPhone).
+// tipo: "ok" (verde) | "erro" (vermelho) | "info" (âmbar).
+function notify(msg, tipo = "ok") {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("suprema-toast", { detail: { msg, tipo, id: Date.now() + Math.random() } }));
+}
+
+function Toaster() {
+  const [toasts, setToasts] = useState([]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onToast = (e) => {
+      const t = e.detail;
+      setToasts(prev => [...prev, t]);
+      setTimeout(() => setToasts(prev => prev.filter(x => x.id !== t.id)), 3200);
+    };
+    window.addEventListener("suprema-toast", onToast);
+    return () => window.removeEventListener("suprema-toast", onToast);
+  }, []);
+  const cor = (tipo) => tipo === "erro" ? "#EF4444" : tipo === "info" ? "#F59E0B" : "#10B981";
+  const icone = (tipo) => tipo === "erro" ? "⚠️" : tipo === "info" ? "ℹ️" : "✓";
+  return (
+    <div style={{ position: "fixed", top: "calc(env(safe-area-inset-top) + 14px)", right: 14, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none", maxWidth: "min(360px, calc(100vw - 28px))" }}>
+      <style>{`@keyframes supremaToastIn{from{opacity:0;transform:translateY(-8px) scale(0.98)}to{opacity:1;transform:none}}`}</style>
+      {toasts.map(t => (
+        <div key={t.id} style={{
+          animation: "supremaToastIn 0.22s ease-out",
+          background: COLORS.card, border: `1px solid ${cor(t.tipo)}55`, borderLeft: `3px solid ${cor(t.tipo)}`,
+          borderRadius: 10, padding: "11px 14px", display: "flex", alignItems: "center", gap: 10,
+          boxShadow: "0 8px 28px rgba(0,0,0,0.35)", fontFamily: "'DM Sans', sans-serif",
+          color: COLORS.text, fontSize: 13, fontWeight: 600,
+        }}>
+          <span style={{ color: cor(t.tipo), fontSize: 15, flexShrink: 0 }}>{icone(t.tipo)}</span>
+          <span>{t.msg}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [page, setPage] = useState("login");
   const [user, setUser] = useState(null);
@@ -11228,6 +11279,7 @@ export default function App() {
           emolduram o conteúdo (aparece no login e em todas as telas). */}
       <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, pointerEvents: "none", backgroundImage: "url(/watermark3.png)", backgroundRepeat: "no-repeat", backgroundPosition: "center", backgroundSize: "min(680px, 80vw)", opacity: 0.06 }} />
       <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
+      <Toaster />
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
