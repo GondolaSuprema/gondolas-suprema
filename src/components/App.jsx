@@ -60,7 +60,10 @@ const VARIANTS_CANTO = [
 // Gôndola de Farmácia: configuração única (colunas 2,02m, prateleiras rasas
 // de 25cm p/ caixas de remédio, porta-etiqueta verde). Só Branca por enquanto
 // (algumas peças Fit 30 dessa config não têm versão Preta confirmada no banco).
+// Largura 90cm (módulo cheio) ou 55cm (módulo estreito, peças "ponta").
+// Colunas e SLG não mudam com a largura — só painel e bandejas.
 const VARIANTS_FARMACIA = [
+  { key: "largura", label: "Largura", options: ["90cm", "55cm"] },
   { key: "cor", label: "Cor", options: ["Branca"] },
 ];
 
@@ -113,10 +116,10 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
   ],
-  // ── GÔNDOLA DE FARMÁCIA (id 700 inicial / 701 continuação) — Branca ──
-  // Colunas 2,02m, painel 90, fundo bandeja 40*30, 6 prateleiras rasas 25cm
-  // (Fit 30) c/ par SLG 25cm, porta-etiqueta verde claro. Config do Ale 26-ago.
-  "700|Branca": [
+  // ── GÔNDOLA DE FARMÁCIA DE PAREDE (id 700 inicial / 701 continuação) ──
+  // Altura 2,02m. 90cm = módulo cheio; 55cm = módulo estreito (peças "ponta").
+  // Só muda painel e bandejas; coluna (2,02m), SLG e porta-etiqueta são iguais.
+  "700|90cm|Branca": [
     ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 2],       // COLUNA PAREDE FIT 30 1,06 BASE 30 BRANCA
     ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR FIT 40 2,02
     ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],                     // PAINEL 90*34 BRANCO
@@ -125,13 +128,32 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 6],                          // PAR SLG 25CM
     ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],                              // PORTA ETIQUETA VERDE CLARO
   ],
+  // Parede 55cm (estreito) — troca painel/bandejas pelas peças "ponta" de 55.
+  "700|55cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 2],       // igual 90 (coluna não muda c/ largura)
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-ponta-55-34cm-branco-unidade", 6],                     // PAINEL PONTA 55*34 BRANCO
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-55cm-branca-unidade", 1],               // BANDEJA PONTA 30*55 (fundo)
+    ["nome:amapa-fit-30kg-bandeja-ponta-25-55cm-branca-ch-26", 6],                 // BANDEJA PONTA 25*55 (prateleiras)
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 6],                          // igual 90
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],                             // igual 90 (Ale confirmou)
+  ],
   // Continuação = inicial c/ 1 coluna a menos de cada tipo (compartilha com o módulo anterior)
-  "701|Branca": [
+  "701|90cm|Branca": [
     ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 1],
     ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
     ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
     ["nome:amapa-fit-30kg-bandeja-25-90cm-branca-unidade-ch-26", 6],
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 6],
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],
+  ],
+  "701|55cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-ponta-55-34cm-branco-unidade", 6],
+    ["nome:amapa-fit-40kg-bandeja-ponta-30-55cm-branca-unidade", 1],
+    ["nome:amapa-fit-30kg-bandeja-ponta-25-55cm-branca-ch-26", 6],
     ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 6],
     ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],
   ],
