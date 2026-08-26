@@ -81,7 +81,7 @@ const VARIANTS_MPP = [
 // Comprimento 1,00m (longarina 920 + MDF 1200×600) ou 1,50m (longarina 1340 +
 // MDF 1800×600). Lateral não muda com o comprimento.
 const VARIANTS_MPP_CHINA = [
-  { key: "comp", label: "Comprimento", options: ["1,00m", "1,50m"] },
+  { key: "comp", label: "Comprimento", options: ["1,00m", "1,50m", "2,00m"] },
   { key: "niveis", label: "Níveis", options: ["3", "4", "5", "6"] },
 ];
 
@@ -1267,6 +1267,15 @@ const PRODUCT_RECIPES = {
   "801|1,50m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 4], ["nome:mdf-1800x600", 4]],
   "801|1,50m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 5], ["nome:mdf-1800x600", 5]],
   "801|1,50m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 6], ["nome:mdf-1800x600", 6]],
+  // 2,00m: longarina 1840 + MDF 1800×600 (Ale confirmou usar o 1800 no 2m).
+  "800|2,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 3], ["nome:mdf-1800x600", 3]],
+  "800|2,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 4], ["nome:mdf-1800x600", 4]],
+  "800|2,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 5], ["nome:mdf-1800x600", 5]],
+  "800|2,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 6], ["nome:mdf-1800x600", 6]],
+  "801|2,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 3], ["nome:mdf-1800x600", 3]],
+  "801|2,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 4], ["nome:mdf-1800x600", 4]],
+  "801|2,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 5], ["nome:mdf-1800x600", 5]],
+  "801|2,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 6], ["nome:mdf-1800x600", 6]],
 
   // ── MPP 2000×1200×800 CONTINUAÇÃO S/MDF (id 401) ──
   "401|1200mm|3": [
