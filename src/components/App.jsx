@@ -1492,8 +1492,8 @@ const PRODUCTS = [
   // ── CANTO DE GÔNDOLA ──
   { id: 600, name: "Canto c/ Bandeja",     category: "canto", icon: "◣", price: 0, specs: {}, options: [], variants: VARIANTS_CANTO },
   // ── GÔNDOLA DE FARMÁCIA (colunas 2,02m, prateleiras rasas 25cm) ──
-  { id: 700, name: "Farmácia Inicial",     category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA, desc: "Gôndola de parede · base + 6 bandejas · altura 2,02m" },
-  { id: 701, name: "Farmácia Continuação", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA, desc: "Gôndola de parede · base + 6 bandejas · altura 2,02m" },
+  { id: 700, name: "Farmácia Parede Inicial",     category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
+  { id: 701, name: "Farmácia Parede Continuação", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
@@ -3133,10 +3133,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
                 <div key={p.id} style={{ padding: "12px 14px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexDirection: "column", gap: 10 }}>
                   {/* Linha 1: nome + preço */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.3 }} title={p.name}>{p.name}</div>
-                      {p.desc && <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.textDim, fontSize: 10.5, lineHeight: 1.3, marginTop: 2 }}>{p.desc}</div>}
-                    </div>
+                    <div style={{ flex: 1, minWidth: 0, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.3 }} title={p.name}>{p.name}</div>
                     <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: computedPrice === 0 ? COLORS.textDim : COLORS.orange, whiteSpace: "nowrap", flexShrink: 0 }}>{computedPrice === 0 ? "Sob consulta" : fmt(computedPrice)}</div>
                   </div>
                   {/* Linha 2: variantes (com wrap) */}
@@ -3174,10 +3171,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
             }
             return (
               <div key={p.id} style={{ padding: "10px 16px", borderBottom: idx < filtered.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "nowrap", alignItems: "center", gap: 14, minWidth: 0 }}>
-                <div style={{ flex: "0 1 220px", minWidth: 0 }}>
-                  <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={p.name}>{p.name}</div>
-                  {p.desc && <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.textDim, fontSize: 10, lineHeight: 1.3, marginTop: 3, whiteSpace: "normal" }}>{p.desc}</div>}
-                </div>
+                <div style={{ flex: "0 1 220px", minWidth: 0, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={p.name}>{p.name}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 auto", flexWrap: "nowrap", justifyContent: "flex-start", minWidth: 0 }}>
                   {(p.variants || []).map(v => (
                     <div key={v.key} style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "nowrap" }}>
