@@ -5642,6 +5642,7 @@ function ComissoesPage({ user }) {
 
   // Filtros
   const noMes = (dataStr) => {
+    if (mesSel === "todos") return !!dataStr;
     if (!dataStr) return false;
     const d = new Date(dataStr);
     return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === mesSel;
@@ -5721,6 +5722,7 @@ function ComissoesPage({ user }) {
             <option value="pago">Pago</option>
           </select>
           <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={sel}>
+            <option value="todos">Todos os meses</option>
             {Array.from({ length: 18 }, (_, i) => {
               const d = new Date(); d.setMonth(d.getMonth() - 9 + i);
               const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
@@ -5741,7 +5743,7 @@ function ComissoesPage({ user }) {
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", background: COLORS.bg, borderBottom: `1px solid ${COLORS.border}` }}>
           <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 14, margin: 0 }}>
-            Vendas concluídas em {mesNomes[mesSel.split("-")[1]]} {mesSel.split("-")[0]}
+            {mesSel === "todos" ? "Vendas concluídas — todos os meses" : `Vendas concluídas em ${mesNomes[mesSel.split("-")[1]]} ${mesSel.split("-")[0]}`}
           </h3>
         </div>
         {vendasFiltradas.length === 0 ? (
