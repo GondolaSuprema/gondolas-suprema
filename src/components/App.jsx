@@ -27,6 +27,7 @@ const CATEGORIES = [
   { key: "gondolas-centro", label: "Gôndolas de Centro" },
   { key: "ponta-gondola", label: "Ponta de Gôndola" },
   { key: "canto", label: "Canto de Gôndola" },
+  { key: "gondolas-farmacia", label: "Gôndolas de Farmácia" },
   { key: "mpp", label: "MPP" },
   { key: "slim", label: "Slim" },
   { key: "moveis", label: "Móveis" },
@@ -54,6 +55,13 @@ const VARIANTS_CANTO = [
   { key: "linha", label: "Linha", options: ["Fit 40", "Fit 60"] },
   { key: "altura", label: "Altura", options: ["1,70m", "2,00m"] },
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
+];
+
+// Gôndola de Farmácia: configuração única (colunas 2,02m, prateleiras rasas
+// de 25cm p/ caixas de remédio, porta-etiqueta verde). Só Branca por enquanto
+// (algumas peças Fit 30 dessa config não têm versão Preta confirmada no banco).
+const VARIANTS_FARMACIA = [
+  { key: "cor", label: "Cor", options: ["Branca"] },
 ];
 
 const VARIANTS_MPP = [
@@ -104,6 +112,28 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-bandeja-canto-30cm-preta-unidade-ch24", 4],
     ["nome:amapa-fit-40kg-par-slg-30cm-preto-ch-16", 4],
     ["nome:fit-porta-etiqueta-895mm-laranja", 4],
+  ],
+  // ── GÔNDOLA DE FARMÁCIA (id 700 inicial / 701 continuação) — Branca ──
+  // Colunas 2,02m, painel 90, fundo bandeja 40*30, 6 prateleiras rasas 25cm
+  // (Fit 30) c/ par SLG 25cm, porta-etiqueta verde claro. Config do Ale 26-ago.
+  "700|Branca": [
+    ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 2],       // COLUNA PAREDE FIT 30 1,06 BASE 30 BRANCA
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR FIT 40 2,02
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],                     // PAINEL 90*34 BRANCO
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],               // BANDEJA FUNDO 40*30*90 BRANCA
+    ["nome:amapa-fit-30kg-bandeja-25-90cm-branca-unidade-ch-26", 6],               // BANDEJA 25*90 FIT 30 BRANCA (prateleiras)
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 6],                          // PAR SLG 25CM
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],                              // PORTA ETIQUETA VERDE CLARO
+  ],
+  // Continuação = inicial c/ 1 coluna a menos de cada tipo (compartilha com o módulo anterior)
+  "701|Branca": [
+    ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 1],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-30kg-bandeja-25-90cm-branca-unidade-ch-26", 6],
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 6],
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],
   ],
   // Parede Inicial c/ Bandeja - 1,37m - Branca
   "100|1,37m|Branca": [
@@ -1461,6 +1491,9 @@ const PRODUCTS = [
 
   // ── CANTO DE GÔNDOLA ──
   { id: 600, name: "Canto c/ Bandeja",     category: "canto", icon: "◣", price: 0, specs: {}, options: [], variants: VARIANTS_CANTO },
+  // ── GÔNDOLA DE FARMÁCIA (colunas 2,02m, prateleiras rasas 25cm) ──
+  { id: 700, name: "Farmácia Inicial",     category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
+  { id: 701, name: "Farmácia Continuação", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
