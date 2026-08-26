@@ -1625,8 +1625,8 @@ const PRODUCTS = [
   { id: 400, name: "MPP 2000×800 Inicial S/MDF",     category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   { id: 401, name: "MPP 2000×800 Continuação S/MDF", category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   // ── MPP CHINA (preto) — módulos montados por receita, deck MDF ──
-  { id: 800, name: "MPP China 200kg Inicial (2,00 alt · 0,60 prof)",     category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
-  { id: 801, name: "MPP China 200kg Continuação (2,00 alt · 0,60 prof)", category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
+  { id: 800, name: "MPP China 200kg Inicial",     category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
+  { id: 801, name: "MPP China 200kg Continuação", category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
   // ── MDF ──
   // Preço por peça = chapa MDF (R$ 229,00) ÷ nº de peças por chapa.
   { id: 52, name: "MDF 1200x600", category: "mdf", icon: "🪵", price: 45.80, specs: { dimensao: "1200x600mm" }, options: [] }, // 229 ÷ 5
