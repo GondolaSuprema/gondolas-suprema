@@ -77,6 +77,11 @@ const VARIANTS_MPP = [
   { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
 ];
 
+// MPP China: cada nível = 1 par de longarina + 1 plano (deck). 2 laterais fixos.
+const VARIANTS_MPP_CHINA = [
+  { key: "niveis", label: "Níveis", options: ["3", "4", "5", "6"] },
+];
+
 const VARIANTS_SLIM_AMAPA = [
   { key: "largura", label: "Largura", options: ["1200mm", "1800mm"] },
   { key: "niveis",  label: "Níveis",  options: ["4", "5", "6"] },
@@ -1238,6 +1243,29 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-par-longarina-z-mpp-500kg-1800mm-laranja", 5],
     ["nome:amapa-transversina-lateral-de-800mm-laranja", 15],
   ],
+  // ── MPP CHINA 200KG INICIAL (id 800) — 2000×1000×600, deck MDF 1200×600 ──
+  // Cada nível = 1 par longarina 920 + 1 plano MDF. 2 laterais fixos.
+  // Peças da tabela produtos_mpp_china (200kg) + MDF da sub-aba MDF (id 52).
+  "800|3": [
+    ["nome:lateral-mini-porta-pallet-2000x600", 2],   // LATERAL 2000×600 200KG
+    ["nome:par-de-longarina-920mm-p-200kg", 3],        // PAR LONGARINA 920 200KG
+    ["nome:mdf-1200x600", 3],                          // PLANO MDF 1200×600 (sub-aba MDF)
+  ],
+  "800|4": [
+    ["nome:lateral-mini-porta-pallet-2000x600", 2],
+    ["nome:par-de-longarina-920mm-p-200kg", 4],
+    ["nome:mdf-1200x600", 4],
+  ],
+  "800|5": [
+    ["nome:lateral-mini-porta-pallet-2000x600", 2],
+    ["nome:par-de-longarina-920mm-p-200kg", 5],
+    ["nome:mdf-1200x600", 5],
+  ],
+  "800|6": [
+    ["nome:lateral-mini-porta-pallet-2000x600", 2],
+    ["nome:par-de-longarina-920mm-p-200kg", 6],
+    ["nome:mdf-1200x600", 6],
+  ],
 
   // ── MPP 2000×1200×800 CONTINUAÇÃO S/MDF (id 401) ──
   "401|1200mm|3": [
@@ -1586,6 +1614,8 @@ const PRODUCTS = [
   // ── MPP 2000×800 S/MDF (novo modelo com variantes) ──
   { id: 400, name: "MPP 2000×800 Inicial S/MDF",     category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   { id: 401, name: "MPP 2000×800 Continuação S/MDF", category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
+  // ── MPP CHINA (preto) — módulos montados por receita, deck MDF ──
+  { id: 800, name: "MPP China 200kg Inicial (2,00×1,00×0,60)", category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
   // ── MDF ──
   // Preço por peça = chapa MDF (R$ 229,00) ÷ nº de peças por chapa.
   { id: 52, name: "MDF 1200x600", category: "mdf", icon: "🪵", price: 45.80, specs: { dimensao: "1200x600mm" }, options: [] }, // 229 ÷ 5
@@ -3140,7 +3170,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
             </div>
           );
         })()
-      ) : filter === "outros" || filter === "mpp-china" ? (
+      ) : filter === "outros" ? (
         // Visualização em lista simples (Outros Produtos / MPP China)
         // MPP China ganha uma coluna extra "Capacidade" (200KG / 500KG)
         (() => {
@@ -3198,7 +3228,7 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
         </div>
           );
         })()
-      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "canto" || filter === "gondolas-farmacia" || filter === "mpp" || filter === "slim" || filter === "mdf" ? (
+      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "canto" || filter === "gondolas-farmacia" || filter === "mpp" || filter === "mpp-china" || filter === "slim" || filter === "mdf" ? (
         // Visualização em lista para Gôndolas de Parede, Centro, Ponta, Canto, Farmácia, MPP, Slim e MDF
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
@@ -11262,6 +11292,12 @@ export default function App() {
       const preco = Number(p.preco_brasil) || 0;
       if (p.id) m[p.id] = preco;
       if (p.nome) m["nome:" + slug(p.nome)] = preco;
+    });
+    // Planos MDF são valores fixos da sub-aba MDF (não vêm do banco). Indexa
+    // por nome pra receitas (ex.: módulos MPP China) puxarem o preço de lá —
+    // fonte única: mudou o MDF na sub-aba, muda no módulo.
+    PRODUCTS.filter(p => p.category === "mdf").forEach(p => {
+      if (p.name) m["nome:" + slug(p.name)] = Number(p.price) || 0;
     });
     return m;
   }, [uniplusProducts, mppChinaProducts]);
