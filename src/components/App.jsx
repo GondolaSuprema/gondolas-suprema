@@ -3114,8 +3114,8 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
         </div>
           );
         })()
-      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "canto" || filter === "mpp" || filter === "slim" || filter === "mdf" ? (
-        // Visualização em lista para Gôndolas de Parede, Centro, Ponta, MPP, Slim e MDF
+      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "canto" || filter === "gondolas-farmacia" || filter === "mpp" || filter === "slim" || filter === "mdf" ? (
+        // Visualização em lista para Gôndolas de Parede, Centro, Ponta, Canto, Farmácia, MPP, Slim e MDF
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
