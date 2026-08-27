@@ -6164,7 +6164,9 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     ? (consultorSel === "todos" ? mariana : mariana.filter(l => l.consultor === consultorSel))
     : mariana.filter(l => l.consultor === meuConsultor);
 
-  const semOrc = base.filter(l => !temOrcamento(l)); // quem virou orçamento sai da aba (foi pra Orçamentos)
+  // quem virou orçamento sai da aba (foi pra Orçamentos) — MAS lead ainda "pendente" (não trabalhado) continua
+  // visível mesmo com orçamento antigo: é cliente que VOLTOU pra uma nova compra (recompra) e precisa ser atendido.
+  const semOrc = base.filter(l => !temOrcamento(l) || (l.status_atendimento || "pendente") === "pendente");
   const st = (l) => l.status_atendimento || "pendente";
   const ativo = (l) => st(l) === "pendente" || st(l) === "atendido" || st(l) === "aguardando";
   // Follow-up: lead atendido/aguardando com CONTATO REGISTRADO que esfriou (≥ FOLLOWUP_DIAS).
@@ -6344,6 +6346,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                   {precisaFollowup(l) && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent }}>🔔 {diasDesde(l.ultimo_contato_em)} dias sem contato</span>}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {temOrcamento(l) && chip("🔁 Cliente voltou", "#F59E0B")}
                   {chip(labelStatus(cur), corStatus(cur))}
                   {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
                 </div>
