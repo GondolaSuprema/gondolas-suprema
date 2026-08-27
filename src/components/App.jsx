@@ -1911,6 +1911,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
 
   const tabs = [
     { k: "leads", l: "Leads" },
+    { k: "leadmarc", l: "Lead Marcenaria" },
     { k: "client", l: "Cliente" },
     { k: "catalog", l: "Produtos" },
     { k: "orders", l: "Orçamentos" },
@@ -2296,7 +2297,7 @@ const ROLE_PERMISSIONS = {
 // financeiro e nf SAÍRAM desta lista: Zanella (gestor) VÊ o financeiro (só
 // leitura) e tem acesso COMPLETO à NF (emite). DRE e Conciliação seguem
 // exclusivos do Ale.
-const ALE_ONLY_TABS = ["dre", "conciliacao", "marcenaria"];
+const ALE_ONLY_TABS = ["dre", "conciliacao", "marcenaria", "leadmarc"];
 
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
@@ -6062,6 +6063,144 @@ function LeadContextoModal({ lead, onClose }) {
           <button onClick={onClose} style={{ padding: "9px 22px", borderRadius: 9, fontSize: 14, fontWeight: 700, cursor: "pointer", background: COLORS.accent, color: "#000", border: "none" }}>Fechar</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── LEAD MARCENARIA ───
+// Aba separada pros leads de móveis/marcenaria (fluxo de WhatsApp próprio grava
+// em marcenaria_leads). Nome + telefone + status pro Ale atender e acompanhar.
+function MarcenariaLeadsPage({ user }) {
+  const C = COLORS;
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
+  const [filtro, setFiltro] = useState("pendente");
+  const [notaEdit, setNotaEdit] = useState({ id: null, texto: "" });
+  const [addOpen, setAddOpen] = useState(false);
+  const [novo, setNovo] = useState({ nome: "", telefone: "", cidade: "" });
+
+  const carregar = async () => {
+    setLoading(true); setErro("");
+    const { data, error } = await supabase.from("marcenaria_leads").select("*").order("criado_em", { ascending: false });
+    if (error) setErro(error.message); else setLeads(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { carregar(); }, []);
+
+  const STATUS = [
+    { v: "pendente", lbl: "Pendente", col: "#F59E0B" },
+    { v: "atendido", lbl: "Atendido", col: "#3B82F6" },
+    { v: "fechado",  lbl: "Fechado",  col: "#10B981" },
+    { v: "perdido",  lbl: "Perdido",  col: "#EF4444" },
+  ];
+  const stOf = (v) => STATUS.find(s => s.v === (v || "pendente")) || STATUS[0];
+
+  const setStatus = async (lead, ns) => {
+    const agora = new Date().toISOString();
+    const patch = { status_atendimento: ns, ultimo_contato_em: agora };
+    if (!lead.primeiro_contato_em && ns !== "pendente") patch.primeiro_contato_em = agora;
+    setLeads(ls => ls.map(l => l.id === lead.id ? { ...l, ...patch } : l));
+    const { error } = await supabase.from("marcenaria_leads").update(patch).eq("id", lead.id);
+    if (error) { notify("Erro ao atualizar: " + error.message, "erro"); carregar(); return; }
+    notify("Marcado como " + stOf(ns).lbl, "ok");
+  };
+
+  const salvarNota = async (lead) => {
+    const texto = notaEdit.texto.trim();
+    const patch = { observacao_vendedor: texto || null, ultimo_contato_em: new Date().toISOString() };
+    setLeads(ls => ls.map(l => l.id === lead.id ? { ...l, ...patch } : l));
+    const { error } = await supabase.from("marcenaria_leads").update(patch).eq("id", lead.id);
+    if (error) { notify("Erro ao salvar nota: " + error.message, "erro"); carregar(); }
+    else { setNotaEdit({ id: null, texto: "" }); notify("Nota salva", "ok"); }
+  };
+
+  const adicionar = async () => {
+    const nome = novo.nome.trim();
+    const tel = novo.telefone.replace(/\D/g, "");
+    if (!nome && !tel) { notify("Informe nome ou telefone", "erro"); return; }
+    const { error } = await supabase.from("marcenaria_leads").insert({ nome: nome || null, telefone: tel || null, cidade: novo.cidade.trim() || null, origem: "manual" });
+    if (error) { notify("Erro ao adicionar: " + error.message, "erro"); return; }
+    setNovo({ nome: "", telefone: "", cidade: "" }); setAddOpen(false); notify("Lead adicionado", "ok"); carregar();
+  };
+
+  const waLink = (t) => { const d = String(t || "").replace(/\D/g, ""); if (!d) return null; return "https://wa.me/" + (d.startsWith("55") ? d : "55" + d); };
+  const telMostrar = (t) => { const d = String(t || "").replace(/\D/g, ""); const s = d.startsWith("55") ? d.slice(2) : d; if (s.length === 11) return `(${s.slice(0,2)}) ${s.slice(2,7)}-${s.slice(7)}`; if (s.length === 10) return `(${s.slice(0,2)}) ${s.slice(2,6)}-${s.slice(6)}`; return t || "—"; };
+  const fmtData = (s) => { if (!s) return ""; const d = new Date(s); return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); };
+
+  const pendentes = leads.filter(l => (l.status_atendimento || "pendente") === "pendente").length;
+  const lista = filtro === "todos" ? leads : leads.filter(l => (l.status_atendimento || "pendente") === filtro);
+  const inp = { width: "100%", padding: "10px 12px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 28, margin: 0 }}>🪵 Lead Marcenaria</h1>
+        <button onClick={() => setAddOpen(o => !o)} style={{ background: C.orange, color: "#000", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{addOpen ? "Fechar" : "+ Adicionar lead"}</button>
+      </div>
+      <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 16px", fontFamily: "'DM Sans', sans-serif" }}>Leads de marcenaria (móveis sob medida) — nome, telefone e status pra você atender e acompanhar.</p>
+
+      {addOpen && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16, marginBottom: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+          <input placeholder="Nome do cliente" value={novo.nome} onChange={e => setNovo(n => ({ ...n, nome: e.target.value }))} style={inp} />
+          <input placeholder="Telefone / WhatsApp" value={novo.telefone} onChange={e => setNovo(n => ({ ...n, telefone: e.target.value }))} style={inp} />
+          <input placeholder="Cidade" value={novo.cidade} onChange={e => setNovo(n => ({ ...n, cidade: e.target.value }))} style={{ ...inp, gridColumn: "1 / -1" }} />
+          <button onClick={adicionar} style={{ gridColumn: "1 / -1", background: C.orange, color: "#000", border: "none", padding: "10px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Salvar lead</button>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        {[{ v: "pendente", l: `Pendentes (${pendentes})` }, { v: "atendido", l: "Atendidos" }, { v: "fechado", l: "Fechados" }, { v: "perdido", l: "Perdidos" }, { v: "todos", l: "Todos" }].map(f => (
+          <button key={f.v} onClick={() => setFiltro(f.v)} style={{ background: filtro === f.v ? C.orange : "transparent", color: filtro === f.v ? "#000" : C.textMuted, border: `1px solid ${filtro === f.v ? C.orange : C.border}`, padding: "5px 14px", borderRadius: 18, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{f.l}</button>
+        ))}
+      </div>
+
+      {erro && <div style={{ color: "#EF4444", fontSize: 13, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" }}>{erro}</div>}
+      {loading ? (
+        <div style={{ color: C.textMuted, fontSize: 13, padding: 30, textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>Carregando…</div>
+      ) : lista.length === 0 ? (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 40, textAlign: "center", color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>🪵</div>
+          Nenhum lead {filtro !== "todos" ? "nesse status" : "cadastrado"} ainda.<br />
+          Quando o fluxo do WhatsApp de marcenaria gravar aqui, os leads aparecem nesta lista.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {lista.map(l => {
+            const st = stOf(l.status_atendimento);
+            const wa = waLink(l.telefone);
+            return (
+              <div key={l.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${st.col}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: "14px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 17, marginBottom: 2 }}>{l.nome || "Sem nome"}</div>
+                    <div style={{ color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{telMostrar(l.telefone)}{l.cidade ? " · " + l.cidade : ""}</div>
+                    <div style={{ color: C.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{fmtData(l.criado_em)}{l.origem ? " · " + l.origem : ""}</div>
+                  </div>
+                  {wa && <a href={wa} target="_blank" rel="noreferrer" style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "7px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>WhatsApp</a>}
+                </div>
+                <div style={{ display: "flex", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
+                  {STATUS.map(s => (
+                    <button key={s.v} onClick={() => setStatus(l, s.v)} style={{ background: st.v === s.v ? s.col + "22" : "transparent", border: `1px solid ${st.v === s.v ? s.col : C.border}`, color: st.v === s.v ? s.col : C.textMuted, padding: "4px 12px", borderRadius: 14, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{s.lbl}</button>
+                  ))}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  {notaEdit.id === l.id ? (
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <textarea autoFocus value={notaEdit.texto} onChange={e => setNotaEdit(n => ({ ...n, texto: e.target.value }))} rows={2} placeholder="Anotação do atendimento…" style={{ ...inp, resize: "vertical" }} />
+                      <button onClick={() => salvarNota(l)} style={{ background: C.orange, color: "#000", border: "none", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Salvar</button>
+                    </div>
+                  ) : (
+                    <div onClick={() => setNotaEdit({ id: l.id, texto: l.observacao_vendedor || "" })} style={{ cursor: "pointer", color: l.observacao_vendedor ? C.text : C.textDim, fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontStyle: l.observacao_vendedor ? "normal" : "italic" }}>
+                      {l.observacao_vendedor ? "📝 " + l.observacao_vendedor : "+ adicionar anotação"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -11477,6 +11616,8 @@ export default function App() {
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} setClientData={setClientData} setPage={setPage} setLeadContexto={setLeadContexto} />}
+      {page === "leadmarc" && canAccess(user, "leadmarc") && <MarcenariaLeadsPage user={user} />}
+      {page === "leadmarc" && !canAccess(user, "leadmarc") && <Login onLogin={login} setPage={setPage} />}
       {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
