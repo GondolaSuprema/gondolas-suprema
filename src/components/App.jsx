@@ -6266,6 +6266,14 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     setSalvandoNota(false);
     if (error) { setErro(error.message); carregar(); } else setNotaEdit({ id: null, texto: "" });
   };
+  // Fixa/desafixa o lead no topo da lista. Atualiza otimista + persiste.
+  const fixarLead = async (lead) => {
+    const novo = !lead.fixado;
+    setMariana(ls => ls.map(x => x.id === lead.id ? { ...x, fixado: novo } : x));
+    const { error } = await supabase.from("mariana_leads").update({ fixado: novo }).eq("id", lead.id);
+    if (error) { setErro(error.message); notify("Não foi possível fixar o lead: " + error.message, "erro"); carregar(); return; }
+    notify(novo ? "Lead fixado no topo" : "Lead desafixado", "ok");
+  };
   // Reatribui o lead a outro consultor (só gestão). Atualiza otimista + persiste.
   const trocarConsultor = async (lead, novo) => {
     if (!novo || novo === lead.consultor) return;
@@ -6358,6 +6366,8 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   )
     .slice()
     .sort((a, b) => {
+      const fx = (b.fixado ? 1 : 0) - (a.fixado ? 1 : 0);              // 0) fixado sempre no topo
+      if (fx !== 0) return fx;
       const s = ordemTrabalho(a) - ordemTrabalho(b);                   // 1) pendente → follow-up → resto
       if (s !== 0) return s;
       const tp = ordemTemp(a) - ordemTemp(b);                          // 2) mais quente primeiro
@@ -6477,17 +6487,22 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
           const ct = corTemp(l.temperatura);
           const cur = st(l);
           return (
-            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${corStatus(cur)}55`, borderRadius: 12, padding: 16 }}>
+            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${l.fixado ? COLORS.accent : corStatus(cur) + "55"}`, borderRadius: 12, padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
                   {cur === "pendente" && (() => { const tt = tempoDesde(l.criado_em); return <span style={{ fontSize: 11, fontWeight: 700, color: tt.cor }}>{tt.atrasado ? "⏱ parado " : "⏱ novo · "}{tt.label}</span>; })()}
                   {precisaFollowup(l) && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent }}>🔔 {diasDesde(l.ultimo_contato_em)} dias sem contato</span>}
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                   {temOrcamento(l) && chip("🔁 Cliente voltou", "#F59E0B")}
                   {chip(labelStatus(cur), corStatus(cur))}
                   {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
+                  <button
+                    onClick={() => fixarLead(l)}
+                    title={l.fixado ? "Desafixar do topo" : "Fixar no topo da lista"}
+                    style={{ padding: "3px 9px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer", background: l.fixado ? COLORS.accent : COLORS.surface, color: l.fixado ? "#000" : COLORS.textMuted, border: `1px solid ${l.fixado ? COLORS.accent : COLORS.border}` }}
+                  >📌{l.fixado ? " Fixado" : ""}</button>
                 </div>
               </div>
               <div style={{ fontSize: 17, fontWeight: 700, color: COLORS.text }}>{(() => {
