@@ -6115,6 +6115,15 @@ function MarcenariaLeadsPage({ user }) {
     else { setNotaEdit({ id: null, texto: "" }); notify("Nota salva", "ok"); }
   };
 
+  // Fixa/desafixa o lead no topo da lista. Atualiza otimista + persiste.
+  const fixarLead = async (lead) => {
+    const novoFix = !lead.fixado;
+    setLeads(ls => ls.map(x => x.id === lead.id ? { ...x, fixado: novoFix } : x));
+    const { error } = await supabase.from("marcenaria_leads").update({ fixado: novoFix }).eq("id", lead.id);
+    if (error) { notify("Não foi possível fixar o lead: " + error.message, "erro"); carregar(); return; }
+    notify(novoFix ? "Lead fixado no topo" : "Lead desafixado", "ok");
+  };
+
   const adicionar = async () => {
     const nome = novo.nome.trim();
     const tel = novo.telefone.replace(/\D/g, "");
@@ -6129,7 +6138,9 @@ function MarcenariaLeadsPage({ user }) {
   const fmtData = (s) => { if (!s) return ""; const d = new Date(s); return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); };
 
   const pendentes = leads.filter(l => (l.status_atendimento || "pendente") === "pendente").length;
-  const lista = filtro === "todos" ? leads : leads.filter(l => (l.status_atendimento || "pendente") === filtro);
+  const lista = (filtro === "todos" ? leads : leads.filter(l => (l.status_atendimento || "pendente") === filtro))
+    .slice()
+    .sort((a, b) => (b.fixado ? 1 : 0) - (a.fixado ? 1 : 0)); // fixado no topo; no resto, mantém mais recente primeiro
   const inp = { width: "100%", padding: "10px 12px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
 
   return (
@@ -6170,14 +6181,21 @@ function MarcenariaLeadsPage({ user }) {
             const st = stOf(l.status_atendimento);
             const wa = waLink(l.telefone);
             return (
-              <div key={l.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${st.col}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: "14px 16px" }}>
+              <div key={l.id} style={{ background: C.card, border: `1px solid ${l.fixado ? C.orange : C.border}`, borderLeft: `3px solid ${l.fixado ? C.orange : st.col}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: "14px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 17, marginBottom: 2 }}>{l.nome || "Sem nome"}</div>
                     <div style={{ color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{telMostrar(l.telefone)}{l.cidade ? " · " + l.cidade : ""}</div>
                     <div style={{ color: C.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{fmtData(l.criado_em)}{l.origem ? " · " + l.origem : ""}</div>
                   </div>
-                  {wa && <a href={wa} target="_blank" rel="noreferrer" style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "7px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>WhatsApp</a>}
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                    <button
+                      onClick={() => fixarLead(l)}
+                      title={l.fixado ? "Desafixar do topo" : "Fixar no topo da lista"}
+                      style={{ background: l.fixado ? C.orange : "transparent", color: l.fixado ? "#000" : C.textMuted, border: `1px solid ${l.fixado ? C.orange : C.border}`, padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
+                    >📌{l.fixado ? " Fixado" : ""}</button>
+                    {wa && <a href={wa} target="_blank" rel="noreferrer" style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "7px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>WhatsApp</a>}
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
                   {STATUS.map(s => (
