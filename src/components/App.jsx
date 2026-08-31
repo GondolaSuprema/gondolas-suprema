@@ -6187,6 +6187,9 @@ function MarcenariaLeadsPage({ user }) {
                     <div style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 17, marginBottom: 2 }}>{l.nome || "Sem nome"}</div>
                     <div style={{ color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{telMostrar(l.telefone)}{l.cidade ? " · " + l.cidade : ""}</div>
                     <div style={{ color: C.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{fmtData(l.criado_em)}{l.origem ? " · " + l.origem : ""}</div>
+                    {l.interesse && (
+                      <p style={{ color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.5, margin: "8px 0 0", maxWidth: 640 }}>🪵 {l.interesse}</p>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
                     <button
