@@ -6255,6 +6255,27 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     if (!error) setConvMsgs(prev => ({ ...prev, [l.id]: data || [] }));
   };
 
+  // Resumo legível: usa o lead_texto quando já é prosa; se for o cartão cru (Nome:/Cidade:…),
+  // monta uma frase a partir das colunas estruturadas (que o trigger já preencheu).
+  const semInfo = (v) => { const s = String(v ?? "").trim(); return !s || /^(n[ãa]o informad[oa]|nenhuma?|indefinid[oa]|-|—)$/i.test(s); };
+  const ehCartaoCru = (t) => { const s = String(t || ""); return /(^|\n)\s*nome\s*:/i.test(s) && /\n\s*(cidade|interesse|ramo)\s*:/i.test(s); };
+  const resumoLead = (l) => {
+    const t = String(l.lead_texto || "").trim();
+    if (t && !ehCartaoCru(t)) return t; // já é um resumo em prosa (caminho frio/timeout)
+    const p = [];
+    const alvo = [l.interesse, l.modelo_mpp].filter(x => !semInfo(x)).join(" · ");
+    if (alvo) p.push(`Quer ${alvo}`);
+    if (!semInfo(l.ramo_uso)) p.push(`para ${String(l.ramo_uso).trim()}`);
+    let s = p.join(" ");
+    const extra = [];
+    if (!semInfo(l.medidas)) extra.push(`medidas ${String(l.medidas).trim()}`);
+    if (!semInfo(l.altura)) extra.push(`altura ${String(l.altura).trim()}`);
+    if (extra.length) s += (s ? " — " : "") + extra.join(", ");
+    if (!semInfo(l.outras)) s += (s ? ". " : "") + String(l.outras).trim();
+    s = s.trim();
+    return s || t; // fallback: se não deu pra montar nada, mostra o que houver
+  };
+
   const fone8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
 
   const carregar = async () => {
@@ -6518,6 +6539,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
           const wpp = wppLink(l.telefone);
           const ct = corTemp(l.temperatura);
           const cur = st(l);
+          const resumo = resumoLead(l);
           return (
             <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${l.fixado ? COLORS.accent : corStatus(cur) + "55"}`, borderRadius: 12, padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
@@ -6561,16 +6583,16 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                 {cur === "desistiu" && l.motivo_desistencia && chip("Motivo: " + l.motivo_desistencia, COLORS.danger)}
               </div>
               {/* Resumo da conversa da Mariana + conversa completa (real, da memória) */}
-              {(l.lead_texto || (l.duvidas && String(l.duvidas).trim() && String(l.duvidas).trim().toLowerCase() !== "nenhuma")) && (
+              {(resumo || (l.duvidas && String(l.duvidas).trim() && String(l.duvidas).trim().toLowerCase() !== "nenhuma")) && (
                 <div style={{ marginTop: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 12px" }}>
-                  {l.lead_texto && (
+                  {resumo && (
                     <>
                       <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>Resumo da conversa</div>
-                      <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{l.lead_texto}</div>
+                      <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{resumo}</div>
                     </>
                   )}
                   {l.duvidas && String(l.duvidas).trim() && String(l.duvidas).trim().toLowerCase() !== "nenhuma" && (
-                    <div style={{ fontSize: 13, color: COLORS.accent, lineHeight: 1.5, marginTop: l.lead_texto ? 8 : 0 }}>
+                    <div style={{ fontSize: 13, color: COLORS.accent, lineHeight: 1.5, marginTop: resumo ? 8 : 0 }}>
                       <b>Dúvidas em aberto:</b> {l.duvidas}
                     </div>
                   )}
