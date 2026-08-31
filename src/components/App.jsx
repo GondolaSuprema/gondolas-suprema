@@ -6240,6 +6240,20 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const [salvandoNota, setSalvandoNota] = useState(false);
   const [desistindo, setDesistindo] = useState(null); // id do lead escolhendo o motivo da desistência
   const [periodoDes, setPeriodoDes] = useState("mes"); // período do painel de desempenho: "mes" | "tudo"
+  const [convAberta, setConvAberta] = useState(null); // lead.id com a conversa completa expandida
+  const [convMsgs, setConvMsgs] = useState({}); // cache { [leadId]: [{autor,texto}] }
+  const [convLoading, setConvLoading] = useState(null); // leadId carregando a conversa
+
+  // Puxa a conversa real da Mariana (mariana_chat_memory) via função segura, com cache
+  const verConversa = async (l) => {
+    if (convAberta === l.id) { setConvAberta(null); return; } // toggle: fecha
+    setConvAberta(l.id);
+    if (convMsgs[l.id]) return; // já carregada
+    setConvLoading(l.id);
+    const { data, error } = await supabase.rpc("mariana_conversa", { p_telefone: l.telefone });
+    setConvLoading(null);
+    if (!error) setConvMsgs(prev => ({ ...prev, [l.id]: data || [] }));
+  };
 
   const fone8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
 
@@ -6546,7 +6560,40 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                 )}
                 {cur === "desistiu" && l.motivo_desistencia && chip("Motivo: " + l.motivo_desistencia, COLORS.danger)}
               </div>
-              {(l.duvidas || l.lead_texto) && <p style={{ fontSize: 14, color: COLORS.textMuted, lineHeight: 1.5, margin: "8px 0 0" }}>{l.duvidas || l.lead_texto}</p>}
+              {/* Resumo da conversa da Mariana + conversa completa (real, da memória) */}
+              {(l.lead_texto || (l.duvidas && String(l.duvidas).trim() && String(l.duvidas).trim().toLowerCase() !== "nenhuma")) && (
+                <div style={{ marginTop: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                  {l.lead_texto && (
+                    <>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>Resumo da conversa</div>
+                      <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{l.lead_texto}</div>
+                    </>
+                  )}
+                  {l.duvidas && String(l.duvidas).trim() && String(l.duvidas).trim().toLowerCase() !== "nenhuma" && (
+                    <div style={{ fontSize: 13, color: COLORS.accent, lineHeight: 1.5, marginTop: l.lead_texto ? 8 : 0 }}>
+                      <b>Dúvidas em aberto:</b> {l.duvidas}
+                    </div>
+                  )}
+                  <button onClick={() => verConversa(l)} style={{ marginTop: 8, padding: "5px 10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: "transparent", color: COLORS.accent, border: `1px solid ${COLORS.accent}44` }}>
+                    {convAberta === l.id ? "Ocultar conversa" : "💬 Ver conversa completa"}
+                  </button>
+                  {convAberta === l.id && (
+                    <div style={{ marginTop: 10, maxHeight: 360, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 }}>
+                      {convLoading === l.id && <div style={{ fontSize: 13, color: COLORS.textMuted }}>Carregando conversa…</div>}
+                      {convLoading !== l.id && (convMsgs[l.id] || []).length === 0 && <div style={{ fontSize: 13, color: COLORS.textDim }}>Sem conversa registrada para este contato.</div>}
+                      {(convMsgs[l.id] || []).map((m, i) => {
+                        const cliente = m.autor === "Cliente";
+                        return (
+                          <div key={i} style={{ alignSelf: cliente ? "flex-start" : "flex-end", maxWidth: "85%", background: cliente ? COLORS.card : COLORS.accent + "22", border: `1px solid ${cliente ? COLORS.border : COLORS.accent + "55"}`, borderRadius: 10, padding: "6px 10px" }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: cliente ? COLORS.textDim : COLORS.accent, marginBottom: 2 }}>{m.autor}</div>
+                            <div style={{ fontSize: 13, color: COLORS.text, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{m.texto}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14, alignItems: "center" }}>
                 {wpp && (
