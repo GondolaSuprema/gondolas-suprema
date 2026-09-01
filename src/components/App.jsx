@@ -6124,6 +6124,25 @@ function MarcenariaLeadsPage({ user }) {
     notify(novoFix ? "Lead fixado no topo" : "Lead desafixado", "ok");
   };
 
+  // Conversa completa do WhatsApp (memória da Mariana, sessão "-moveis").
+  const [conversa, setConversa] = useState({ id: null, msgs: null, loading: false });
+  const verConversa = async (lead) => {
+    if (conversa.id === lead.id) { setConversa({ id: null, msgs: null, loading: false }); return; }
+    setConversa({ id: lead.id, msgs: null, loading: true });
+    const { data, error } = await supabase
+      .from("mariana_chat_memory")
+      .select("id,message")
+      .eq("session_id", String(lead.telefone || "") + "-moveis")
+      .order("id", { ascending: true });
+    if (error) { notify("Não foi possível carregar a conversa: " + error.message, "erro"); setConversa({ id: null, msgs: null, loading: false }); return; }
+    const msgs = (data || []).map(r => {
+      const m = r.message || {};
+      const texto = String(m.content || "").replace(/^\[INTERNO:[^\]]*\]\n?/, "").trim();
+      return { id: r.id, deCliente: m.type === "human", texto };
+    }).filter(m => m.texto);
+    setConversa({ id: lead.id, msgs, loading: false });
+  };
+
   // Exclui o lead de vez (com confirmação — não tem volta).
   const excluirLead = async (lead) => {
     const quem = lead.nome || telMostrar(lead.telefone);
@@ -6218,12 +6237,33 @@ function MarcenariaLeadsPage({ user }) {
                     >📌{l.fixado ? " Fixado" : ""}</button>
                     {wa && <a href={wa} target="_blank" rel="noreferrer" style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "7px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>WhatsApp</a>}
                     <button
+                      onClick={() => verConversa(l)}
+                      title="Ler a conversa completa do WhatsApp com a Mariana"
+                      style={{ background: conversa.id === l.id ? C.orange : "transparent", color: conversa.id === l.id ? "#000" : C.textMuted, border: `1px solid ${conversa.id === l.id ? C.orange : C.border}`, padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
+                    >💬 Conversa</button>
+                    <button
                       onClick={() => excluirLead(l)}
                       title="Excluir este lead (não tem volta)"
                       style={{ background: "transparent", color: "#EF4444", border: "1px solid #EF444455", padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
                     >🗑</button>
                   </div>
                 </div>
+                {conversa.id === l.id && (
+                  <div style={{ marginTop: 12, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, maxHeight: 420, overflowY: "auto" }}>
+                    {conversa.loading && <div style={{ color: C.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Carregando conversa…</div>}
+                    {!conversa.loading && (!conversa.msgs || conversa.msgs.length === 0) && (
+                      <div style={{ color: C.textDim, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Sem histórico de conversa pra esse número (a memória pode ter sido limpa).</div>
+                    )}
+                    {!conversa.loading && (conversa.msgs || []).map(m => (
+                      <div key={m.id} style={{ display: "flex", justifyContent: m.deCliente ? "flex-end" : "flex-start", marginBottom: 8 }}>
+                        <div style={{ maxWidth: "78%", padding: "8px 12px", borderRadius: 10, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", fontFamily: "'DM Sans', sans-serif", background: m.deCliente ? "#1F5133" : C.card, color: C.text, border: `1px solid ${m.deCliente ? "#2E7D4F" : C.border}` }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: m.deCliente ? "#8FD6A9" : C.textDim, marginBottom: 2 }}>{m.deCliente ? "Cliente" : "Mariana"}</div>
+                          {m.texto}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
                   {STATUS.map(s => (
                     <button key={s.v} onClick={() => setStatus(l, s.v)} style={{ background: st.v === s.v ? s.col + "22" : "transparent", border: `1px solid ${st.v === s.v ? s.col : C.border}`, color: st.v === s.v ? s.col : C.textMuted, padding: "4px 12px", borderRadius: 14, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{s.lbl}</button>
