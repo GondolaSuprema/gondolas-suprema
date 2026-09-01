@@ -6079,6 +6079,7 @@ function MarcenariaLeadsPage({ user }) {
   const [notaEdit, setNotaEdit] = useState({ id: null, texto: "" });
   const [addOpen, setAddOpen] = useState(false);
   const [novo, setNovo] = useState({ nome: "", telefone: "", cidade: "" });
+  const [subAba, setSubAba] = useState("leads"); // "leads" (Meta, a atender) | "orcamentos" (já realizados)
 
   const carregar = async () => {
     setLoading(true); setErro("");
@@ -6173,13 +6174,25 @@ function MarcenariaLeadsPage({ user }) {
   const inp = { width: "100%", padding: "10px 12px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 20px" }}>
+    <div style={{ maxWidth: subAba === "orcamentos" ? 1150 : 900, margin: "0 auto", padding: "28px 20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <h1 style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 28, margin: 0 }}>🪵 Lead Marcenaria</h1>
-        <button onClick={() => setAddOpen(o => !o)} style={{ background: C.orange, color: "#000", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{addOpen ? "Fechar" : "+ Adicionar lead"}</button>
+        {subAba === "leads" && <button onClick={() => setAddOpen(o => !o)} style={{ background: C.orange, color: "#000", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{addOpen ? "Fechar" : "+ Adicionar lead"}</button>}
       </div>
-      <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 16px", fontFamily: "'DM Sans', sans-serif" }}>Leads de marcenaria (móveis sob medida) — nome, telefone e status pra você atender e acompanhar.</p>
+      <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 14px", fontFamily: "'DM Sans', sans-serif" }}>
+        {subAba === "leads" ? "Leads que chegam do Meta pela Mariana — pra você atender e acompanhar." : "Orçamentos de móveis já realizados — funil, PDF e acompanhamento."}
+      </p>
 
+      {/* Sub-abas: Leads (a atender) | Orçamentos (realizados) */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+        {[["leads", "Leads"], ["orcamentos", "Orçamentos"]].map(([v, lab]) => (
+          <button key={v} onClick={() => setSubAba(v)} style={{ background: subAba === v ? C.orange : "transparent", color: subAba === v ? "#000" : C.textMuted, border: `1px solid ${subAba === v ? C.orange : C.border}`, padding: "8px 22px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{lab}</button>
+        ))}
+      </div>
+
+      {subAba === "orcamentos" && <MarcenariaPage compact />}
+
+      {subAba === "leads" && <>
       {addOpen && (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16, marginBottom: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
           <input placeholder="Nome do cliente" value={novo.nome} onChange={e => setNovo(n => ({ ...n, nome: e.target.value }))} style={inp} />
@@ -6286,6 +6299,7 @@ function MarcenariaLeadsPage({ user }) {
           })}
         </div>
       )}
+      </>}
     </div>
   );
 }
@@ -10929,7 +10943,7 @@ const MARC_STATUS = [
 ];
 const MARC_STATUS_MAP = Object.fromEntries(MARC_STATUS.map(s => [s.k, s]));
 
-function MarcenariaPage() {
+function MarcenariaPage({ compact }) {
   const [orcs, setOrcs] = useState(null);
   const [erro, setErro] = useState("");
   const [abrindo, setAbrindo] = useState(null);
@@ -11023,13 +11037,15 @@ function MarcenariaPage() {
   const contagem = (k) => orcs ? orcs.filter(o => (o.status_crm || "enviado") === k).length : 0;
 
   return (
-    <div style={{ maxWidth: 1150, margin: "0 auto", padding: "24px 20px 60px" }}>
+    <div style={compact ? { padding: "4px 0 40px" } : { maxWidth: 1150, margin: "0 auto", padding: "24px 20px 60px" }}>
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ color: COLORS.text, fontSize: 24, fontWeight: 800, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Marcenaria — Acompanhamento</h1>
-          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "6px 0 0" }}>Seu funil de orçamentos de móveis sob medida — visível somente para você. Acompanhe cada cliente, agende retornos e chame no WhatsApp.</p>
-        </div>
-        <button onClick={() => setNovo(novo ? null : { status_crm: "fazer" })} style={{ flexShrink: 0, background: novo ? COLORS.card : COLORS.orange, color: novo ? COLORS.textMuted : "#000", border: `1px solid ${novo ? COLORS.border : COLORS.orange}`, borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+        {compact ? <div /> : (
+          <div>
+            <h1 style={{ color: COLORS.text, fontSize: 24, fontWeight: 800, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Marcenaria — Acompanhamento</h1>
+            <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "6px 0 0" }}>Seu funil de orçamentos de móveis sob medida — visível somente para você. Acompanhe cada cliente, agende retornos e chame no WhatsApp.</p>
+          </div>
+        )}
+        <button onClick={() => setNovo(novo ? null : { status_crm: "fazer" })} style={{ flexShrink: 0, marginLeft: "auto", background: novo ? COLORS.card : COLORS.orange, color: novo ? COLORS.textMuted : "#000", border: `1px solid ${novo ? COLORS.border : COLORS.orange}`, borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
           {novo ? "Cancelar" : "+ Novo orçamento"}
         </button>
       </div>
