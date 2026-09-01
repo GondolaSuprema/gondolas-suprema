@@ -6124,6 +6124,16 @@ function MarcenariaLeadsPage({ user }) {
     notify(novoFix ? "Lead fixado no topo" : "Lead desafixado", "ok");
   };
 
+  // Exclui o lead de vez (com confirmação — não tem volta).
+  const excluirLead = async (lead) => {
+    const quem = lead.nome || telMostrar(lead.telefone);
+    if (!window.confirm(`Excluir o lead "${quem}"? Essa ação não tem volta.`)) return;
+    const { error } = await supabase.from("marcenaria_leads").delete().eq("id", lead.id);
+    if (error) { notify("Não foi possível excluir: " + error.message, "erro"); return; }
+    setLeads(ls => ls.filter(x => x.id !== lead.id));
+    notify("Lead excluído", "ok");
+  };
+
   const adicionar = async () => {
     const nome = novo.nome.trim();
     const tel = novo.telefone.replace(/\D/g, "");
@@ -6190,6 +6200,15 @@ function MarcenariaLeadsPage({ user }) {
                     {l.interesse && (
                       <p style={{ color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.5, margin: "8px 0 0", maxWidth: 640 }}>🪵 {l.interesse}</p>
                     )}
+                    {Array.isArray(l.foto_urls) && l.foto_urls.length > 0 && (
+                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                        {l.foto_urls.map((u, i) => (
+                          <a key={u} href={u} target="_blank" rel="noreferrer" title="Abrir foto de referência do cliente">
+                            <img src={u} alt={`Foto de referência ${i + 1}`} style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}`, display: "block" }} />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
                     <button
@@ -6198,6 +6217,11 @@ function MarcenariaLeadsPage({ user }) {
                       style={{ background: l.fixado ? C.orange : "transparent", color: l.fixado ? "#000" : C.textMuted, border: `1px solid ${l.fixado ? C.orange : C.border}`, padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
                     >📌{l.fixado ? " Fixado" : ""}</button>
                     {wa && <a href={wa} target="_blank" rel="noreferrer" style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "7px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>WhatsApp</a>}
+                    <button
+                      onClick={() => excluirLead(l)}
+                      title="Excluir este lead (não tem volta)"
+                      style={{ background: "transparent", color: "#EF4444", border: "1px solid #EF444455", padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
+                    >🗑</button>
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
