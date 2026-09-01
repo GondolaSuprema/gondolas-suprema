@@ -6144,6 +6144,30 @@ function MarcenariaLeadsPage({ user }) {
     setConversa({ id: lead.id, msgs, loading: false });
   };
 
+  // "Fazer orçamento": cria o card na sub-aba Orçamentos (marc_orcamentos) já com os dados do lead.
+  const [criandoOrc, setCriandoOrc] = useState(null);
+  const fazerOrcamento = async (lead) => {
+    setCriandoOrc(lead.id);
+    // próximo "ordem" (fim da fila)
+    const { data: last } = await supabase.from("marc_orcamentos").select("ordem").order("ordem", { ascending: false }).limit(1);
+    const ordem = ((last && last[0] && last[0].ordem) || 0) + 1;
+    const interesse = (lead.interesse || "").trim();
+    const nomeMovel = (interesse.split(" · ")[0] || "").slice(0, 80) || "Móvel sob medida";
+    const obsPartes = ["Lead da Mariana (Meta)."];
+    if (interesse) obsPartes.push(interesse);
+    (lead.foto_urls || []).forEach((u, i) => obsPartes.push(`Foto ${i + 1}: ${u}`));
+    const { error } = await supabase.from("marc_orcamentos").insert({
+      ordem, nome_movel: nomeMovel, status_crm: "fazer",
+      cliente: lead.nome || null, cliente_telefone: lead.telefone || null, cliente_cidade: lead.cidade || null,
+      obs: obsPartes.join("\n"),
+    });
+    setCriandoOrc(null);
+    if (error) { notify("Não foi possível criar o orçamento: " + error.message, "erro"); return; }
+    if ((lead.status_atendimento || "pendente") === "pendente") setStatus(lead, "atendido");
+    notify("Orçamento criado em 'Fazer Orçamento' com os dados do cliente", "ok");
+    setSubAba("orcamentos");
+  };
+
   // Exclui o lead de vez (com confirmação — não tem volta).
   const excluirLead = async (lead) => {
     const quem = lead.nome || telMostrar(lead.telefone);
@@ -6249,6 +6273,12 @@ function MarcenariaLeadsPage({ user }) {
                       style={{ background: l.fixado ? C.orange : "transparent", color: l.fixado ? "#000" : C.textMuted, border: `1px solid ${l.fixado ? C.orange : C.border}`, padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
                     >📌{l.fixado ? " Fixado" : ""}</button>
                     {wa && <a href={wa} target="_blank" rel="noreferrer" onClick={() => { if ((l.status_atendimento || "pendente") === "pendente") setStatus(l, "atendido"); }} style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "7px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>WhatsApp</a>}
+                    <button
+                      onClick={() => fazerOrcamento(l)}
+                      disabled={criandoOrc === l.id}
+                      title="Criar o orçamento na sub-aba Orçamentos com os dados deste lead"
+                      style={{ background: C.orange, color: "#000", border: `1px solid ${C.orange}`, padding: "6px 12px", borderRadius: 8, cursor: criandoOrc === l.id ? "wait" : "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", opacity: criandoOrc === l.id ? 0.6 : 1 }}
+                    >{criandoOrc === l.id ? "Criando…" : "📋 Fazer orçamento"}</button>
                     <button
                       onClick={() => verConversa(l)}
                       title="Ler a conversa completa do WhatsApp com a Mariana"
