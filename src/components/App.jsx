@@ -6309,6 +6309,8 @@ function MarcenariaLeadsPage({ user }) {
                 )}
                 <div style={{ display: "flex", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
                   <span style={{ background: st.col + "22", border: `1px solid ${st.col}`, color: st.col, padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{st.lbl}</span>
+                  {l.handoff_em && <span title="A Mariana já avisou o cliente que o consultor vai chamar" style={{ background: "#3B82F622", border: "1px solid #3B82F6", color: "#60A5FA", padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>→ Encaminhado ao consultor</span>}
+                  {l.nudge_site_em && !l.handoff_em && <span title="Cliente ficou 1h sem responder e recebeu o lembrete do site" style={{ background: "#FBBF2422", border: "1px solid #FBBF24", color: "#FBBF24", padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>🔔 Recebeu lembrete</span>}
                 </div>
                 <div style={{ marginTop: 10 }}>
                   {notaEdit.id === l.id ? (
