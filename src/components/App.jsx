@@ -6203,7 +6203,7 @@ function MarcenariaLeadsPage({ user }) {
       )}
 
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-        {[{ v: "pendente", l: `Pendentes (${pendentes})` }, { v: "atendido", l: "Atendidos" }, { v: "fechado", l: "Fechados" }, { v: "perdido", l: "Perdidos" }, { v: "todos", l: "Todos" }].map(f => (
+        {[{ v: "pendente", l: `Pendentes (${pendentes})` }, { v: "atendido", l: "Atendidos" }, { v: "todos", l: "Todos" }].map(f => (
           <button key={f.v} onClick={() => setFiltro(f.v)} style={{ background: filtro === f.v ? C.orange : "transparent", color: filtro === f.v ? "#000" : C.textMuted, border: `1px solid ${filtro === f.v ? C.orange : C.border}`, padding: "5px 14px", borderRadius: 18, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{f.l}</button>
         ))}
       </div>
@@ -6248,7 +6248,7 @@ function MarcenariaLeadsPage({ user }) {
                       title={l.fixado ? "Desafixar do topo" : "Fixar no topo da lista"}
                       style={{ background: l.fixado ? C.orange : "transparent", color: l.fixado ? "#000" : C.textMuted, border: `1px solid ${l.fixado ? C.orange : C.border}`, padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
                     >📌{l.fixado ? " Fixado" : ""}</button>
-                    {wa && <a href={wa} target="_blank" rel="noreferrer" style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "7px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>WhatsApp</a>}
+                    {wa && <a href={wa} target="_blank" rel="noreferrer" onClick={() => { if ((l.status_atendimento || "pendente") === "pendente") setStatus(l, "atendido"); }} style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "7px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>WhatsApp</a>}
                     <button
                       onClick={() => verConversa(l)}
                       title="Ler a conversa completa do WhatsApp com a Mariana"
@@ -6278,9 +6278,7 @@ function MarcenariaLeadsPage({ user }) {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
-                  {STATUS.map(s => (
-                    <button key={s.v} onClick={() => setStatus(l, s.v)} style={{ background: st.v === s.v ? s.col + "22" : "transparent", border: `1px solid ${st.v === s.v ? s.col : C.border}`, color: st.v === s.v ? s.col : C.textMuted, padding: "4px 12px", borderRadius: 14, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{s.lbl}</button>
-                  ))}
+                  <span style={{ background: st.col + "22", border: `1px solid ${st.col}`, color: st.col, padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{st.lbl}</span>
                 </div>
                 <div style={{ marginTop: 10 }}>
                   {notaEdit.id === l.id ? (
