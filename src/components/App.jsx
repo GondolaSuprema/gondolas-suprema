@@ -2289,6 +2289,9 @@ const ROLE_PERMISSIONS = {
   // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
   // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes"],
+  // contabilidade (Nexx) — SOMENTE Financeiro (leitura, via somenteLeitura) e NF
+  // (visualiza notas; emitir/cancelar segue restrito a admin/gestor via podeEmitir)
+  contabilidade: ["financeiro", "nf"],
 };
 
 // Abas com acesso restrito SOMENTE ao Alessandro (user.id === "v1"),
@@ -2933,8 +2936,11 @@ function Login({ onLogin, setPage }) {
     setErr("");
     if (!f.email || !f.password) return setErr("Preencha todos os campos.");
     setLoading(true);
+    // Aceita usuário sem @ (ex.: "Nexx") — vira <usuario>@gondolasuprema.com
+    const loginId = f.email.trim().toLowerCase();
+    const emailLogin = loginId.includes("@") ? loginId : loginId + "@gondolasuprema.com";
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: f.email.trim().toLowerCase(),
+      email: emailLogin,
       password: f.password,
     });
     setLoading(false);
@@ -2953,7 +2959,8 @@ function Login({ onLogin, setPage }) {
       role: meta.role || (meta.isAdmin ? "admin" : "vendedor"),
     };
     onLogin(u);
-    setPage("client");
+    // Cada role cai na primeira aba que pode acessar (contabilidade não vê "client")
+    setPage(u.role === "contabilidade" ? "financeiro" : "client");
   };
 
   const inp = { width: "100%", padding: "11px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
@@ -2964,7 +2971,7 @@ function Login({ onLogin, setPage }) {
         <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 24px", fontFamily: "'DM Sans', sans-serif" }}>Acesse com suas credenciais</p>
         {err && <div style={{ background: COLORS.danger + "15", color: COLORS.danger, padding: "8px 12px", borderRadius: 7, fontSize: 12, marginBottom: 14, fontFamily: "'DM Sans', sans-serif" }}>{err}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <input placeholder="E-mail" type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} style={inp} disabled={loading} />
+          <input placeholder="E-mail ou usuário" type="text" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} style={inp} disabled={loading} />
           <input placeholder="Senha" type="password" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} style={inp} onKeyDown={e => e.key === "Enter" && !loading && go()} disabled={loading} />
           <button onClick={go} disabled={loading} style={{ background: loading ? COLORS.border : COLORS.orange, color: "#000", border: "none", padding: "12px", borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 2, boxShadow: loading ? "none" : "0 0 12px rgba(245,166,35,0.24)" }}>{loading ? "Entrando..." : "Entrar"}</button>
         </div>
@@ -11782,8 +11789,9 @@ export default function App() {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setUser(mapSessionUser(session.user));
-        setPage("client");
+        const mapped = mapSessionUser(session.user);
+        setUser(mapped);
+        setPage(mapped?.role === "contabilidade" ? "financeiro" : "client");
       }
     });
 
