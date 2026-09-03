@@ -9259,7 +9259,7 @@ function DrePage() {
   // nos extratos, excluindo transferências entre contas e PIX pessoal do Ale.
   const BANCO_EMPRESA = {
     sicredi_gondolas: "gondolas_suprema",
-    mercadopago_gondolas: "gondolas_suprema",
+    mp_gondolas: "gondolas_suprema",
     c6_instalacoes: "suprema_instalacoes",
   };
   const entradaEhReceita = (l) => {
