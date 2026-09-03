@@ -10118,14 +10118,18 @@ function NFPage({ user }) {
       if (filtroPag === "pagas" && st !== "Pago") return false;
       if (filtroPag === "em_aberto" && st !== "Em Aberto") return false;
     }
-    // Filtro de mês — pra Pago, referência é data_pagamento; senão data_conclusao
+    // Filtro de mês — referência é a DATA DA ENTREGA (o mês da NF).
+    // Sem entrega preenchida, cai pra conclusão/pagamento/data do orçamento.
     if (mesSel !== "all") {
-      const ref = st === "Pago"
-        ? (o.data_pagamento || o.data_conclusao || o.data_entrega || o.data)
-        : (o.data_conclusao || o.data_entrega || o.data);
+      const ref = o.data_entrega || o.data_conclusao || o.data_pagamento || o.data;
       if (!ref) return false;
-      const d = new Date(ref);
-      if ((d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) !== mesSel) return false;
+      // data_entrega é só-data (YYYY-MM-DD): pega o mês direto da string
+      // (new Date() em data pura desloca o dia pelo fuso e pode errar o mês)
+      const sRef = String(ref);
+      const mesRef = sRef.length === 10
+        ? sRef.slice(0, 7)
+        : (() => { const d = new Date(ref); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); })();
+      if (mesRef !== mesSel) return false;
     }
     return true;
   });
