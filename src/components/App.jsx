@@ -7724,6 +7724,7 @@ function AdminPage({ user }) {
           suprema_instalacoes: [
             { v: "c6_bank", label: "C6 Bank" },
             { v: "pf_mp", label: "PF MP" },
+            { v: "mercado_pago", label: "Mercado Pago" },
           ],
         };
         const labelEmpresa = (v) => v === "gondolas_suprema" ? "Gôndolas Suprema" : v === "suprema_instalacoes" ? "Suprema Instalações" : "—";
