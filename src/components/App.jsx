@@ -9261,6 +9261,7 @@ function DrePage() {
     sicredi_gondolas: "gondolas_suprema",
     mp_gondolas: "gondolas_suprema",
     c6_instalacoes: "suprema_instalacoes",
+    mp_instalacoes: "suprema_instalacoes",
   };
   const entradaEhReceita = (l) => {
     const obs = (l.observacao || "").toLowerCase();
@@ -11200,6 +11201,7 @@ function ConciliacaoPage({ user }) {
     { k: "c6_instalacoes",   l: "C6 (Suprema Instalações)",     cor: "#3B82F6" },
     { k: "sicredi_gondolas", l: "Sicredi (Gôndolas Suprema)",   cor: "#10B981" },
     { k: "mp_gondolas",      l: "Mercado Pago (Gôndolas)",      cor: "#06B6D4" },
+    { k: "mp_instalacoes",   l: "Mercado Pago (Instalações)",   cor: "#8B5CF6" },
   ];
   const [bancoSel, setBancoSel] = useState("c6_instalacoes");
   const _hojeMes = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); })();
