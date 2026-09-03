@@ -10078,6 +10078,7 @@ function NFPage({ user }) {
   // ter que clicar ↻ manualmente. Ativo enquanto houver ao menos 1 pendente
   // no state; interval é limpo quando todas resolvem.
   useEffect(() => {
+    if (!podeEmitir) return; // somente leitura (ex.: contabilidade) não dispara sincronização/escrita
     const pendentes = notas.filter(n => n.status === "processando_autorizacao" || n.status === "processando");
     if (pendentes.length === 0) return;
     let cancelado = false;
