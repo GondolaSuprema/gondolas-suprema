@@ -7632,7 +7632,14 @@ function AdminPage({ user }) {
           if (appliedCidade !== "all" && (o.client?.cidade || "") !== appliedCidade) return false;
           return true;
         });
-        const meses = [...new Set(concluidos.map(o => { const d = new Date(o.date); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }))].sort().reverse();
+        // Mês da venda nesta tabela = mês da ENTREGA (quando preenchida); senão, mês do orçamento.
+        // Assim, mudar a data de entrega move a venda pro mês certo (o mês da NF).
+        const mesDaVenda = (o) => {
+          if (o.dataEntrega) return String(o.dataEntrega).slice(0, 7);
+          const d = new Date(o.date);
+          return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+        };
+        const meses = [...new Set(concluidos.map(mesDaVenda))].sort().reverse();
         const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
         // Filtro de mes principal tem prioridade sobre o select interno
         const activeMes = (appliedMes !== "all" ? appliedMes : mesSel) || meses[0] || "";
@@ -7715,7 +7722,7 @@ function AdminPage({ user }) {
         const labelEmpresa = (v) => v === "gondolas_suprema" ? "Gôndolas Suprema" : v === "suprema_instalacoes" ? "Suprema Instalações" : "—";
         const labelBanco = (v) => ({ pf_mp: "PF MP", sicredi: "Sicredi", mercado_pago: "Mercado Pago", c6_bank: "C6 Bank" })[v] || "—";
 
-        const mesConcluidos = concluidos.filter(o => { const d = new Date(o.date); return (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === activeMes; });
+        const mesConcluidos = concluidos.filter(o => mesDaVenda(o) === activeMes);
         const totalMes = mesConcluidos.reduce((s, o) => s + (o.total || 0), 0);
         const vstSc = { "Em Aberto": "#F59E0B", "Pago": "#10B981" };
 
