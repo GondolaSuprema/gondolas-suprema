@@ -6098,7 +6098,11 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
 
   // quem virou orçamento sai da aba (foi pra Orçamentos) — MAS lead ainda "pendente" (não trabalhado) continua
   // visível mesmo com orçamento antigo: é cliente que VOLTOU pra uma nova compra (recompra) e precisa ser atendido.
-  const semOrc = base.filter(l => !temOrcamento(l) || (l.status_atendimento || "pendente") === "pendente");
+  // Lead marcado "desistiu" também sai da aba (fica só no banco, pras estatísticas de motivo;
+  // se o cliente voltar, o dedup do banco deixa a Mariana criar um lead NOVO).
+  const semOrc = base
+    .filter(l => (l.status_atendimento || "pendente") !== "desistiu")
+    .filter(l => !temOrcamento(l) || (l.status_atendimento || "pendente") === "pendente");
   const st = (l) => l.status_atendimento || "pendente";
   const ativo = (l) => st(l) === "pendente" || st(l) === "atendido" || st(l) === "aguardando";
   // Follow-up: lead atendido/aguardando com CONTATO REGISTRADO que esfriou (≥ FOLLOWUP_DIAS).
@@ -6110,7 +6114,6 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     pendente: semOrc.filter(l => st(l) === "pendente").length,
     atendido: semOrc.filter(l => st(l) === "atendido").length,
     aguardando: semOrc.filter(l => st(l) === "aguardando").length,
-    desistiu: semOrc.filter(l => st(l) === "desistiu").length,
     followup: semOrc.filter(precisaFollowup).length,
   };
   const aTrabalhar = semOrc.filter(ativo);
@@ -6198,7 +6201,6 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
           <option value="pendente">Pendentes ({cont.pendente})</option>
           <option value="atendido">Atendidos ({cont.atendido})</option>
           <option value="aguardando">Aguardando cliente ({cont.aguardando})</option>
-          <option value="desistiu">Desistiram ({cont.desistiu})</option>
         </select>
       </div>
 
@@ -6312,7 +6314,6 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                     </select>
                   </span>
                 )}
-                {cur === "desistiu" && l.motivo_desistencia && chip("Motivo: " + l.motivo_desistencia, COLORS.danger)}
               </div>
               {/* Resumo da conversa da Mariana + conversa completa (real, da memória) */}
               {(resumo || (l.duvidas && String(l.duvidas).trim() && String(l.duvidas).trim().toLowerCase() !== "nenhuma")) && (
@@ -6404,13 +6405,6 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                       {acaoBtn("Desistir", COLORS.danger, false, () => setDesistindo(l.id))}
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Lead desistido: pode ser reaberto se o cliente voltar */}
-              {cur === "desistiu" && (
-                <div style={{ marginTop: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
-                  {acaoBtn("Reabrir lead", COLORS.success, false, () => setStatus(l, "atendido", { motivo_desistencia: null }))}
                 </div>
               )}
             </div>
