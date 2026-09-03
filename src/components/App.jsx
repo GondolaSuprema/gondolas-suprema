@@ -6953,6 +6953,7 @@ function AdminPage({ user }) {
           vendaEmpresaRecebedora: o.venda_empresa_recebedora || null,
           vendaBancoRecebedor: o.venda_banco_recebedor || null,
           data_pagamento: o.data_pagamento || null,
+          dataEntrega: o.data_entrega || null,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep, ie: o.cliente_ie }
         })));
       }
@@ -7692,6 +7693,13 @@ function AdminPage({ user }) {
           setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, vendaBancoRecebedor: novoBanco || null } : o));
         };
 
+        // Data da entrega — editável, é a data usada pra emitir a NF
+        const updateDataEntrega = async (orderId, novaData) => {
+          setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, dataEntrega: novaData || null } : o));
+          const { error } = await supabase.from("orcamentos").update({ data_entrega: novaData || null }).eq("id", orderId);
+          if (error) notify("Não foi possível salvar a data de entrega: " + error.message, "erro");
+        };
+
         // Opções de banco dependem da empresa
         const BANCOS_POR_EMPRESA = {
           gondolas_suprema: [
@@ -7735,6 +7743,7 @@ function AdminPage({ user }) {
                       <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Valor</th>
                       <th style={{ padding: "8px 6px", textAlign: "right", color: "#10B981", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Lucro</th>
                       <th style={{ padding: "8px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Vendedor</th>
+                      <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }} title="Data da entrega — usada pra emitir a NF">Entrega (NF)</th>
                       <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Status</th>
                       <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Empresa Receb.</th>
                       <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Banco</th>
@@ -7752,6 +7761,22 @@ function AdminPage({ user }) {
                           <td style={{ padding: "8px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.total || 0)}</td>
                           <td style={{ padding: "8px 6px", textAlign: "right", color: "#10B981", fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.comissao || 0)}</td>
                           <td style={{ padding: "8px 6px", color: COLORS.accent, fontWeight: 500, whiteSpace: "nowrap" }}>{o.vendedor || "-"}</td>
+                          {/* Data da entrega (editável) — o dia certo pra emitir a NF */}
+                          <td style={{ padding: "8px 6px", textAlign: "center" }}>
+                            {canEditAdm ? (
+                              <input
+                                type="date"
+                                value={o.dataEntrega || ""}
+                                onChange={e => updateDataEntrega(o.id, e.target.value)}
+                                title="Data da entrega — usada pra emitir a NF"
+                                style={{ background: COLORS.bg, color: o.dataEntrega ? COLORS.text : COLORS.textMuted, border: `1px solid ${o.dataEntrega ? COLORS.border : COLORS.danger + "66"}`, padding: "3px 6px", borderRadius: 6, fontSize: 9, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", outline: "none", colorScheme: "dark", width: 108 }}
+                              />
+                            ) : (
+                              <span style={{ color: o.dataEntrega ? COLORS.text : COLORS.textDim, fontSize: 10, whiteSpace: "nowrap" }}>
+                                {o.dataEntrega ? o.dataEntrega.split("-").reverse().join("/") : "—"}
+                              </span>
+                            )}
+                          </td>
                           <td style={{ padding: "8px 6px", textAlign: "center" }}>
                             {canEditAdm ? (
                               <select value={vs} onChange={e => updateVendaStatus(o.id, e.target.value)} style={{ background: (vstSc[vs] || "#888") + "20", color: vstSc[vs] || "#888", border: `1px solid ${(vstSc[vs] || "#888")}40`, padding: "3px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none" }}>
