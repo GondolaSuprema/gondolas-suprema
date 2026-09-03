@@ -7714,7 +7714,8 @@ function AdminPage({ user }) {
           if (error) notify("Não foi possível salvar a data de entrega: " + error.message, "erro");
         };
 
-        // Opções de banco dependem da empresa
+        // Opções de banco dependem da empresa.
+        // gondolas_brasil (cliente paga o fornecedor direto) e dinheiro: SEM banco e SEM NF.
         const BANCOS_POR_EMPRESA = {
           gondolas_suprema: [
             { v: "pf_mp", label: "PF MP" },
@@ -7726,8 +7727,10 @@ function AdminPage({ user }) {
             { v: "pf_mp", label: "PF MP" },
             { v: "mercado_pago", label: "Mercado Pago" },
           ],
+          gondolas_brasil: [],
+          dinheiro: [],
         };
-        const labelEmpresa = (v) => v === "gondolas_suprema" ? "Gôndolas Suprema" : v === "suprema_instalacoes" ? "Suprema Instalações" : "—";
+        const labelEmpresa = (v) => v === "gondolas_suprema" ? "Gôndolas Suprema" : v === "suprema_instalacoes" ? "Suprema Instalações" : v === "gondolas_brasil" ? "Gôndolas Brasil" : v === "dinheiro" ? "Dinheiro" : "—";
         const labelBanco = (v) => ({ pf_mp: "PF MP", sicredi: "Sicredi", mercado_pago: "Mercado Pago", c6_bank: "C6 Bank" })[v] || "—";
 
         const mesConcluidos = concluidos.filter(o => mesDaVenda(o) === activeMes);
@@ -7810,6 +7813,8 @@ function AdminPage({ user }) {
                                   <option value="">—</option>
                                   <option value="gondolas_suprema">Gôndolas Suprema</option>
                                   <option value="suprema_instalacoes">Suprema Instalações</option>
+                                  <option value="gondolas_brasil">Gôndolas Brasil (sem NF)</option>
+                                  <option value="dinheiro">Dinheiro (sem NF)</option>
                                 </select>
                               ) : (
                                 <span style={{ color: COLORS.text, fontSize: 10 }}>{labelEmpresa(o.vendaEmpresaRecebedora)}</span>
@@ -10113,6 +10118,9 @@ function NFPage({ user }) {
   // Pra "Pagas", o mês é referenciado pela data_pagamento (momento em que
   // foi marcada como Pago na ADM). Pra outras, usa data_conclusao.
   const vendasMes = vendas.filter(o => {
+    // Recebido como "Gôndolas Brasil" (cliente pagou o fornecedor direto) ou
+    // "Dinheiro": NÃO emite NF de nenhuma empresa → some da aba NF.
+    if (o.venda_empresa_recebedora === "gondolas_brasil" || o.venda_empresa_recebedora === "dinheiro") return false;
     const st = getVendaStatusNF(o);
     // Filtro de status venda
     if (filtroPag !== "todas") {
