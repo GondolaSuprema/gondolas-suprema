@@ -6161,8 +6161,11 @@ function AgendaPage({ user, setPage }) {
               style={{ width: "100%", background: C.bg, color: C.text, border: `1px solid ${C.orange}`, borderRadius: 6, padding: "4px 8px", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}
             />
           ) : (
-            <div onClick={() => { setEditandoId(t.id); setEditandoTxt(t.texto); }}
-                 style={{ color: C.text, fontSize: 14, cursor: "text", textDecoration: feita ? "line-through" : "none", fontFamily: "'DM Sans', sans-serif", wordBreak: "break-word" }}>
+            <div
+              onClick={() => toggleFeita(t)}
+              onDoubleClick={() => { setEditandoId(t.id); setEditandoTxt(t.texto); }}
+              title={feita ? "Clique pra desmarcar · duplo-clique pra editar" : "Clique pra marcar como feito · duplo-clique pra editar"}
+              style={{ color: feita ? C.textMuted : C.text, fontSize: 14, cursor: "pointer", textDecoration: feita ? "line-through" : "none", fontFamily: "'DM Sans', sans-serif", wordBreak: "break-word", userSelect: "none" }}>
               {t.texto}
             </div>
           )}
@@ -6332,7 +6335,7 @@ function AgendaPage({ user, setPage }) {
         </div>
       </div>
       <p style={{ color: C.textMuted, fontSize: 13, marginTop: 4, marginBottom: 22, fontFamily: "'DM Sans', sans-serif" }}>
-        Só você vê essa lista. Escreva o que precisa fazer e aperte Enter — a data padrão é hoje. Clica um dia do calendário pra ver só ele; ★ importante fica em cima.
+        Só você vê essa lista. Escreva e aperte Enter (data padrão: hoje). <b style={{ color: C.text }}>Clica em cima da tarefa pra riscar como feita</b>; duplo-clique pra editar o texto. Clica um dia do calendário pra ver só ele; ★ importante fica em cima.
       </p>
 
       <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
