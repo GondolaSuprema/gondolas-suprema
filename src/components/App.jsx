@@ -1887,10 +1887,56 @@ ${incluirCartao ? buildCardSection(total) : ""}
 </body></html>`;
 }
 
+// ─── HELPERS DE DATA (usados pela Agenda) ───
+// Date-only string 'YYYY-MM-DD' — nunca usar `new Date()` p/ mês, timezone quebra.
+function agendaHojeStr() {
+  const d = new Date();
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 10);
+}
+function agendaAddDias(iso, n) {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 10);
+}
+function agendaFmtData(iso) {
+  if (!iso || iso.length < 10) return "";
+  const p = iso.slice(0, 10).split("-");
+  return `${p[2]}/${p[1]}`;
+}
+
+// Contador global da Agenda (pendentes até HOJE) — pra mostrar badge no menu.
+// Recarrega quando: user muda, evento 'agenda-refresh' dispara (create/toggle/delete),
+// ou de minuto em minuto (garante que tarefa marcada "amanhã" vire "hoje" na virada).
+function useAgendaAlerta(user) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!user) { setN(0); return; }
+    let vivo = true;
+    const carregar = async () => {
+      const hoje = agendaHojeStr();
+      const { count } = await supabase
+        .from("agenda_tarefas")
+        .select("id", { count: "exact", head: true })
+        .lte("data", hoje)
+        .is("feita_em", null);
+      if (vivo) setN(count || 0);
+    };
+    carregar();
+    const on = () => carregar();
+    window.addEventListener("agenda-refresh", on);
+    const int = setInterval(carregar, 60000);
+    return () => { vivo = false; window.removeEventListener("agenda-refresh", on); clearInterval(int); };
+  }, [user?.email]);
+  return n;
+}
+
 // ─── NAV ───
 function Nav({ page, setPage, user, onLogout, cartCount }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const agendaAlerta = useAgendaAlerta(user);
 
   // Detecta mobile via media query (cliente only). Atualiza no resize.
   useEffect(() => {
@@ -1910,6 +1956,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
   useEffect(() => { setMobileOpen(false); }, [page]);
 
   const tabs = [
+    { k: "agenda", l: "Agenda" },
     { k: "leads", l: "Leads" },
     { k: "leadmarc", l: "Lead Marcenaria" },
     { k: "client", l: "Cliente" },
@@ -1939,7 +1986,12 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
           {user && !isMobile && (
             <div style={{ display: "flex", gap: 2 }}>
               {tabs.map(i => (
-                <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>{i.l}</button>
+                <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {i.l}
+                  {i.k === "agenda" && agendaAlerta > 0 && (
+                    <span style={{ background: COLORS.danger, color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10, lineHeight: 1.5, minWidth: 16, textAlign: "center" }}>{agendaAlerta}</span>
+                  )}
+                </button>
               ))}
             </div>
           )}
@@ -1988,8 +2040,13 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
                 <button
                   key={i.k}
                   onClick={() => { setPage(i.k); setMobileOpen(false); }}
-                  style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.text, border: "none", padding: "12px 14px", borderRadius: 8, cursor: "pointer", fontSize: 15, fontWeight: page === i.k ? 700 : 500, fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}
-                >{i.l}</button>
+                  style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.text, border: "none", padding: "12px 14px", borderRadius: 8, cursor: "pointer", fontSize: 15, fontWeight: page === i.k ? 700 : 500, fontFamily: "'DM Sans', sans-serif", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                >
+                  <span>{i.l}</span>
+                  {i.k === "agenda" && agendaAlerta > 0 && (
+                    <span style={{ background: COLORS.danger, color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 12, lineHeight: 1.5 }}>{agendaAlerta}</span>
+                  )}
+                </button>
               ))}
               <button
                 onClick={() => { setMobileOpen(false); onLogout(); }}
@@ -2274,15 +2331,15 @@ const VENDEDORES = [
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
-  admin:           ["client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  admin:           ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
   // gestor (Zanella) — SEM comissoes (regra do Ale). TEM financeiro mas SOMENTE
   // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage). TEM nf
   // com acesso COMPLETO (pode emitir/cancelar/CC-e via podeEmitir=gestor).
-  gestor:          ["client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "adm", "financeiro", "nf"],
+  gestor:          ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "adm", "financeiro", "nf"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
-  vendedor:        ["client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm"],
+  vendedor:        ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm"],
   // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
   // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes"],
@@ -5953,6 +6010,290 @@ function MarcenariaLeadsPage({ user }) {
   );
 }
 
+// ─── AGENDA ───
+// Agenda individual de afazeres (Ale, Zanella, Adelmo). Cada usuário só vê e mexe
+// nas próprias — RLS no Supabase filtra por auth.uid() (não é a tela que esconde,
+// é o banco que impede). Tabela `agenda_tarefas`. Filosofia: baixo atrito na
+// criação (Enter = grava), agrupamento por dia (atrasadas, hoje, amanhã, semana),
+// feito é só um clique. Sem tags/projetos/prioridade complexa — desnecessário
+// pro caso e vira campo em branco. `origem_tipo`/`origem_ref` linkam com lead
+// ou orçamento quando a tarefa nasce de um card do sistema.
+function AgendaPage({ user, setPage }) {
+  const [tarefas, setTarefas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
+  const [texto, setTexto] = useState("");
+  const [novaData, setNovaData] = useState(agendaHojeStr());
+  const [novaImp, setNovaImp] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [feitasAberto, setFeitasAberto] = useState(false);
+  const [editandoId, setEditandoId] = useState(null);
+  const [editandoTxt, setEditandoTxt] = useState("");
+
+  const C = COLORS;
+
+  useEffect(() => { carregar(); }, []);
+
+  async function carregar() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("agenda_tarefas")
+      .select("*")
+      .order("importante", { ascending: false })
+      .order("data", { ascending: true })
+      .order("criado_em", { ascending: true });
+    if (error) setErro(error.message);
+    else { setTarefas(data || []); setErro(""); }
+    setLoading(false);
+  }
+
+  function refreshBadge() { window.dispatchEvent(new Event("agenda-refresh")); }
+
+  async function criar(e) {
+    e?.preventDefault?.();
+    const t = texto.trim();
+    if (!t || salvando) return;
+    setSalvando(true);
+    // user_id vai por DEFAULT auth.uid() no banco — cliente não precisa saber o UUID
+    const { data: linha, error } = await supabase
+      .from("agenda_tarefas")
+      .insert({ texto: t, data: novaData, importante: novaImp })
+      .select()
+      .single();
+    setSalvando(false);
+    if (error) return notify("Erro ao criar: " + error.message, "erro");
+    setTarefas(prev => [...prev, linha].sort(ordena));
+    setTexto("");
+    setNovaImp(false);
+    setNovaData(agendaHojeStr());
+    refreshBadge();
+  }
+
+  function ordena(a, b) {
+    if (a.importante !== b.importante) return a.importante ? -1 : 1;
+    if (a.data !== b.data) return a.data < b.data ? -1 : 1;
+    return (a.criado_em || "") < (b.criado_em || "") ? -1 : 1;
+  }
+
+  async function toggleFeita(t) {
+    const feita_em = t.feita_em ? null : new Date().toISOString();
+    setTarefas(prev => prev.map(x => x.id === t.id ? { ...x, feita_em } : x));
+    const { error } = await supabase.from("agenda_tarefas").update({ feita_em }).eq("id", t.id);
+    if (error) { notify("Erro: " + error.message, "erro"); carregar(); return; }
+    refreshBadge();
+  }
+
+  async function mudarData(t, nova) {
+    if (!nova || nova === t.data) return;
+    setTarefas(prev => prev.map(x => x.id === t.id ? { ...x, data: nova } : x));
+    const { error } = await supabase.from("agenda_tarefas").update({ data: nova }).eq("id", t.id);
+    if (error) { notify("Erro: " + error.message, "erro"); carregar(); return; }
+    refreshBadge();
+  }
+
+  async function alternarImp(t) {
+    const nova = !t.importante;
+    setTarefas(prev => prev.map(x => x.id === t.id ? { ...x, importante: nova } : x));
+    const { error } = await supabase.from("agenda_tarefas").update({ importante: nova }).eq("id", t.id);
+    if (error) { notify("Erro: " + error.message, "erro"); carregar(); }
+  }
+
+  async function salvarTexto(t) {
+    const novo = editandoTxt.trim();
+    setEditandoId(null);
+    if (!novo || novo === t.texto) return;
+    setTarefas(prev => prev.map(x => x.id === t.id ? { ...x, texto: novo } : x));
+    const { error } = await supabase.from("agenda_tarefas").update({ texto: novo }).eq("id", t.id);
+    if (error) { notify("Erro: " + error.message, "erro"); carregar(); }
+  }
+
+  async function excluir(t) {
+    if (!window.confirm(`Excluir "${t.texto}"?`)) return;
+    setTarefas(prev => prev.filter(x => x.id !== t.id));
+    const { error } = await supabase.from("agenda_tarefas").delete().eq("id", t.id);
+    if (error) { notify("Erro: " + error.message, "erro"); carregar(); return; }
+    refreshBadge();
+  }
+
+  // ── agrupamento ──
+  const hoje = agendaHojeStr();
+  const amanha = agendaAddDias(hoje, 1);
+  const em7 = agendaAddDias(hoje, 7);
+  const pend = tarefas.filter(t => !t.feita_em);
+  const atrasadas = pend.filter(t => t.data < hoje);
+  const deHoje    = pend.filter(t => t.data === hoje);
+  const deAmanha  = pend.filter(t => t.data === amanha);
+  const daSemana  = pend.filter(t => t.data > amanha && t.data <= em7);
+  const depois    = pend.filter(t => t.data > em7);
+  const feitasHoje = tarefas.filter(t => t.feita_em && t.feita_em.slice(0, 10) === hoje);
+
+  // ── UI helpers ──
+  const chipStyle = (cor) => ({ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: cor + "22", color: cor, border: `1px solid ${cor}44`, fontFamily: "'DM Sans', sans-serif" });
+
+  function Cartao({ t, atrasada }) {
+    const editando = editandoId === t.id;
+    const feita = !!t.feita_em;
+    const linkOrigem = t.origem_tipo === "lead" ? "Lead" : t.origem_tipo === "orcamento" ? "Orçamento" : t.origem_tipo === "marc_orc" ? "Marcenaria" : null;
+    return (
+      <div style={{
+        background: atrasada ? C.danger + "10" : C.card,
+        border: `1px solid ${atrasada ? C.danger + "44" : (t.importante ? C.orange + "88" : C.border)}`,
+        borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, opacity: feita ? 0.55 : 1
+      }}>
+        <input
+          type="checkbox"
+          checked={feita}
+          onChange={() => toggleFeita(t)}
+          style={{ width: 18, height: 18, cursor: "pointer", accentColor: C.success, flexShrink: 0 }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {editando ? (
+            <input
+              autoFocus
+              value={editandoTxt}
+              onChange={e => setEditandoTxt(e.target.value)}
+              onBlur={() => salvarTexto(t)}
+              onKeyDown={e => { if (e.key === "Enter") salvarTexto(t); if (e.key === "Escape") setEditandoId(null); }}
+              style={{ width: "100%", background: C.bg, color: C.text, border: `1px solid ${C.orange}`, borderRadius: 6, padding: "4px 8px", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}
+            />
+          ) : (
+            <div onClick={() => { setEditandoId(t.id); setEditandoTxt(t.texto); }}
+                 style={{ color: C.text, fontSize: 14, cursor: "text", textDecoration: feita ? "line-through" : "none", fontFamily: "'DM Sans', sans-serif", wordBreak: "break-word" }}>
+              {t.texto}
+            </div>
+          )}
+          {linkOrigem && (
+            <div style={{ fontSize: 11, color: C.textDim, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>
+              vinculada ao <b style={{ color: C.textMuted }}>{linkOrigem}</b>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => alternarImp(t)}
+          title={t.importante ? "Tirar destaque" : "Marcar como importante"}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: 4, color: t.importante ? C.orange : C.textDim }}
+        >{t.importante ? "★" : "☆"}</button>
+        <input
+          type="date"
+          value={t.data}
+          onChange={e => mudarData(t, e.target.value)}
+          style={{ background: C.bg, color: atrasada ? C.danger : C.textMuted, border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 6px", fontSize: 11, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}
+        />
+        {atrasada && (
+          <button
+            onClick={() => mudarData(t, hoje)}
+            title="Trazer para hoje"
+            style={{ background: C.success + "22", color: C.success, border: `1px solid ${C.success}55`, padding: "4px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
+          >Hoje</button>
+        )}
+        <button
+          onClick={() => excluir(t)}
+          title="Excluir"
+          style={{ background: "none", border: "none", color: C.textDim, fontSize: 16, cursor: "pointer", padding: 4 }}
+        >×</button>
+      </div>
+    );
+  }
+
+  function Grupo({ titulo, lista, cor, vazio }) {
+    if (!lista.length && vazio == null) return null;
+    return (
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <h3 style={{ color: cor || C.text, fontSize: 15, fontWeight: 700, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>{titulo}</h3>
+          {lista.length > 0 && <span style={chipStyle(cor || C.textMuted)}>{lista.length}</span>}
+        </div>
+        {lista.length === 0
+          ? <div style={{ color: C.textDim, fontSize: 13, padding: "8px 0", fontFamily: "'DM Sans', sans-serif" }}>{vazio}</div>
+          : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {lista.map(t => <Cartao key={t.id} t={t} atrasada={t.data < hoje} />)}
+            </div>}
+      </div>
+    );
+  }
+
+  const total = pend.length;
+  const feitosHojeN = feitasHoje.length;
+
+  return (
+    <div style={{ maxWidth: 780, margin: "0 auto", padding: "24px 20px 60px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 10 }}>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 28, margin: 0 }}>Minha Agenda</h1>
+        <div style={{ color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+          {feitosHojeN > 0 ? <><b style={{ color: C.success }}>{feitosHojeN}</b> feita{feitosHojeN > 1 ? "s" : ""} hoje · </> : null}
+          <b style={{ color: C.text }}>{total}</b> pendente{total !== 1 ? "s" : ""}
+        </div>
+      </div>
+      <p style={{ color: C.textMuted, fontSize: 13, marginTop: 4, marginBottom: 22, fontFamily: "'DM Sans', sans-serif" }}>
+        Só você vê essa lista. Escreva o que precisa fazer e aperte Enter — a data padrão é hoje. Marca de importante fica em cima; feito some do dia.
+      </p>
+
+      {/* Barra de criação */}
+      <form onSubmit={criar} style={{ display: "flex", gap: 8, marginBottom: 22, flexWrap: "wrap", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 }}>
+        <input
+          placeholder="O que precisa ser feito?"
+          value={texto}
+          onChange={e => setTexto(e.target.value)}
+          style={{ flex: "1 1 260px", background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
+        />
+        <input
+          type="date"
+          value={novaData}
+          onChange={e => setNovaData(e.target.value)}
+          title="Data da tarefa"
+          style={{ background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}
+        />
+        <button
+          type="button"
+          onClick={() => setNovaImp(v => !v)}
+          title={novaImp ? "Nova tarefa será marcada como importante" : "Marcar próxima como importante"}
+          style={{ background: novaImp ? C.orange + "22" : C.bg, color: novaImp ? C.orange : C.textDim, border: `1px solid ${novaImp ? C.orange : C.border}`, borderRadius: 8, padding: "10px 14px", fontSize: 16, cursor: "pointer" }}
+        >★</button>
+        <button
+          type="submit"
+          disabled={!texto.trim() || salvando}
+          style={{ background: C.orange, color: "#000", border: "none", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 700, cursor: texto.trim() ? "pointer" : "not-allowed", opacity: texto.trim() ? 1 : 0.5, fontFamily: "'DM Sans', sans-serif" }}
+        >{salvando ? "..." : "Adicionar"}</button>
+      </form>
+
+      {loading && <div style={{ color: C.textMuted, fontSize: 13 }}>Carregando…</div>}
+      {erro && <div style={{ color: C.danger, background: C.danger + "18", padding: "8px 12px", borderRadius: 8, fontSize: 13, marginBottom: 16 }}>Erro: {erro}</div>}
+
+      {!loading && (
+        <>
+          <Grupo titulo="⚠️ Atrasadas" lista={atrasadas} cor={C.danger} />
+          <Grupo titulo="Hoje" lista={deHoje} cor={C.orange} vazio="Nada marcado pra hoje. Bom dia leve, ou hora de planejar." />
+          <Grupo titulo="Amanhã" lista={deAmanha} cor={C.accent} />
+          <Grupo titulo="Esta semana" lista={daSemana} cor={C.text} />
+          <Grupo titulo="Depois" lista={depois} cor={C.textMuted} />
+
+          {feitasHoje.length > 0 && (
+            <div style={{ marginTop: 30, borderTop: `1px dashed ${C.border}`, paddingTop: 14 }}>
+              <button
+                onClick={() => setFeitasAberto(o => !o)}
+                style={{ background: "none", border: "none", color: C.textMuted, fontSize: 13, cursor: "pointer", padding: 0, fontFamily: "'DM Sans', sans-serif", display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                {feitasAberto ? "▼" : "▶"} <b style={{ color: C.success }}>{feitasHoje.length}</b> feita{feitasHoje.length > 1 ? "s" : ""} hoje
+              </button>
+              {feitasAberto && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                  {feitasHoje.map(t => <Cartao key={t.id} t={t} />)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tarefas.length === 0 && !loading && (
+            <div style={{ background: C.surface, border: `1px dashed ${C.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: C.textMuted, fontSize: 14, marginTop: 10, fontFamily: "'DM Sans', sans-serif" }}>
+              Nenhuma tarefa por aqui ainda. Escreva a primeira acima — pode ser algo pequeno pra começar o hábito.
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
   const ehGestao = user?.role === "admin" || user?.role === "gestor";
@@ -5969,6 +6310,11 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const [notaEdit, setNotaEdit] = useState({ id: null, texto: "" }); // anotação sendo editada
   const [salvandoNota, setSalvandoNota] = useState(false);
   const [desistindo, setDesistindo] = useState(null); // id do lead escolhendo o motivo da desistência
+  // Tarefa a partir do lead: form inline, sugere "Retornar com [nome]" pra amanhã.
+  const [agendando, setAgendando] = useState(null); // id do lead com form aberto
+  const [agendaTxt, setAgendaTxt] = useState("");
+  const [agendaData, setAgendaData] = useState(agendaHojeStr());
+  const [agendaSalv, setAgendaSalv] = useState(false);
   const [periodoDes, setPeriodoDes] = useState("mes"); // período do painel de desempenho: "mes" | "tudo"
   const [convAberta, setConvAberta] = useState(null); // lead.id com a conversa completa expandida
   const [convMsgs, setConvMsgs] = useState({}); // cache { [leadId]: [{autor,texto}] }
@@ -6029,6 +6375,29 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     setLoading(false);
   };
   useEffect(() => { carregar(); }, []);
+
+  // Abre o form de criar tarefa a partir do lead: sugere "Retornar com [nome]"
+  // pra AMANHÃ (é o caso de uso mais comum — retorno de acompanhamento).
+  const abrirAgendaLead = (l) => {
+    if (agendando === l.id) { setAgendando(null); return; }
+    const nome = (l.nome || "").trim() || telMostrar(l.telefone) || "cliente";
+    setAgendaTxt("Retornar com " + nome);
+    setAgendaData(agendaAddDias(agendaHojeStr(), 1));
+    setAgendando(l.id);
+  };
+  const salvarTarefaLead = async (l) => {
+    const t = agendaTxt.trim();
+    if (!t || agendaSalv) return;
+    setAgendaSalv(true);
+    const { error } = await supabase.from("agenda_tarefas").insert({
+      texto: t, data: agendaData, origem_tipo: "lead", origem_ref: String(l.id),
+    });
+    setAgendaSalv(false);
+    if (error) { notify("Erro ao criar tarefa: " + error.message, "erro"); return; }
+    notify("Tarefa criada pra " + agendaFmtData(agendaData) + " · veja em Agenda", "ok");
+    setAgendando(null);
+    window.dispatchEvent(new Event("agenda-refresh"));
+  };
 
   const setStatus = async (lead, novo, extra = {}) => {
     const agora = new Date().toISOString();
@@ -6400,7 +6769,29 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                       <span style={{ fontSize: 12, color: COLORS.textDim, marginRight: 2 }}>E agora:</span>
                       {(cur === "atendido" || cur === "aguardando") && acaoBtn("Aguardando cliente", AZUL, cur === "aguardando", () => setStatus(l, "aguardando"))}
                       {acaoBtn("Fazer orçamento", COLORS.accent, false, () => fazerOrcamento(l))}
+                      {acaoBtn("📅 Agendar tarefa", COLORS.orange, false, () => abrirAgendaLead(l))}
                       {acaoBtn("Desistir", COLORS.danger, false, () => setDesistindo(l.id))}
+                    </div>
+                  )}
+                  {/* Form inline pra criar tarefa vinculada ao lead — vira card na Agenda do usuário logado */}
+                  {agendando === l.id && (
+                    <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", background: COLORS.orange + "10", border: `1px solid ${COLORS.orange}55`, borderRadius: 8, padding: 10 }}>
+                      <input
+                        autoFocus
+                        value={agendaTxt}
+                        onChange={e => setAgendaTxt(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") salvarTarefaLead(l); if (e.key === "Escape") setAgendando(null); }}
+                        style={{ flex: "1 1 220px", background: COLORS.bg, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "8px 12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
+                        placeholder="O que precisa fazer com esse cliente?"
+                      />
+                      <input
+                        type="date"
+                        value={agendaData}
+                        onChange={e => setAgendaData(e.target.value)}
+                        style={{ background: COLORS.bg, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "8px 10px", fontSize: 12, cursor: "pointer" }}
+                      />
+                      <button onClick={() => salvarTarefaLead(l)} disabled={!agendaTxt.trim() || agendaSalv} style={{ background: COLORS.orange, color: "#000", border: "none", padding: "8px 14px", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: agendaTxt.trim() ? 1 : 0.5 }}>{agendaSalv ? "..." : "Criar"}</button>
+                      <button onClick={() => setAgendando(null)} style={{ background: "none", color: COLORS.textMuted, border: "none", padding: "8px 10px", fontSize: 12, cursor: "pointer" }}>Cancelar</button>
                     </div>
                   )}
                 </div>
@@ -11501,6 +11892,8 @@ export default function App() {
       {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
+      {page === "agenda" && canAccess(user, "agenda") && <AgendaPage user={user} setPage={setPage} />}
+      {page === "agenda" && !canAccess(user, "agenda") && <Login onLogin={login} setPage={setPage} />}
       {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroWrapper user={user} />}
       {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
       {page === "dre" && canAccess(user, "dre") && <DrePage />}
