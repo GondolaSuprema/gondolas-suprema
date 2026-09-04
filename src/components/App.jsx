@@ -1956,7 +1956,6 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
   useEffect(() => { setMobileOpen(false); }, [page]);
 
   const tabs = [
-    { k: "agenda", l: "Agenda" },
     { k: "leads", l: "Leads" },
     { k: "leadmarc", l: "Lead Marcenaria" },
     { k: "client", l: "Cliente" },
@@ -1967,6 +1966,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "comissoes", l: "Comissões" },
     { k: "adm", l: "ADM" },
     { k: "financeiro", l: "Financeiro" },
+    { k: "agenda", l: "Agenda" },
   ].filter(i => canAccess(user, i.k))
    // Comissões: pra quem tem Financeiro (Ale/admin) ela vive DENTRO do Financeiro
    // como sub-aba, então sai do menu de cima. Adelmo (vendedor, sem Financeiro)
