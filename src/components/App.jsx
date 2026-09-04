@@ -6029,6 +6029,10 @@ function AgendaPage({ user, setPage }) {
   const [feitasAberto, setFeitasAberto] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
   const [editandoTxt, setEditandoTxt] = useState("");
+  // Calendário mensal à esquerda + modo "dia focado" (ao clicar em uma célula):
+  // troca a lista de grupos por só as tarefas daquele dia. Botão × volta ao normal.
+  const [mesAtual, setMesAtual] = useState(agendaHojeStr().slice(0, 7)); // 'YYYY-MM'
+  const [diaFocado, setDiaFocado] = useState(null); // 'YYYY-MM-DD' ou null
 
   const C = COLORS;
 
@@ -6215,8 +6219,111 @@ function AgendaPage({ user, setPage }) {
   const total = pend.length;
   const feitosHojeN = feitasHoje.length;
 
+  // ── MINI CALENDÁRIO (mensal) ──
+  // Gera as 42 células (6 semanas × 7 dias) do mês visualizado, incluindo bordas
+  // do mês anterior/próximo pra completar a grid. Cada célula ganha uma bolinha
+  // colorida conforme o que tem pendente naquele dia:
+  //   vermelho = dia passado com pendência (atrasada)
+  //   laranja  = hoje com pendência
+  //   accent   = dia futuro com pendência
+  const hojeIso = hoje;
+  const [anoMes, mesNum] = mesAtual.split("-").map(Number);
+  const primeiroDoMes = new Date(anoMes, mesNum - 1, 1);
+  const diaSemanaPrim = primeiroDoMes.getDay(); // 0=dom … 6=sáb
+  const dtToIso = (d) => {
+    const off = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - off).toISOString().slice(0, 10);
+  };
+  const celulas = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(anoMes, mesNum - 1, 1 - diaSemanaPrim + i);
+    celulas.push({ iso: dtToIso(d), noMes: d.getMonth() === mesNum - 1 });
+  }
+  // Contagem de tarefas pendentes por dia (só pra pintar as bolinhas)
+  const porDia = new Map();
+  pend.forEach(t => porDia.set(t.data, (porDia.get(t.data) || 0) + 1));
+  const nomeMes = primeiroDoMes.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const mudarMes = (delta) => {
+    const d = new Date(anoMes, mesNum - 1 + delta, 1);
+    setMesAtual(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  };
+  const irHoje = () => { setMesAtual(hojeIso.slice(0, 7)); setDiaFocado(null); };
+
+  const focadoTarefas = diaFocado
+    ? tarefas.filter(t => t.data === diaFocado).sort((a, b) => {
+        if (!!a.feita_em !== !!b.feita_em) return a.feita_em ? 1 : -1;
+        return (a.criado_em || "") < (b.criado_em || "") ? -1 : 1;
+      })
+    : [];
+
+  const btnCel = (c) => {
+    const n = porDia.get(c.iso) || 0;
+    const isHoje = c.iso === hojeIso;
+    const isPassado = c.iso < hojeIso;
+    const foc = c.iso === diaFocado;
+    let corDot = null;
+    if (n > 0) corDot = isPassado ? C.danger : isHoje ? C.orange : C.accent;
+    return (
+      <button
+        key={c.iso}
+        onClick={() => setDiaFocado(foc ? null : c.iso)}
+        title={n ? `${n} tarefa${n > 1 ? "s" : ""} nesse dia` : ""}
+        style={{
+          position: "relative", background: foc ? C.orange + "22" : (isHoje ? C.orange + "10" : "transparent"),
+          color: !c.noMes ? C.textDim + "88" : (isPassado ? C.textMuted : C.text),
+          border: `1px solid ${foc ? C.orange : isHoje ? C.orange + "55" : "transparent"}`,
+          borderRadius: 6, padding: 0, height: 34, fontSize: 12, fontWeight: isHoje ? 700 : 500,
+          cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+        }}
+      >
+        {Number(c.iso.slice(8, 10))}
+        {corDot && (
+          <span style={{
+            position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)",
+            width: 5, height: 5, borderRadius: "50%", background: corDot,
+          }} />
+        )}
+        {n > 1 && (
+          <span style={{
+            position: "absolute", top: 2, right: 3, fontSize: 9, color: C.textMuted, fontWeight: 700,
+          }}>{n}</span>
+        )}
+      </button>
+    );
+  };
+
+  const calendario = (
+    <aside style={{
+      flex: "0 0 300px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+      padding: 14, alignSelf: "flex-start", position: "sticky", top: 76,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <button onClick={() => mudarMes(-1)} title="Mês anterior"
+          style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 20, padding: "0 8px" }}>‹</button>
+        <div style={{ color: C.white, fontSize: 14, fontWeight: 700, textTransform: "capitalize", fontFamily: "'DM Sans', sans-serif" }}>{nomeMes}</div>
+        <button onClick={() => mudarMes(1)} title="Próximo mês"
+          style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 20, padding: "0 8px" }}>›</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 4 }}>
+        {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 10, color: C.textDim, fontWeight: 700, padding: "4px 0", fontFamily: "'DM Sans', sans-serif" }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+        {celulas.map(btnCel)}
+      </div>
+      <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", fontSize: 11, color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}>
+        <button onClick={irHoje} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.textMuted, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Hoje</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: C.danger }} /> atraso
+          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: C.orange, marginLeft: 4 }} /> hoje
+        </div>
+      </div>
+    </aside>
+  );
+
   return (
-    <div style={{ maxWidth: 780, margin: "0 auto", padding: "24px 20px 60px" }}>
+    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 20px 60px" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 28, margin: 0 }}>Minha Agenda</h1>
         <div style={{ color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
@@ -6225,71 +6332,97 @@ function AgendaPage({ user, setPage }) {
         </div>
       </div>
       <p style={{ color: C.textMuted, fontSize: 13, marginTop: 4, marginBottom: 22, fontFamily: "'DM Sans', sans-serif" }}>
-        Só você vê essa lista. Escreva o que precisa fazer e aperte Enter — a data padrão é hoje. Marca de importante fica em cima; feito some do dia.
+        Só você vê essa lista. Escreva o que precisa fazer e aperte Enter — a data padrão é hoje. Clica um dia do calendário pra ver só ele; ★ importante fica em cima.
       </p>
 
-      {/* Barra de criação */}
-      <form onSubmit={criar} style={{ display: "flex", gap: 8, marginBottom: 22, flexWrap: "wrap", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 }}>
-        <input
-          placeholder="O que precisa ser feito?"
-          value={texto}
-          onChange={e => setTexto(e.target.value)}
-          style={{ flex: "1 1 260px", background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
-        />
-        <input
-          type="date"
-          value={novaData}
-          onChange={e => setNovaData(e.target.value)}
-          title="Data da tarefa"
-          style={{ background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}
-        />
-        <button
-          type="button"
-          onClick={() => setNovaImp(v => !v)}
-          title={novaImp ? "Nova tarefa será marcada como importante" : "Marcar próxima como importante"}
-          style={{ background: novaImp ? C.orange + "22" : C.bg, color: novaImp ? C.orange : C.textDim, border: `1px solid ${novaImp ? C.orange : C.border}`, borderRadius: 8, padding: "10px 14px", fontSize: 16, cursor: "pointer" }}
-        >★</button>
-        <button
-          type="submit"
-          disabled={!texto.trim() || salvando}
-          style={{ background: C.orange, color: "#000", border: "none", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 700, cursor: texto.trim() ? "pointer" : "not-allowed", opacity: texto.trim() ? 1 : 0.5, fontFamily: "'DM Sans', sans-serif" }}
-        >{salvando ? "..." : "Adicionar"}</button>
-      </form>
+      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {calendario}
+        <div style={{ flex: "1 1 480px", minWidth: 0 }}>
+          {/* Barra de criação */}
+          <form onSubmit={criar} style={{ display: "flex", gap: 8, marginBottom: 22, flexWrap: "wrap", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 }}>
+            <input
+              placeholder="O que precisa ser feito?"
+              value={texto}
+              onChange={e => setTexto(e.target.value)}
+              style={{ flex: "1 1 220px", background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
+            />
+            <input
+              type="date"
+              value={novaData}
+              onChange={e => setNovaData(e.target.value)}
+              title="Data da tarefa"
+              style={{ background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontFamily: "'DM Sans', sans-serif", cursor: "pointer" }}
+            />
+            <button
+              type="button"
+              onClick={() => setNovaImp(v => !v)}
+              title={novaImp ? "Nova tarefa será marcada como importante" : "Marcar próxima como importante"}
+              style={{ background: novaImp ? C.orange + "22" : C.bg, color: novaImp ? C.orange : C.textDim, border: `1px solid ${novaImp ? C.orange : C.border}`, borderRadius: 8, padding: "10px 14px", fontSize: 16, cursor: "pointer" }}
+            >★</button>
+            <button
+              type="submit"
+              disabled={!texto.trim() || salvando}
+              style={{ background: C.orange, color: "#000", border: "none", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 700, cursor: texto.trim() ? "pointer" : "not-allowed", opacity: texto.trim() ? 1 : 0.5, fontFamily: "'DM Sans', sans-serif" }}
+            >{salvando ? "..." : "Adicionar"}</button>
+          </form>
 
-      {loading && <div style={{ color: C.textMuted, fontSize: 13 }}>Carregando…</div>}
-      {erro && <div style={{ color: C.danger, background: C.danger + "18", padding: "8px 12px", borderRadius: 8, fontSize: 13, marginBottom: 16 }}>Erro: {erro}</div>}
+          {loading && <div style={{ color: C.textMuted, fontSize: 13 }}>Carregando…</div>}
+          {erro && <div style={{ color: C.danger, background: C.danger + "18", padding: "8px 12px", borderRadius: 8, fontSize: 13, marginBottom: 16 }}>Erro: {erro}</div>}
 
-      {!loading && (
-        <>
-          <Grupo titulo="⚠️ Atrasadas" lista={atrasadas} cor={C.danger} />
-          <Grupo titulo="Hoje" lista={deHoje} cor={C.orange} vazio="Nada marcado pra hoje. Bom dia leve, ou hora de planejar." />
-          <Grupo titulo="Amanhã" lista={deAmanha} cor={C.accent} />
-          <Grupo titulo="Esta semana" lista={daSemana} cor={C.text} />
-          <Grupo titulo="Depois" lista={depois} cor={C.textMuted} />
-
-          {feitasHoje.length > 0 && (
-            <div style={{ marginTop: 30, borderTop: `1px dashed ${C.border}`, paddingTop: 14 }}>
-              <button
-                onClick={() => setFeitasAberto(o => !o)}
-                style={{ background: "none", border: "none", color: C.textMuted, fontSize: 13, cursor: "pointer", padding: 0, fontFamily: "'DM Sans', sans-serif", display: "inline-flex", alignItems: "center", gap: 6 }}
-              >
-                {feitasAberto ? "▼" : "▶"} <b style={{ color: C.success }}>{feitasHoje.length}</b> feita{feitasHoje.length > 1 ? "s" : ""} hoje
-              </button>
-              {feitasAberto && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                  {feitasHoje.map(t => <Cartao key={t.id} t={t} />)}
+          {!loading && diaFocado && (
+            <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: C.orange + "10", border: `1px solid ${C.orange}55`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+                <div style={{ color: C.orange, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
+                  {new Date(diaFocado + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+                </div>
+                <button onClick={() => setDiaFocado(null)}
+                  style={{ background: "none", border: `1px solid ${C.orange}55`, color: C.orange, padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>× Ver tudo</button>
+              </div>
+              {focadoTarefas.length === 0 ? (
+                <div style={{ background: C.surface, border: `1px dashed ${C.border}`, borderRadius: 12, padding: "24px 20px", textAlign: "center", color: C.textMuted, fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>
+                  Nada agendado nesse dia. Escreva algo acima — a data vai vir preenchida.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {focadoTarefas.map(t => <Cartao key={t.id} t={t} atrasada={!t.feita_em && t.data < hojeIso} />)}
                 </div>
               )}
-            </div>
+            </>
           )}
 
-          {tarefas.length === 0 && !loading && (
-            <div style={{ background: C.surface, border: `1px dashed ${C.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: C.textMuted, fontSize: 14, marginTop: 10, fontFamily: "'DM Sans', sans-serif" }}>
-              Nenhuma tarefa por aqui ainda. Escreva a primeira acima — pode ser algo pequeno pra começar o hábito.
-            </div>
+          {!loading && !diaFocado && (
+            <>
+              <Grupo titulo="⚠️ Atrasadas" lista={atrasadas} cor={C.danger} />
+              <Grupo titulo="Hoje" lista={deHoje} cor={C.orange} vazio="Nada marcado pra hoje. Bom dia leve, ou hora de planejar." />
+              <Grupo titulo="Amanhã" lista={deAmanha} cor={C.accent} />
+              <Grupo titulo="Esta semana" lista={daSemana} cor={C.text} />
+              <Grupo titulo="Depois" lista={depois} cor={C.textMuted} />
+
+              {feitasHoje.length > 0 && (
+                <div style={{ marginTop: 30, borderTop: `1px dashed ${C.border}`, paddingTop: 14 }}>
+                  <button
+                    onClick={() => setFeitasAberto(o => !o)}
+                    style={{ background: "none", border: "none", color: C.textMuted, fontSize: 13, cursor: "pointer", padding: 0, fontFamily: "'DM Sans', sans-serif", display: "inline-flex", alignItems: "center", gap: 6 }}
+                  >
+                    {feitasAberto ? "▼" : "▶"} <b style={{ color: C.success }}>{feitasHoje.length}</b> feita{feitasHoje.length > 1 ? "s" : ""} hoje
+                  </button>
+                  {feitasAberto && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                      {feitasHoje.map(t => <Cartao key={t.id} t={t} />)}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {tarefas.length === 0 && !loading && (
+                <div style={{ background: C.surface, border: `1px dashed ${C.border}`, borderRadius: 12, padding: "30px 20px", textAlign: "center", color: C.textMuted, fontSize: 14, marginTop: 10, fontFamily: "'DM Sans', sans-serif" }}>
+                  Nenhuma tarefa por aqui ainda. Escreva a primeira acima — pode ser algo pequeno pra começar o hábito.
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }
