@@ -1921,7 +1921,6 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "adm", l: "ADM" },
     { k: "financeiro", l: "Financeiro" },
     { k: "nf", l: "NF" },
-    { k: "marcenaria", l: "Marcenaria" },
   ].filter(i => canAccess(user, i.k))
    // Comissões: pra quem tem Financeiro (Ale/admin) ela vive DENTRO do Financeiro
    // como sub-aba, então sai do menu de cima. Adelmo (vendedor, sem Financeiro)
@@ -2299,7 +2298,7 @@ const ROLE_PERMISSIONS = {
 // financeiro e nf SAÍRAM desta lista: Zanella (gestor) VÊ o financeiro (só
 // leitura) e tem acesso COMPLETO à NF (emite). DRE e Conciliação seguem
 // exclusivos do Ale.
-const ALE_ONLY_TABS = ["dre", "conciliacao", "marcenaria", "leadmarc"];
+const ALE_ONLY_TABS = ["dre", "conciliacao", "leadmarc"];
 
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
@@ -11506,8 +11505,6 @@ export default function App() {
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
       {page === "nf" && canAccess(user, "nf") && <NFPage user={user} />}
       {page === "nf" && !canAccess(user, "nf") && <Login onLogin={login} setPage={setPage} />}
-      {page === "marcenaria" && canAccess(user, "marcenaria") && <MarcenariaPage />}
-      {page === "marcenaria" && !canAccess(user, "marcenaria") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage user={user} />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
