@@ -1920,7 +1920,6 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "comissoes", l: "Comissões" },
     { k: "adm", l: "ADM" },
     { k: "financeiro", l: "Financeiro" },
-    { k: "nf", l: "NF" },
   ].filter(i => canAccess(user, i.k))
    // Comissões: pra quem tem Financeiro (Ale/admin) ela vive DENTRO do Financeiro
    // como sub-aba, então sai do menu de cima. Adelmo (vendedor, sem Financeiro)
@@ -8008,6 +8007,7 @@ function FinanceiroWrapper({ user }) {
   const [sub, setSub] = useState("financeiro");
   const podeDre = canAccess(user, "dre");
   const podeConc = canAccess(user, "conciliacao");
+  const podeNf = canAccess(user, "nf");
   // Comissões dentro do Financeiro: só quem tem Financeiro E comissões = admin (Ale).
   const podeComissoes = canAccess(user, "comissoes") && canAccess(user, "financeiro");
   const C = COLORS;
@@ -8018,11 +8018,13 @@ function FinanceiroWrapper({ user }) {
     <div>
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px 20px 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {btn("financeiro", "Financeiro")}
+        {podeNf && btn("nf", "NF")}
         {podeDre && btn("dre", "DRE")}
         {podeConc && btn("conciliacao", "Conciliação")}
         {podeComissoes && btn("comissoes", "Comissões")}
       </div>
-      {sub === "dre" && podeDre ? <DrePage />
+      {sub === "nf" && podeNf ? <NFPage user={user} />
+        : sub === "dre" && podeDre ? <DrePage />
         : sub === "conciliacao" && podeConc ? <ConciliacaoPage user={user} />
         : sub === "comissoes" && podeComissoes ? <ComissoesPage user={user} />
         : <FinanceiroPage user={user} />}
@@ -11503,8 +11505,6 @@ export default function App() {
       {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
       {page === "dre" && canAccess(user, "dre") && <DrePage />}
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
-      {page === "nf" && canAccess(user, "nf") && <NFPage user={user} />}
-      {page === "nf" && !canAccess(user, "nf") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage user={user} />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
