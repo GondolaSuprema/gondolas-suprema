@@ -1905,6 +1905,15 @@ function agendaFmtData(iso) {
   const p = iso.slice(0, 10).split("-");
   return `${p[2]}/${p[1]}`;
 }
+// Trava de ano p/ datas de entrega (NF) — evita digitar "26" e virar ano 0026,
+// que jogava a venda pra um mês fantasma e sumia da ADM. Faixa realista: 2020–2035.
+const ANO_ENTREGA_MIN = "2020-01-01";
+const ANO_ENTREGA_MAX = "2035-12-31";
+function anoEntregaOk(s) {
+  if (!s || s.length < 10) return false;
+  const y = Number(s.slice(0, 4));
+  return Number.isInteger(y) && y >= 2020 && y <= 2035;
+}
 
 // Contador global da Agenda (pendentes até HOJE) — pra mostrar badge no menu.
 // Recarrega quando: user muda, evento 'agenda-refresh' dispara (create/toggle/delete),
@@ -4362,7 +4371,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         // Aceita CNPJ (14 dígitos) ou CPF (11 dígitos)
         const cnpjDigits = (cd.cnpj || "").replace(/\D/g, "");
         const cnpjOk = cnpjDigits.length === 14 || cnpjDigits.length === 11;
-        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && (cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto" || cd.pag1_parcelas);
+        const canSave = cnpjOk && anoEntregaOk(cd.data_entrega) && cd.numero_pedido && cd.pag1 && (cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto" || cd.pag1_parcelas);
         return (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
@@ -4384,7 +4393,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
               </div>
               <div>
                 <label style={lblStyle}>Data de Entrega *</label>
-                <input type="date" value={cd.data_entrega} onChange={e => setConcluidoData({ ...cd, data_entrega: e.target.value })} style={selStyle} />
+                <input type="date" min={ANO_ENTREGA_MIN} max={ANO_ENTREGA_MAX} value={cd.data_entrega} onChange={e => setConcluidoData({ ...cd, data_entrega: e.target.value })} style={selStyle} />
+                {cd.data_entrega && !anoEntregaOk(cd.data_entrega) && <div style={{ color: COLORS.danger, fontSize: 11, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>Ano da entrega parece errado — confira (2020 a 2035).</div>}
               </div>
               <div>
                 <label style={lblStyle}>Número do Pedido *</label>
@@ -5126,6 +5136,12 @@ function LogisticaPage({ user }) {
     setAllEntregas(prev => prev.map(o => o.id === id ? { ...o, statusEntrega: novoStatus } : o));
   };
   const updateData = async (id, novaData) => {
+    // Limpar a data (vazio) é permitido — tira a entrega. Mas se veio data,
+    // o ano precisa ser realista: bloqueia "26"→0026 que sumia a venda da ADM.
+    if (novaData && !anoEntregaOk(novaData)) {
+      notify("Data de entrega inválida — confira o ano (deve ser entre 2020 e 2035).", "erro");
+      return;
+    }
     await supabase.from("orcamentos").update({ data_entrega: novaData || null }).eq("id", id);
     setAllEntregas(prev => prev.map(o => o.id === id ? { ...o, dataEntrega: novaData } : o));
   };
@@ -5278,7 +5294,7 @@ function LogisticaPage({ user }) {
                             <td style={{ padding: "12px 14px", color: o.pagamento ? COLORS.text : COLORS.textDim, fontSize: 12 }}>{o.pagamento || "—"}</td>
                             <td style={{ padding: "12px 14px", color: COLORS.text }}>
                               {podeEditar ? (
-                                <input type="date" value={o.dataEntrega || ""} onChange={(e) => updateData(o.id, e.target.value)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "4px 8px", borderRadius: 6, fontSize: 12, fontFamily: "'DM Sans', sans-serif", colorScheme: "dark" }} />
+                                <input type="date" min={ANO_ENTREGA_MIN} max={ANO_ENTREGA_MAX} value={o.dataEntrega || ""} onChange={(e) => updateData(o.id, e.target.value)} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, padding: "4px 8px", borderRadius: 6, fontSize: 12, fontFamily: "'DM Sans', sans-serif", colorScheme: "dark" }} />
                               ) : (
                                 fmtData(o.dataEntrega)
                               )}
@@ -7842,6 +7858,12 @@ function AdminPage({ user }) {
 
         // Data da entrega — editável, é a data usada pra emitir a NF
         const updateDataEntrega = async (orderId, novaData) => {
+          // Ano precisa ser realista (2020–2035). Bloqueia "26"→0026, que jogava
+          // a venda pra um mês fantasma e sumia da ADM. Limpar (vazio) é permitido.
+          if (novaData && !anoEntregaOk(novaData)) {
+            notify("Data de entrega inválida — confira o ano (deve ser entre 2020 e 2035).", "erro");
+            return;
+          }
           setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, dataEntrega: novaData || null } : o));
           const { error } = await supabase.from("orcamentos").update({ data_entrega: novaData || null }).eq("id", orderId);
           if (error) notify("Não foi possível salvar a data de entrega: " + error.message, "erro");
@@ -7917,6 +7939,8 @@ function AdminPage({ user }) {
                             {canEditAdm ? (
                               <input
                                 type="date"
+                                min={ANO_ENTREGA_MIN}
+                                max={ANO_ENTREGA_MAX}
                                 value={o.dataEntrega || ""}
                                 onChange={e => updateDataEntrega(o.id, e.target.value)}
                                 title="Data da entrega — usada pra emitir a NF"
@@ -8205,7 +8229,7 @@ function AdminPage({ user }) {
         const lblStyle = { color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
         const cnpjDigits = (cd.cnpj || "").replace(/\D/g, "");
         const cnpjOk = cnpjDigits.length === 14 || cnpjDigits.length === 11;
-        const canSave = cnpjOk && cd.data_entrega && cd.numero_pedido && cd.pag1 && ((cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto") || cd.pag1_parcelas);
+        const canSave = cnpjOk && anoEntregaOk(cd.data_entrega) && cd.numero_pedido && cd.pag1 && ((cd.pag1 !== "Cartão de Crédito" && cd.pag1 !== "Boleto") || cd.pag1_parcelas);
         return (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
             <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28, width: 460, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto" }}>
@@ -8219,7 +8243,8 @@ function AdminPage({ user }) {
                 </div>
                 <div>
                   <label style={lblStyle}>Data de Entrega *</label>
-                  <input type="date" value={cd.data_entrega} onChange={e => setConcluidoDataAdm({ ...cd, data_entrega: e.target.value })} style={selStyle} />
+                  <input type="date" min={ANO_ENTREGA_MIN} max={ANO_ENTREGA_MAX} value={cd.data_entrega} onChange={e => setConcluidoDataAdm({ ...cd, data_entrega: e.target.value })} style={selStyle} />
+                  {cd.data_entrega && !anoEntregaOk(cd.data_entrega) && <div style={{ color: COLORS.danger, fontSize: 11, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>Ano da entrega parece errado — confira (2020 a 2035).</div>}
                 </div>
                 <div>
                   <label style={lblStyle}>Número do Pedido *</label>
