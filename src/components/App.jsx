@@ -12097,6 +12097,7 @@ export default function App() {
     if (p.category === "mpp-china") mdfId = sel.comp === "1,00m" ? 52 : 54;        // 52=1200×600, 54=1800×600
     else if (p.category === "mpp")  mdfId = sel.largura === "1200mm" ? 53 : 55;   // 53=1200×800, 55=1800×800
     else if (p.category === "slim") mdfId = sel.largura === "1200mm" ? 52 : 54;   // 52=1200×600, 54=1800×600
+    else if (p.category === "mpp-zar") mdfId = (p.id === 900 || p.id === 901) ? 55 : 54; // 500kg(840×1800)→1800×800; 250kg(600×1800)→1800×600
     if (!mdfId) return null;
     const mdfProduct = PRODUCTS.find(x => x.id === mdfId && x.category === "mdf");
     if (!mdfProduct) return null;
