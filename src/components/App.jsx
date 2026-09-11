@@ -77,9 +77,10 @@ const VARIANTS_MPP = [
   { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
 ];
 
-// MPP China: cada nível = 1 par de longarina + 1 plano (deck). 2 laterais fixos.
-// Comprimento 1,00m (longarina 920 + MDF 1200×600) ou 1,50m (longarina 1340 +
-// MDF 1800×600). Lateral não muda com o comprimento.
+// MPP China: só a ESTRUTURA = 2 laterais (montantes) fixos + 1 par de longarina
+// por nível (+ transversina quando houver). O MDF (deck) NÃO entra na receita —
+// é adicionado à parte como item separado no orçamento (decisão do Ale, 11-set).
+// Longarina por comprimento: 1,00m=920, 1,50m=1340, 2,00m=1840. Lateral não muda.
 const VARIANTS_MPP_CHINA = [
   { key: "comp", label: "Comprimento", options: ["1,00m", "1,50m", "2,00m"] },
   { key: "niveis", label: "Níveis", options: ["3", "4", "5", "6"] },
@@ -1247,35 +1248,36 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-transversina-lateral-de-800mm-laranja", 15],
   ],
   // ── MPP CHINA 200KG (id 800 inicial / 801 continuação) — alt 2,00 × prof 0,60 ──
-  // Chave: id|comprimento|níveis. Cada nível = 1 par longarina + 1 plano MDF.
-  // 1,00m: longarina 920 + MDF 1200×600 | 1,50m: longarina 1340 + MDF 1800×600.
-  // Lateral não muda com o comprimento. MDF vem da sub-aba MDF (ids 52/54).
+  // Chave: id|comprimento|níveis. Só a ESTRUTURA: cada nível = 1 par de longarina.
+  // 1,00m: longarina 920 | 1,50m: longarina 1340 | 2,00m: longarina 1840.
+  // Lateral (montante) não muda com o comprimento. O MDF (deck) NÃO entra aqui —
+  // é adicionado à parte como item separado no orçamento (decisão do Ale, 11-set).
   // Inicial = 2 laterais; Continuação = 1 lateral (compartilha com o anterior).
-  "800|1,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 3], ["nome:mdf-1200x600", 3]],
-  "800|1,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 4], ["nome:mdf-1200x600", 4]],
-  "800|1,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 5], ["nome:mdf-1200x600", 5]],
-  "800|1,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 6], ["nome:mdf-1200x600", 6]],
-  "800|1,50m|3": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 3], ["nome:mdf-1800x600", 3]],
-  "800|1,50m|4": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 4], ["nome:mdf-1800x600", 4]],
-  "800|1,50m|5": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 5], ["nome:mdf-1800x600", 5]],
-  "800|1,50m|6": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 6], ["nome:mdf-1800x600", 6]],
-  "801|1,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 3], ["nome:mdf-1200x600", 3]],
-  "801|1,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 4], ["nome:mdf-1200x600", 4]],
-  "801|1,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 5], ["nome:mdf-1200x600", 5]],
-  "801|1,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 6], ["nome:mdf-1200x600", 6]],
-  "801|1,50m|3": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 3], ["nome:mdf-1800x600", 3]],
-  "801|1,50m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 4], ["nome:mdf-1800x600", 4]],
-  "801|1,50m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 5], ["nome:mdf-1800x600", 5]],
-  "801|1,50m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 6], ["nome:mdf-1800x600", 6]],
-  // 2,00m: longarina 1840 + MDF 1800×600 (Ale confirmou usar o 1800 no 2m).
-  "800|2,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 3], ["nome:mdf-1800x600", 3]],
-  "800|2,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 4], ["nome:mdf-1800x600", 4]],
-  "800|2,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 5], ["nome:mdf-1800x600", 5]],
-  "800|2,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 6], ["nome:mdf-1800x600", 6]],
-  "801|2,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 3], ["nome:mdf-1800x600", 3]],
-  "801|2,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 4], ["nome:mdf-1800x600", 4]],
-  "801|2,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 5], ["nome:mdf-1800x600", 5]],
-  "801|2,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 6], ["nome:mdf-1800x600", 6]],
+  "800|1,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 3]],
+  "800|1,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 4]],
+  "800|1,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 5]],
+  "800|1,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-920mm-p-200kg", 6]],
+  "800|1,50m|3": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 3]],
+  "800|1,50m|4": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 4]],
+  "800|1,50m|5": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 5]],
+  "800|1,50m|6": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1340mm-p-200kg", 6]],
+  "801|1,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 3]],
+  "801|1,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 4]],
+  "801|1,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 5]],
+  "801|1,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-920mm-p-200kg", 6]],
+  "801|1,50m|3": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 3]],
+  "801|1,50m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 4]],
+  "801|1,50m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 5]],
+  "801|1,50m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1340mm-p-200kg", 6]],
+  // 2,00m: longarina 1840 (MDF do deck é item separado, fora da receita).
+  "800|2,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 3]],
+  "800|2,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 4]],
+  "800|2,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 5]],
+  "800|2,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 2], ["nome:par-de-longarina-1840mm-p-200kg", 6]],
+  "801|2,00m|3": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 3]],
+  "801|2,00m|4": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 4]],
+  "801|2,00m|5": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 5]],
+  "801|2,00m|6": [["nome:lateral-mini-porta-pallet-2000x600", 1], ["nome:par-de-longarina-1840mm-p-200kg", 6]],
 
   // ── MPP 2000×1200×800 CONTINUAÇÃO S/MDF (id 401) ──
   "401|1200mm|3": [
@@ -1624,7 +1626,7 @@ const PRODUCTS = [
   // ── MPP 2000×800 S/MDF (novo modelo com variantes) ──
   { id: 400, name: "MPP 2000×800 Inicial S/MDF",     category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
   { id: 401, name: "MPP 2000×800 Continuação S/MDF", category: "mpp", icon: "🏗️", price: 0, specs: {}, options: [], variants: VARIANTS_MPP },
-  // ── MPP CHINA (preto) — módulos montados por receita, deck MDF ──
+  // ── MPP CHINA (preto) — módulos montados por receita (só estrutura; MDF à parte) ──
   { id: 800, name: "MPP China 200kg Inicial",     category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
   { id: 801, name: "MPP China 200kg Continuação", category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
   // ── MDF ──
@@ -3144,6 +3146,12 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
                   const sel = it.selOpts.includes(oi);
                   return <button key={oi} onClick={() => togOpt(i, oi)} style={{ background: sel ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${sel ? COLORS.orange : COLORS.border}`, color: sel ? COLORS.orange : COLORS.textMuted, padding: "4px 12px", borderRadius: 16, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: sel ? 600 : 400 }}>{sel ? "✓ " : ""}{o.label}</button>;
                 })}
+              </div>
+            )}
+            {it.product.category === "mpp-china" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}44`, borderRadius: 8, padding: "8px 12px", marginTop: 8, fontSize: 12, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
+                <span style={{ fontSize: 15 }}>🪵</span>
+                <span>Este valor é só da <strong>estrutura</strong> (montantes + longarinas). O <strong>MDF do deck é vendido à parte</strong> — lembre de adicionar como item separado no orçamento.</span>
               </div>
             )}
             <div style={{ textAlign: "right", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${COLORS.border}` }}>
