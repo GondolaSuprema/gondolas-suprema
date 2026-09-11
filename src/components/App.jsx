@@ -3214,12 +3214,6 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
                 })}
               </div>
             )}
-            {(it.product.category === "mpp-china" || it.product.category === "mpp-zar") && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: COLORS.orange + "12", border: `1px solid ${COLORS.orange}44`, borderRadius: 8, padding: "8px 12px", marginTop: 8, fontSize: 12, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
-                <span style={{ fontSize: 15 }}>🪵</span>
-                <span>Este valor é só da <strong>estrutura</strong> (montantes + longarinas). O <strong>MDF do deck é vendido à parte</strong> — lembre de adicionar como item separado no orçamento.</span>
-              </div>
-            )}
             <div style={{ textAlign: "right", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${COLORS.border}` }}>
               <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, color: it.product.price === 0 ? COLORS.textDim : COLORS.orange, fontWeight: 700 }}>{fmt(itemTotal(it))}</span>
             </div>
@@ -11935,6 +11929,7 @@ export default function App() {
   // Modal "adicionar continuação": abre quando um modelo INICIAL de gôndola é
   // adicionado ao orçamento, oferecendo incluir N continuações do mesmo modelo.
   const [contGondolaModal, setContGondolaModal] = useState(null); // { cont, sel, qtd, perguntarQtd }
+  const [mdfModal, setMdfModal] = useState(null); // { mdfProduct, qtd, nomeProduto, contData } — oferece MDF do deck ao add MPP/Slim/China
   const EMPTY_CLIENT = { empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" };
   const [clientData, setClientData] = useState(EMPTY_CLIENT);
   const [leadContexto, setLeadContexto] = useState(null); // conversa do lead p/ o modal na aba Produtos
@@ -12090,12 +12085,51 @@ export default function App() {
     return PRODUCTS.find(x => x.category === p.category && (x.name || "").toLowerCase().trim() === alvo) || null;
   };
 
+  // MPP/Slim/MPP China são só a ESTRUTURA (o MDF do deck é vendido à parte).
+  // Sugere o MDF certo pela config: 1 MDF por nível, tamanho pela largura/comp.
+  // Mapa confirmado com o Ale (11-set): MPP(prof 800)→MDF ×800; Slim(600)→×600;
+  // MPP China(600)→1200×600 no 1,00m, 1800×600 no 1,50m/2,00m. IDs MDF em PRODUCTS.
+  const acharMdfSugerido = (p, sel) => {
+    if (!p || !sel) return null;
+    const niveis = parseInt(sel.niveis, 10) || 0;
+    if (!niveis) return null;
+    let mdfId = null;
+    if (p.category === "mpp-china") mdfId = sel.comp === "1,00m" ? 52 : 54;        // 52=1200×600, 54=1800×600
+    else if (p.category === "mpp")  mdfId = sel.largura === "1200mm" ? 53 : 55;   // 53=1200×800, 55=1800×800
+    else if (p.category === "slim") mdfId = sel.largura === "1200mm" ? 52 : 54;   // 52=1200×600, 54=1800×600
+    if (!mdfId) return null;
+    const mdfProduct = PRODUCTS.find(x => x.id === mdfId && x.category === "mdf");
+    if (!mdfProduct) return null;
+    return { mdfProduct, qtdPorEstrutura: niveis };
+  };
+
   const addToQuote = (p, selectedVariants, qty) => {
     mergeIntoCart(p, selectedVariants, qty);
     setPage("quote");
-    // Se for um modelo INICIAL de gôndola, oferece adicionar a continuação.
+    const addQty = Math.max(1, Number(qty) || 1);
+    // Se for um modelo INICIAL de gôndola/MPP, guarda a continuação pra oferecer depois.
     const cont = acharContinuacaoGondola(p);
-    if (cont) setContGondolaModal({ cont, sel: selectedVariants || null, qtd: "1", perguntarQtd: false });
+    const contData = cont ? { cont, sel: selectedVariants || null, qtd: "1", perguntarQtd: false } : null;
+    // MPP/Slim/MPP China: pergunta se quer acrescentar o MDF do deck (item à parte).
+    // Aparece toda vez. A continuação (se houver) vem DEPOIS de responder o MDF.
+    const sug = acharMdfSugerido(p, selectedVariants);
+    if (sug) {
+      setMdfModal({ mdfProduct: sug.mdfProduct, qtd: sug.qtdPorEstrutura * addQty, nomeProduto: p.name, contData });
+      return;
+    }
+    if (contData) setContGondolaModal(contData);
+  };
+
+  // Confirma a continuação escolhida no pop-up e, como ela também é estrutura
+  // (MPP/Slim/China), oferece o MDF dela em seguida (Ale: perguntar nas duas).
+  const confirmarContinuacaoGondola = () => {
+    if (!contGondolaModal) return;
+    const { cont, sel, qtd } = contGondolaModal;
+    const nQtd = Math.max(1, Number(qtd) || 1);
+    mergeIntoCart(cont, sel, nQtd);
+    setContGondolaModal(null);
+    const sug = acharMdfSugerido(cont, sel);
+    if (sug) setMdfModal({ mdfProduct: sug.mdfProduct, qtd: sug.qtdPorEstrutura * nQtd, nomeProduto: cont.name, contData: null });
   };
 
   return (
@@ -12141,6 +12175,31 @@ export default function App() {
       {page === "comissoes" && !canAccess(user, "comissoes") && <Login onLogin={login} setPage={setPage} />}
 
       {/* Modal continuação de gôndola — abre ao adicionar um modelo Inicial */}
+      {mdfModal && (() => {
+        const fechar = (comMdf) => {
+          if (comMdf) mergeIntoCart(mdfModal.mdfProduct, null, mdfModal.qtd);
+          const cd = mdfModal.contData;
+          setMdfModal(null);
+          if (cd) setContGondolaModal(cd); // encadeia: depois do MDF, oferece a continuação
+        };
+        return (
+          <div onClick={() => fechar(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1001, padding: 20 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 14, padding: 24, maxWidth: 440, width: "100%", boxSizing: "border-box" }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 20, margin: "0 0 6px" }}>🪵 Acrescentar MDF?</h3>
+              <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 18px", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif" }}>
+                O <b style={{ color: COLORS.text }}>{mdfModal.nomeProduto}</b> vai só com a <b>estrutura</b> (montantes + longarinas). Deseja acrescentar o <b style={{ color: COLORS.orange }}>MDF do deck</b>?
+                <br />
+                <span style={{ display: "inline-block", marginTop: 10, color: COLORS.text, fontWeight: 700 }}>{mdfModal.qtd}× {mdfModal.mdfProduct.name}</span>
+                <span style={{ color: COLORS.textDim }}> — {fmt(mdfModal.qtd * (mdfModal.mdfProduct.price || 0))}</span>
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => fechar(false)} style={{ flex: 1, background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "12px", borderRadius: 9, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>Não, sem MDF</button>
+                <button onClick={() => fechar(true)} style={{ flex: 1, background: COLORS.orange, border: "none", color: "#000", padding: "12px", borderRadius: 9, cursor: "pointer", fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Sim, adicionar MDF</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {contGondolaModal && (
         <div onClick={() => setContGondolaModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 14, padding: 24, maxWidth: 420, width: "100%", boxSizing: "border-box" }}>
@@ -12153,11 +12212,11 @@ export default function App() {
                 <label style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 6 }}>Quantas continuações?</label>
                 <input type="number" min="1" autoFocus value={contGondolaModal.qtd}
                   onChange={e => setContGondolaModal(m => ({ ...m, qtd: e.target.value }))}
-                  onKeyDown={e => { if (e.key === "Enter") { mergeIntoCart(contGondolaModal.cont, contGondolaModal.sel, contGondolaModal.qtd); setContGondolaModal(null); } }}
+                  onKeyDown={e => { if (e.key === "Enter") confirmarContinuacaoGondola(); }}
                   style={{ width: "100%", padding: "11px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 15, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box", marginBottom: 18 }} />
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setContGondolaModal(null)} style={{ flex: 1, background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
-                  <button onClick={() => { mergeIntoCart(contGondolaModal.cont, contGondolaModal.sel, contGondolaModal.qtd); setContGondolaModal(null); }} style={{ flex: 2, background: COLORS.orange, border: "none", color: "#000", padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Adicionar {Math.max(1, Number(contGondolaModal.qtd) || 1)} ao orçamento</button>
+                  <button onClick={confirmarContinuacaoGondola} style={{ flex: 2, background: COLORS.orange, border: "none", color: "#000", padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>Adicionar {Math.max(1, Number(contGondolaModal.qtd) || 1)} ao orçamento</button>
                 </div>
               </>
             ) : (
