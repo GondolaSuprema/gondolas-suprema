@@ -1513,12 +1513,12 @@ const PRODUCT_RECIPES = {
   "901|3": [["nome:zar-montante-mpp-500kg-2000x840mm-cinza", 1], ["nome:zar-par-longarina-z-500kg-1800mm-laranja-com-03-transversinas", 3]],
   "901|4": [["nome:zar-montante-mpp-500kg-2000x840mm-cinza", 1], ["nome:zar-par-longarina-z-500kg-1800mm-laranja-com-03-transversinas", 4]],
   "901|5": [["nome:zar-montante-mpp-500kg-2000x840mm-cinza", 1], ["nome:zar-par-longarina-z-500kg-1800mm-laranja-com-03-transversinas", 5]],
-  "902|4": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 2], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 4]],
-  "902|5": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 2], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 5]],
-  "902|6": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 2], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 6]],
-  "903|4": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 1], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 4]],
-  "903|5": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 1], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 5]],
-  "903|6": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 1], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 6]],
+  "902|4": [["nome:zar-montante-slim-250kg-2000x600-cinza", 2], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 4]],
+  "902|5": [["nome:zar-montante-slim-250kg-2000x600-cinza", 2], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 5]],
+  "902|6": [["nome:zar-montante-slim-250kg-2000x600-cinza", 2], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 6]],
+  "903|4": [["nome:zar-montante-slim-250kg-2000x600-cinza", 1], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 4]],
+  "903|5": [["nome:zar-montante-slim-250kg-2000x600-cinza", 1], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 5]],
+  "903|6": [["nome:zar-montante-slim-250kg-2000x600-cinza", 1], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 6]],
 };
 
 // Fit 60 = Fit 40 com peças reforçadas. Só mudam: coluna (base 50cm/60kg),
