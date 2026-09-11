@@ -2791,11 +2791,15 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
     if (!uniplusFromApp) return;
     setLoadingOutros(true);
     const adaptados = (uniplusFromApp || []).map(r => {
+      // As peças avulsas (incl. montantes/longarinas ZAR) ficam SEMPRE em
+      // "Outros Produtos". As estruturais ZAR aparecem TAMBÉM na sub-aba
+      // "MPP Zar" (via filtro abaixo) — decisão do Ale: item avulso em Outros
+      // + conjunto com receita em MPP Zar. Aparecem nas duas abas.
       const zar = ehZarEstrutura(r.nome);
       return {
         id: r.id,
         name: r.nome,
-        category: zar ? "mpp-zar" : "outros",
+        category: "outros",
         icon: zar ? "🟠" : "📦",
         price: Number(r.preco_brasil) || 0,
         specs: { categoria: r.categoria || "Diversos" },
@@ -2821,7 +2825,16 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
   }, [mppChinaFromApp]);
 
   const todosProdutos = [...PRODUCTS, ...outrosProdutos, ...mppChinaProdutos];
-  const filtered = todosProdutos.filter(p => p.category === filter && p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = todosProdutos.filter(p => {
+    if (!p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    // Sub-aba "MPP Zar" = módulos montados por receita (category mpp-zar, ids
+    // 900-903) + as peças ZAR estruturais avulsas (que vivem em "outros"). Os
+    // itens ZAR aparecem nas DUAS abas (avulso em Outros, conjunto aqui).
+    if (filter === "mpp-zar") {
+      return p.category === "mpp-zar" || (p.category === "outros" && ehZarEstrutura(p.name));
+    }
+    return p.category === filter;
+  });
 
   return (
     <div style={{ maxWidth: 1360, margin: "0 auto", padding: "28px 20px" }}>
