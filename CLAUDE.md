@@ -81,6 +81,40 @@ espalhe `if` de papel pelo código.** `canAccess(user, aba)` é a única porta.
 - Regiões de entrega (Logística) mapeadas em `REGIOES_ENTREGA` — cidades em
   UPPERCASE sem acento porque vêm assim do banco.
 
+## Receitas de produtos (como cada gôndola é composta)
+
+Uma gôndola **não tem preço fixo**: o preço é a soma dos componentes da receita.
+Quando o preço de um componente muda em `produtos_uniplus`, o preço da gôndola
+se atualiza sozinho.
+
+- **Fonte da verdade: `PRODUCT_RECIPES` (`App.jsx` ~L103–1486)** — tabela grande
+  de dados; NÃO copiar pra cá, sempre consultar o código para as quantidades.
+- **Chave** da receita: `"produtoId|variante|cor"` (o formato da variante muda
+  por família; alguns produtos usam só `"id|cor"` ou `"id"`).
+- **Valor**: lista de pares `[uniplusId, qtd]`. `uniplusId` pode ser
+  `"nome:<slug>"` para casar pelo nome do item em `produtos_uniplus` (o `slug`
+  é gerado por `slug(nome)`).
+- **Variantes/pills** de cada família em `VARIANTS_*` (`App.jsx` ~L65–99):
+  largura, níveis, cor, comprimento, altura, linha.
+- **Fit 60 é derivado do Fit 40**: o mapa `SUBSTITUICAO_FIT60` (~L1491) +
+  `aplicarLinhaFit60` (~L1525) trocam só as peças mapeadas; peça não mapeada
+  continua igual à do Fit 40.
+
+Regras por família (motivo de existirem — fáceis de quebrar):
+- **Farmácia**: colunas (2,02m) e SLG **não** mudam com a largura — só painel e
+  bandejas. Largura 90cm (cheio) ou 55cm (ponta). Só Branca por enquanto
+  (algumas peças Fit 30 não têm Preta confirmada no banco).
+- **Ponta de farmácia**: config fixa (1,37m, 55cm, face única) — só cor.
+- **MPP China**: receita = **só a ESTRUTURA** (2 laterais/montantes fixos + 1
+  par de longarina por nível + transversina quando houver). O **MDF (deck) NÃO
+  entra na receita** — vai à parte como item separado no orçamento (decisão do
+  Ale, 11-set). Longarina por comprimento: 1,00m=920, 1,50m=1340, 2,00m=1840;
+  a lateral não muda.
+- **"Continuação"**: módulo Inicial com **1 coluna a menos de cada tipo** (a
+  coluna é compartilhada com o módulo anterior da fila).
+- Alguns produtos são **dupla face** (prateleiras nos 2 lados), outros face
+  única — está anotado por receita nos comentários do código.
+
 ## Tabelas Supabase (RLS ativa — a tela não esconde, o banco filtra)
 
 `orcamentos`, `notas_fiscais`, `despesas`, `boletos_a_pagar`,
