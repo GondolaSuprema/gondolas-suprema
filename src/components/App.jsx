@@ -34,6 +34,7 @@ const CATEGORIES = [
   { key: "mdf", label: "MDF" },
   { key: "outros", label: "Outros Produtos" },
   { key: "mpp-china", label: "MPP China" },
+  { key: "mpp-zar", label: "MPP Zar" },
   { key: "fabrica", label: "Fábrica" },
 ];
 
@@ -84,6 +85,20 @@ const VARIANTS_MPP = [
 const VARIANTS_MPP_CHINA = [
   { key: "comp", label: "Comprimento", options: ["1,00m", "1,50m", "2,00m"] },
   { key: "niveis", label: "Níveis", options: ["3", "4", "5", "6"] },
+];
+
+// MPP Zar: só a ESTRUTURA (montantes + longarinas). Comprimento fixo 1800mm
+// (é o único cadastrado no banco), então não vira pill — fica embutido na
+// receita. O MDF (deck) NÃO entra na receita — é item à parte, igual ao MPP
+// China. Inicial = 2 montantes; Continuação = 1 (compartilha com o anterior).
+// Longarina = nº de níveis. No 500kg, cada par de longarina já traz 3
+// transversinas embutidas (por isso não há linha de transversina separada).
+// Capacidades têm faixas de níveis diferentes: 500kg = 3/4/5; 250kg = 4/5/6.
+const VARIANTS_MPP_ZAR_500 = [
+  { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
+];
+const VARIANTS_MPP_ZAR_250 = [
+  { key: "niveis", label: "Níveis", options: ["4", "5", "6"] },
 ];
 
 const VARIANTS_SLIM_AMAPA = [
@@ -1483,6 +1498,27 @@ const PRODUCT_RECIPES = {
     ["nome:grupo-sa-montante-slim-200kg-2000x600mm-cinza-grafite", 1],
     ["nome:amapa-par-longarina-z-slim-250kg-1800mm-laranja", 6],
   ],
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ── MPP ZAR (peças Zar) — só ESTRUTURA, comprimento fixo 1800mm ──
+  // Chave: id|níveis (comprimento fixo, não entra na chave). MDF à parte.
+  // Inicial (900/902) = 2 montantes; Continuação (901/903) = 1 montante.
+  // Longarina = nº de níveis.
+  // 500kg (id 900/901): montante 2000×840 + longarina 500kg (já c/ 3 transversinas).
+  // 250kg (id 902/903): montante lateral Slim 2000×600 + longarina Slim 250kg.
+  // ═══════════════════════════════════════════════════════════════════
+  "900|3": [["nome:zar-montante-mpp-500kg-2000x840mm-cinza", 2], ["nome:zar-par-longarina-z-500kg-1800mm-laranja-com-03-transversinas", 3]],
+  "900|4": [["nome:zar-montante-mpp-500kg-2000x840mm-cinza", 2], ["nome:zar-par-longarina-z-500kg-1800mm-laranja-com-03-transversinas", 4]],
+  "900|5": [["nome:zar-montante-mpp-500kg-2000x840mm-cinza", 2], ["nome:zar-par-longarina-z-500kg-1800mm-laranja-com-03-transversinas", 5]],
+  "901|3": [["nome:zar-montante-mpp-500kg-2000x840mm-cinza", 1], ["nome:zar-par-longarina-z-500kg-1800mm-laranja-com-03-transversinas", 3]],
+  "901|4": [["nome:zar-montante-mpp-500kg-2000x840mm-cinza", 1], ["nome:zar-par-longarina-z-500kg-1800mm-laranja-com-03-transversinas", 4]],
+  "901|5": [["nome:zar-montante-mpp-500kg-2000x840mm-cinza", 1], ["nome:zar-par-longarina-z-500kg-1800mm-laranja-com-03-transversinas", 5]],
+  "902|4": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 2], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 4]],
+  "902|5": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 2], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 5]],
+  "902|6": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 2], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 6]],
+  "903|4": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 1], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 4]],
+  "903|5": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 1], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 5]],
+  "903|6": [["nome:zar-montante-mpp-lateral-slim-2000x600-250kg-cinza", 1], ["nome:zar-par-longarina-z-slim-250kg-1800mm-laranja", 6]],
 };
 
 // Fit 60 = Fit 40 com peças reforçadas. Só mudam: coluna (base 50cm/60kg),
@@ -1629,6 +1665,11 @@ const PRODUCTS = [
   // ── MPP CHINA (preto) — módulos montados por receita (só estrutura; MDF à parte) ──
   { id: 800, name: "MPP China 200kg Inicial",     category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
   { id: 801, name: "MPP China 200kg Continuação", category: "mpp-china", icon: "🇨🇳", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_CHINA },
+  // ── MPP ZAR (peças Zar) — módulos por receita (só estrutura; MDF à parte) ──
+  { id: 900, name: "MPP Zar 500kg Inicial",     category: "mpp-zar", icon: "🟠", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_ZAR_500 },
+  { id: 901, name: "MPP Zar 500kg Continuação", category: "mpp-zar", icon: "🟠", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_ZAR_500 },
+  { id: 902, name: "MPP Zar 250kg Inicial",     category: "mpp-zar", icon: "🟠", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_ZAR_250 },
+  { id: 903, name: "MPP Zar 250kg Continuação", category: "mpp-zar", icon: "🟠", price: 0, specs: {}, options: [], variants: VARIANTS_MPP_ZAR_250 },
   // ── MDF ──
   // Preço por peça = chapa MDF (R$ 229,00) ÷ nº de peças por chapa.
   { id: 52, name: "MDF 1200x600", category: "mdf", icon: "🪵", price: 45.80, specs: { dimensao: "1200x600mm" }, options: [] }, // 229 ÷ 5
@@ -2687,6 +2728,28 @@ function mppChinaComGrupos(lista) {
   return out;
 }
 
+// Peças estruturais Zar (montantes MPP/Slim + pares de longarina Z) — usadas
+// para rotear esses avulsos da tabela produtos_uniplus para a sub-aba "MPP Zar"
+// em vez de "Outros Produtos". Não pega cesto/gancho/régua/carrinho/aparador.
+function ehZarEstrutura(nome) {
+  const n = (nome || "").toUpperCase();
+  if (!n.includes("ZAR")) return false;
+  return n.includes("MONTANTE MPP") || n.includes("MONTANTE SLIM") || n.includes("PAR LONGARINA Z");
+}
+
+// Remove itens com nome repetido (o cadastro Zar tem algumas linhas duplicadas).
+// Preserva marcadores { __header } e a primeira ocorrência de cada nome.
+function dedupePorNome(lista) {
+  const vistos = new Set();
+  return lista.filter(p => {
+    if (p.__header) return true;
+    const k = (p.name || "").trim().toUpperCase();
+    if (vistos.has(k)) return false;
+    vistos.add(k);
+    return true;
+  });
+}
+
 function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mppChinaFromApp, uniplusPriceMap }) {
   const [filter, setFilter] = useState("gondolas-parede");
   const [search, setSearch] = useState("");
@@ -2727,15 +2790,18 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
   useEffect(() => {
     if (!uniplusFromApp) return;
     setLoadingOutros(true);
-    const adaptados = (uniplusFromApp || []).map(r => ({
-      id: r.id,
-      name: r.nome,
-      category: "outros",
-      icon: "📦",
-      price: Number(r.preco_brasil) || 0,
-      specs: { categoria: r.categoria || "Diversos" },
-      options: []
-    }));
+    const adaptados = (uniplusFromApp || []).map(r => {
+      const zar = ehZarEstrutura(r.nome);
+      return {
+        id: r.id,
+        name: r.nome,
+        category: zar ? "mpp-zar" : "outros",
+        icon: zar ? "🟠" : "📦",
+        price: Number(r.preco_brasil) || 0,
+        specs: { categoria: r.categoria || "Diversos" },
+        options: []
+      };
+    });
     setOutrosProdutos(adaptados);
     setLoadingOutros(false);
   }, [uniplusFromApp]);
@@ -2939,13 +3005,13 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
         </div>
           );
         })()
-      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "canto" || filter === "gondolas-farmacia" || filter === "mpp" || filter === "mpp-china" || filter === "slim" || filter === "mdf" ? (
+      ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "canto" || filter === "gondolas-farmacia" || filter === "mpp" || filter === "mpp-china" || filter === "mpp-zar" || filter === "slim" || filter === "mdf" ? (
         // Visualização em lista para Gôndolas de Parede, Centro, Ponta, Canto, Farmácia, MPP, Slim e MDF
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
           )}
-          {(filter === "mpp-china" ? mppChinaComGrupos(filtered) : filtered).map((p, idx, arr) => {
+          {(filter === "mpp-china" ? mppChinaComGrupos(filtered) : filter === "mpp-zar" ? mppChinaComGrupos(dedupePorNome(filtered)) : filtered).map((p, idx, arr) => {
             if (p.__header) return (
               <div key={"grp-" + p.__header} style={{ padding: "9px 16px", background: COLORS.bg, borderTop: idx > 0 ? `1px solid ${COLORS.border}` : "none", borderBottom: `1px solid ${COLORS.border}`, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 1.4, color: COLORS.orange, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{p.__header}</div>
             );
@@ -3000,9 +3066,9 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
             return (
               <div key={p.id} style={{ padding: "10px 16px", borderBottom: idx < arr.length - 1 ? `1px solid ${COLORS.border}` : "none", display: "flex", flexWrap: "nowrap", alignItems: "center", gap: 14, minWidth: 0 }}>
                 <div style={{ flex: "0 1 260px", minWidth: 0, fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 13, fontWeight: 600, lineHeight: 1.3, whiteSpace: "normal", overflowWrap: "anywhere" }} title={p.name}>{p.name}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 auto", flexWrap: "nowrap", justifyContent: "flex-start", minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, rowGap: 6, flex: "1 1 auto", flexWrap: "wrap", justifyContent: "flex-start", minWidth: 0 }}>
                   {(p.variants || []).map(v => (
-                    <div key={v.key} style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "nowrap" }}>
+                    <div key={v.key} style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
                       <span style={{ color: COLORS.textDim, fontSize: 10.5, fontFamily: "'DM Sans', sans-serif", marginRight: 2, whiteSpace: "nowrap" }}>{v.label}:</span>
                       {v.options.map(op => (
                         <button key={op} onClick={() => setProductVariant(p.id, v.key, op)} style={pillStyle(sel[v.key] === op)}>
