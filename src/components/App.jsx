@@ -11945,8 +11945,25 @@ function FotosPage({ user }) {
   const albumRef = useRef(album);     // álbum "vivo" (evita aplicar resposta no álbum errado)
   const loadIdRef = useRef(0);        // descarta respostas de list() fora de ordem
   const albumAtual = ALBUNS_FOTOS.find(a => a.k === album) || ALBUNS_FOTOS[0];
+  const isMobile = useIsMobile();
+  const [contagens, setContagens] = useState({}); // { albumKey: n } — badge de qtd nas sub-abas
 
   useEffect(() => { albumRef.current = album; sairSelecao(); carregar(); /* eslint-disable-next-line */ }, [album]);
+  useEffect(() => { carregarContagens(); /* eslint-disable-next-line */ }, []);
+
+  // Conta as fotos de TODOS os álbuns (1x no mount) pra mostrar a quantidade em cada
+  // sub-aba — ajuda a saber onde tem material sem precisar abrir cada um.
+  async function carregarContagens() {
+    try {
+      const entries = await Promise.all(ALBUNS_FOTOS.map(async (a) => {
+        const { data, error } = await supabase.storage.from("fotos").list(a.k, { limit: 1000 });
+        if (error) return [a.k, null]; // não mostra badge se a contagem falhou (evita "0" falso)
+        const n = (data || []).filter(f => f.name && f.name !== ".emptyFolderPlaceholder").length;
+        return [a.k, n];
+      }));
+      setContagens(Object.fromEntries(entries.filter(([, n]) => typeof n === "number")));
+    } catch { /* badge é opcional — silencioso */ }
+  }
 
   async function carregar() {
     const alvo = albumRef.current;
@@ -11966,6 +11983,7 @@ function FotosPage({ user }) {
         return { name: f.name, path, url: pub.publicUrl, created_at: f.created_at };
       });
       setFotos(comUrl);
+      setContagens(prev => ({ ...prev, [alvo]: comUrl.length })); // mantém o badge em dia
       setErro("");
     } catch (err) {
       if (loadIdRef.current !== meuLoad) return;
@@ -12012,6 +12030,7 @@ function FotosPage({ user }) {
       const { error } = await supabase.storage.from("fotos").remove([path]);
       if (error) { notify("Não foi possível apagar: " + error.message, "erro"); return; }
       setFotos(prev => prev.filter(f => f.path !== path));
+      setContagens(prev => ({ ...prev, [albumRef.current]: Math.max(0, (prev[albumRef.current] || 1) - 1) })); // mantém o badge certo ao apagar
       setLightbox(null);
       notify("Foto apagada", "ok");
     } catch (err) {
@@ -12086,56 +12105,75 @@ function FotosPage({ user }) {
     setCompartilhando(false);
   }
 
-  const btnAlbum = (a) => (
-    <button key={a.k} onClick={() => { if (compartilhando) return; setAlbum(a.k); }} disabled={compartilhando} style={{
-      padding: "8px 16px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: compartilhando ? "default" : "pointer",
-      background: album === a.k ? C.orange : C.card, color: album === a.k ? "#000" : C.textMuted,
-      border: `1px solid ${album === a.k ? C.orange : C.border}`, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
-      opacity: compartilhando && album !== a.k ? 0.5 : 1,
-    }}>{a.l}</button>
-  );
+  const btnAlbum = (a) => {
+    const ativo = album === a.k;
+    const n = contagens[a.k];
+    return (
+      <button key={a.k} onClick={() => { if (compartilhando) return; setAlbum(a.k); }} disabled={compartilhando} style={{
+        padding: "8px 14px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: compartilhando ? "default" : "pointer",
+        background: ativo ? C.orange : C.card, color: ativo ? "#000" : C.textMuted,
+        border: `1px solid ${ativo ? C.orange : C.border}`, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+        opacity: compartilhando && !ativo ? 0.5 : 1, flex: "0 0 auto",
+        display: "inline-flex", alignItems: "center", gap: 6,
+      }}>
+        {a.l}
+        {typeof n === "number" && (
+          <span style={{ fontSize: 11, fontWeight: 800, padding: "1px 7px", borderRadius: 999,
+            background: ativo ? "rgba(0,0,0,0.18)" : C.bg, color: ativo ? "#000" : C.textDim }}>{n}</span>
+        )}
+      </button>
+    );
+  };
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 16px 60px" }}>
-      {/* Sub-abas (álbuns) */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "14px 12px 40px" : "20px 16px 60px" }}>
+      {/* Sub-abas (álbuns) — no celular deslizam de lado em vez de quebrar em várias linhas */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16,
+        ...(isMobile
+          ? { flexWrap: "nowrap", overflowX: "auto", paddingBottom: 6, marginLeft: -12, marginRight: -12, paddingLeft: 12, paddingRight: 12, WebkitOverflowScrolling: "touch" }
+          : { flexWrap: "wrap" }) }}>
         {ALBUNS_FOTOS.map(btnAlbum)}
       </div>
 
-      {/* Cabeçalho do álbum + botões */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+      {/* Cabeçalho do álbum + botões — no celular empilha (título em cima, botões numa linha tocável abaixo) */}
+      <div style={{ display: "flex", alignItems: isMobile ? "stretch" : "center", justifyContent: "space-between", gap: 12, flexDirection: isMobile ? "column" : "row", marginBottom: 16 }}>
         <div>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 800, color: C.text }}>{albumAtual.l}</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 19 : 22, fontWeight: 800, color: C.text }}>{albumAtual.l}</div>
           <div style={{ fontSize: 13, color: modoSelecao ? C.orange : C.textMuted, marginTop: 2, fontWeight: modoSelecao ? 700 : 400 }}>
             {modoSelecao
               ? (selecionadas.size === 0 ? "Toque nas fotos pra selecionar" : selecionadas.size + (selecionadas.size === 1 ? " foto selecionada" : " fotos selecionadas"))
               : (loading ? "Carregando…" : (fotos.length === 0 ? "Nenhuma foto ainda" : (fotos.length === 1 ? "1 foto" : fotos.length + " fotos")))}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {modoSelecao ? (
-            <button onClick={sairSelecao} disabled={compartilhando} style={{
-              padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: compartilhando ? "default" : "pointer",
-              background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: compartilhando ? 0.6 : 1,
-            }}>Cancelar</button>
-          ) : (
-            <>
-              <button onClick={() => camInputRef.current?.click()} disabled={!!uploading} style={{
-                padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
-                background: C.orange, color: "#000", border: "none", fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
-              }}>📷 Tirar Foto</button>
-              <button onClick={() => galInputRef.current?.click()} disabled={!!uploading} style={{
-                padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
-                background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
-              }}>🖼️ Escolher fotos</button>
-              {fotos.length > 0 && (
-                <button onClick={() => setModoSelecao(true)} disabled={!!uploading} style={{
-                  padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {(() => {
+            const flexBtn = isMobile ? "1 1 0" : "0 0 auto"; // basis 0 = 3 botões de largura igual numa linha só
+            const pad = isMobile ? "12px 14px" : "11px 18px";
+            if (modoSelecao) return (
+              <button onClick={sairSelecao} disabled={compartilhando} style={{
+                padding: pad, borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: compartilhando ? "default" : "pointer", flex: flexBtn, whiteSpace: "nowrap",
+                background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: compartilhando ? 0.6 : 1,
+              }}>Cancelar</button>
+            );
+            return (
+              <>
+                <button onClick={() => camInputRef.current?.click()} disabled={!!uploading} style={{
+                  padding: pad, borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer", flex: flexBtn, whiteSpace: "nowrap",
+                  background: C.orange, color: "#000", border: "none", fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
+                }}>📷 {isMobile ? "Câmera" : "Tirar Foto"}</button>
+                <button onClick={() => galInputRef.current?.click()} disabled={!!uploading} style={{
+                  padding: pad, borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer", flex: flexBtn, whiteSpace: "nowrap",
                   background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
-                }}>✓ Selecionar</button>
-              )}
-            </>
-          )}
+                }}>🖼️ {isMobile ? "Galeria" : "Escolher fotos"}</button>
+                {fotos.length > 0 && (
+                  <button onClick={() => setModoSelecao(true)} disabled={!!uploading} style={{
+                    padding: pad, borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer", flex: flexBtn, whiteSpace: "nowrap",
+                    background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
+                  }}>✓ Selecionar</button>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -12162,7 +12200,7 @@ function FotosPage({ user }) {
           Álbum vazio. Toque em <b style={{ color: C.text }}>📷 Tirar Foto</b> ou <b style={{ color: C.text }}>🖼️ Escolher fotos</b> pra começar.
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10, paddingBottom: modoSelecao ? 84 : 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fill, minmax(150px, 1fr))", gap: isMobile ? 8 : 10, paddingBottom: modoSelecao ? (isMobile ? 100 : 84) : 0 }}>
           {fotos.map((f, idx) => {
             const marcada = selecionadas.has(f.path);
             return (
@@ -12191,7 +12229,7 @@ function FotosPage({ user }) {
 
       {/* Barra fixa de compartilhamento (modo seleção) */}
       {modoSelecao && (
-        <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 2500, background: C.surface, borderTop: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 2500, background: C.surface, borderTop: `1px solid ${C.border}`, padding: "12px 16px", paddingBottom: "calc(12px + env(safe-area-inset-bottom))", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ fontSize: 13, color: C.textMuted, fontWeight: 700 }}>
             {selecionadas.size === 0 ? "Nenhuma foto selecionada" : selecionadas.size + (selecionadas.size === 1 ? " selecionada" : " selecionadas")}
           </div>
