@@ -44,6 +44,28 @@ const VARIANTS_GONDOLA_PAREDE = [
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
 
+// ─── Orçamento por Medidas (só gôndola de PAREDE) ───────────────────────────
+// Larguras reais dos módulos: o Inicial ocupa 0,96m; cada Continuação 0,93m
+// (a continuação compartilha 1 coluna com o módulo anterior, por isso é menor).
+// Regra do Ale: sempre 1 Inicial + a MAIOR quantidade de continuações que NÃO
+// ultrapassa a medida pedida (a gôndola tem que caber na parede).
+const PAREDE_INICIAL_M = 0.96;
+const PAREDE_CONT_M = 0.93;
+// Cada tipo de módulo de parede: id do Inicial e da Continuação no catálogo.
+const PAREDE_MODULOS = {
+  bandeja: { inicial: 100, cont: 101, label: "Bandeja" },
+  gancho:  { inicial: 102, cont: 103, label: "Gancho" },
+  cesto:   { inicial: 104, cont: 105, label: "Cesto" },
+};
+// Ex.: 10m → continuações = floor((10 − 0,96) / 0,93) = 9 → 0,96 + 9×0,93 = 9,33m.
+function calcularGondolaParede(metros) {
+  const m = Number(String(metros).replace(",", "."));
+  if (!isFinite(m) || m < PAREDE_INICIAL_M) return null; // precisa caber ao menos o Inicial
+  const continuacoes = Math.floor((m - PAREDE_INICIAL_M) / PAREDE_CONT_M + 1e-9); // epsilon: evita erro de float quando fecha exato
+  const comprimento = PAREDE_INICIAL_M + continuacoes * PAREDE_CONT_M;
+  return { continuacoes, comprimento };
+}
+
 // Ponta c/ Gancho existe SÓ na Fit 40 (sem Fit 60, decisão do Ale 06-ago):
 // sem a variante "linha", não mostra a pill Fit 40/Fit 60 e fica sempre Fit 40.
 const VARIANTS_PONTA_FIT40 = [
@@ -2751,7 +2773,7 @@ function dedupePorNome(lista) {
   });
 }
 
-function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mppChinaFromApp, uniplusPriceMap }) {
+function Catalog({ onAdd, onAddMedidas, uniplusProducts: uniplusFromApp, mppChinaProducts: mppChinaFromApp, uniplusPriceMap }) {
   const [filter, setFilter] = useState("gondolas-parede");
   const [search, setSearch] = useState("");
   const isMobile = useIsMobile();
@@ -2762,6 +2784,9 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
   const [qtyByProduct, setQtyByProduct] = useState({});
   // Form da aba "Fábrica" — produtos sob medida adicionados na hora pelo vendedor
   const [fabricaForm, setFabricaForm] = useState({ nome: "", quantidade: "1", valorCusto: "", valorComissao: "" });
+  // Modal "Fazer Orçamento por Medidas" (só gôndola de parede)
+  const [medidasOpen, setMedidasOpen] = useState(false);
+  const [medForm, setMedForm] = useState({ metros: "", linha: "Fit 40", altura: "1,70m", cor: "Branca", inicial: "bandeja", gancho: "0", cesto: "0" });
 
   const getProductVariantSel = (p) => {
     const sel = variantSel[p.id] || {};
@@ -3022,6 +3047,12 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
       ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "canto" || filter === "gondolas-farmacia" || filter === "mpp" || filter === "mpp-china" || filter === "mpp-zar" || filter === "slim" || filter === "mdf" ? (
         // Visualização em lista para Gôndolas de Parede, Centro, Ponta, Canto, Farmácia, MPP, Slim e MDF
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
+          {filter === "gondolas-parede" && (
+            <div style={{ padding: "12px 14px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg }}>
+              <button onClick={() => setMedidasOpen(true)} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: "pointer", background: COLORS.orange, color: "#000", border: "none", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>📐 Fazer Orçamento por Medidas</button>
+              <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 6, textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>Digite os metros e o sistema calcula os módulos (1 inicial + continuações)</div>
+            </div>
+          )}
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
           )}
@@ -3136,6 +3167,102 @@ function Catalog({ onAdd, uniplusProducts: uniplusFromApp, mppChinaProducts: mpp
           ))}
         </div>
       )}
+      {/* Modal: Fazer Orçamento por Medidas (gôndola de parede) */}
+      {medidasOpen && (() => {
+        const calc = calcularGondolaParede(medForm.metros);
+        const totalCont = calc ? calc.continuacoes : 0;
+        const g = Math.max(0, parseInt(medForm.gancho, 10) || 0);
+        const c = Math.max(0, parseInt(medForm.cesto, 10) || 0);
+        const bandeja = Math.max(0, totalCont - g - c);
+        const excede = (g + c) > totalCont;
+        const totalMod = calc ? 1 + totalCont : 0;
+        const alvo = Number(String(medForm.metros).replace(",", "."));
+        const pill = (active) => ({ background: active ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${active ? COLORS.orange : COLORS.border}`, color: active ? COLORS.orange : COLORS.textMuted, padding: "6px 12px", borderRadius: 14, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontWeight: active ? 700 : 400 });
+        const label = { fontSize: 11, color: COLORS.textDim, fontFamily: "'DM Sans', sans-serif", marginBottom: 5, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
+        const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 8, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, fontSize: 15, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" };
+        const setF = (k, v) => setMedForm(prev => ({ ...prev, [k]: v }));
+        const fechar = () => setMedidasOpen(false);
+        const fmtM = (n) => n.toFixed(2).replace(".", ",");
+        const adicionar = () => {
+          if (!calc) { notify("Digite uma medida de pelo menos 0,96m.", "erro"); return; }
+          if (excede) { notify("Gancho + cesto passam do total de continuações.", "erro"); return; }
+          onAddMedidas({
+            selVariants: { linha: medForm.linha, altura: medForm.altura, cor: medForm.cor },
+            inicialTipo: medForm.inicial,
+            contBandeja: bandeja, contGancho: g, contCesto: c,
+          });
+          setMedidasOpen(false);
+          setMedForm({ metros: "", linha: "Fit 40", altura: "1,70m", cor: "Branca", inicial: "bandeja", gancho: "0", cesto: "0" });
+        };
+        return (
+          <div onClick={fechar} style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20, maxWidth: 420, width: "100%", boxShadow: CARD_GLOW, margin: "auto" }}>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, color: COLORS.text, marginBottom: 4 }}>Orçamento por Medidas</div>
+              <div style={{ fontSize: 12.5, color: COLORS.textMuted, marginBottom: 16, fontFamily: "'DM Sans', sans-serif" }}>Gôndola de parede · 1 inicial (0,96m) + continuações (0,93m)</div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={label}>Metros de parede</label>
+                <input type="number" inputMode="decimal" step="0.1" min="0" value={medForm.metros} onChange={e => setF("metros", e.target.value)} placeholder="ex: 10" style={inputStyle} autoFocus />
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={label}>Linha</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{["Fit 40", "Fit 60"].map(o => <button key={o} onClick={() => setF("linha", o)} style={pill(medForm.linha === o)}>{o}</button>)}</div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={label}>Altura</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{["1,37m", "1,70m", "2,00m"].map(o => <button key={o} onClick={() => setF("altura", o)} style={pill(medForm.altura === o)}>{o}</button>)}</div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={label}>Cor</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{["Branca", "Preta"].map(o => <button key={o} onClick={() => setF("cor", o)} style={pill(medForm.cor === o)}>{o}</button>)}</div>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={label}>Módulo inicial</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{[["bandeja", "Bandeja"], ["gancho", "Gancho"], ["cesto", "Cesto"]].map(([k, l]) => <button key={k} onClick={() => setF("inicial", k)} style={pill(medForm.inicial === k)}>{l}</button>)}</div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={label}>Cont. Gancho</label>
+                  <input type="number" inputMode="numeric" min="0" value={medForm.gancho} onChange={e => setF("gancho", e.target.value)} style={inputStyle} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={label}>Cont. Cesto</label>
+                  <input type="number" inputMode="numeric" min="0" value={medForm.cesto} onChange={e => setF("cesto", e.target.value)} style={inputStyle} />
+                </div>
+              </div>
+
+              <div style={{ background: COLORS.bg, border: `1px solid ${excede ? COLORS.danger : COLORS.border}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+                {!calc ? (
+                  <div style={{ fontSize: 13, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>Digite os metros (mínimo 0,96m) pra ver o cálculo.</div>
+                ) : excede ? (
+                  <div style={{ fontSize: 13, color: COLORS.danger, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>Gancho + cesto ({g + c}) passam do total de continuações ({totalCont}). Ajuste os números.</div>
+                ) : (
+                  <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    <div style={{ fontSize: 11.5, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>{totalMod} módulos · {medForm.altura} · {medForm.cor} · {medForm.linha}</div>
+                    <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>
+                      <div>• 1 inicial <b style={{ color: COLORS.orange }}>{PAREDE_MODULOS[medForm.inicial].label}</b></div>
+                      {bandeja > 0 && <div>• {bandeja} continuação <b>Bandeja</b></div>}
+                      {g > 0 && <div>• {g} continuação <b>Gancho</b></div>}
+                      {c > 0 && <div>• {c} continuação <b>Cesto</b></div>}
+                    </div>
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${COLORS.border}`, fontSize: 15, fontWeight: 800, color: COLORS.orange }}>
+                      Fica com {fmtM(calc.comprimento)}m
+                      {isFinite(alvo) && calc.comprimento < alvo && <span style={{ fontSize: 12, fontWeight: 400, color: COLORS.textMuted }}> (sobram {fmtM(alvo - calc.comprimento)}m da parede)</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={fechar} style={{ flex: 1, padding: "12px", borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: "pointer", background: COLORS.card, color: COLORS.text, border: `1px solid ${COLORS.border}`, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                <button onClick={adicionar} disabled={!calc || excede} style={{ flex: 1.4, padding: "12px", borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: (!calc || excede) ? "default" : "pointer", background: (!calc || excede) ? COLORS.card : COLORS.orange, color: (!calc || excede) ? COLORS.textDim : "#000", border: "none", fontFamily: "'DM Sans', sans-serif" }}>Adicionar ao orçamento</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -12565,6 +12692,20 @@ export default function App() {
     if (contData) setContGondolaModal(contData);
   };
 
+  // Orçamento por Medidas (gôndola de PAREDE): adiciona de uma vez o Inicial +
+  // as continuações calculadas (bandeja/gancho/cesto), sem os pop-ups de
+  // continuação/MDF (esses são pra adicionar módulo a módulo). Vai direto pro carrinho.
+  const adicionarPorMedidas = ({ selVariants, inicialTipo, contBandeja, contGancho, contCesto }) => {
+    const find = (id) => PRODUCTS.find(x => x.id === id);
+    const ini = PAREDE_MODULOS[inicialTipo] || PAREDE_MODULOS.bandeja;
+    const iniProd = find(ini.inicial);
+    if (iniProd) mergeIntoCart(iniProd, selVariants, 1);
+    if (contBandeja > 0) { const p = find(101); if (p) mergeIntoCart(p, selVariants, contBandeja); }
+    if (contGancho > 0)  { const p = find(103); if (p) mergeIntoCart(p, selVariants, contGancho); }
+    if (contCesto > 0)   { const p = find(105); if (p) mergeIntoCart(p, selVariants, contCesto); }
+    setPage("quote");
+  };
+
   // Confirma a continuação escolhida no pop-up e, como ela também é estrutura
   // (MPP/Slim/China), oferece o MDF dela em seguida (Ale: perguntar nas duas).
   const confirmarContinuacaoGondola = () => {
@@ -12591,7 +12732,7 @@ export default function App() {
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "catalog" && user && <Catalog onAdd={addToQuote} uniplusProducts={uniplusProducts} mppChinaProducts={mppChinaProducts} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "catalog" && user && <Catalog onAdd={addToQuote} onAddMedidas={adicionarPorMedidas} uniplusProducts={uniplusProducts} mppChinaProducts={mppChinaProducts} uniplusPriceMap={uniplusPriceMap} />}
       {page === "catalog" && user && leadContexto && <LeadContextoModal lead={leadContexto} onClose={() => setLeadContexto(null)} />}
       {page === "catalog" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
