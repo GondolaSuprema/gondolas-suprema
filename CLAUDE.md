@@ -35,7 +35,7 @@ Rodar local: `npm run dev`. Build: `npm run build`.
 | v1  | Alessandro Thonsen  | admin (dono)      | sim   |
 | v2  | Adelmo Martinello   | vendedor          | não   |
 | v3  | Willian Zanella     | gestor (sócio)    | sim   |
-| v4  | João Marcos Martins | vendedor_basico   | não   |
+| v4  | João Marcos Martins | vendedor_basico (**inativo — saiu da empresa**) | não |
 | —   | Nexx                | contabilidade     | —     |
 | —   | Mariana             | bot de leads (marcenaria) | — |
 
@@ -45,9 +45,11 @@ Rodar local: `npm run dev`. Build: `npm run build`.
 - Login aceita usuário sem `@` (ex.: `Nexx` vira `Nexx@gondolasuprema.com`).
   E-mails reais: Zanella = `comercial@gondolasuprema.com`,
   João = `joaomarcosmartinsmot@gmail.com`.
-- João também é montador/motorista → precisa ver Logística/Agenda de entregas.
-- Zanella é sócio (não vende). ⚠️ **Ver divergência do ranking de Gráficos abaixo**
-  — na regra atual do código ele NÃO fica de fora do ranking.
+- **João (v4) não trabalha mais na empresa** (saiu). Continua no código por
+  causa do histórico (orçamentos/comissões antigos) e está **fora do ranking
+  de vendedores**. Era também montador/motorista (via Logística/Agenda).
+- **Zanella (v3) é sócio e APARECE no ranking de vendedores** (decisão do Ale —
+  confirmado set/2026). Ver seção do ranking de Gráficos abaixo.
 
 ## Permissões — REGRA CENTRAL
 
@@ -82,11 +84,11 @@ espalhe `if` de papel pelo código.** `canAccess(user, aba)` (~L2414) é a únic
   do estado **RS feitos pelo Ale (v1)** são particulares — somem de
   ADM/Gráficos/DRE/Logística/ranking para os outros. Só aparecem na aba
   Orçamentos do próprio Ale (`podeVerOrcamentosRsOcultos`, ~L2472).
-- ⚠️ **Ranking de Gráficos NÃO usa `VENDEDORES` nem exclui o Zanella** — está
-  hardcoded para `v1 || v2 || v3` (~L8533), ou seja **inclui Zanella (v3) e
-  exclui João (v4)**. Isso CONTRADIZ a regra "Zanella fica fora de rankings".
-  Antes de mexer, confirmar com o Ale qual é o certo: se o ranking deve seguir a
-  regra (Zanella fora), trocar esse hardcode por filtro baseado em papel/flag.
+- **Ranking de Gráficos = `v1 || v2 || v3`** (hardcoded, ~L8533): inclui o
+  **Zanella (v3)** — sócio, mas conta no ranking por decisão do Ale — e exclui o
+  **João (v4)**, que não trabalha mais na empresa. Comportamento **correto**
+  (confirmado set/2026), não é bug. Se entrar um novo vendedor, é este `filter`
+  (e as cores fixas em ~L8527) que precisam receber o novo ID.
 - **Mês da NF / Vendas Concluídas segue a `data_entrega`**, não a data de
   criação do orçamento. A coluna "Entrega (NF)" é editável.
 - **Sincronização automática de NF** só para quem pode emitir (contabilidade é
