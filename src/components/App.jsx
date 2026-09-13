@@ -25,7 +25,6 @@ const CARD_GLOW = "0 0 0 1px rgba(245,166,35,0.24), 0 0 12px rgba(245,166,35,0.1
 const CATEGORIES = [
   { key: "gondolas-parede", label: "Gôndolas de Parede" },
   { key: "gondolas-centro", label: "Gôndolas de Centro" },
-  { key: "ponta-gondola", label: "Ponta de Gôndola" },
   { key: "canto", label: "Canto de Gôndola" },
   { key: "gondolas-farmacia", label: "Gôndolas de Farmácia" },
   { key: "mpp", label: "MPP" },
@@ -44,25 +43,43 @@ const VARIANTS_GONDOLA_PAREDE = [
   { key: "cor", label: "Cor", options: ["Branca", "Preta"] },
 ];
 
-// ─── Orçamento por Medidas (só gôndola de PAREDE) ───────────────────────────
+// ─── Orçamento por Medidas (gôndola de PAREDE e de CENTRO) ───────────────────
 // Larguras reais dos módulos: o Inicial ocupa 0,96m; cada Continuação 0,93m
 // (a continuação compartilha 1 coluna com o módulo anterior, por isso é menor).
+// A gôndola de CENTRO (ilha) leva ainda as PONTAS nas extremidades: cada ponta
+// = 0,40m e faz parte da medida (o vendedor escolhe 0/1/2, padrão 2).
 // Regra do Ale: sempre 1 Inicial + a MAIOR quantidade de continuações que NÃO
-// ultrapassa a medida pedida (a gôndola tem que caber na parede).
+// ultrapassa a medida pedida (a gôndola tem que caber no espaço).
 const PAREDE_INICIAL_M = 0.96;
 const PAREDE_CONT_M = 0.93;
-// Cada tipo de módulo de parede: id do Inicial e da Continuação no catálogo.
-const PAREDE_MODULOS = {
-  bandeja: { inicial: 100, cont: 101, label: "Bandeja" },
-  gancho:  { inicial: 102, cont: 103, label: "Gancho" },
-  cesto:   { inicial: 104, cont: 105, label: "Cesto" },
+const PONTA_M = 0.40; // comprimento de cada ponta de gôndola (só centro)
+// Config por tipo de gôndola: ids do Inicial/Continuação de cada módulo. Centro
+// tem ainda a ponta (peça única, 0,40m; ponta c/ gancho só existe Fit 40).
+const GONDOLA_MODULOS = {
+  "gondolas-parede": {
+    label: "parede", temPonta: false,
+    bandeja: { inicial: 100, cont: 101, label: "Bandeja" },
+    gancho:  { inicial: 102, cont: 103, label: "Gancho" },
+    cesto:   { inicial: 104, cont: 105, label: "Cesto" },
+  },
+  "gondolas-centro": {
+    label: "centro", temPonta: true,
+    bandeja: { inicial: 200, cont: 201, label: "Bandeja" },
+    gancho:  { inicial: 202, cont: 203, label: "Gancho" },
+    cesto:   { inicial: 204, cont: 205, label: "Cesto" },
+    pontas: { bandeja: 300, gancho: 302 },
+  },
 };
-// Ex.: 10m → continuações = floor((10 − 0,96) / 0,93) = 9 → 0,96 + 9×0,93 = 9,33m.
-function calcularGondolaParede(metros) {
+// Ex. parede 10m (0 ponta): floor((10 − 0,96)/0,93)=9 → 0,96+9×0,93 = 9,33m.
+// Ex. centro 10m (2 pontas): miolo=10−0,80=9,20 → floor((9,20−0,96)/0,93)=8 →
+//   0,80 + 0,96 + 8×0,93 = 9,20m.
+function calcularGondola(metros, nPontas = 0) {
   const m = Number(String(metros).replace(",", "."));
-  if (!isFinite(m) || m < PAREDE_INICIAL_M) return null; // precisa caber ao menos o Inicial
-  const continuacoes = Math.floor((m - PAREDE_INICIAL_M) / PAREDE_CONT_M + 1e-9); // epsilon: evita erro de float quando fecha exato
-  const comprimento = PAREDE_INICIAL_M + continuacoes * PAREDE_CONT_M;
+  const pontasM = (Number(nPontas) || 0) * PONTA_M;
+  const miolo = m - pontasM;
+  if (!isFinite(m) || miolo < PAREDE_INICIAL_M) return null; // precisa caber ponta(s) + Inicial
+  const continuacoes = Math.floor((miolo - PAREDE_INICIAL_M) / PAREDE_CONT_M + 1e-9); // epsilon: evita erro de float quando fecha exato
+  const comprimento = pontasM + PAREDE_INICIAL_M + continuacoes * PAREDE_CONT_M;
   return { continuacoes, comprimento };
 }
 
@@ -1722,7 +1739,11 @@ const mesBRT = (dataStr) => {
   return brt.toISOString().slice(0, 7);
 };
 const genId = () => Math.random().toString(36).substr(2, 9);
-const catLabel = (key) => CATEGORIES.find(c => c.key === key)?.label || key;
+// Rótulos de categorias que NÃO estão no menu de abas mas ainda precisam de nome
+// legível no orçamento/PDF do cliente. "ponta-gondola" saiu do menu (virou seção
+// dentro de Gôndolas de Centro), mas seus produtos seguem com essa category.
+const EXTRA_CAT_LABELS = { "ponta-gondola": "Ponta de Gôndola" };
+const catLabel = (key) => CATEGORIES.find(c => c.key === key)?.label || EXTRA_CAT_LABELS[key] || key;
 
 // Texto das variantes escolhidas de um item do orçamento ("Largura 1200mm · Níveis 5 · Cor C+L").
 // Itens novos têm opts_label pronto; antigos caem no join dos opts crus.
@@ -2751,6 +2772,16 @@ function mppChinaComGrupos(lista) {
   return out;
 }
 
+// Gôndola de Centro + Ponta de Gôndola na mesma aba, separadas por cabeçalho.
+function centroComGrupos(lista) {
+  const centro = lista.filter(p => p.category === "gondolas-centro");
+  const ponta = lista.filter(p => p.category === "ponta-gondola");
+  const out = [];
+  if (centro.length) out.push({ __header: "Gôndola de Centro" }, ...centro);
+  if (ponta.length) out.push({ __header: "Ponta de Gôndola" }, ...ponta);
+  return out;
+}
+
 // Peças estruturais Zar (montantes MPP/Slim + pares de longarina Z) — usadas
 // para rotear esses avulsos da tabela produtos_uniplus para a sub-aba "MPP Zar"
 // em vez de "Outros Produtos". Não pega cesto/gancho/régua/carrinho/aparador.
@@ -2784,9 +2815,9 @@ function Catalog({ onAdd, onAddMedidas, uniplusProducts: uniplusFromApp, mppChin
   const [qtyByProduct, setQtyByProduct] = useState({});
   // Form da aba "Fábrica" — produtos sob medida adicionados na hora pelo vendedor
   const [fabricaForm, setFabricaForm] = useState({ nome: "", quantidade: "1", valorCusto: "", valorComissao: "" });
-  // Modal "Fazer Orçamento por Medidas" (só gôndola de parede)
-  const [medidasOpen, setMedidasOpen] = useState(false);
-  const [medForm, setMedForm] = useState({ metros: "", linha: "Fit 40", altura: "1,70m", cor: "Branca", inicial: "bandeja", gancho: "0", cesto: "0" });
+  // Modal "Fazer Orçamento por Medidas" (parede ou centro)
+  const [medidasOpen, setMedidasOpen] = useState(false); // false | "gondolas-parede" | "gondolas-centro"
+  const [medForm, setMedForm] = useState({ metros: "", linha: "Fit 40", altura: "1,70m", cor: "Branca", inicial: "bandeja", gancho: "0", cesto: "0", pontas: "2", pontaTipo: "bandeja" });
 
   const getProductVariantSel = (p) => {
     const sel = variantSel[p.id] || {};
@@ -2858,6 +2889,10 @@ function Catalog({ onAdd, onAddMedidas, uniplusProducts: uniplusFromApp, mppChin
     // itens ZAR aparecem nas DUAS abas (avulso em Outros, conjunto aqui).
     if (filter === "mpp-zar") {
       return p.category === "mpp-zar" || (p.category === "outros" && ehZarEstrutura(p.name));
+    }
+    // A "Ponta de Gôndola" agora vive DENTRO de "Gôndolas de Centro" (decisão do Ale).
+    if (filter === "gondolas-centro") {
+      return p.category === "gondolas-centro" || p.category === "ponta-gondola";
     }
     return p.category === filter;
   });
@@ -3047,16 +3082,16 @@ function Catalog({ onAdd, onAddMedidas, uniplusProducts: uniplusFromApp, mppChin
       ) : filter === "gondolas-parede" || filter === "gondolas-centro" || filter === "ponta-gondola" || filter === "canto" || filter === "gondolas-farmacia" || filter === "mpp" || filter === "mpp-china" || filter === "mpp-zar" || filter === "slim" || filter === "mdf" ? (
         // Visualização em lista para Gôndolas de Parede, Centro, Ponta, Canto, Farmácia, MPP, Slim e MDF
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, overflow: "hidden" }}>
-          {filter === "gondolas-parede" && (
+          {(filter === "gondolas-parede" || filter === "gondolas-centro") && (
             <div style={{ padding: "12px 14px", borderBottom: `1px solid ${COLORS.border}`, background: COLORS.bg }}>
-              <button onClick={() => setMedidasOpen(true)} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: "pointer", background: COLORS.orange, color: "#000", border: "none", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>📐 Fazer Orçamento por Medidas</button>
-              <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 6, textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>Digite os metros e o sistema calcula os módulos (1 inicial + continuações)</div>
+              <button onClick={() => setMedidasOpen(filter)} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: "pointer", background: COLORS.orange, color: "#000", border: "none", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>📐 Fazer Orçamento por Medidas</button>
+              <div style={{ fontSize: 11.5, color: COLORS.textMuted, marginTop: 6, textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>Digite os metros e o sistema calcula os módulos{filter === "gondolas-centro" ? " + pontas" : ""} (1 inicial + continuações)</div>
             </div>
           )}
           {filtered.length === 0 && (
             <div style={{ padding: "20px 16px", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>Nenhum produto encontrado</div>
           )}
-          {(filter === "mpp-china" ? mppChinaComGrupos(filtered) : filter === "mpp-zar" ? mppChinaComGrupos(dedupePorNome(filtered)) : filtered).map((p, idx, arr) => {
+          {(filter === "mpp-china" ? mppChinaComGrupos(filtered) : filter === "mpp-zar" ? mppChinaComGrupos(dedupePorNome(filtered)) : filter === "gondolas-centro" ? centroComGrupos(filtered) : filtered).map((p, idx, arr) => {
             if (p.__header) return (
               <div key={"grp-" + p.__header} style={{ padding: "9px 16px", background: COLORS.bg, borderTop: idx > 0 ? `1px solid ${COLORS.border}` : "none", borderBottom: `1px solid ${COLORS.border}`, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 1.4, color: COLORS.orange, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{p.__header}</div>
             );
@@ -3169,13 +3204,17 @@ function Catalog({ onAdd, onAddMedidas, uniplusProducts: uniplusFromApp, mppChin
       )}
       {/* Modal: Fazer Orçamento por Medidas (gôndola de parede) */}
       {medidasOpen && (() => {
-        const calc = calcularGondolaParede(medForm.metros);
+        const tipo = medidasOpen; // "gondolas-parede" | "gondolas-centro"
+        const conf = GONDOLA_MODULOS[tipo] || GONDOLA_MODULOS["gondolas-parede"];
+        const temPonta = !!conf.temPonta;
+        const nPontas = temPonta ? Math.max(0, parseInt(medForm.pontas, 10) || 0) : 0;
+        const calc = calcularGondola(medForm.metros, nPontas);
         const totalCont = calc ? calc.continuacoes : 0;
         const g = Math.max(0, parseInt(medForm.gancho, 10) || 0);
         const c = Math.max(0, parseInt(medForm.cesto, 10) || 0);
         const bandeja = Math.max(0, totalCont - g - c);
         const excede = (g + c) > totalCont;
-        const totalMod = calc ? 1 + totalCont : 0;
+        const totalMod = calc ? 1 + totalCont + nPontas : 0;
         const alvo = Number(String(medForm.metros).replace(",", "."));
         const pill = (active) => ({ background: active ? COLORS.orange + "20" : COLORS.bg, border: `1px solid ${active ? COLORS.orange : COLORS.border}`, color: active ? COLORS.orange : COLORS.textMuted, padding: "6px 12px", borderRadius: 14, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontWeight: active ? 700 : 400 });
         const label = { fontSize: 11, color: COLORS.textDim, fontFamily: "'DM Sans', sans-serif", marginBottom: 5, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
@@ -3184,26 +3223,43 @@ function Catalog({ onAdd, onAddMedidas, uniplusProducts: uniplusFromApp, mppChin
         const fechar = () => setMedidasOpen(false);
         const fmtM = (n) => n.toFixed(2).replace(".", ",");
         const adicionar = () => {
-          if (!calc) { notify("Digite uma medida de pelo menos 0,96m.", "erro"); return; }
+          if (!calc) { notify("Digite uma medida que caiba " + (nPontas > 0 ? "as pontas + " : "") + "pelo menos o inicial.", "erro"); return; }
           if (excede) { notify("Gancho + cesto passam do total de continuações.", "erro"); return; }
           onAddMedidas({
+            tipoGondola: tipo,
             selVariants: { linha: medForm.linha, altura: medForm.altura, cor: medForm.cor },
             inicialTipo: medForm.inicial,
             contBandeja: bandeja, contGancho: g, contCesto: c,
+            nPontas, pontaTipo: medForm.pontaTipo,
           });
           setMedidasOpen(false);
-          setMedForm({ metros: "", linha: "Fit 40", altura: "1,70m", cor: "Branca", inicial: "bandeja", gancho: "0", cesto: "0" });
+          setMedForm({ metros: "", linha: "Fit 40", altura: "1,70m", cor: "Branca", inicial: "bandeja", gancho: "0", cesto: "0", pontas: "2", pontaTipo: "bandeja" });
         };
         return (
           <div onClick={fechar} style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" }}>
             <div onClick={e => e.stopPropagation()} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20, maxWidth: 420, width: "100%", boxShadow: CARD_GLOW, margin: "auto" }}>
               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, color: COLORS.text, marginBottom: 4 }}>Orçamento por Medidas</div>
-              <div style={{ fontSize: 12.5, color: COLORS.textMuted, marginBottom: 16, fontFamily: "'DM Sans', sans-serif" }}>Gôndola de parede · 1 inicial (0,96m) + continuações (0,93m)</div>
+              <div style={{ fontSize: 12.5, color: COLORS.textMuted, marginBottom: 16, fontFamily: "'DM Sans', sans-serif" }}>Gôndola de {conf.label} · 1 inicial (0,96m) + continuações (0,93m){temPonta ? " + pontas (0,40m)" : ""}</div>
 
               <div style={{ marginBottom: 14 }}>
-                <label style={label}>Metros de parede</label>
+                <label style={label}>Metros{temPonta ? " (total, com as pontas)" : " de parede"}</label>
                 <input type="number" inputMode="decimal" step="0.1" min="0" value={medForm.metros} onChange={e => setF("metros", e.target.value)} placeholder="ex: 10" style={inputStyle} autoFocus />
               </div>
+
+              {temPonta && (
+                <>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={label}>Pontas (0,40m cada)</label>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{["0", "1", "2"].map(o => <button key={o} onClick={() => setF("pontas", o)} style={pill(medForm.pontas === o)}>{o}</button>)}</div>
+                  </div>
+                  {nPontas > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={label}>Tipo da ponta</label>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{[["bandeja", "Bandeja"], ["gancho", "Gancho"]].map(([k, l]) => <button key={k} onClick={() => setF("pontaTipo", k)} style={pill(medForm.pontaTipo === k)}>{l}</button>)}</div>
+                    </div>
+                  )}
+                </>
+              )}
 
               <div style={{ marginBottom: 12 }}>
                 <label style={label}>Linha</label>
@@ -3235,21 +3291,22 @@ function Catalog({ onAdd, onAddMedidas, uniplusProducts: uniplusFromApp, mppChin
 
               <div style={{ background: COLORS.bg, border: `1px solid ${excede ? COLORS.danger : COLORS.border}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
                 {!calc ? (
-                  <div style={{ fontSize: 13, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>Digite os metros (mínimo 0,96m) pra ver o cálculo.</div>
+                  <div style={{ fontSize: 13, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>Digite os metros{temPonta && nPontas > 0 ? " (precisa caber as pontas + o inicial)" : " (mínimo 0,96m)"} pra ver o cálculo.</div>
                 ) : excede ? (
                   <div style={{ fontSize: 13, color: COLORS.danger, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>Gancho + cesto ({g + c}) passam do total de continuações ({totalCont}). Ajuste os números.</div>
                 ) : (
                   <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
                     <div style={{ fontSize: 11.5, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>{totalMod} módulos · {medForm.altura} · {medForm.cor} · {medForm.linha}</div>
                     <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>
-                      <div>• 1 inicial <b style={{ color: COLORS.orange }}>{PAREDE_MODULOS[medForm.inicial].label}</b></div>
+                      {nPontas > 0 && <div>• {nPontas} ponta <b style={{ color: COLORS.orange }}>{medForm.pontaTipo === "gancho" ? "Gancho" : "Bandeja"}</b></div>}
+                      <div>• 1 inicial <b style={{ color: COLORS.orange }}>{conf[medForm.inicial].label}</b></div>
                       {bandeja > 0 && <div>• {bandeja} continuação <b>Bandeja</b></div>}
                       {g > 0 && <div>• {g} continuação <b>Gancho</b></div>}
                       {c > 0 && <div>• {c} continuação <b>Cesto</b></div>}
                     </div>
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${COLORS.border}`, fontSize: 15, fontWeight: 800, color: COLORS.orange }}>
                       Fica com {fmtM(calc.comprimento)}m
-                      {isFinite(alvo) && calc.comprimento < alvo && <span style={{ fontSize: 12, fontWeight: 400, color: COLORS.textMuted }}> (sobram {fmtM(alvo - calc.comprimento)}m da parede)</span>}
+                      {isFinite(alvo) && calc.comprimento < alvo && <span style={{ fontSize: 12, fontWeight: 400, color: COLORS.textMuted }}> (sobram {fmtM(alvo - calc.comprimento)}m do espaço)</span>}
                     </div>
                   </div>
                 )}
@@ -12695,14 +12752,19 @@ export default function App() {
   // Orçamento por Medidas (gôndola de PAREDE): adiciona de uma vez o Inicial +
   // as continuações calculadas (bandeja/gancho/cesto), sem os pop-ups de
   // continuação/MDF (esses são pra adicionar módulo a módulo). Vai direto pro carrinho.
-  const adicionarPorMedidas = ({ selVariants, inicialTipo, contBandeja, contGancho, contCesto }) => {
+  const adicionarPorMedidas = ({ tipoGondola, selVariants, inicialTipo, contBandeja, contGancho, contCesto, nPontas, pontaTipo }) => {
+    const conf = GONDOLA_MODULOS[tipoGondola] || GONDOLA_MODULOS["gondolas-parede"];
     const find = (id) => PRODUCTS.find(x => x.id === id);
-    const ini = PAREDE_MODULOS[inicialTipo] || PAREDE_MODULOS.bandeja;
-    const iniProd = find(ini.inicial);
-    if (iniProd) mergeIntoCart(iniProd, selVariants, 1);
-    if (contBandeja > 0) { const p = find(101); if (p) mergeIntoCart(p, selVariants, contBandeja); }
-    if (contGancho > 0)  { const p = find(103); if (p) mergeIntoCart(p, selVariants, contGancho); }
-    if (contCesto > 0)   { const p = find(105); if (p) mergeIntoCart(p, selVariants, contCesto); }
+    const add = (id, qty) => { const p = find(id); if (p && qty > 0) mergeIntoCart(p, selVariants, qty); };
+    const ini = conf[inicialTipo] || conf.bandeja;
+    add(ini.inicial, 1);
+    add(conf.bandeja.cont, contBandeja);
+    add(conf.gancho.cont, contGancho);
+    add(conf.cesto.cont, contCesto);
+    if (conf.temPonta && (Number(nPontas) || 0) > 0) {
+      const pontaId = conf.pontas[pontaTipo] || conf.pontas.bandeja; // ponta c/ gancho (302) só é Fit 40; recipeKeyForProduct ignora 'linha' nela, o preço sai certo
+      add(pontaId, Number(nPontas) || 0);
+    }
     setPage("quote");
   };
 
