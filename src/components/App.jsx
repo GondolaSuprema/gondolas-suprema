@@ -11937,13 +11937,16 @@ function FotosPage({ user }) {
   const [erro, setErro] = useState("");
   const [uploading, setUploading] = useState(null); // { done, total } ou null
   const [lightbox, setLightbox] = useState(null);     // { url, path, idx } ou null
+  const [modoSelecao, setModoSelecao] = useState(false);       // seleção múltipla p/ enviar
+  const [selecionadas, setSelecionadas] = useState(() => new Set()); // paths marcados
+  const [compartilhando, setCompartilhando] = useState(false);
   const camInputRef = useRef(null);   // Tirar Foto (câmera)
   const galInputRef = useRef(null);   // Escolher da galeria
   const albumRef = useRef(album);     // álbum "vivo" (evita aplicar resposta no álbum errado)
   const loadIdRef = useRef(0);        // descarta respostas de list() fora de ordem
   const albumAtual = ALBUNS_FOTOS.find(a => a.k === album) || ALBUNS_FOTOS[0];
 
-  useEffect(() => { albumRef.current = album; carregar(); /* eslint-disable-next-line */ }, [album]);
+  useEffect(() => { albumRef.current = album; sairSelecao(); carregar(); /* eslint-disable-next-line */ }, [album]);
 
   async function carregar() {
     const alvo = albumRef.current;
@@ -12016,11 +12019,79 @@ function FotosPage({ user }) {
     }
   }
 
+  function sairSelecao() { setModoSelecao(false); setSelecionadas(new Set()); }
+
+  function toggleSelecao(path) {
+    setSelecionadas(prev => {
+      const n = new Set(prev);
+      if (n.has(path)) n.delete(path); else n.add(path);
+      return n;
+    });
+  }
+
+  // Compartilhar as fotos selecionadas. No iPhone/Android abre a folha de
+  // compartilhamento nativa COM as imagens (o usuário escolhe WhatsApp → contato).
+  // No desktop (sem Web Share de arquivos) baixa as fotos pra anexar no WhatsApp
+  // Web — mesmo padrão do envio de PDF (sharePDFWhatsApp em src/lib/pdf.js),
+  // sem window.open (que o navegador bloquearia como pop-up após o fetch).
+  async function compartilharWhatsApp() {
+    const sel = fotos.filter(f => selecionadas.has(f.path));
+    if (!sel.length || compartilhando) return;
+
+    // Decide o caminho ANTES de baixar qualquer blob: testa suporte a Web Share
+    // de arquivos com um arquivo vazio (sem tráfego de rede).
+    let suportaShareArquivo = false;
+    try {
+      suportaShareArquivo = typeof navigator !== "undefined" && !!navigator.canShare &&
+        navigator.canShare({ files: [new File([new Blob()], "t.jpg", { type: "image/jpeg" })] });
+    } catch { suportaShareArquivo = false; }
+
+    setCompartilhando(true);
+    try {
+      // Baixa os blobs das selecionadas (usados tanto no share quanto no download).
+      const arquivos = [];
+      let falhas = 0;
+      for (const f of sel) {
+        try {
+          const resp = await fetch(f.url);
+          if (!resp.ok) throw new Error("http " + resp.status);
+          const blob = await resp.blob();
+          arquivos.push(new File([blob], f.name || "foto.jpg", { type: blob.type || "image/jpeg" }));
+        } catch { falhas++; }
+      }
+      if (!arquivos.length) throw new Error("não consegui baixar as fotos (verifique a conexão)");
+      if (falhas) notify(falhas + (falhas > 1 ? " fotos não baixaram" : " foto não baixou") + " — seguindo com as demais.", "info");
+
+      if (suportaShareArquivo && navigator.canShare({ files: arquivos })) {
+        // MOBILE: folha nativa com as imagens → WhatsApp → contato.
+        await navigator.share({ files: arquivos });
+        sairSelecao();
+      } else {
+        // DESKTOP (ou seleção grande demais pro share): baixa pra anexar no WhatsApp Web.
+        for (const f of arquivos) {
+          const url = URL.createObjectURL(f);
+          const a = document.createElement("a");
+          a.href = url; a.download = f.name || "foto.jpg"; a.style.display = "none";
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+        notify(arquivos.length > 1
+          ? arquivos.length + " fotos baixadas — arraste pro WhatsApp Web e envie ao cliente."
+          : "Foto baixada — arraste pro WhatsApp Web e envie ao cliente.", "info");
+        sairSelecao();
+      }
+    } catch (err) {
+      if (err?.name !== "AbortError") notify("Não foi possível compartilhar: " + (err?.message || err), "erro");
+    }
+    setCompartilhando(false);
+  }
+
   const btnAlbum = (a) => (
-    <button key={a.k} onClick={() => setAlbum(a.k)} style={{
-      padding: "8px 16px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer",
+    <button key={a.k} onClick={() => { if (compartilhando) return; setAlbum(a.k); }} disabled={compartilhando} style={{
+      padding: "8px 16px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: compartilhando ? "default" : "pointer",
       background: album === a.k ? C.orange : C.card, color: album === a.k ? "#000" : C.textMuted,
       border: `1px solid ${album === a.k ? C.orange : C.border}`, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+      opacity: compartilhando && album !== a.k ? 0.5 : 1,
     }}>{a.l}</button>
   );
 
@@ -12035,19 +12106,36 @@ function FotosPage({ user }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 800, color: C.text }}>{albumAtual.l}</div>
-          <div style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>
-            {loading ? "Carregando…" : (fotos.length === 0 ? "Nenhuma foto ainda" : (fotos.length === 1 ? "1 foto" : fotos.length + " fotos"))}
+          <div style={{ fontSize: 13, color: modoSelecao ? C.orange : C.textMuted, marginTop: 2, fontWeight: modoSelecao ? 700 : 400 }}>
+            {modoSelecao
+              ? (selecionadas.size === 0 ? "Toque nas fotos pra selecionar" : selecionadas.size + (selecionadas.size === 1 ? " foto selecionada" : " fotos selecionadas"))
+              : (loading ? "Carregando…" : (fotos.length === 0 ? "Nenhuma foto ainda" : (fotos.length === 1 ? "1 foto" : fotos.length + " fotos")))}
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button onClick={() => camInputRef.current?.click()} disabled={!!uploading} style={{
-            padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
-            background: C.orange, color: "#000", border: "none", fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
-          }}>📷 Tirar Foto</button>
-          <button onClick={() => galInputRef.current?.click()} disabled={!!uploading} style={{
-            padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
-            background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
-          }}>🖼️ Escolher fotos</button>
+          {modoSelecao ? (
+            <button onClick={sairSelecao} disabled={compartilhando} style={{
+              padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: compartilhando ? "default" : "pointer",
+              background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: compartilhando ? 0.6 : 1,
+            }}>Cancelar</button>
+          ) : (
+            <>
+              <button onClick={() => camInputRef.current?.click()} disabled={!!uploading} style={{
+                padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
+                background: C.orange, color: "#000", border: "none", fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
+              }}>📷 Tirar Foto</button>
+              <button onClick={() => galInputRef.current?.click()} disabled={!!uploading} style={{
+                padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
+                background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
+              }}>🖼️ Escolher fotos</button>
+              {fotos.length > 0 && (
+                <button onClick={() => setModoSelecao(true)} disabled={!!uploading} style={{
+                  padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
+                  background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
+                }}>✓ Selecionar</button>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -12074,17 +12162,44 @@ function FotosPage({ user }) {
           Álbum vazio. Toque em <b style={{ color: C.text }}>📷 Tirar Foto</b> ou <b style={{ color: C.text }}>🖼️ Escolher fotos</b> pra começar.
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
-          {fotos.map((f, idx) => (
-            <div key={f.path} style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: C.card, border: `1px solid ${C.border}`, aspectRatio: "1 / 1", boxShadow: CARD_GLOW }}>
-              <img src={f.url} alt="" loading="lazy" onClick={() => setLightbox({ url: f.url, path: f.path, idx })}
-                style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }} />
-              <button onClick={(e) => { e.stopPropagation(); apagar(f.path); }} title="Apagar" style={{
-                position: "absolute", top: 6, right: 6, width: 30, height: 30, borderRadius: 8, border: "none", cursor: "pointer",
-                background: "rgba(0,0,0,0.62)", color: "#fff", fontSize: 16, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
-              }}>×</button>
-            </div>
-          ))}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10, paddingBottom: modoSelecao ? 84 : 0 }}>
+          {fotos.map((f, idx) => {
+            const marcada = selecionadas.has(f.path);
+            return (
+              <div key={f.path} onClick={() => modoSelecao ? toggleSelecao(f.path) : setLightbox({ url: f.url, path: f.path, idx })}
+                style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: C.card,
+                  border: `2px solid ${modoSelecao && marcada ? C.orange : C.border}`, aspectRatio: "1 / 1", boxShadow: CARD_GLOW, cursor: "pointer" }}>
+                <img src={f.url} alt="" loading="lazy"
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: modoSelecao && !marcada ? 0.5 : 1 }} />
+                {modoSelecao ? (
+                  <div style={{ position: "absolute", top: 6, left: 6, width: 26, height: 26, borderRadius: "50%",
+                    border: `2px solid ${marcada ? C.orange : "rgba(255,255,255,0.85)"}`, background: marcada ? C.orange : "rgba(0,0,0,0.4)",
+                    color: "#000", fontSize: 15, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {marcada ? "✓" : ""}
+                  </div>
+                ) : (
+                  <button onClick={(e) => { e.stopPropagation(); apagar(f.path); }} title="Apagar" style={{
+                    position: "absolute", top: 6, right: 6, width: 30, height: 30, borderRadius: 8, border: "none", cursor: "pointer",
+                    background: "rgba(0,0,0,0.62)", color: "#fff", fontSize: 16, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>×</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Barra fixa de compartilhamento (modo seleção) */}
+      {modoSelecao && (
+        <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 2500, background: C.surface, borderTop: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ fontSize: 13, color: C.textMuted, fontWeight: 700 }}>
+            {selecionadas.size === 0 ? "Nenhuma foto selecionada" : selecionadas.size + (selecionadas.size === 1 ? " selecionada" : " selecionadas")}
+          </div>
+          <button onClick={compartilharWhatsApp} disabled={selecionadas.size === 0 || compartilhando} style={{
+            padding: "12px 22px", borderRadius: 10, fontSize: 15, fontWeight: 800, fontFamily: "'DM Sans', sans-serif",
+            border: "none", cursor: (selecionadas.size === 0 || compartilhando) ? "default" : "pointer",
+            background: (selecionadas.size === 0 || compartilhando) ? C.card : "#25D366", color: (selecionadas.size === 0 || compartilhando) ? C.textDim : "#fff",
+          }}>{compartilhando ? "Preparando…" : "Enviar no WhatsApp"}</button>
         </div>
       )}
 
