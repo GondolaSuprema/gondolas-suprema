@@ -11940,6 +11940,7 @@ function FotosPage({ user }) {
   const [modoSelecao, setModoSelecao] = useState(false);       // seleção múltipla p/ enviar
   const [selecionadas, setSelecionadas] = useState(() => new Set()); // paths marcados
   const [compartilhando, setCompartilhando] = useState(false);
+  const [confirmarApagar, setConfirmarApagar] = useState(null); // path aguardando confirmação de exclusão
   const camInputRef = useRef(null);   // Tirar Foto (câmera)
   const galInputRef = useRef(null);   // Escolher da galeria
   const albumRef = useRef(album);     // álbum "vivo" (evita aplicar resposta no álbum errado)
@@ -12024,8 +12025,13 @@ function FotosPage({ user }) {
     if (albumRef.current === albumUpload) await carregar();
   }
 
+  // Pede confirmação antes de apagar. Modal próprio do app em vez de window.confirm(),
+  // que às vezes nem aparece no iPhone quando o sistema roda como app na tela inicial
+  // (aí a foto sumiria só de tocar no ×). Um toque abre o modal, e só o botão vermelho
+  // "Apagar" do modal exclui de verdade.
+  function pedirApagar(path) { setConfirmarApagar(path); }
+
   async function apagar(path) {
-    if (typeof window !== "undefined" && !window.confirm("Apagar esta foto? Não dá pra desfazer.")) return;
     try {
       const { error } = await supabase.storage.from("fotos").remove([path]);
       if (error) { notify("Não foi possível apagar: " + error.message, "erro"); return; }
@@ -12035,6 +12041,8 @@ function FotosPage({ user }) {
       notify("Foto apagada", "ok");
     } catch (err) {
       notify("Não foi possível apagar: " + (err?.message || err), "erro");
+    } finally {
+      setConfirmarApagar(null);
     }
   }
 
@@ -12216,7 +12224,7 @@ function FotosPage({ user }) {
                     {marcada ? "✓" : ""}
                   </div>
                 ) : (
-                  <button onClick={(e) => { e.stopPropagation(); apagar(f.path); }} title="Apagar" style={{
+                  <button onClick={(e) => { e.stopPropagation(); pedirApagar(f.path); }} title="Apagar" style={{
                     position: "absolute", top: 6, right: 6, width: 30, height: 30, borderRadius: 8, border: "none", cursor: "pointer",
                     background: "rgba(0,0,0,0.62)", color: "#fff", fontSize: 16, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
                   }}>×</button>
@@ -12252,10 +12260,38 @@ function FotosPage({ user }) {
             position: "fixed", top: 16, right: 16, width: 44, height: 44, borderRadius: 12, border: "none", cursor: "pointer",
             background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 24, fontWeight: 800,
           }}>×</button>
-          <button onClick={(e) => { e.stopPropagation(); apagar(lightbox.path); }} style={{
+          <button onClick={(e) => { e.stopPropagation(); pedirApagar(lightbox.path); }} style={{
             position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", padding: "10px 22px", borderRadius: 10, border: "none", cursor: "pointer",
             background: C.danger, color: "#fff", fontSize: 14, fontWeight: 800, fontFamily: "'DM Sans', sans-serif",
           }}>Apagar foto</button>
+        </div>
+      )}
+
+      {/* Modal de confirmação de exclusão (z-index acima do lightbox) */}
+      {confirmarApagar && (
+        <div onClick={() => setConfirmarApagar(null)} style={{
+          position: "fixed", inset: 0, zIndex: 3500, background: "rgba(0,0,0,0.72)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: "22px 20px",
+            maxWidth: 340, width: "100%", boxShadow: CARD_GLOW,
+          }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 8 }}>Apagar esta foto?</div>
+            <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 20, lineHeight: 1.4 }}>
+              A foto sai do álbum e não dá pra desfazer.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmarApagar(null)} style={{
+                flex: 1, padding: "12px 16px", borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: "pointer",
+                background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif",
+              }}>Cancelar</button>
+              <button onClick={() => apagar(confirmarApagar)} style={{
+                flex: 1, padding: "12px 16px", borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: "pointer",
+                background: C.danger, color: "#fff", border: "none", fontFamily: "'DM Sans', sans-serif",
+              }}>Apagar</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
