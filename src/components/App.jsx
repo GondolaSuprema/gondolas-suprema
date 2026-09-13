@@ -12691,7 +12691,12 @@ export default function App() {
   // Adiciona/mescla um produto no carrinho (sem navegar nem abrir modal).
   const mergeIntoCart = (p, selectedVariants, qty) => {
     const addQty = Math.max(1, Number(qty) || 1);
-    const sameVariants = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {});
+    // Compara as variantes independente da ORDEM das chaves. Sem isso, a MESMA
+    // config (mesma linha/altura/cor) adicionada por caminhos diferentes — ex:
+    // por medidas ({linha,altura,cor}) vs manual (ordem dos cliques) — virava 2
+    // linhas no orçamento em vez de somar a quantidade na mesma linha.
+    const normVars = (v) => v ? JSON.stringify(Object.keys(v).sort().reduce((a, k) => (a[k] = v[k], a), {})) : "{}";
+    const sameVariants = (a, b) => normVars(a) === normVars(b);
     setCart(prev => {
       const ex = prev.findIndex(i => i.product.id === p.id && sameVariants(i.selVariants, selectedVariants));
       if (ex >= 0) { const c = [...prev]; c[ex] = { ...c[ex], qty: c[ex].qty + addQty }; return c; }
