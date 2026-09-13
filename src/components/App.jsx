@@ -2018,6 +2018,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "comissoes", l: "Comissões" },
     { k: "adm", l: "ADM" },
     { k: "financeiro", l: "Financeiro" },
+    { k: "fotos", l: "Fotos" },
     { k: "agenda", l: "Agenda" },
   ].filter(i => canAccess(user, i.k))
    // Comissões: pra quem tem Financeiro (Ale/admin) ela vive DENTRO do Financeiro
@@ -2383,18 +2384,18 @@ const VENDEDORES = [
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
-  admin:           ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao"],
+  admin:           ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao", "fotos"],
   // gestor (Zanella) — SEM comissoes (regra do Ale). TEM financeiro mas SOMENTE
   // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage). TEM nf
   // com acesso COMPLETO (pode emitir/cancelar/CC-e via podeEmitir=gestor).
-  gestor:          ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "adm", "financeiro", "nf"],
+  gestor:          ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "adm", "financeiro", "nf", "fotos"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
-  vendedor:        ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm"],
+  vendedor:        ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "fotos"],
   // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
   // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
-  vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes"],
+  vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes", "fotos"],
   // contabilidade (Nexx) — SOMENTE Financeiro (leitura, via somenteLeitura) e NF
   // (visualiza notas; emitir/cancelar segue restrito a admin/gestor via podeEmitir)
   contabilidade: ["financeiro", "nf"],
@@ -11867,6 +11868,247 @@ function ConciliacaoPage({ user }) {
 // notify("Boleto pago", "ok") e um card sobe no canto e some sozinho —
 // substitui o alert() nativo (que trava a tela, ruim no iPhone).
 // tipo: "ok" (verde) | "erro" (vermelho) | "info" (âmbar).
+// ─────────────────────────────────────────────────────────────────────────
+// ABA FOTOS — acervo visual de montagens reais, um álbum por tipo de produto.
+// Fotos ficam no Supabase Storage (bucket público "fotos"), uma pasta por álbum.
+// Todos os logins veem e sobem/apagam (policies: select anon+auth, insert/delete
+// authenticated). Botão "Tirar Foto" usa capture="environment" → no iPhone abre
+// a câmera direto. As imagens são comprimidas no navegador antes de subir.
+// ─────────────────────────────────────────────────────────────────────────
+const ALBUNS_FOTOS = [
+  { k: "gondola-parede-br", l: "Gôndola Parede BR" },
+  { k: "gondola-parede-pr", l: "Gôndola Parede PR" },
+  { k: "gondola-centro-br", l: "Gôndola Centro BR" },
+  { k: "gondola-centro-pr", l: "Gôndola Centro PR" },
+  { k: "mpp-amapa", l: "MPP Amapá" },
+  { k: "mpp-china", l: "MPP China" },
+  { k: "mpp-zar", l: "MPP Zar" },
+];
+
+// Formatos de imagem que TODO navegador renderiza (pra decidir o fallback).
+const TIPOS_IMG_WEB = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" };
+
+// Comprime/redimensiona no client (canvas → JPEG). Foto de iPhone ~4MB vira ~300KB.
+// Retorna:
+//   { blob, contentType, ext }  → pronto pra subir
+//   { erro: true }              → formato não processável (ex: HEIC "cru" fora do
+//                                 Safari) — NÃO sobe (evitaria uma foto que abre no
+//                                 iPhone mas fica quebrada no Chrome/Android).
+// Quando o canvas falha mas o arquivo JÁ é um formato web-padrão, sobe o original
+// com o content-type/extensão REAIS (nunca renomeia HEIC como .jpg).
+async function comprimirImagemFoto(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve) => {
+    const fallback = () => {
+      const ext = TIPOS_IMG_WEB[file.type];
+      if (ext) resolve({ blob: file, contentType: file.type, ext });
+      else resolve({ erro: true, motivo: file.type || "formato desconhecido" });
+    };
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        try {
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return fallback();
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((b) => {
+            if (b && b.size > 0) resolve({ blob: b, contentType: "image/jpeg", ext: ".jpg" });
+            else fallback();
+          }, "image/jpeg", quality);
+        } catch { fallback(); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); fallback(); };
+      img.src = url;
+    } catch { fallback(); }
+  });
+}
+
+function FotosPage({ user }) {
+  const C = COLORS;
+  const [album, setAlbum] = useState(ALBUNS_FOTOS[0].k);
+  const [fotos, setFotos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
+  const [uploading, setUploading] = useState(null); // { done, total } ou null
+  const [lightbox, setLightbox] = useState(null);     // { url, path, idx } ou null
+  const camInputRef = useRef(null);   // Tirar Foto (câmera)
+  const galInputRef = useRef(null);   // Escolher da galeria
+  const albumRef = useRef(album);     // álbum "vivo" (evita aplicar resposta no álbum errado)
+  const loadIdRef = useRef(0);        // descarta respostas de list() fora de ordem
+  const albumAtual = ALBUNS_FOTOS.find(a => a.k === album) || ALBUNS_FOTOS[0];
+
+  useEffect(() => { albumRef.current = album; carregar(); /* eslint-disable-next-line */ }, [album]);
+
+  async function carregar() {
+    const alvo = albumRef.current;
+    const meuLoad = ++loadIdRef.current;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.storage.from("fotos").list(alvo, {
+        limit: 1000,
+        sortBy: { column: "created_at", order: "desc" },
+      });
+      if (loadIdRef.current !== meuLoad) return; // troquei de álbum no meio → ignora
+      if (error) { setErro(error.message); setFotos([]); return; }
+      const arr = (data || []).filter(f => f.name && f.name !== ".emptyFolderPlaceholder");
+      const comUrl = arr.map(f => {
+        const path = alvo + "/" + f.name;
+        const { data: pub } = supabase.storage.from("fotos").getPublicUrl(path);
+        return { name: f.name, path, url: pub.publicUrl, created_at: f.created_at };
+      });
+      setFotos(comUrl);
+      setErro("");
+    } catch (err) {
+      if (loadIdRef.current !== meuLoad) return;
+      setErro(err?.message || "Falha ao carregar as fotos");
+      setFotos([]);
+    } finally {
+      if (loadIdRef.current === meuLoad) setLoading(false);
+    }
+  }
+
+  async function onFiles(e) {
+    const files = Array.from(e.target.files || []);
+    if (e.target) e.target.value = "";
+    if (!files.length) return;
+    const albumUpload = albumRef.current; // fixa o álbum-alvo no início do upload
+    setUploading({ done: 0, total: files.length });
+    let ok = 0, falhou = 0;
+    for (const f of files) {
+      try {
+        const r = await comprimirImagemFoto(f);
+        if (r.erro) { falhou++; }
+        else {
+          const nome = Date.now() + "-" + Math.random().toString(36).slice(2, 8) + r.ext;
+          const path = albumUpload + "/" + nome;
+          const { error } = await supabase.storage.from("fotos").upload(path, r.blob, {
+            contentType: r.contentType, upsert: false, cacheControl: "3600",
+          });
+          if (error) { notify("Erro ao subir foto: " + error.message, "erro"); falhou++; }
+          else ok++;
+        }
+      } catch (err) { notify("Erro ao processar foto: " + (err?.message || err), "erro"); falhou++; }
+      setUploading(u => ({ ...(u || {}), done: (u?.done || 0) + 1 }));
+    }
+    setUploading(null);
+    if (ok) notify(ok > 1 ? ok + " fotos adicionadas" : "Foto adicionada", "ok");
+    if (falhou) notify(falhou + (falhou > 1 ? " fotos não puderam ser enviadas" : " foto não pôde ser enviada") + " (formato não suportado, ex: HEIC fora do iPhone — envie pelo iPhone ou converta pra JPEG)", "erro");
+    // Só recarrega se o usuário ainda está no mesmo álbum de quando começou o upload
+    if (albumRef.current === albumUpload) await carregar();
+  }
+
+  async function apagar(path) {
+    if (typeof window !== "undefined" && !window.confirm("Apagar esta foto? Não dá pra desfazer.")) return;
+    try {
+      const { error } = await supabase.storage.from("fotos").remove([path]);
+      if (error) { notify("Não foi possível apagar: " + error.message, "erro"); return; }
+      setFotos(prev => prev.filter(f => f.path !== path));
+      setLightbox(null);
+      notify("Foto apagada", "ok");
+    } catch (err) {
+      notify("Não foi possível apagar: " + (err?.message || err), "erro");
+    }
+  }
+
+  const btnAlbum = (a) => (
+    <button key={a.k} onClick={() => setAlbum(a.k)} style={{
+      padding: "8px 16px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer",
+      background: album === a.k ? C.orange : C.card, color: album === a.k ? "#000" : C.textMuted,
+      border: `1px solid ${album === a.k ? C.orange : C.border}`, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+    }}>{a.l}</button>
+  );
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 16px 60px" }}>
+      {/* Sub-abas (álbuns) */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        {ALBUNS_FOTOS.map(btnAlbum)}
+      </div>
+
+      {/* Cabeçalho do álbum + botões */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 800, color: C.text }}>{albumAtual.l}</div>
+          <div style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>
+            {loading ? "Carregando…" : (fotos.length === 0 ? "Nenhuma foto ainda" : (fotos.length === 1 ? "1 foto" : fotos.length + " fotos"))}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={() => camInputRef.current?.click()} disabled={!!uploading} style={{
+            padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
+            background: C.orange, color: "#000", border: "none", fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
+          }}>📷 Tirar Foto</button>
+          <button onClick={() => galInputRef.current?.click()} disabled={!!uploading} style={{
+            padding: "11px 18px", borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: uploading ? "default" : "pointer",
+            background: C.card, color: C.text, border: `1px solid ${C.border}`, fontFamily: "'DM Sans', sans-serif", opacity: uploading ? 0.6 : 1,
+          }}>🖼️ Escolher fotos</button>
+        </div>
+      </div>
+
+      {/* inputs escondidos: câmera (capture) e galeria (multiple) */}
+      <input ref={camInputRef} type="file" accept="image/*" capture="environment" onChange={onFiles} style={{ display: "none" }} />
+      <input ref={galInputRef} type="file" accept="image/*" multiple onChange={onFiles} style={{ display: "none" }} />
+
+      {uploading && (
+        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.text, fontSize: 13, fontWeight: 700 }}>
+          Enviando fotos… {uploading.done}/{uploading.total}
+        </div>
+      )}
+      {erro && (
+        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: "rgba(248,113,113,0.12)", border: `1px solid ${C.danger}`, color: C.danger, fontSize: 13 }}>
+          {erro}
+        </div>
+      )}
+
+      {/* Grid de fotos */}
+      {loading ? (
+        <div style={{ color: C.textMuted, padding: 40, textAlign: "center" }}>Carregando…</div>
+      ) : fotos.length === 0 ? (
+        <div style={{ color: C.textMuted, padding: "48px 20px", textAlign: "center", border: `1px dashed ${C.border}`, borderRadius: 14 }}>
+          Álbum vazio. Toque em <b style={{ color: C.text }}>📷 Tirar Foto</b> ou <b style={{ color: C.text }}>🖼️ Escolher fotos</b> pra começar.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+          {fotos.map((f, idx) => (
+            <div key={f.path} style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: C.card, border: `1px solid ${C.border}`, aspectRatio: "1 / 1", boxShadow: CARD_GLOW }}>
+              <img src={f.url} alt="" loading="lazy" onClick={() => setLightbox({ url: f.url, path: f.path, idx })}
+                style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", display: "block" }} />
+              <button onClick={(e) => { e.stopPropagation(); apagar(f.path); }} title="Apagar" style={{
+                position: "absolute", top: 6, right: 6, width: 30, height: 30, borderRadius: 8, border: "none", cursor: "pointer",
+                background: "rgba(0,0,0,0.62)", color: "#fff", fontSize: 16, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+              }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox — foto em tela cheia */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{
+          position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.92)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <img src={lightbox.url} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+          <button onClick={(e) => { e.stopPropagation(); setLightbox(null); }} style={{
+            position: "fixed", top: 16, right: 16, width: 44, height: 44, borderRadius: 12, border: "none", cursor: "pointer",
+            background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 24, fontWeight: 800,
+          }}>×</button>
+          <button onClick={(e) => { e.stopPropagation(); apagar(lightbox.path); }} style={{
+            position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", padding: "10px 22px", borderRadius: 10, border: "none", cursor: "pointer",
+            background: C.danger, color: "#fff", fontSize: 14, fontWeight: 800, fontFamily: "'DM Sans', sans-serif",
+          }}>Apagar foto</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function notify(msg, tipo = "ok") {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent("suprema-toast", { detail: { msg, tipo, id: Date.now() + Math.random() } }));
@@ -12177,6 +12419,8 @@ export default function App() {
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
       {page === "agenda" && canAccess(user, "agenda") && <AgendaPage user={user} setPage={setPage} />}
       {page === "agenda" && !canAccess(user, "agenda") && <Login onLogin={login} setPage={setPage} />}
+      {page === "fotos" && canAccess(user, "fotos") && <FotosPage user={user} />}
+      {page === "fotos" && !canAccess(user, "fotos") && <Login onLogin={login} setPage={setPage} />}
       {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroWrapper user={user} />}
       {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
       {page === "dre" && canAccess(user, "dre") && <DrePage />}
