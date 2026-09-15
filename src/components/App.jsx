@@ -2439,18 +2439,21 @@ const ROLE_PERMISSIONS = {
   // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
   // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes", "fotos"],
-  // contabilidade (Nexx) — SOMENTE Financeiro (leitura, via somenteLeitura) e NF
-  // (visualiza notas; emitir/cancelar segue restrito a admin/gestor via podeEmitir)
-  contabilidade: ["financeiro", "nf"],
+  // contabilidade (Nexx) — Financeiro (leitura, via somenteLeitura), NF (visualiza;
+  // emitir/cancelar segue restrito a admin/gestor via podeEmitir) + Conciliação
+  // bancária/extratos e DRE (o contador precisa deles p/ fechar a contabilidade).
+  // Tudo em leitura. Sem Comissões (regra do Ale).
+  contabilidade: ["financeiro", "nf", "conciliacao", "dre"],
 };
 
 // Abas com acesso restrito SOMENTE ao Alessandro (user.id === "v1"),
-// independente da role. Mesmo que alguém vire admin no futuro, essas
-// abas continuam exclusivas dele.
-// financeiro e nf SAÍRAM desta lista: Zanella (gestor) VÊ o financeiro (só
-// leitura) e tem acesso COMPLETO à NF (emite). DRE e Conciliação seguem
-// exclusivos do Ale.
-const ALE_ONLY_TABS = ["dre", "conciliacao", "leadmarc"];
+// independente da role. Mesmo que alguém vire admin no futuro, essa
+// aba continua exclusiva dele.
+// financeiro/nf SAÍRAM: Zanella (gestor) vê financeiro (só leitura) e emite NF.
+// DRE e Conciliação SAÍRAM: a contabilidade (Nexx) passou a ver os dois (leitura),
+// via ROLE_PERMISSIONS. Continuam invisíveis a gestor/vendedores (não estão nos
+// roles deles). Só leadmarc segue exclusiva do Ale.
+const ALE_ONLY_TABS = ["leadmarc"];
 
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
@@ -11695,6 +11698,12 @@ function ConciliacaoPage({ user }) {
   const [vincularVenda, setVincularVenda] = useState(null); // { lancamento }
   const [vendasDisponiveis, setVendasDisponiveis] = useState([]);
   const fileInputRef = useRef(null);
+  // Só admin (Ale) importa extrato / reconcilia / aplica ações na conciliação.
+  // Contabilidade (Nexx) e demais logins que abrem a aba veem tudo em LEITURA:
+  // os botões de escrita ficam ocultos e os handlers são bloqueados. (As rotas
+  // /api/conciliacao/* usam service_role e ainda não checam sessão — C4 pendente;
+  // este gate impede o uso pela tela por quem não é admin.)
+  const somenteLeitura = !(user?.role === "admin" || user?.id === "v1");
 
   const carregar = async () => {
     setCarregando(true);
@@ -11712,6 +11721,7 @@ function ConciliacaoPage({ user }) {
   useEffect(() => { carregar(); setReconcResultado(null); }, [bancoSel, mesSel]);
 
   const onUploadFile = async (e) => {
+    if (somenteLeitura) return;
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadando(true);
@@ -11734,6 +11744,7 @@ function ConciliacaoPage({ user }) {
   };
 
   const reconciliar = async () => {
+    if (somenteLeitura) return;
     setReconciliando(true);
     setReconcResultado(null);
     try {
@@ -11752,6 +11763,7 @@ function ConciliacaoPage({ user }) {
   };
 
   const aplicarAcao = async (lancamento, acao, extras = {}) => {
+    if (somenteLeitura) return;
     setProcessandoAcao(lancamento.id);
     try {
       const res = await fetch("/api/conciliacao/acao", {
@@ -11828,16 +11840,22 @@ function ConciliacaoPage({ user }) {
           </select>
           <div style={{ flex: 1 }} />
           <input ref={fileInputRef} type="file" accept="application/pdf" onChange={onUploadFile} style={{ display: "none" }} />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadando}
-            style={{ background: uploadando ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: uploadando ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif" }}
-          >{uploadando ? "Parseando PDF..." : "📄 Subir extrato (PDF)"}</button>
-          <button
-            onClick={reconciliar}
-            disabled={reconciliando || lancamentos.length === 0}
-            style={{ background: (reconciliando || lancamentos.length === 0) ? COLORS.textDim : "#8B5CF6", color: "#fff", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: (reconciliando || lancamentos.length === 0) ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif" }}
-          >{reconciliando ? "Reconciliando..." : "🔄 Reconciliar agora"}</button>
+          {somenteLeitura ? (
+            <span style={{ fontSize: 12, color: COLORS.textDim, fontStyle: "italic", fontFamily: "'DM Sans', sans-serif" }}>Somente leitura</span>
+          ) : (
+            <>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadando}
+                style={{ background: uploadando ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: uploadando ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif" }}
+              >{uploadando ? "Parseando PDF..." : "📄 Subir extrato (PDF)"}</button>
+              <button
+                onClick={reconciliar}
+                disabled={reconciliando || lancamentos.length === 0}
+                style={{ background: (reconciliando || lancamentos.length === 0) ? COLORS.textDim : "#8B5CF6", color: "#fff", border: "none", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: (reconciliando || lancamentos.length === 0) ? "not-allowed" : "pointer", fontFamily: "'DM Sans', sans-serif" }}
+              >{reconciliando ? "Reconciliando..." : "🔄 Reconciliar agora"}</button>
+            </>
+          )}
         </div>
 
         {/* Resultado do matching */}
@@ -11939,7 +11957,9 @@ function ConciliacaoPage({ user }) {
                           <span style={{ background: statusInfo.bg, color: statusInfo.cor, padding: "2px 8px", borderRadius: 12, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>{statusInfo.lbl}</span>
                         </td>
                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
-                          {processando ? (
+                          {somenteLeitura ? (
+                            <span style={{ color: COLORS.textDim, fontSize: 10 }}>—</span>
+                          ) : processando ? (
                             <span style={{ color: COLORS.textDim, fontSize: 10 }}>...</span>
                           ) : podeAgir ? (
                             <div style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>

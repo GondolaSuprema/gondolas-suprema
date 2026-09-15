@@ -48,16 +48,19 @@ Rodar local: `npm run dev`. Build: `npm run build`.
 **Mudar acesso = editar o objeto `ROLE_PERMISSIONS` (`App.jsx` ~L2343). NÃO
 espalhe `if` de papel pelo código.** `canAccess(user, aba)` é a única porta.
 
-- `ALE_ONLY_TABS = ["dre", "conciliacao", "leadmarc"]` → só o Ale (`user.id === "v1"`),
-  independente do papel.
+- `ALE_ONLY_TABS = ["leadmarc"]` → só o Ale (`user.id === "v1"`), independente do
+  papel. (DRE e Conciliação SAÍRAM em 15-set: a contabilidade passou a vê-los.)
 - **gestor (Zanella)**: SEM comissões. TEM Financeiro **somente leitura**
   (bloqueio via `somenteLeitura` no `FinanceiroPage`). TEM NF **completa**
   (emite/cancela/CC-e via `podeEmitir`).
 - **vendedor (Adelmo)**: Gráficos + Logística **só leitura** (`canEditLogistica`)
   + próprias comissões + ADM **só leitura** (`canEditAdm`).
 - **vendedor_basico (João)**: só operacional + próprias comissões + Logística.
-- **contabilidade (Nexx)**: só Financeiro (leitura) + NF (visualiza; **não**
-  emite — emitir segue restrito a admin/gestor). Landing page dele = Financeiro.
+- **contabilidade (Nexx)**: Financeiro + NF + **Conciliação bancária/extratos**
+  + **DRE** — tudo em **leitura** (NF visualiza, não emite; Conciliação tem
+  `somenteLeitura` que esconde importar/reconciliar/ações). Landing = Financeiro.
+  Sem Comissões. ⚠️ As rotas `/api/conciliacao/*` usam service_role e ainda não
+  checam sessão (C4 pendente) — o gate de leitura é só na UI.
 - `canEditLogistica`: admin, gestor e vendedor_basico podem editar entregas.
 
 ## Regras de negócio "escondidas" (fáceis de quebrar sem saber)
