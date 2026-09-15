@@ -8688,10 +8688,12 @@ function GraficosPage({ user }) {
         const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
         setAllOrders(visiveis.map(o => ({
           id: o.id,
-          // Base do agrupamento por mês: data em que a venda foi marcada como
-          // Concluída. Fallback pra data_entrega e depois data do orçamento
-          // (pra eventuais concluídos sem data_conclusao registrada).
-          date: o.data_conclusao || o.data_entrega || o.data,
+          // Base do agrupamento por mês: a data da ENTREGA (mês da NF), IGUAL à
+          // aba ADM/Vendas Concluídas — pra o gráfico bater com ela. MESMO fallback
+          // da ADM (data de criação do orçamento) quando não há data_entrega. O mês
+          // é lido por slice "YYYY-MM" (nunca new Date), senão o dia 01 caía no mês
+          // anterior por fuso.
+          date: o.data_entrega || o.data,
           total: o.total || 0, vendedor: o.vendedor_nome, vendedorId: o.vendedor_id
         })));
       }
@@ -8703,7 +8705,7 @@ function GraficosPage({ user }) {
   // como default ao abrir a aba (mesmo que ainda não tenha vendas no mês)
   const _hojeGraf = new Date();
   const _mesAtualGraf = _hojeGraf.getFullYear() + "-" + String(_hojeGraf.getMonth() + 1).padStart(2, "0");
-  const _mesesSet = new Set(allOrders.map(o => { const d = new Date(o.date); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }));
+  const _mesesSet = new Set(allOrders.map(o => String(o.date || "").slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)));
   _mesesSet.add(_mesAtualGraf);
   const meses = [..._mesesSet].sort().reverse();
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
@@ -8717,10 +8719,7 @@ function GraficosPage({ user }) {
     : VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
 
   const vendedoresData = SELLERS.map(v => {
-    const vendasMes = allOrders.filter(o => {
-      const d = new Date(o.date);
-      return o.vendedorId === v.id && (d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")) === activeMes;
-    });
+    const vendasMes = allOrders.filter(o => o.vendedorId === v.id && String(o.date || "").slice(0, 7) === activeMes);
     return { ...v, totalMes: vendasMes.reduce((s, o) => s + o.total, 0), qtdVendas: vendasMes.length };
   });
 
