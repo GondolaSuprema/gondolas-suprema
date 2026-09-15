@@ -7129,6 +7129,11 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                         return (
                           <div key={i} style={{ alignSelf: cliente ? "flex-start" : "flex-end", maxWidth: "85%", background: cliente ? COLORS.card : COLORS.accent + "22", border: `1px solid ${cliente ? COLORS.border : COLORS.accent + "55"}`, borderRadius: 10, padding: "6px 10px" }}>
                             <div style={{ fontSize: 10, fontWeight: 700, color: cliente ? COLORS.textDim : COLORS.accent, marginBottom: 2 }}>{m.autor}</div>
+                            {m.foto && (
+                              <a href={m.foto} target="_blank" rel="noopener noreferrer" title="Abrir a foto em tamanho grande" style={{ display: "block", marginBottom: 4 }}>
+                                <img src={m.foto} alt="Foto enviada pelo cliente" loading="lazy" style={{ maxWidth: "100%", maxHeight: 240, borderRadius: 8, display: "block", cursor: "pointer", border: `1px solid ${COLORS.border}` }} />
+                              </a>
+                            )}
                             <div style={{ fontSize: 13, color: COLORS.text, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{m.texto}</div>
                           </div>
                         );
