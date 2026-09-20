@@ -1991,14 +1991,17 @@ function agendaFmtData(iso) {
   const p = iso.slice(0, 10).split("-");
   return `${p[2]}/${p[1]}`;
 }
-// Trava de ano p/ datas de entrega (NF) — evita digitar "26" e virar ano 0026,
-// que jogava a venda pra um mês fantasma e sumia da ADM. Faixa realista: 2020–2035.
-const ANO_ENTREGA_MIN = "2020-01-01";
-const ANO_ENTREGA_MAX = "2035-12-31";
+// Trava de ano p/ datas de entrega (NF) — evita digitar ano errado (ex: "26"→0026,
+// ou "2028" por engano) que joga a venda pra um mês fantasma e some da ADM.
+// Faixa DINÂMICA: do ano passado ao ano que vem — a entrega é sempre próxima da
+// venda (dias/semanas), então um ano 2+ à frente é sempre erro de digitação.
+const _ANO_ATUAL = new Date().getFullYear();
+const ANO_ENTREGA_MIN = (_ANO_ATUAL - 1) + "-01-01";
+const ANO_ENTREGA_MAX = (_ANO_ATUAL + 1) + "-12-31";
 function anoEntregaOk(s) {
   if (!s || s.length < 10) return false;
   const y = Number(s.slice(0, 4));
-  return Number.isInteger(y) && y >= 2020 && y <= 2035;
+  return Number.isInteger(y) && y >= (_ANO_ATUAL - 1) && y <= (_ANO_ATUAL + 1);
 }
 
 // Contador global da Agenda (pendentes até HOJE) — pra mostrar badge no menu.
@@ -4663,7 +4666,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
               <div>
                 <label style={lblStyle}>Data de Entrega *</label>
                 <input type="date" min={ANO_ENTREGA_MIN} max={ANO_ENTREGA_MAX} value={cd.data_entrega} onChange={e => setConcluidoData({ ...cd, data_entrega: e.target.value })} style={selStyle} />
-                {cd.data_entrega && !anoEntregaOk(cd.data_entrega) && <div style={{ color: COLORS.danger, fontSize: 11, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>Ano da entrega parece errado — confira (2020 a 2035).</div>}
+                {cd.data_entrega && !anoEntregaOk(cd.data_entrega) && <div style={{ color: COLORS.danger, fontSize: 11, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>Ano da entrega parece errado (ano muito distante) — confira.</div>}
               </div>
               <div>
                 <label style={lblStyle}>Número do Pedido *</label>
@@ -8518,7 +8521,7 @@ function AdminPage({ user }) {
                 <div>
                   <label style={lblStyle}>Data de Entrega *</label>
                   <input type="date" min={ANO_ENTREGA_MIN} max={ANO_ENTREGA_MAX} value={cd.data_entrega} onChange={e => setConcluidoDataAdm({ ...cd, data_entrega: e.target.value })} style={selStyle} />
-                  {cd.data_entrega && !anoEntregaOk(cd.data_entrega) && <div style={{ color: COLORS.danger, fontSize: 11, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>Ano da entrega parece errado — confira (2020 a 2035).</div>}
+                  {cd.data_entrega && !anoEntregaOk(cd.data_entrega) && <div style={{ color: COLORS.danger, fontSize: 11, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>Ano da entrega parece errado (ano muito distante) — confira.</div>}
                 </div>
                 <div>
                   <label style={lblStyle}>Número do Pedido *</label>
