@@ -6031,6 +6031,74 @@ function LeadContextoModal({ lead, onClose }) {
   );
 }
 
+// ─── NORMALIZAÇÃO DA CONVERSA DA MARIANA (painel de Leads) ───────────────
+// A memória do bot vem "suja": a IA às vezes gravou quebras de linha (\n) no
+// meio das palavras (resíduo do streaming) e usa "||" como separador entre as
+// mensagens que ela envia; o cliente às vezes chega com várias mensagens
+// concatenadas por \n (inclusive as descrições de foto geradas pela visão).
+// Estas funções reconstroem a conversa legível, quebrando em bolhas.
+const _MSG_SEP = "\u0001"; // marcador interno de fronteira entre mensagens
+const _DESC_FOTO_RE = /^o cliente enviou (uma|um) (foto|imagem|v[ií]deo|arquivo)/i;
+
+// Resolve um \n solto (resíduo de streaming da IA). Com espaço/tab em volta →
+// 1 espaço. Colado: fim de frase (pontuação antes) ou palavra minúscula seguida
+// de Maiúscula (nova frase) → espaço; senão é palavra picotada ("Su\nprema") →
+// junta (remove). Não separa palavras em CAIXA ALTA (ex.: "COMPARATIVO").
+function _resolveNL(m, off, str) {
+  if (m.length > 1) return " ";
+  const prev = str[off - 1] || "";
+  const next = str[off + m.length] || "";
+  if (/[.,!?;:)»”"']/.test(prev)) return " ";
+  if (/[a-zàáâãéêíóôõúç]/.test(prev) && /[A-ZÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(next)) return " ";
+  return "";
+}
+
+// Divide o conteúdo cru de uma linha em uma ou mais mensagens (bolhas).
+function _partesMensagem(texto, cliente) {
+  let s = String(texto || "").replace(/\r/g, "");
+  if (cliente) {
+    // Cliente: cada quebra separa mensagens concatenadas → nova bolha.
+    s = s.replace(/[ \t]*\n+[ \t]*/g, _MSG_SEP);
+    s = s.replace(/[ \t]{2,}/g, " ");
+  } else {
+    // Mariana (IA): "||" e a quebra dupla separam mensagens enviadas; o \n solto
+    // é lixo de streaming.
+    s = s.replace(/\s*\|\|\s*/g, _MSG_SEP);
+    s = s.replace(/([ \t]*\n[ \t]*){2,}/g, _MSG_SEP);
+    s = s.replace(/[ \t]*\n[ \t]*/g, _resolveNL);
+    s = s.replace(/#{2,}[^#\u0001]*#{2,}/g, " "); // marcadores internos (###LEAD### etc)
+    s = s.replace(/[ \t]{2,}/g, " ");
+  }
+  return s.split(_MSG_SEP).map((p) => p.trim()).filter(Boolean);
+}
+
+// Converte as linhas cruas da conversa em bolhas prontas pra exibir.
+//   getCliente(row)->bool · getTexto(row)->string · getFoto(row)->url|undefined
+function prepararConversa(rows, getCliente, getTexto, getFoto) {
+  const out = [];
+  (rows || []).forEach((row) => {
+    const cliente = !!getCliente(row);
+    const foto = getFoto ? getFoto(row) : null;
+    const partes = _partesMensagem(getTexto(row), cliente);
+    if (!partes.length) {
+      // Linha sem texto legível: se houver foto, mostra a bolha só com a imagem.
+      if (foto) out.push({ cliente, texto: "", ehFoto: true, foto });
+      return;
+    }
+    let idxFoto = partes.findIndex((p) => _DESC_FOTO_RE.test(p));
+    if (idxFoto < 0) idxFoto = 0; // sem descrição de foto: anexa na 1ª bolha
+    partes.forEach((parte, i) => {
+      out.push({
+        cliente,
+        texto: parte,
+        ehFoto: _DESC_FOTO_RE.test(parte),
+        foto: foto && i === idxFoto ? foto : null,
+      });
+    });
+  });
+  return out;
+}
+
 // ─── LEAD MARCENARIA ───
 // Aba separada pros leads de móveis/marcenaria (fluxo de WhatsApp próprio grava
 // em marcenaria_leads). Nome + telefone + status pro Ale atender e acompanhar.
@@ -6261,11 +6329,15 @@ function MarcenariaLeadsPage({ user }) {
                     {!conversa.loading && (!conversa.msgs || conversa.msgs.length === 0) && (
                       <div style={{ color: C.textDim, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Sem histórico de conversa pra esse número (a memória pode ter sido limpa).</div>
                     )}
-                    {!conversa.loading && (conversa.msgs || []).map(m => (
-                      <div key={m.id} style={{ display: "flex", justifyContent: m.deCliente ? "flex-end" : "flex-start", marginBottom: 8 }}>
-                        <div style={{ maxWidth: "78%", padding: "8px 12px", borderRadius: 10, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", fontFamily: "'DM Sans', sans-serif", background: m.deCliente ? "#1F5133" : C.card, color: C.text, border: `1px solid ${m.deCliente ? "#2E7D4F" : C.border}` }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: m.deCliente ? "#8FD6A9" : C.textDim, marginBottom: 2 }}>{m.deCliente ? "Cliente" : "Mariana"}</div>
-                          {m.texto}
+                    {!conversa.loading && prepararConversa(conversa.msgs, m => m.deCliente, m => m.texto).map((m, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: m.cliente ? "flex-end" : "flex-start", marginBottom: 8 }}>
+                        <div style={{ maxWidth: "78%", padding: "8px 12px", borderRadius: 10, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", fontFamily: "'DM Sans', sans-serif", background: m.cliente ? "#1F5133" : C.card, color: C.text, border: `1px solid ${m.cliente ? "#2E7D4F" : C.border}` }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: m.cliente ? "#8FD6A9" : C.textDim, marginBottom: 2 }}>{m.cliente ? "Cliente" : "Mariana"}</div>
+                          {m.ehFoto ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontStyle: "italic", color: m.cliente ? "#CFE9D8" : C.textMuted }}>
+                              <span style={{ fontSize: 15 }}>📷</span><span>{m.texto}</span>
+                            </div>
+                          ) : m.texto}
                         </div>
                       </div>
                     ))}
@@ -7127,20 +7199,25 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                     <div style={{ marginTop: 10, maxHeight: 360, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 }}>
                       {convLoading === l.id && <div style={{ fontSize: 13, color: COLORS.textMuted }}>Carregando conversa…</div>}
                       {convLoading !== l.id && (convMsgs[l.id] || []).length === 0 && <div style={{ fontSize: 13, color: COLORS.textDim }}>Sem conversa registrada para este contato.</div>}
-                      {(convMsgs[l.id] || []).map((m, i) => {
-                        const cliente = m.autor === "Cliente";
-                        return (
-                          <div key={i} style={{ alignSelf: cliente ? "flex-start" : "flex-end", maxWidth: "85%", background: cliente ? COLORS.card : COLORS.accent + "22", border: `1px solid ${cliente ? COLORS.border : COLORS.accent + "55"}`, borderRadius: 10, padding: "6px 10px" }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: cliente ? COLORS.textDim : COLORS.accent, marginBottom: 2 }}>{m.autor}</div>
-                            {m.foto && (
-                              <a href={m.foto} target="_blank" rel="noopener noreferrer" title="Abrir a foto em tamanho grande" style={{ display: "block", marginBottom: 4 }}>
-                                <img src={m.foto} alt="Foto enviada pelo cliente" loading="lazy" style={{ maxWidth: "100%", maxHeight: 240, borderRadius: 8, display: "block", cursor: "pointer", border: `1px solid ${COLORS.border}` }} />
-                              </a>
-                            )}
-                            <div style={{ fontSize: 13, color: COLORS.text, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{m.texto}</div>
-                          </div>
-                        );
-                      })}
+                      {prepararConversa(convMsgs[l.id], m => m.autor === "Cliente", m => m.texto, m => m.foto).map((m, i) => (
+                        <div key={i} style={{ alignSelf: m.cliente ? "flex-start" : "flex-end", maxWidth: "85%", background: m.cliente ? COLORS.card : COLORS.accent + "22", border: `1px solid ${m.cliente ? COLORS.border : COLORS.accent + "55"}`, borderRadius: 10, padding: "6px 10px" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: m.cliente ? COLORS.textDim : COLORS.accent, marginBottom: 2 }}>{m.cliente ? "Cliente" : "Mariana"}</div>
+                          {m.foto && (
+                            <a href={m.foto} target="_blank" rel="noopener noreferrer" title="Abrir a foto em tamanho grande" style={{ display: "block", marginBottom: 4 }}>
+                              <img src={m.foto} alt="Foto enviada pelo cliente" loading="lazy" style={{ maxWidth: "100%", maxHeight: 240, borderRadius: 8, display: "block", cursor: "pointer", border: `1px solid ${COLORS.border}` }} />
+                            </a>
+                          )}
+                          {m.ehFoto && !m.foto && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: m.texto ? 3 : 0, padding: "3px 8px", borderRadius: 8, background: COLORS.surface, border: `1px dashed ${COLORS.border}`, width: "fit-content" }}>
+                              <span style={{ fontSize: 15 }}>📷</span>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted }}>Imagem enviada pelo cliente</span>
+                            </div>
+                          )}
+                          {m.texto && (
+                            <div style={{ fontSize: 13, color: m.ehFoto ? COLORS.textMuted : COLORS.text, fontStyle: m.ehFoto ? "italic" : "normal", lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{m.texto}</div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
