@@ -147,3 +147,97 @@ silêncio.
   de fragmentar sem necessidade.
 - `.env.local` (não commitado): `NEXT_PUBLIC_SUPABASE_URL`,
   `NEXT_PUBLIC_SUPABASE_ANON_KEY` e os tokens Focus server-side.
+
+## Mapa do `App.jsx` — onde fica cada coisa (índice de navegação)
+
+> O arquivo tem ~13 mil linhas. **Não leia inteiro** (custa ~250k tokens). As
+> linhas abaixo são APROXIMADAS — elas se deslocam quando o arquivo cresce, então
+> a **âncora real é o nome** da função/const: `grep -n "function LeadsPage"
+> src/components/App.jsx` te leva ao ponto exato. Use este mapa pra pular direto.
+
+### Raiz e navegação
+- `App()` ~L12627 — componente raiz. Estado `page` = navegação (NÃO há URL/rota).
+  Carrega `orders`/`cart`/`user`; monta `uniplusPriceMap` ~L12680; roteia em
+  `{page === "..." && <XxxPage/>}` ~L12903+. Trocar de aba = `setPage("...")`.
+
+### Páginas (cada aba é uma função `XxxPage`)
+| Aba | Função | ~L | Tabela principal |
+|---|---|---|---|
+| Login | `Login` | 2701 | Supabase Auth |
+| Dados do cliente | `ClientPage` | 2163 | estado `clientData` |
+| Catálogo | `Catalog` | 2813 | PRODUCTS + produtos_uniplus |
+| Carrinho | `Quote` | 3334 | — |
+| Resumo + **SALVA orçamento** | `ResumoPage` | 3485 | insere em `orcamentos` (~L3618) |
+| Orçamentos (lista/PDF/status) | `Orders` | 3836 | orcamentos |
+| Logística (entregas) | `LogisticaPage` | 5204 | orcamentos (data_entrega) |
+| Comissões | `ComissoesPage` | 5683 | orcamentos + despesas (espelho) |
+| CRM de Leads | `LeadsPage` | 6793 | mariana_leads + mariana_chat_memory |
+| Lead Marcenaria | `MarcenariaLeadsPage` | 6105 | marcenaria_leads |
+| Marcenaria › Orçamentos | `MarcenariaPage` | 11544 | marc_orcamentos |
+| Agenda | `AgendaPage` | 6381 | agenda_tarefas |
+| ADM / Vendas Concluídas | `AdminPage` | 7313 | orcamentos (mês da ENTREGA) |
+| Gráficos | `GraficosPage` | 8758 | orcamentos |
+| Financeiro | `FinanceiroPage` | 8940 | despesas + boletos_a_pagar |
+| DRE | `DrePage` | 9781 | agrega despesas/orcamentos |
+| NF (NFe/NFSe) | `NFPage` | 10285 | notas_fiscais + /api |
+| Conciliação | `ConciliacaoPage` | 11766 | lancamentos_bancarios + /api |
+| Fotos (álbuns) | `FotosPage` | 12220 | Storage bucket `fotos` |
+
+### Motor de preço (produto → custo → venda)
+- `PRODUCT_RECIPES` ~L157–1566 (dados grandes — NÃO ler inteiro; grep a chave
+  `"id|altura|cor"`) · `FIT60_SUBST` ~L1567 · `PRODUCTS` ~L1625 · `VARIANTS_*` ~L40–155.
+- `computeProductPrice` ~L1615 (soma receita×preço) · `recipeKeyForProduct` ~L1605
+  · `aplicarLinhaFit60` ~L1600.
+- `uniplusPriceMap` ~L12680 — mapa `id`/`nome:slug` → `preco_brasil` (lê
+  produtos_uniplus). É a **fonte do preço**; sync manual da planilha do Drive =
+  memória `sincroniza-o-manual-uniplus-sistema-drive-supabase`.
+- Gôndola por medidas: `GONDOLA_MODULOS` L58 · `calcularGondola` L76 ·
+  PAREDE_INICIAL_M/CONT_M/PONTA_M L53-55. `catLabel` L1746 (+`EXTRA_CAT_LABELS` L1745).
+- ⭐ O item do orçamento guarda `total` = **custo** (receita); o markup entra só no
+  nível do pedido (`comissao = subtotal × markup%`). PDF distribui o markup por item.
+
+### Permissões e regras (âncoras)
+- `ROLE_PERMISSIONS` L2431 · `ALE_ONLY_TABS` L2459 · `canAccess` L2463 ·
+  `canEditLogistica` L2498 · `VENDEDORES` L2417.
+- `isOrcamentoRsOculto` L2512 · `anoEntregaOk` L2001 (+`ANO_ENTREGA_MIN/MAX` L1999,
+  trava do ano da entrega) · `STATUS_ORDEM` L2527 · `REGIOES_ENTREGA` L2474.
+
+### Financeiro / despesas (âncoras)
+- `TIPOS_DESPESA` L2612 · `TIPOS_FORA_DRE` L2629 (aporte/retirada/financiamento ≠
+  resultado) · `CATEGORIAS_SUGERIDAS` L2632 · `inferirTipoDespesa` L2649 ·
+  `isBoletoParceladoRRE` L2598 · `COMISSAO_VENDEDOR_FATOR` L5681 (0,20) ·
+  `DESPESAS_FIXAS` L8904.
+
+### PDF (2 caminhos)
+- HTML (impressão no painel): `buildPdfPage` L1934 + `buildPaymentSection` L1859
+  + `buildCardSection` L1907 + `pdfStyles` L1812.
+- jsPDF (compartilhar WhatsApp): **`src/lib/pdf.js`** → `generatePDF` / `sharePDFWhatsApp`.
+
+### Conversa da Mariana (painel)
+- `prepararConversa` L6077 — normaliza texto picotado (streaming) + quebra em
+  bolhas + detecta foto. Usada em LeadsPage e MarcenariaLeadsPage. RPC
+  `mariana_conversa`.
+
+### Utilitários
+- `notify`/`Toaster` L12589 · `formatarCnpj`/`formatarCelular` L1770-1793 ·
+  `genId` L1741 · `fmt`/`fmtMoney` L1720 · `mesBRT` L1734 (mês pela STRING, evita
+  bug de fuso — nunca `new Date(dateOnly)` p/ agrupar por mês) · `useIsMobile` L2756.
+
+## CRM e Financeiro — as regras que decidem dinheiro (resumo)
+
+> Detalhe completo, com fontes, na skill **gestao-suprema**. Aqui o núcleo que não
+> pode errar.
+
+- **Receita = modelo CAIXA** (bate com o extrato), não competência. Venda só vira
+  receita quando o status é **"Pago"** (grava `data_pagamento` + `valor_recebido`).
+- **`valor_recebido` = boleto ? comissão : total**: em **boleto** (RRE) o cliente
+  paga o fornecedor direto, só a **comissão** entra; em **PIX/cartão/dinheiro**
+  entra o **total**.
+- **Comissão paga** (aba Comissões) cria despesa espelhada `comissao-<orcId>`
+  automática — **NUNCA lançar comissão à mão** (duplica).
+- **Boleto** → `boletos_a_pagar` + espelho em `despesas`. Despesas variáveis nascem
+  "Pago"; parcela futura de fornecedor e fixas = "Em Aberto".
+- **Conciliação:** ignora transferências entre contas próprias e PIX pessoal.
+- **CRM:** leads da Mariana (n8n/WhatsApp) → `mariana_leads`; funil por consultor;
+  "Ver conversa completa" via RPC; "Desistir" some da aba; dedup por 8 dígitos do
+  telefone. ⚠️ **Sem origem/UTM** — não mede qual anúncio gerou o lead (melhoria nº1).
