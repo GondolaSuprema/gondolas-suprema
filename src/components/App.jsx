@@ -2054,6 +2054,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
   useEffect(() => { setMobileOpen(false); }, [page]);
 
   const tabs = [
+    { k: "painel", l: "Painel" },
     { k: "leads", l: "Leads" },
     { k: "leadmarc", l: "Lead Marcenaria" },
     { k: "client", l: "Cliente" },
@@ -2430,15 +2431,15 @@ const VENDEDORES = [
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
-  admin:           ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao", "fotos"],
+  admin:           ["painel", "agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao", "fotos"],
   // gestor (Zanella) — SEM comissoes (regra do Ale). TEM financeiro mas SOMENTE
   // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage). TEM nf
   // com acesso COMPLETO (pode emitir/cancelar/CC-e via podeEmitir=gestor).
-  gestor:          ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "adm", "financeiro", "nf", "fotos"],
+  gestor:          ["painel", "agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "adm", "financeiro", "nf", "fotos"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
-  vendedor:        ["agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "fotos"],
+  vendedor:        ["painel", "agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "fotos"],
   // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
   // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes", "fotos"],
@@ -2730,8 +2731,9 @@ function Login({ onLogin, setPage }) {
       role: meta.role || (meta.isAdmin ? "admin" : "vendedor"),
     };
     onLogin(u);
-    // Cada role cai na primeira aba que pode acessar (contabilidade não vê "client")
-    setPage(u.role === "contabilidade" ? "financeiro" : "client");
+    // Página inicial: o Painel (1ª aba) pra quem tem acesso; contabilidade cai no
+    // Financeiro; os demais (ex.: vendedor_basico) no cadastro de cliente.
+    setPage(canAccess(u, "painel") ? "painel" : (u.role === "contabilidade" ? "financeiro" : "client"));
   };
 
   const inp = { width: "100%", padding: "11px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
@@ -8691,6 +8693,213 @@ function AdminPage({ user }) {
 }
 
 // ─── GRÁFICOS ───
+// ─── PAINEL (dashboard) — 1ª aba do sistema ───
+// Só LEITURA, dados reais. Faturamento = orçamentos Concluídos agrupados pelo mês
+// da ENTREGA (igual ADM/Gráficos). Funil = mariana_leads casado com orçamentos por
+// telefone+data (mesma lógica do "Desempenho" da aba Leads). Seletor de mês + ano
+// com comparação vs mês anterior. NÃO altera nenhuma outra página.
+function PainelPage({ user }) {
+  const MES_NOMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const MES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  const _hoje = new Date();
+  const [ano, setAno] = useState(_hoje.getFullYear());
+  const [mes, setMes] = useState(_hoje.getMonth()); // 0-11
+  const [orcs, setOrcs] = useState([]);
+  const [leads, setLeads] = useState([]);
+  const [orcMap, setOrcMap] = useState(new Map());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    let vivo = true;
+    (async () => {
+      setLoading(true);
+      const [c, l, o] = await Promise.all([
+        supabase.from("orcamentos").select("*").eq("status", "Concluído"),
+        supabase.from("mariana_leads").select("id, telefone, criado_em, status_atendimento"),
+        supabase.from("orcamentos").select("cliente_telefone, status, data"),
+      ]);
+      if (!vivo) return;
+      const conc = (c.data || []).filter(x => !isOrcamentoRsOculto(x)).map(x => ({
+        date: x.data_entrega || x.data, total: Number(x.total) || 0, vendedorId: x.vendedor_id,
+      }));
+      const map = new Map();
+      (o.data || []).forEach(r => {
+        const f = String(r.cliente_telefone || "").replace(/\D/g, "").slice(-8);
+        if (f.length !== 8) return;
+        const ts = Date.parse(r.data); if (Number.isNaN(ts)) return;
+        const e = map.get(f) || { orc: [], venda: [] };
+        e.orc.push(ts); if (String(r.status) === "Concluído") e.venda.push(ts);
+        map.set(f, e);
+      });
+      setOrcs(conc); setLeads(l.data || []); setOrcMap(map); setLoading(false);
+    })();
+    return () => { vivo = false; };
+  }, [user?.id]);
+
+  const fone8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
+  const mesStr = (a, m) => a + "-" + String(m + 1).padStart(2, "0");
+  const prev = mes === 0 ? { a: ano - 1, m: 11 } : { a: ano, m: mes - 1 };
+  const pctBR = (n) => (Number(n) || 0).toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 });
+  const compact = (v) => (Number(v) || 0).toLocaleString("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
+
+  const fatDeMes = (a, m) => {
+    const ms = mesStr(a, m);
+    const v = orcs.filter(o => String(o.date || "").slice(0, 7) === ms);
+    return { fat: v.reduce((s, o) => s + o.total, 0), pedidos: v.length };
+  };
+  const cur = fatDeMes(ano, mes);
+  const ant = fatDeMes(prev.a, prev.m);
+  const ticket = cur.pedidos ? cur.fat / cur.pedidos : 0;
+  const ticketAnt = ant.pedidos ? ant.fat / ant.pedidos : 0;
+
+  const serie12 = (() => {
+    let a = ano, m = mes; const seq = [];
+    for (let i = 0; i < 12; i++) { seq.unshift({ a, m }); const p = m === 0 ? { a: a - 1, m: 11 } : { a, m: m - 1 }; a = p.a; m = p.m; }
+    return seq.map(({ a, m }) => ({ lab: MES_CURTO[m], y: fatDeMes(a, m).fat }));
+  })();
+
+  const SELLERS = VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
+  const META_VEND = 100000; // meta mensal individual — MESMO valor da aba Gráficos (não divergir)
+  const cores = ["#F5A623", "#3B82F6", "#10B981"];
+  const porVendedor = SELLERS.map((v, i) => ({
+    nome: v.name, cor: cores[i] || COLORS.orange, meta: META_VEND,
+    valor: orcs.filter(o => o.vendedorId === v.id && String(o.date || "").slice(0, 7) === mesStr(ano, mes)).reduce((s, o) => s + o.total, 0),
+  }));
+
+  const noMes = (l) => { const d = new Date(l.criado_em); return d.getFullYear() === ano && d.getMonth() === mes; };
+  const converteu = (l, tipo) => {
+    const e = orcMap.get(fone8(l.telefone)); if (!e) return false;
+    const corte = Date.parse(l.criado_em) - 86400000;
+    return (tipo === "venda" ? e.venda : e.orc).some(ts => ts >= corte);
+  };
+  const leadsMes = leads.filter(noMes);
+  const fTotal = leadsMes.length;
+  const fAtend = leadsMes.filter(l => (l.status_atendimento || "pendente") !== "pendente").length;
+  const fOrc = leadsMes.filter(l => converteu(l, "orc")).length;
+  const fVenda = leadsMes.filter(l => converteu(l, "venda")).length;
+  const conv = fTotal ? fVenda / fTotal : 0;
+
+  // Geometria do gráfico de linha (SVG)
+  const CW = 680, CH = 220, PL = 48, PR = 14, PT = 14, PB = 26;
+  const ys = serie12.map(s => s.y);
+  let ymin = 0, ymax = Math.max(...ys, 1); ymax += (ymax - ymin) * 0.12 || 1;
+  const iw = CW - PL - PR, ih = CH - PT - PB;
+  const X = (i) => PL + i * iw / (serie12.length - 1);
+  const Y = (v) => PT + ih - (v - ymin) / (ymax - ymin || 1) * ih;
+  const linePts = serie12.map((s, i) => [X(i), Y(s.y)]);
+  const lineD = linePts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  const areaD = lineD + " L " + X(serie12.length - 1).toFixed(1) + " " + (PT + ih) + " L " + PL + " " + (PT + ih) + " Z";
+  const gridVals = [0, 0.25, 0.5, 0.75, 1].map(f => ymin + (ymax - ymin) * f);
+  const lastPt = linePts[linePts.length - 1];
+
+  const card = { background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 14, padding: "16px 18px" };
+  const sel = { padding: "9px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", outline: "none", cursor: "pointer" };
+  const h2 = { fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 14, fontWeight: 600, margin: "0 0 2px" };
+  const capS = { color: COLORS.textDim, fontSize: 11.5, margin: "0 0 14px", fontFamily: "'DM Sans', sans-serif" };
+
+  const delta = (a, b) => {
+    if (!b) return <span style={{ fontSize: 12, color: COLORS.textDim }}>—</span>;
+    const d = (a - b) / b; const flat = Math.abs(d) < 0.001; const up = d >= 0;
+    const cor = flat ? COLORS.textMuted : (up ? "#22C55E" : "#F87171");
+    return <span style={{ fontSize: 12, fontWeight: 700, color: cor, fontVariantNumeric: "tabular-nums" }}>{flat ? "•" : (up ? "▲" : "▼")} {pctBR(Math.abs(d))} <span style={{ color: COLORS.textDim, fontWeight: 500 }}>vs mês anterior</span></span>;
+  };
+  const kpis = [
+    { lab: "Faturamento", val: fmtMoney(cur.fat), a: cur.fat, b: ant.fat },
+    { lab: "Nº de pedidos", val: String(cur.pedidos), a: cur.pedidos, b: ant.pedidos },
+    { lab: "Ticket médio", val: fmtMoney(ticket), a: ticket, b: ticketAnt },
+  ];
+  const funil = [
+    { nm: "Leads recebidos", v: fTotal, c: "#3B82F6" },
+    { nm: "Atendidos", v: fAtend, c: "#F5A623" },
+    { nm: "Viraram orçamento", v: fOrc, c: "#A78BFA" },
+    { nm: "Viraram venda", v: fVenda, c: "#22C55E" },
+  ];
+  const fmax = Math.max(fTotal, 1);
+  const vmax = Math.max(...porVendedor.map(v => Math.max(v.valor, v.meta)), 1) * 1.05;
+  const anos = (() => { const y = _hoje.getFullYear(); return [y - 2, y - 1, y, y + 1]; })();
+
+  return (
+    <div style={{ maxWidth: 1080, margin: "0 auto", padding: "26px 20px 44px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
+        <div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 26, margin: "0 0 3px" }}>Painel</h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Faturamento, vendedores e leads — {MES_NOMES[mes]} de {ano}</p>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <select value={mes} onChange={e => setMes(+e.target.value)} style={sel}>{MES_NOMES.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
+          <select value={ano} onChange={e => setAno(+e.target.value)} style={sel}>{anos.map(a => <option key={a} value={a}>{a}</option>)}</select>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ ...card, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando…</div>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, marginBottom: 16 }}>
+            {kpis.map((k, i) => (
+              <div key={i} style={card}>
+                <div style={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".05em", fontFamily: "'DM Sans', sans-serif" }}>{k.lab}</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 27, color: COLORS.white, margin: "7px 0 6px", fontVariantNumeric: "tabular-nums" }}>{k.val}</div>
+                {delta(k.a, k.b)}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ ...card, marginBottom: 16 }}>
+            <h2 style={h2}>Faturamento nos últimos 12 meses</h2>
+            <p style={capS}>Vendas concluídas por mês da entrega · até {MES_NOMES[mes]}/{ano}</p>
+            <svg viewBox={`0 0 ${CW} ${CH}`} width="100%" style={{ maxWidth: "100%" }} preserveAspectRatio="xMidYMid meet">
+              {gridVals.map((v, i) => (
+                <g key={i}>
+                  <line x1={PL} y1={Y(v)} x2={CW - PR} y2={Y(v)} stroke={COLORS.border} strokeWidth="1" />
+                  <text x={PL - 8} y={Y(v) + 3.5} fill={COLORS.textDim} fontSize="10" textAnchor="end" fontFamily="DM Sans">{compact(v)}</text>
+                </g>
+              ))}
+              <defs><linearGradient id="pfat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={COLORS.orange} stopOpacity="0.26" /><stop offset="1" stopColor={COLORS.orange} stopOpacity="0" /></linearGradient></defs>
+              <path d={areaD} fill="url(#pfat)" />
+              <path d={lineD} fill="none" stroke={COLORS.orange} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="4" fill={COLORS.orange} stroke={COLORS.card} strokeWidth="2" />
+              {serie12.map((s, i) => <text key={i} x={X(i)} y={CH - 8} fill={COLORS.textDim} fontSize="10" textAnchor="middle" fontFamily="DM Sans">{s.lab}</text>)}
+            </svg>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+            <div style={card}>
+              <h2 style={h2}>Funil de leads</h2>
+              <p style={capS}>Leads que chegaram em {MES_NOMES[mes]}/{ano}</p>
+              {funil.map((f, i) => (
+                <div key={i} style={{ margin: "10px 0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 5, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
+                    <span>{f.nm}</span><b style={{ fontVariantNumeric: "tabular-nums" }}>{f.v}</b>
+                  </div>
+                  <div style={{ height: 24, borderRadius: 7, background: f.c, width: Math.max(14, f.v / fmax * 100) + "%", minWidth: 34, display: "flex", alignItems: "center", paddingLeft: 10, color: "#0F0F12", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{f.v}</div>
+                </div>
+              ))}
+              <p style={{ ...capS, margin: "12px 0 0" }}>Conversão: <b style={{ color: "#22C55E" }}>{pctBR(conv)}</b> dos leads viraram venda</p>
+            </div>
+
+            <div style={card}>
+              <h2 style={h2}>Faturamento por vendedor</h2>
+              <p style={capS}>Realizado no mês · risco = meta ({fmtMoney(META_VEND)})</p>
+              {porVendedor.map((v, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "94px 1fr auto", alignItems: "center", gap: 12, margin: "13px 0" }}>
+                  <span style={{ fontSize: 12.5, color: COLORS.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: "'DM Sans', sans-serif" }}>{v.nome}</span>
+                  <div style={{ position: "relative", height: 12, background: COLORS.bg, borderRadius: 6 }}>
+                    <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: (v.valor / vmax * 100) + "%", background: v.cor, borderRadius: 6, transition: "width .5s" }} />
+                    <div style={{ position: "absolute", top: -3, height: 18, width: 2, background: COLORS.text, opacity: .5, left: (v.meta / vmax * 100) + "%" }} />
+                  </div>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.text, minWidth: 78, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtMoney(v.valor)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function GaugeChart({ value, max, name, color }) {
   const pct = Math.min(value / max, 1);
   const angle = pct * 180;
@@ -12926,6 +13135,8 @@ export default function App() {
       {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
       {page === "dre" && canAccess(user, "dre") && <DrePage />}
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
+      {page === "painel" && canAccess(user, "painel") && <PainelPage user={user} />}
+      {page === "painel" && !canAccess(user, "painel") && <Login onLogin={login} setPage={setPage} />}
       {page === "graficos" && user && <GraficosPage user={user} />}
       {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
