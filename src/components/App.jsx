@@ -9992,9 +9992,10 @@ function DrePage() {
   const [despesas, setDespesas] = useState([]);
   const [mesSel, setMesSel] = useState(() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); });
   const [comparacao, setComparacao] = useState(true);
-  // Sprint 2.2 — filtro por empresa. Cada CNPJ tem seu DRE isolado.
-  // "todos" = DRE consolidado (soma as duas empresas)
-  const [empresaSel, setEmpresaSel] = useState("todos");
+  // DRE SEMPRE consolidado: soma as duas empresas (Gôndolas Suprema + Suprema
+  // Instalações) como se fosse uma empresa só — o lucro do mês é calculado junto.
+  // Decisão do Ale 05-out-2026: sem seletor por CNPJ no DRE.
+  const empresaSel = "todos";
   const mesNomes = { "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr", "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago", "09": "Set", "10": "Out", "11": "Nov", "12": "Dez" };
   const mesNomesLongo = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
@@ -10261,16 +10262,11 @@ function DrePage() {
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>DRE</h1>
           <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
-            {empresaSel === "todos" ? "Consolidado (Gôndolas + Instalações)" : empresaSel === "gondolas_suprema" ? "Gôndolas Suprema LTDA" : "Suprema Instalações LTDA"}
+            Consolidado (Gôndolas + Instalações)
             {" · "}{comparacao ? "comparação 3 meses" : "mês único"}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <select value={empresaSel} onChange={e => setEmpresaSel(e.target.value)} style={{ padding: "8px 16px", background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
-            <option value="todos">🏢 Consolidado</option>
-            <option value="gondolas_suprema">Gôndolas Suprema</option>
-            <option value="suprema_instalacoes">Suprema Instalações</option>
-          </select>
           <button onClick={() => setComparacao(!comparacao)} style={{ background: comparacao ? COLORS.orange + "20" : COLORS.card, border: `1px solid ${comparacao ? COLORS.orange + "60" : COLORS.border}`, color: comparacao ? COLORS.orange : COLORS.textMuted, padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
             {comparacao ? "Comparação 3M" : "Mês único"}
           </button>
