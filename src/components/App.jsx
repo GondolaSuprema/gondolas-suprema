@@ -112,6 +112,14 @@ const VARIANTS_FARMACIA_PONTA = [
   { key: "cor", label: "Cor", options: ["Branca"] },
 ];
 
+// Farmácia Parede c/ Gancho e c/ Cesto — SÓ 90cm (o estreito 55cm não tem cesto
+// de 27×55 compatível no catálogo) e Branca. Composição definida pelo Ale
+// (05-out-2026), igual ao orçamento do Edi Prada.
+const VARIANTS_FARMACIA_90 = [
+  { key: "largura", label: "Largura", options: ["90cm"] },
+  { key: "cor", label: "Cor", options: ["Branca"] },
+];
+
 const VARIANTS_MPP = [
   { key: "largura", label: "Largura", options: ["1200mm", "1800mm"] },
   { key: "niveis", label: "Níveis", options: ["3", "4", "5"] },
@@ -278,6 +286,47 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-30kg-bandeja-ponta-25-55cm-branca-ch-26", 4],                  // BANDEJA PONTA 25*55 (prateleiras)
     ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 4],                           // PAR SLG 25
     ["nome:fit-porta-etiqueta-895mm-verde-claro", 5],                              // PORTA ETIQUETA VERDE
+  ],
+  // ── FARMÁCIA PAREDE C/ GANCHO (id 705 inicial / 706 continuação) — só 90cm ──
+  // Base = farmácia parede bandeja (700/701), mas troca as 6 bandejas 25 + 6 SLG
+  // por 6 RÉGUAS 90cm + 36 GANCHOS 25cm (6 por régua). Mantém base fundo 30,
+  // painel, colunas (2,02m) e porta-etiqueta. Composição do Ale (05-out-2026).
+  "705|90cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 2],       // COLUNA PAREDE FIT 30 1,06 BASE 30
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 2,02
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],                     // 6 PAINÉIS 90*34
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],               // BANDEJA FUNDO 30*90 (base)
+    ["nome:amapa-fit-regua-90cm-branco-un", 6],                                    // 6 RÉGUAS 90CM
+    ["nome:amapa-gancho-simples-25cm-branco", 36],                                 // 36 GANCHOS 25CM (6 por régua)
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],                             // PORTA ETIQUETA VERDE
+  ],
+  "706|90cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 1],       // 1 coluna a menos (continuação)
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-regua-90cm-branco-un", 6],
+    ["nome:amapa-gancho-simples-25cm-branco", 36],
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],
+  ],
+  // ── FARMÁCIA PAREDE C/ CESTO (id 707 inicial / 708 continuação) — só 90cm ──
+  // Base = farmácia parede, mas troca as bandejas 25 + SLG por 5 CESTOS 27×90.
+  // Mantém base fundo 30, painel, colunas e porta-etiqueta. Composição do Ale.
+  "707|90cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 2],
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],               // BANDEJA FUNDO 30*90 (base)
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 5],                   // 5 CESTOS 27×90
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 6],                             // PORTA ETIQUETA VERDE
+  ],
+  "708|90cm|Branca": [
+    ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 1],       // 1 coluna a menos (continuação)
+    ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
+    ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
+    ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 5],
+    ["nome:fit-porta-etiqueta-895mm-verde-claro", 6],
   ],
   // Parede Inicial c/ Bandeja - 1,37m - Branca
   "100|1,37m|Branca": [
@@ -1693,6 +1742,11 @@ const PRODUCTS = [
   { id: 702, name: "Farmácia Centro Inicial",     category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
   { id: 703, name: "Farmácia Centro Continuação", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA },
   { id: 704, name: "Farmácia Ponta (55cm · 1,37m)", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA_PONTA },
+  // Farmácia Parede c/ Gancho e c/ Cesto (só 90cm · Branca) — receitas 705-708
+  { id: 705, name: "Farmácia Parede Inicial c/ Gancho",     category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA_90 },
+  { id: 706, name: "Farmácia Parede Continuação c/ Gancho", category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA_90 },
+  { id: 707, name: "Farmácia Parede Inicial c/ Cesto",      category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA_90 },
+  { id: 708, name: "Farmácia Parede Continuação c/ Cesto",  category: "gondolas-farmacia", icon: "💊", price: 0, specs: {}, options: [], variants: VARIANTS_FARMACIA_90 },
   // ── SLIM 2000×600 S/MDF (novo modelo com variantes) ──
   { id: 500, name: "Slim 2000×600 Inicial",            category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
   { id: 501, name: "Slim 2000×600 Continuação",        category: "slim", icon: "📦", price: 0, specs: {}, options: [], variants: VARIANTS_SLIM_AMAPA },
