@@ -290,12 +290,15 @@ const PRODUCT_RECIPES = {
   // ── FARMÁCIA PAREDE C/ GANCHO (id 705 inicial / 706 continuação) — só 90cm ──
   // Base = farmácia parede bandeja (700/701), mas troca as 6 bandejas 25 + 6 SLG
   // por 6 RÉGUAS 90cm + 36 GANCHOS 25cm (6 por régua). Mantém base fundo 30,
+  // + 1 BANDEJA 25 NO TOPO (acabamento, com par SLG 25 — pedido do Ale 09-out),
   // painel, colunas (2,02m) e porta-etiqueta. Composição do Ale (05-out-2026).
   "705|90cm|Branca": [
     ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 2],       // COLUNA PAREDE FIT 30 1,06 BASE 30
     ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],   // COLUNA COMPLEMENTAR 2,02
     ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],                     // 6 PAINÉIS 90*34
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],               // BANDEJA FUNDO 30*90 (base)
+    ["nome:amapa-fit-30kg-bandeja-25-90cm-branca-unidade-ch-26", 1],               // BANDEJA 25*90 NO TOPO (acabamento)
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 1],                          // PAR SLG 25 (apoia a bandeja do topo)
     ["nome:amapa-fit-regua-90cm-branco-un", 6],                                    // 6 RÉGUAS 90CM
     ["nome:amapa-gancho-simples-25cm-branco", 36],                                 // 36 GANCHOS 25CM (6 por régua)
     ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],                             // PORTA ETIQUETA VERDE
@@ -305,18 +308,23 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
     ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-30kg-bandeja-25-90cm-branca-unidade-ch-26", 1],               // BANDEJA 25*90 NO TOPO
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 1],                          // PAR SLG 25 (topo)
     ["nome:amapa-fit-regua-90cm-branco-un", 6],
     ["nome:amapa-gancho-simples-25cm-branco", 36],
     ["nome:fit-porta-etiqueta-895mm-verde-claro", 7],
   ],
   // ── FARMÁCIA PAREDE C/ CESTO (id 707 inicial / 708 continuação) — só 90cm ──
   // Base = farmácia parede, mas troca as bandejas 25 + SLG por 5 CESTOS 27×90.
-  // Mantém base fundo 30, painel, colunas e porta-etiqueta. Composição do Ale.
+  // Mantém base fundo 30 + 1 BANDEJA 25 NO TOPO (acabamento, com par SLG 25 —
+  // pedido do Ale 09-out), painel, colunas e porta-etiqueta. Composição do Ale.
   "707|90cm|Branca": [
     ["nome:amapa-fit-30kg-coluna-parede-1-06m-base-30cm-branca-unidade", 2],
     ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 2],
     ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],               // BANDEJA FUNDO 30*90 (base)
+    ["nome:amapa-fit-30kg-bandeja-25-90cm-branca-unidade-ch-26", 1],               // BANDEJA 25*90 NO TOPO (acabamento)
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 1],                          // PAR SLG 25 (apoia a bandeja do topo)
     ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 5],                   // 5 CESTOS 27×90
     ["nome:fit-porta-etiqueta-895mm-verde-claro", 6],                             // PORTA ETIQUETA VERDE
   ],
@@ -325,6 +333,8 @@ const PRODUCT_RECIPES = {
     ["nome:amapa-fit-40kg-coluna-complementar-p-2-02m-branco-unidade-ch-18", 1],
     ["nome:amapa-fit-painel-90-34cm-branco-unidade-ch-26", 6],
     ["nome:amapa-fit-40kg-bandeja-30-90cm-branca-unidade-ch-26", 1],
+    ["nome:amapa-fit-30kg-bandeja-25-90cm-branca-unidade-ch-26", 1],               // BANDEJA 25*90 NO TOPO
+    ["nome:amapa-fit-30kg-par-slg-25cm-branco-ch-16", 1],                          // PAR SLG 25 (topo)
     ["nome:amapa-fit-cesto-c-2-divisorias-270-900mm-branco", 5],
     ["nome:fit-porta-etiqueta-895mm-verde-claro", 6],
   ],
