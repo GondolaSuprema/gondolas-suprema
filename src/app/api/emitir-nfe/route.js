@@ -14,7 +14,7 @@ function dataEmissaoBRT() {
 
 export async function POST(request) {
   const body = await request.json();
-  const { ordem, ambiente, acao, ref_cancelamento, justificativa, transportadora, ref_correcao, correcao } = body;
+  const { ordem, ambiente, acao, ref_cancelamento, justificativa, transportadora, ref_correcao, correcao, ref_devolucao, cfop_devolucao, natureza_operacao } = body;
 
   const TOKENS = {
     homologacao: process.env.FOCUS_NFE_TOKEN_HOMOLOGACAO,
@@ -91,6 +91,170 @@ export async function POST(request) {
       });
     } catch (error) {
       return Response.json({ success: false, mensagem: error.message });
+    }
+  }
+
+  // DEVOLUCAO / ESTORNO — NF-e de ENTRADA (tipo_documento "0"), finalidade "3"
+  // (nota de ajuste), referenciando a chave da nota original. Usada para estornar
+  // uma NF-e que não pôde ser cancelada no prazo (regra SC: Consulta COPAT 58/2022).
+  // CFOP, natureza e destinatário são PARAMETRIZADOS porque dependem da orientação
+  // do contador (ex: 1201 p/ devolução de produção própria, 1202 p/ revenda).
+  // Formato confirmado no dicionário oficial Focus: notas_referenciadas[].chave_nfe
+  // (tag refNFe), finalidade_emissao=3, tipo_documento=0, informacoes_adicionais_fisco.
+  if (acao === "devolucao") {
+    const chaveRef = String(ref_devolucao || "").replace(/\D/g, "");
+    if (chaveRef.length !== 44) {
+      return Response.json({ success: false, mensagem: "chave da nota referenciada (ref_devolucao) invalida: precisa de 44 digitos" });
+    }
+    const cfopDev = String(cfop_devolucao || "").replace(/\D/g, "");
+    if (!/^[123]\d{3}$/.test(cfopDev)) {
+      return Response.json({ success: false, mensagem: "cfop_devolucao invalido: deve ser CFOP de ENTRADA (1xxx/2xxx), ex: 1201 ou 1202" });
+    }
+    if (!ordem || !Array.isArray(ordem.items) || ordem.items.length === 0 || !(Number(ordem.total) > 0)) {
+      return Response.json({ success: false, mensagem: "ordem invalida: precisa de items e total > 0" });
+    }
+    const totalItensD = (ordem.items || []).reduce((s, it) => s + (it.total || 0), 0);
+    const totalNfeD = ordem.total || 0;
+    const produtosD = (ordem.items || []).map((item, i) => {
+      let ncm = "94031000";
+      const nome = (item.name || "").toLowerCase();
+      if (nome.includes("mpp") || nome.includes("porta palete") || nome.includes("mini porta")) ncm = "73089090";
+      const valorItem = totalItensD > 0 ? (item.total / totalItensD) * totalNfeD : item.total;
+      return {
+        numero_item: String(i + 1),
+        codigo_produto: String(item.code || i + 1),
+        descricao: item.name || "Produto",
+        codigo_ncm: ncm,
+        cfop: cfopDev,
+        unidade_comercial: "UN",
+        quantidade_comercial: String(item.qty || 1),
+        valor_unitario_comercial: (valorItem / (item.qty || 1)).toFixed(4),
+        valor_bruto: valorItem.toFixed(2),
+        unidade_tributavel: "UN",
+        quantidade_tributavel: String(item.qty || 1),
+        valor_unitario_tributavel: (valorItem / (item.qty || 1)).toFixed(4),
+        icms_origem: "0",
+        icms_situacao_tributaria: "400",
+        icms_base_calculo: "0.00",
+        icms_valor: "0.00",
+        pis_situacao_tributaria: "99",
+        pis_base_calculo: "0.00",
+        pis_aliquota_porcentual: "0.00",
+        pis_valor: "0.00",
+        cofins_situacao_tributaria: "99",
+        cofins_base_calculo: "0.00",
+        cofins_aliquota_porcentual: "0.00",
+        cofins_valor: "0.00",
+      };
+    });
+    const dataEmissaoD = dataEmissaoBRT();
+    // Destinatário: por padrão a PRÓPRIA empresa (nota de entrada de estorno
+    // "de si para si" — alinhado à regra VC02-50 da SEFAZ p/ devolução que
+    // referencia NF-e de saída). Se destinatario_cliente=true, usa o cliente
+    // original da ordem. A escolha é do contador — por isso vem no body.
+    const destCliente = body.destinatario_cliente === true;
+    const docClienteD = (ordem.client?.cnpj || "").replace(/\D/g, "");
+    const isClienteCpfD = docClienteD.length === 11;
+    const ufDestD = destCliente ? String(ordem.client?.estado || "SC").toUpperCase() : "SC";
+    const nfeD = {
+      data_emissao: dataEmissaoD,
+      data_entrada_saida: dataEmissaoD,
+      natureza_operacao: (natureza_operacao || "Estorno de NF-e nao cancelada no prazo legal").slice(0, 60),
+      tipo_documento: "0",
+      finalidade_emissao: "3",
+      local_destino: ufDestD === "SC" ? "1" : "2",
+      consumidor_final: "0",
+      presenca_comprador: "0",
+      cnpj_emitente: "46996687000168",
+      nome_emitente: "GONDOLAS SUPREMA LTDA",
+      nome_fantasia_emitente: "Gondolas Suprema",
+      inscricao_estadual_emitente: "261775430",
+      regime_tributario_emitente: "1",
+      logradouro_emitente: "Rua Jose Cosme Pamplona",
+      numero_emitente: "1700",
+      bairro_emitente: "Bela Vista",
+      municipio_emitente: "Palhoca",
+      uf_emitente: "SC",
+      cep_emitente: "88132700",
+      codigo_municipio_emitente: "4211900",
+      telefone_emitente: "48988741847",
+      notas_referenciadas: [{ chave_nfe: chaveRef }],
+      informacoes_adicionais_fisco: (justificativa || "NF-e de ajuste/estorno de NF-e nao cancelada no prazo legal.").slice(0, 2000),
+      items: produtosD,
+      modalidade_frete: "9",
+      valor_produtos: totalNfeD.toFixed(2),
+      valor_total: totalNfeD.toFixed(2),
+      formas_pagamento: [{ forma_pagamento: "90" }],
+    };
+    if (destCliente) {
+      Object.assign(nfeD, isClienteCpfD ? { cpf_destinatario: docClienteD } : { cnpj_destinatario: docClienteD });
+      nfeD.nome_destinatario = ordem.client?.empresa || "Destinatario";
+      nfeD.logradouro_destinatario = ordem.client?.endereco || "Nao informado";
+      nfeD.numero_destinatario = ordem.client?.numero || "SN";
+      nfeD.bairro_destinatario = ordem.client?.bairro || "Nao informado";
+      nfeD.municipio_destinatario = ordem.client?.cidade || "Nao informado";
+      nfeD.uf_destinatario = (ordem.client?.estado || "SC").toUpperCase();
+      nfeD.cep_destinatario = ((ordem.client?.cep || "").replace(/\D/g, "").padStart(8, "0")).slice(0, 8) || "00000000";
+      const ieRawD = String(ordem.client?.ie || "").trim().toUpperCase();
+      const ieLimpaD = ieRawD.replace(/\D/g, "");
+      if (!isClienteCpfD && ieLimpaD && !ieRawD.startsWith("ISENT")) {
+        nfeD.indicador_inscricao_estadual_destinatario = "1";
+        nfeD.inscricao_estadual_destinatario = ieLimpaD;
+      } else {
+        nfeD.indicador_inscricao_estadual_destinatario = isClienteCpfD ? "9" : (ieRawD.startsWith("ISENT") ? "2" : "9");
+      }
+    } else {
+      nfeD.cnpj_destinatario = "46996687000168";
+      nfeD.nome_destinatario = "GONDOLAS SUPREMA LTDA";
+      nfeD.logradouro_destinatario = "Rua Jose Cosme Pamplona";
+      nfeD.numero_destinatario = "1700";
+      nfeD.bairro_destinatario = "Bela Vista";
+      nfeD.municipio_destinatario = "Palhoca";
+      nfeD.uf_destinatario = "SC";
+      nfeD.cep_destinatario = "88132700";
+      nfeD.indicador_inscricao_estadual_destinatario = "1";
+      nfeD.inscricao_estadual_destinatario = "261775430";
+    }
+    // Idempotência: ref derivado da chave referenciada (não de Date.now()), para
+    // que um retry/timeout NUNCA gere uma 2ª nota de estorno — a Focus devolve a
+    // mesma nota se o ref já existir autorizado. ("dev_" + 44 digitos = 48 chars)
+    const refD = "dev_" + chaveRef;
+    try {
+      const response = await fetch(baseUrl + "?ref=" + refD, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": authHeader },
+        body: JSON.stringify(nfeD),
+      });
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch (e) {
+        return Response.json({ success: false, status: "erro_parse", mensagem: "Resposta: " + text.substring(0, 400) });
+      }
+      if (data.status === "autorizado" || data.status_sefaz === "100") {
+        return Response.json({
+          success: true, status: data.status, numero: data.numero, chave: data.chave_nfe,
+          url_danfe: data.caminho_danfe ? urlBase + data.caminho_danfe : null,
+          url_xml: data.caminho_xml_nota_fiscal ? urlBase + data.caminho_xml_nota_fiscal : null, ref: refD,
+        });
+      } else if (data.status === "processando_autorizacao") {
+        await new Promise(function(r) { setTimeout(r, 5000); });
+        const ck = await fetch(baseUrl + "/" + refD, { headers: { "Authorization": authHeader } });
+        const ckData = JSON.parse(await ck.text());
+        return Response.json({
+          success: ckData.status === "autorizado", status: ckData.status, numero: ckData.numero, chave: ckData.chave_nfe,
+          url_danfe: ckData.caminho_danfe ? urlBase + ckData.caminho_danfe : null,
+          url_xml: ckData.caminho_xml_nota_fiscal ? urlBase + ckData.caminho_xml_nota_fiscal : null,
+          mensagem: ckData.mensagem_sefaz, ref: refD,
+        });
+      } else {
+        return Response.json({
+          success: false, status: data.status || "erro",
+          mensagem: data.mensagem_sefaz || data.mensagem || JSON.stringify(data),
+          erros: data.erros || data.erros_validacao || null, ref: refD,
+        });
+      }
+    } catch (error) {
+      return Response.json({ success: false, status: "erro", mensagem: error.message });
     }
   }
 
