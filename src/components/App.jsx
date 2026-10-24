@@ -12066,8 +12066,9 @@ function ConciliacaoPage({ user }) {
   // Só admin (Ale) importa extrato / reconcilia / aplica ações na conciliação.
   // Contabilidade (Nexx) e demais logins que abrem a aba veem tudo em LEITURA:
   // os botões de escrita ficam ocultos e os handlers são bloqueados. (As rotas
-  // /api/conciliacao/* usam service_role e ainda não checam sessão — C4 pendente;
-  // este gate impede o uso pela tela por quem não é admin.)
+  // /api/conciliacao/* exigem login desde 24-out-2026 (requireUser), mas ainda
+  // não checam o PAPEL do usuário: este gate impede o uso pela tela por quem
+  // não é admin.)
   const somenteLeitura = !(user?.role === "admin" || user?.id === "v1");
 
   const carregar = async () => {

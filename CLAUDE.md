@@ -59,8 +59,9 @@ espalhe `if` de papel pelo código.** `canAccess(user, aba)` é a única porta.
 - **contabilidade (Nexx)**: Financeiro + NF + **Conciliação bancária/extratos**
   + **DRE** — tudo em **leitura** (NF visualiza, não emite; Conciliação tem
   `somenteLeitura` que esconde importar/reconciliar/ações). Landing = Financeiro.
-  Sem Comissões. ⚠️ As rotas `/api/conciliacao/*` usam service_role e ainda não
-  checam sessão (C4 pendente) — o gate de leitura é só na UI.
+  Sem Comissões. ⚠️ As rotas `/api/conciliacao/*` e `/api/emitir-nf*` exigem
+  login (`src/lib/requireUser.js`, 24-out-2026), mas ainda não checam o PAPEL:
+  um usuário logado sem permissão passaria pela API. O gate de papel é só na UI.
 - `canEditLogistica`: admin, gestor e vendedor_basico podem editar entregas.
 
 ## Regras de negócio "escondidas" (fáceis de quebrar sem saber)
