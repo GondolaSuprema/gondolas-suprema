@@ -2,6 +2,17 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
 
+// Chamadas às rotas /api protegidas (NF-e, NFS-e, conciliação): envia o token
+// da sessão do Supabase. Sem ele a rota responde 401.
+async function apiFetch(url, opts = {}) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  const headers = { ...(opts.headers || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return fetch(url, { ...opts, headers });
+}
+
+
 const COLORS = {
   bg: "#000000",
   surface: "#101012",
@@ -7448,7 +7459,7 @@ function AdminPage({ user }) {
     try {
       const endpoint = emitente === "instalacoes" ? "/api/emitir-nfse" : "/api/emitir-nfe";
       const ambiente = opts.ambiente || (emitente === "instalacoes" ? "homologacao" : "producao");
-      const res = await fetch(endpoint, {
+      const res = await apiFetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ordem, ambiente }),
@@ -7498,7 +7509,7 @@ function AdminPage({ user }) {
   const cancelarNfe = async (ref, justificativa) => {
     setCancelandoNfe("loading");
     try {
-      const res = await fetch("/api/emitir-nfe", {
+      const res = await apiFetch("/api/emitir-nfe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ acao: "cancelar", ref_cancelamento: ref, justificativa, ambiente: "producao" }),
@@ -10713,7 +10724,7 @@ function NFPage({ user }) {
       if (emitente === "gondolas" && opts.transportadora) {
         reqBody.transportadora = opts.transportadora;
       }
-      const res = await fetch(endpoint, {
+      const res = await apiFetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reqBody),
@@ -10765,7 +10776,7 @@ function NFPage({ user }) {
       const nota = notas.find(n => n.ref === ref);
       const endpoint = nota?.tipo === "nfse" ? "/api/emitir-nfse" : "/api/emitir-nfe";
       const ambiente = nota?.ambiente || "producao";
-      const res = await fetch(endpoint, {
+      const res = await apiFetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ acao: "cancelar", ref_cancelamento: ref, justificativa, ambiente }),
@@ -10790,7 +10801,7 @@ function NFPage({ user }) {
     try {
       const nota = notas.find(n => n.ref === ref);
       const ambiente = nota?.ambiente || "producao";
-      const res = await fetch("/api/emitir-nfe", {
+      const res = await apiFetch("/api/emitir-nfe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ acao: "carta_correcao", ref_correcao: ref, correcao: texto.trim(), ambiente }),
@@ -10827,7 +10838,7 @@ function NFPage({ user }) {
         // NFS-e: consulta na Focus NFe via /api/emitir-nfse com acao=consultar.
         // A resposta da Focus traz status, numero, url_danfse, codigo_verificacao
         // e caminho_xml_nota_fiscal. A gente persiste tudo na linha da nota.
-        const res = await fetch("/api/emitir-nfse", {
+        const res = await apiFetch("/api/emitir-nfse", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ acao: "consultar", ref_consulta: nota.ref, ambiente: nota.ambiente || "producao" }),
@@ -10835,7 +10846,7 @@ function NFPage({ user }) {
         data = await res.json();
       } else {
         // NF-e: consulta SEFAZ direta (rota antiga)
-        const res = await fetch("/api/consultar-nfe", {
+        const res = await apiFetch("/api/emitir-nfe/consultar-nfe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ref: nota.ref, ambiente: nota.ambiente || "producao" }),
@@ -12083,7 +12094,7 @@ function ConciliacaoPage({ user }) {
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/conciliacao/upload-extrato", { method: "POST", body: form });
+      const res = await apiFetch("/api/conciliacao/upload-extrato", { method: "POST", body: form });
       const data = await res.json();
       setUploadResultado(data);
       if (data.success) {
@@ -12102,7 +12113,7 @@ function ConciliacaoPage({ user }) {
     setReconciliando(true);
     setReconcResultado(null);
     try {
-      const res = await fetch("/api/conciliacao/reconciliar", {
+      const res = await apiFetch("/api/conciliacao/reconciliar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ banco: bancoSel, mes: mesSel }),
@@ -12120,7 +12131,7 @@ function ConciliacaoPage({ user }) {
     if (somenteLeitura) return;
     setProcessandoAcao(lancamento.id);
     try {
-      const res = await fetch("/api/conciliacao/acao", {
+      const res = await apiFetch("/api/conciliacao/acao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lancamento_id: lancamento.id, acao, ...extras }),

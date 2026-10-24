@@ -1,6 +1,10 @@
 export const runtime = "nodejs";
 
+import { requireUser, naoAutorizado } from "../../../../lib/requireUser";
 export async function POST(request) {
+  const usuario = await requireUser(request);
+  if (!usuario) return naoAutorizado();
+
   const body = await request.json();
   const { ambiente, cnpj } = body;
 

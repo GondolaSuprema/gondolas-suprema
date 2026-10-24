@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { requireUser, naoAutorizado } from "../../../../lib/requireUser";
 import { createClient } from "@supabase/supabase-js";
 import { detectarIgnorar, valoresIguais } from "../../../../lib/conciliacao-helpers";
 
@@ -29,6 +30,9 @@ function diasEntre(a, b) {
 //    ou `orcamentos.total` por valor exato + data_entrega/data ±5 dias.
 //    Se achar, conciliado. Senão, so_extrato.
 export async function POST(request) {
+  const usuario = await requireUser(request);
+  if (!usuario) return naoAutorizado();
+
   try {
     const { banco, mes } = await request.json();
     if (!banco || !mes) {

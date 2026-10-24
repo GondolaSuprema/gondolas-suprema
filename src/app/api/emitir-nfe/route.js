@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 
+import { requireUser, naoAutorizado } from "../../../lib/requireUser";
 // Data de emissão no formato ISO com offset -03:00 (BRT).
 // Motivo: `new Date().toISOString()` sempre retorna UTC (com Z), e à noite
 // no Brasil isso vira o DIA SEGUINTE. A Focus NFe monta a chave da NFe com
@@ -13,6 +14,9 @@ function dataEmissaoBRT() {
 }
 
 export async function POST(request) {
+  const usuario = await requireUser(request);
+  if (!usuario) return naoAutorizado();
+
   const body = await request.json();
   const { ordem, ambiente, acao, ref_cancelamento, justificativa, transportadora, ref_correcao, correcao, ref_devolucao, cfop_devolucao, natureza_operacao } = body;
 

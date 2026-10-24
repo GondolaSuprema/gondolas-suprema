@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { requireUser, naoAutorizado } from "../../../../lib/requireUser";
 import { parseExtrato } from "../../../../lib/parsers/extrato";
 import { createClient } from "@supabase/supabase-js";
 
@@ -13,6 +14,9 @@ function supabaseServer() {
 }
 
 export async function POST(request) {
+  const usuario = await requireUser(request);
+  if (!usuario) return naoAutorizado();
+
   try {
     const formData = await request.formData();
     const file = formData.get("file");

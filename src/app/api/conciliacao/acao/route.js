@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { requireUser, naoAutorizado } from "../../../../lib/requireUser";
 import { createClient } from "@supabase/supabase-js";
 import { inferirTipoCategoria, gerarIdDespesa } from "../../../../lib/conciliacao-helpers";
 
@@ -20,6 +21,9 @@ function supabaseServer() {
 // - "vincular_venda"       → linka a uma venda (ordem_id) e atualiza valor_recebido
 // - "desconciliar"         → reseta pra 'pendente'
 export async function POST(request) {
+  const usuario = await requireUser(request);
+  if (!usuario) return naoAutorizado();
+
   try {
     const body = await request.json();
     const { lancamento_id, acao } = body;

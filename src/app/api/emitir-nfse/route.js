@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 
+import { requireUser, naoAutorizado } from "../../../lib/requireUser";
 // ============================================================================
 // Emissão de NFS-e (Nota Fiscal de Serviço) — Suprema Instalações LTDA
 // ============================================================================
@@ -140,6 +141,9 @@ function dataAtualISO() {
 }
 
 export async function POST(request) {
+  const usuario = await requireUser(request);
+  if (!usuario) return naoAutorizado();
+
   try {
     const body = await request.json();
     const { ordem, ambiente = "homologacao", acao, ref_cancelamento, ref_consulta, justificativa, tomador_custom, observacao } = body;
