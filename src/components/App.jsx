@@ -4154,7 +4154,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     // Recuperar a margem do orcamento como percentual aplicado (sobre custo COM desconto)
     const subCusto = itensCusto.reduce((s, it) => s + (Number(it.total) || 0), 0);
     const baseComDesc = Math.max(0, subCusto - (Number(o.desconto) || 0));
-    const markupAtual = baseComDesc > 0 ? Math.round(((Number(o.comissao) || 0) / baseComDesc) * 100) : 0;
+    // 2 casas: arredondar pra inteiro mudava a comissao ao salvar (margem 7,5% virava 8%).
+    const markupAtual = baseComDesc > 0 ? Math.round(((Number(o.comissao) || 0) / baseComDesc) * 10000) / 100 : 0;
     setEditMarkup(markupAtual);
   };
 
@@ -4182,7 +4183,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     const cnpjDigits = (editClient.cnpj || "").replace(/\D/g, "");
     const cepDigits = (editClient.cep || "").replace(/\D/g, "");
     const telDigits = (editClient.telefone || "").replace(/\D/g, "");
-    await supabase.from("orcamentos").update({
+    const { error } = await supabase.from("orcamentos").update({
       items: editItems,
       total: newTotal,
       frete,
@@ -4202,13 +4203,21 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       cliente_cep: cepDigits || null,
       cliente_ie: (editClient.ie || "").trim() || null,
     }).eq("id", orderId);
-    setOrders(orders.map(o => o.id === orderId ? {
-      ...o,
+    if (error) {
+      setSaving(false);
+      notify("Não foi possível salvar o orçamento: " + error.message, "erro");
+      return null;
+    }
+    const original = orders.find(o => o.id === orderId) || {};
+    const atualizado = {
+      ...original,
       items: editItems, total: newTotal, frete, comissao, desconto, notes: editNotes,
-      client: { ...(o.client || {}), ...editClient, cnpj: cnpjDigits, cep: cepDigits, telefone: telDigits },
-    } : o));
+      client: { ...(original.client || {}), ...editClient, cnpj: cnpjDigits, cep: cepDigits, telefone: telDigits },
+    };
+    setOrders(orders.map(o => o.id === orderId ? atualizado : o));
     setSaving(false);
     cancelEdit();
+    return atualizado;
   };
 
   useEffect(() => {
@@ -4217,6 +4226,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       if (data) {
         setOrders(data.map(o => ({
           id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, anotacoes: o.anotacoes || "", status: o.status, items: o.items, vendedor: o.vendedor_nome,
+          // Sem este campo o editor abria com desconto 0 e o "Salvar" apagava o desconto do orcamento.
+          desconto: Number(o.desconto) || 0,
           temperatura: o.temperatura || null,
           client: { empresa: o.cliente_empresa, cnpj: o.cliente_cnpj, responsavel: o.cliente_responsavel, telefone: o.cliente_telefone, email: o.cliente_email, endereco: o.cliente_endereco, numero: o.cliente_numero, bairro: o.cliente_bairro, cidade: o.cliente_cidade, estado: o.cliente_estado, cep: o.cliente_cep, ie: o.cliente_ie }
         })));
@@ -4248,8 +4259,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     await supabase.from("orcamentos").update({ temperatura: temp }).eq("id", orderId);
   };
 
-  const addMoreItems = (orderId) => {
-    const o = orders.find(x => x.id === orderId);
+  // oAtual: orcamento recem-salvo pelo editor (o state `orders` ainda nao reflete o setOrders).
+  const addMoreItems = (orderId, oAtual) => {
+    const o = oAtual || orders.find(x => x.id === orderId);
     setEditingOrderId(orderId);
     if (setEditingOrderInfo && o) {
       // Calcula markup% original a partir do banco (mesma logica do save)
@@ -5158,7 +5170,15 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
                     <div style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Itens ({editItems.length})</span>
-                      <button onClick={() => { addMoreItems(o.id); cancelEdit(); }} style={{ background: "transparent", border: "none", color: COLORS.orange, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>+ Adicionar item</button>
+                      {/* Salva o que foi editado (itens excluidos, qtd, cliente) ANTES de ir ao catalogo.
+                          Antes descartava a edicao e o save do Resumo relia os itens antigos do banco —
+                          item excluido voltava pro orcamento. */}
+                      <button disabled={saving} onClick={async () => {
+                        // Sem itens a margem/desconto viram 0 ao salvar e os itens novos entrariam sem margem.
+                        if (editItems.length === 0) { notify("O orçamento ficou sem itens. Cancele a edição, adicione o item novo primeiro e depois exclua o antigo.", "erro"); return; }
+                        const atualizado = await saveEdit(o.id);
+                        if (atualizado) { notify("Edição salva — agora escolha os novos itens.", "ok"); addMoreItems(o.id, atualizado); }
+                      }} style={{ background: "transparent", border: "none", color: COLORS.orange, fontSize: 11, cursor: saving ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>+ Adicionar item</button>
                     </div>
                     {editItems.map((it, i) => {
                       // Calcula preco unitario a partir do total/qty originais
