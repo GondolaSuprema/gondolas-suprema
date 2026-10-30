@@ -2236,11 +2236,20 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
 }
 
 // ─── CLIENT ───
-function ClientPage({ clientData, setClientData, setPage }) {
+function ClientPage({ user, clientData, setClientData, setPage }) {
   const [form, setForm] = useState(clientData);
   const [erro, setErro] = useState("");
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
   const [inputsReady, setInputsReady] = useState(false);
+  // Leads da Mariana p/ conferir o celular: o orçamento só aparece ligado ao lead (aba Leads)
+  // se os últimos 8 dígitos baterem — vale com ou sem o botão "Fazer orçamento".
+  // Só p/ quem tem a aba Leads (João, p.ex., faz orçamento mas não vê leads).
+  const [leadsFone, setLeadsFone] = useState([]);
+  useEffect(() => {
+    if (!canAccess(user, "leads")) return;
+    supabase.from("mariana_leads").select("id, nome, telefone, consultor, criado_em").order("criado_em", { ascending: false })
+      .then(({ data }) => setLeadsFone(data || []));
+  }, []);
 
   useEffect(() => {
     const isEmpty = !clientData.empresa && !clientData.cnpj && !clientData.telefone && !clientData.cidade;
@@ -2328,6 +2337,28 @@ function ClientPage({ clientData, setClientData, setPage }) {
       setBuscandoCnpj(false);
     }
   };
+
+  // Confere o celular digitado contra os leads: igual (ok), 1 dígito trocado/2 vizinhos invertidos (perto) ou nenhum.
+  const leadDoFone = (() => {
+    const tel = (form.telefone || "").replace(/\D/g, "");
+    if (tel.length < 10 || !leadsFone.length) return null;
+    const semDDI = (t) => { const d = String(t || "").replace(/\D/g, ""); return (d.length === 12 || d.length === 13) && d.startsWith("55") ? d.slice(2) : d; };
+    const f8 = tel.slice(-8);
+    const exato = leadsFone.find(l => semDDI(l.telefone).slice(-8) === f8);
+    if (exato) return { tipo: "ok", lead: exato };
+    const parecido = (a) => {
+      if (a.length !== 8) return false;
+      const dif = [...a].map((c, i) => c !== f8[i] ? i : -1).filter(i => i >= 0);
+      if (dif.length === 1) return true;
+      return dif.length === 2 && dif[1] === dif[0] + 1 && a[dif[0]] === f8[dif[1]] && a[dif[1]] === f8[dif[0]];
+    };
+    const perto = leadsFone.find(l => { const d = semDDI(l.telefone); return d.slice(0, 2) === tel.slice(0, 2) && parecido(d.slice(-8)); });
+    if (!perto) return tel.length === 11 ? { tipo: "nenhum" } : null; // só com o celular completo (evita piscar ao digitar)
+    // WhatsApp costuma vir sem o 9; se o digitado tinha o 9, a sugestão mantém
+    const dl = semDDI(perto.telefone);
+    const sugerido = tel.length === 11 && dl.length === 10 ? dl.slice(0, 2) + "9" + dl.slice(2) : dl;
+    return { tipo: "perto", lead: perto, tel: formatarCelular(sugerido) };
+  })();
 
   const handleSave = () => {
     const faltando = [];
@@ -2425,6 +2456,23 @@ function ClientPage({ clientData, setClientData, setPage }) {
           <div>
             <label style={labelStyle}>Celular *</label>
             <input {...noFill} placeholder="(00)00000-0000" name="gs_tel_nofill" value={form.telefone} onChange={e => setForm({ ...form, telefone: formatarCelular(e.target.value) })} maxLength={14} style={!form.telefone.trim() && erro ? inpErr : inp} />
+            {leadDoFone?.tipo === "ok" && (
+              <div style={{ color: COLORS.success, fontSize: 11, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
+                ✓ Lead da Mariana: <strong>{leadDoFone.lead.nome || "sem nome"}</strong>{leadDoFone.lead.consultor ? ` · ${leadDoFone.lead.consultor}` : ""} — o orçamento vai aparecer ligado a esse lead.
+              </div>
+            )}
+            {leadDoFone?.tipo === "perto" && (
+              <div style={{ background: "#F59E0B15", border: "1px solid #F59E0B50", color: "#F59E0B", borderRadius: 8, padding: "8px 10px", fontSize: 11, marginTop: 6, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ flex: 1, minWidth: 200 }}>⚠️ Número parecido com o do lead <strong>{leadDoFone.lead.nome || "sem nome"}</strong>{leadDoFone.lead.consultor ? ` (${leadDoFone.lead.consultor})` : ""}: <strong>{leadDoFone.tel}</strong>. Se for o mesmo cliente, corrija — senão o orçamento não aparece no lead.</span>
+                <button type="button" onClick={() => setForm({ ...form, telefone: leadDoFone.tel })}
+                  style={{ background: "#F59E0B", color: "#000", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Usar {leadDoFone.tel}</button>
+              </div>
+            )}
+            {leadDoFone?.tipo === "nenhum" && (
+              <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 4, fontFamily: "'DM Sans', sans-serif" }}>
+                Nenhum lead da Mariana com esse número.
+              </div>
+            )}
           </div>
           <div>
             <label style={labelStyle}>E-mail</label>
@@ -13221,7 +13269,7 @@ export default function App() {
       <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
       <Toaster />
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
-      {page === "client" && user && <ClientPage key={`client-${user.id}`} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
+      {page === "client" && user && <ClientPage key={`client-${user.id}`} user={user} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "catalog" && user && <Catalog onAdd={addToQuote} onAddMedidas={adicionarPorMedidas} uniplusProducts={uniplusProducts} mppChinaProducts={mppChinaProducts} uniplusPriceMap={uniplusPriceMap} />}
       {page === "catalog" && user && leadContexto && <LeadContextoModal lead={leadContexto} onClose={() => setLeadContexto(null)} />}
