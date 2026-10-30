@@ -9269,7 +9269,7 @@ function FinanceiroPage({ user }) {
   const [copiadoBoleto, setCopiadoBoleto] = useState(null); // feedback "Copiado!" no botão do código de barras
   // Filtro de status dos boletos: "em_aberto" (default) | "pagos" | "todos"
   const [boletoStatusFiltro, setBoletoStatusFiltro] = useState("em_aberto");
-  // Célula de boleto em edição inline: { id, campo: "vencimento"|"valor" }
+  // Célula de boleto em edição inline: { id, campo: "data_emissao"|"vencimento"|"valor" }
   const [editBoleto, setEditBoleto] = useState({ id: null, campo: null });
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
@@ -9309,10 +9309,13 @@ function FinanceiroPage({ user }) {
       if (!isFinite(valor) || valor < 0) { setEditBoleto({ id: null, campo: null }); return; }
     }
     if (campo === "vencimento" && !valorRaw) { setEditBoleto({ id: null, campo: null }); return; }
+    // Emissão: ignora vazio e o ano incompleto da digitação (0002, 0020, 0202…) — editor segue aberto
+    if (campo === "data_emissao" && (!valorRaw || !/^20\d\d-/.test(valorRaw))) return;
     // Sem mudança real → só fecha o editor
     const atual = boletos.find(b => b.id === id);
     if (atual && String(atual[campo]) === String(valor)) { setEditBoleto({ id: null, campo: null }); return; }
-    await supabase.from("boletos_a_pagar").update({ [campo]: valor }).eq("id", id);
+    const { error } = await supabase.from("boletos_a_pagar").update({ [campo]: valor }).eq("id", id);
+    if (error) { notify("Não foi possível salvar: " + error.message, "erro"); setEditBoleto({ id: null, campo: null }); return; }
     setBoletos(prev => prev.map(b => b.id === id ? { ...b, [campo]: valor } : b));
     setEditBoleto({ id: null, campo: null });
   };
@@ -9981,6 +9984,7 @@ function FinanceiroPage({ user }) {
                     <thead>
                       <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                         <th style={{ padding: "10px 12px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Beneficiário</th>
+                        <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Emissão</th>
                         <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Vencimento</th>
                         <th style={{ padding: "10px 12px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Valor</th>
                         <th style={{ padding: "10px 12px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase" }}>Situação</th>
@@ -9998,13 +10002,28 @@ function FinanceiroPage({ user }) {
                         const venceHoje = aberto && b.vencimento === hojeISO;
                         const diasDelta = b.vencimento ? Math.round((new Date(b.vencimento + "T00:00:00") - new Date(hojeISO + "T00:00:00")) / 86400000) : null;
                         const vencFmt = b.vencimento ? new Date(b.vencimento + "T00:00:00").toLocaleDateString("pt-BR") : "—";
+                        const emisFmt = b.data_emissao ? new Date(b.data_emissao + "T00:00:00").toLocaleDateString("pt-BR") : "—";
                         const stLabel = pago ? "Pago" : cancelado ? "Cancelado" : vencido ? "Vencida" : "Em aberto";
                         const stCol = pago ? "#10B981" : cancelado ? COLORS.textDim : vencido ? COLORS.danger : "#F59E0B";
+                        const editandoEmis = editBoleto.id === b.id && editBoleto.campo === "data_emissao";
                         const editandoVenc = editBoleto.id === b.id && editBoleto.campo === "vencimento";
                         const editandoValor = editBoleto.id === b.id && editBoleto.campo === "valor";
                         return (
                           <tr key={b.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: vencido ? COLORS.danger + "08" : "transparent" }}>
                             <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500 }}>{b.beneficiario}{b.observacao && <div style={{ color: COLORS.textDim, fontSize: 9 }}>{b.observacao}</div>}</td>
+                            <td style={{ padding: "10px 12px", textAlign: "center", fontSize: 11 }}>
+                              {editandoEmis ? (
+                                <input type="date" autoFocus defaultValue={b.data_emissao || ""}
+                                  onChange={e => atualizarBoletoCampo(b.id, "data_emissao", e.target.value)}
+                                  onBlur={() => setEditBoleto({ id: null, campo: null })}
+                                  onKeyDown={e => { if (e.key === "Escape") setEditBoleto({ id: null, campo: null }); }}
+                                  style={{ background: COLORS.bg, border: `1px solid ${COLORS.accent}`, borderRadius: 6, color: COLORS.text, padding: "4px 6px", fontSize: 11, fontFamily: "'DM Sans', sans-serif", outline: "none", colorScheme: "dark" }} />
+                              ) : (
+                                <span onClick={() => !somenteLeitura && setEditBoleto({ id: b.id, campo: "data_emissao" })}
+                                  title={somenteLeitura ? "" : "Clique para alterar a data de emissão"}
+                                  style={{ cursor: somenteLeitura ? "default" : "pointer", color: b.data_emissao ? COLORS.textMuted : COLORS.textDim, borderBottom: somenteLeitura ? "none" : `1px dashed ${COLORS.textDim}`, paddingBottom: 1 }}>{emisFmt}</span>
+                              )}
+                            </td>
                             <td style={{ padding: "10px 12px", textAlign: "center", fontSize: 11 }}>
                               {editandoVenc ? (
                                 <input type="date" autoFocus defaultValue={b.vencimento || ""}
