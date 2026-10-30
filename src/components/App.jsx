@@ -6942,12 +6942,17 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const souConsultor = CONSULTORES.includes(meuConsultor);
 
   const [mariana, setMariana] = useState([]);
-  const [orcFones, setOrcFones] = useState(new Set()); // telefones (8 díg) que já têm orçamento
-  const [orcMap, setOrcMap] = useState(new Map()); // fone8 → { orc:[ts], venda:[ts] } p/ casar conversão por data
+  // fone8 → orçamentos daquele telefone, mais novo primeiro: [{ id, ts, status, total, vendedorId, cliente, oculto }]
+  const [orcPorFone, setOrcPorFone] = useState(new Map());
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [consultorSel, setConsultorSel] = useState(ehGestao && souConsultor ? meuConsultor : "todos");
-  const [filtroStatus, setFiltroStatus] = useState("a_trabalhar");
+  // Subabas: "nao_atendido" (lead sem orçamento) | "ver_retorno" (orçado, esperando o cliente). Lembra a última aberta.
+  const [aba, setAbaState] = useState(() => { try { return localStorage.getItem("gs_leads_aba") === "ver_retorno" ? "ver_retorno" : "nao_atendido"; } catch { return "nao_atendido"; } });
+  const setAba = (v) => { setAbaState(v); try { localStorage.setItem("gs_leads_aba", v); } catch {} };
+  const [filtroNA, setFiltroNA] = useState("todos"); // dentro de Não Atendido: "todos" | "followup"
+  const [busca, setBusca] = useState("");
+  const isMobile = useIsMobile(); // no celular as subabas ficam sem ícone p/ o nome caber inteiro
   const [notaEdit, setNotaEdit] = useState({ id: null, texto: "" }); // anotação sendo editada
   const [salvandoNota, setSalvandoNota] = useState(false);
   const [desistindo, setDesistindo] = useState(null); // id do lead escolhendo o motivo da desistência
@@ -6997,21 +7002,42 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
 
   const carregar = async () => {
     setLoading(true); setErro("");
+    // Busca em blocos de 1000 (limite do Supabase por consulta) — senão, passando de 1000 orçamentos,
+    // parte deles sumiria em silêncio e o lead voltaria pra "Não Atendido".
+    const buscarTudo = async (pagina) => {
+      const tudo = [];
+      for (let i = 0; i < 50; i++) {
+        const { data, error } = await pagina(i * 1000, i * 1000 + 999);
+        if (error) return { data: null, error };
+        tudo.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return { data: tudo, error: null };
+    };
     const [m, o] = await Promise.all([
-      supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }),
-      supabase.from("orcamentos").select("cliente_telefone, status, data"),
+      buscarTudo((de, ate) => supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }).order("id").range(de, ate)),
+      buscarTudo((de, ate) => supabase.from("orcamentos").select("id, cliente_telefone, cliente_empresa, cliente_responsavel, cliente_estado, vendedor_id, status, total, data").order("id").range(de, ate)),
     ]);
     if (m.error) setErro(m.error.message); else setMariana(m.data || []);
-    if (!o.error) {
-      const s = new Set(), map = new Map();
+    // Sem os orçamentos, todo lead pareceria "Não Atendido" — avisa em vez de mostrar errado
+    if (o.error) setErro("Não consegui carregar os orçamentos (as abas podem estar incompletas): " + o.error.message);
+    else {
+      const verRs = podeVerOrcamentosRsOcultos(user);
+      const map = new Map();
       (o.data || []).forEach(r => {
         const f = fone8(r.cliente_telefone); if (f.length !== 8) return;
-        s.add(f);
-        const venda = String(r.status) === "Concluído"; // venda = orçamento Concluído
-        const ts = Date.parse(r.data);
-        if (!Number.isNaN(ts)) { const e = map.get(f) || { orc: [], venda: [] }; e.orc.push(ts); if (venda) e.venda.push(ts); map.set(f, e); }
+        const ts = Date.parse(r.data); if (Number.isNaN(ts)) return;
+        // RS do Ale é particular: casa com o lead, mas sem mostrar valor/cliente p/ os outros
+        const oculto = isOrcamentoRsOculto(r) && !verRs;
+        const cliente = oculto ? "" : String(r.cliente_empresa || r.cliente_responsavel || "").trim();
+        const lista = map.get(f) || [];
+        lista.push(oculto
+          ? { id: "", ts, status: String(r.status || ""), total: 0, vendedorId: "", cliente: "", oculto } // status fica só p/ saber se virou venda; não é exibido
+          : { id: r.id, ts, status: String(r.status || ""), total: Number(r.total) || 0, vendedorId: r.vendedor_id, cliente, oculto });
+        map.set(f, lista);
       });
-      setOrcFones(s); setOrcMap(map);
+      map.forEach(l => l.sort((a, b) => b.ts - a.ts));
+      setOrcPorFone(map);
     }
     setLoading(false);
   };
@@ -7021,7 +7047,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   // pra AMANHÃ (é o caso de uso mais comum — retorno de acompanhamento).
   const abrirAgendaLead = (l) => {
     if (agendando === l.id) { setAgendando(null); return; }
-    const nome = (l.nome || "").trim() || telMostrar(l.telefone) || "cliente";
+    const nome = (l.nome || "").trim() || formatarCelular(String(l.telefone || "").replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "")) || "cliente";
     setAgendaTxt("Retornar com " + nome);
     setAgendaData(agendaAddDias(agendaHojeStr(), 1));
     setAgendando(l.id);
@@ -7098,46 +7124,83 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const AZUL = "#3B82F6";
   const corStatus = (s) => s === "atendido" ? COLORS.success : s === "aguardando" ? AZUL : s === "desistiu" ? COLORS.danger : COLORS.accent;
   const labelStatus = (s) => s === "atendido" ? "Atendido" : s === "aguardando" ? "Aguardando cliente" : s === "desistiu" ? "Desistiu" : "Pendente";
-  const temOrcamento = (l) => orcFones.has(fone8(l.telefone));
+  // Lead ↔ orçamento: mesmo telefone (8 últimos díg.) e orçamento feito a partir da chegada do lead (−1 dia).
+  // Vale com ou sem o botão "Fazer orçamento". Orçamento ANTERIOR ao lead = cliente que voltou (recompra).
+  const ehVenda = (s) => s === "Concluído" || s === "Fazer Pedido"; // Fazer Pedido = cliente fechou, falta pedir ao fornecedor
+  const ORC_PERDIDO = ["Desistiu", "Fechou Concorrência"];
+  const corOrcStatus = { "Aguardando Retorno": "#3B82F6", "Fazer Pedido": "#8B5CF6", "Não Responde": "#9CA3AF", "Desistiu": "#F87171", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
+  const corteLead = (l) => Date.parse(l.criado_em) - 86400000;
+  const orcsDoLead = (l) => (orcPorFone.get(fone8(l.telefone)) || []).filter(o => o.ts >= corteLead(l)); // mais novo primeiro
+  const orcAntes = (l) => (orcPorFone.get(fone8(l.telefone)) || []).some(o => o.ts < corteLead(l));
+  const converteu = (l, tipo) => { const os = orcsDoLead(l); return tipo === "venda" ? os.some(o => ehVenda(o.status)) : os.length > 0; };
+  const nomeVendedor = (id) => (VENDEDORES.find(v => v.id === id)?.name || "").split(" ")[0] || "—";
 
   const base = ehGestao
     ? (consultorSel === "todos" ? mariana : mariana.filter(l => l.consultor === consultorSel))
     : mariana.filter(l => l.consultor === meuConsultor);
 
-  // quem virou orçamento sai da aba (foi pra Orçamentos) — MAS lead ainda "pendente" (não trabalhado) continua
-  // visível mesmo com orçamento antigo: é cliente que VOLTOU pra uma nova compra (recompra) e precisa ser atendido.
-  // Lead marcado "desistiu" também sai da aba (fica só no banco, pras estatísticas de motivo;
-  // se o cliente voltar, o dedup do banco deixa a Mariana criar um lead NOVO).
-  const semOrc = base
-    .filter(l => (l.status_atendimento || "pendente") !== "desistiu")
-    .filter(l => !temOrcamento(l) || (l.status_atendimento || "pendente") === "pendente");
   const st = (l) => l.status_atendimento || "pendente";
-  const ativo = (l) => st(l) === "pendente" || st(l) === "atendido" || st(l) === "aguardando";
   // Follow-up: lead atendido/aguardando com CONTATO REGISTRADO que esfriou (≥ FOLLOWUP_DIAS).
   // Só conta quando há ultimo_contato_em real — nunca desde a criação (evita número falso em lead legado).
   const FOLLOWUP_DIAS = 2;
   const diasDesde = (iso) => Math.floor((Date.now() - new Date(iso || Date.now()).getTime()) / 86400000);
   const precisaFollowup = (l) => (st(l) === "atendido" || st(l) === "aguardando") && !!l.ultimo_contato_em && diasDesde(l.ultimo_contato_em) >= FOLLOWUP_DIAS;
+
+  // Subabas. Desistiu sai das duas (fica no banco p/ a estatística de motivo; se o cliente voltar,
+  // o dedup do banco deixa a Mariana criar lead NOVO). Virou venda também sai das duas.
+  const ativos = base.filter(l => st(l) !== "desistiu");
+  const naoAtendido = ativos.filter(l => !converteu(l, "orc"));
+  const verRetorno = ativos.filter(l => converteu(l, "orc") && !converteu(l, "venda"));
+  const viraramVenda = base.filter(l => converteu(l, "venda")).length;
   const cont = {
-    pendente: semOrc.filter(l => st(l) === "pendente").length,
-    atendido: semOrc.filter(l => st(l) === "atendido").length,
-    aguardando: semOrc.filter(l => st(l) === "aguardando").length,
-    followup: semOrc.filter(precisaFollowup).length,
+    pendente: naoAtendido.filter(l => st(l) === "pendente").length,
+    followup: naoAtendido.filter(precisaFollowup).length,
   };
-  const aTrabalhar = semOrc.filter(ativo);
-  const viraramOrc = base.filter(temOrcamento).length;
-  // 📊 Desempenho: funil lead → atendido → orçamento → venda + tempo de resposta + motivos.
+
+  // 🔎 Busca: nome do lead, nome do cliente no orçamento ou telefone (4+ dígitos). Ignora acento e maiúscula.
+  const semAcento = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const termo = semAcento(busca);
+  const termoDig = busca.replace(/\D/g, "");
+  const bateBusca = (l) => {
+    if (!termo) return true;
+    if ([l.nome, ...orcsDoLead(l).map(o => o.cliente)].some(c => semAcento(c).includes(termo))) return true;
+    return termoDig.length >= 4 && String(l.telefone || "").replace(/\D/g, "").includes(termoDig);
+  };
+  const naoAtendidoBusca = naoAtendido.filter(bateBusca);
+  const verRetornoBusca = verRetorno.filter(bateBusca);
+  // Achou fora das abas? Avisa (virou venda / desistiu) em vez de só dizer "nada encontrado".
+  const foraDasAbas = termo ? {
+    venda: base.filter(l => converteu(l, "venda") && bateBusca(l)).length,
+    desistiu: base.filter(l => st(l) === "desistiu" && bateBusca(l)).length,
+  } : { venda: 0, desistiu: 0 };
+
+  // Ver Retorno: dias desde o orçamento mais recente + valor parado esperando resposta.
+  // Dias de CALENDÁRIO (hoje/ontem batem com a data mostrada), não blocos de 24h
+  const diasOrcado = (l) => {
+    const u = orcsDoLead(l)[0]; if (!u) return 0;
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const dia = new Date(u.ts); dia.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round((hoje - dia) / 86400000));
+  };
+  const valorAguardando = verRetorno.reduce((s, l) => { const u = orcsDoLead(l)[0]; return s + (u && !u.oculto ? u.total : 0); }, 0);
+  // Mensagem pronta p/ cobrar o retorno (o vendedor ainda revisa antes de enviar no WhatsApp)
+  const msgRetorno = (l) => {
+    const n = String(l.nome || "").trim().split(/\s+/)[0] || "";
+    const nomeOk = /^[A-Za-zÀ-ÿ]{2,12}$/.test(n) && !/^(nao|não|sem)$/i.test(n); // >12 letras costuma ser @usuário, não nome
+    const ola = nomeOk ? `Olá, ${n.charAt(0).toUpperCase()}${n.slice(1).toLowerCase()}! Tudo bem?` : "Olá! Tudo bem?";
+    const quem = meuConsultor ? ` Aqui é o ${meuConsultor}, da Gôndolas Suprema.` : " Aqui é da Gôndolas Suprema.";
+    return `${ola}${quem} Passando pra saber se você conseguiu ver o orçamento que te enviamos e se ficou alguma dúvida. Fico à disposição!`;
+  };
+  // 📊 Desempenho: funil lead → orçamento → venda + tempo de resposta + motivos.
   const pct = (n, d) => d ? Math.round((n / d) * 100) : 0;
   const fmtDur = (min) => { if (min == null) return "—"; if (min < 60) return `${Math.round(min)} min`; const h = min / 60; if (h < 24) return `${h.toFixed(1)}h`; return `${(h / 24).toFixed(1)} dias`; };
   // Período do painel (mês atual vs tudo) e conversão casada por DATA (orçamento a partir do lead).
   const _agora = new Date();
   const noPeriodo = (l) => { if (periodoDes !== "mes") return true; const d = new Date(l.criado_em); return d.getFullYear() === _agora.getFullYear() && d.getMonth() === _agora.getMonth(); };
-  const converteu = (l, tipo) => { const e = orcMap.get(fone8(l.telefone)); if (!e) return false; const corte = Date.parse(l.criado_em) - 86400000; return (tipo === "venda" ? e.venda : e.orc).some(ts => ts >= corte); };
   const desempenho = (() => {
     const bp = base.filter(noPeriodo);
     const total = bp.length;
-    const naoAtend = bp.filter(l => (l.status_atendimento || "pendente") === "pendente").length;
-    const atend = total - naoAtend;
+    const naoAtend = bp.filter(l => st(l) !== "desistiu" && !converteu(l, "orc")).length; // = subaba Não Atendido
     const orc = bp.filter(l => converteu(l, "orc")).length;
     const venda = bp.filter(l => converteu(l, "venda")).length;
     const resp = bp
@@ -7149,27 +7212,33 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     bp.filter(l => (l.status_atendimento || "") === "desistiu" && l.motivo_desistencia)
       .forEach(l => { motivos[l.motivo_desistencia] = (motivos[l.motivo_desistencia] || 0) + 1; });
     const topMotivo = Object.entries(motivos).sort((a, b) => b[1] - a[1])[0] || null;
-    return { total, naoAtend, atend, orc, venda, respMed, respN: resp.length, topMotivo };
+    return { total, naoAtend, orc, venda, respMed, respN: resp.length, topMotivo };
   })();
   // Prioridade por temperatura: quente > morno > frio > (sem temperatura).
   const ordemTemp = (l) => { const t = String(l.temperatura || "").toLowerCase(); return t.includes("quente") ? 0 : t.includes("morno") ? 1 : t.includes("frio") ? 2 : 3; };
   // Ordem de trabalho: pendente (speed-to-lead) → follow-up esquecido → atendido → aguardando.
   const ordemTrabalho = (l) => { const s = st(l); if (s === "pendente") return 0; if (precisaFollowup(l)) return 1; if (s === "atendido") return 2; if (s === "aguardando") return 3; return 4; };
-  const listaFiltrada = (
-    filtroStatus === "a_trabalhar" ? aTrabalhar
-      : filtroStatus === "followup" ? semOrc.filter(precisaFollowup)
-        : semOrc.filter(l => st(l) === filtroStatus)
-  )
-    .slice()
-    .sort((a, b) => {
-      const fx = (b.fixado ? 1 : 0) - (a.fixado ? 1 : 0);              // 0) fixado sempre no topo
-      if (fx !== 0) return fx;
-      const s = ordemTrabalho(a) - ordemTrabalho(b);                   // 1) pendente → follow-up → resto
-      if (s !== 0) return s;
-      const tp = ordemTemp(a) - ordemTemp(b);                          // 2) mais quente primeiro
-      if (tp !== 0) return tp;
-      return new Date(a.criado_em || 0) - new Date(b.criado_em || 0);  // 3) mais antigo primeiro
-    });
+  const listaFiltrada = aba === "ver_retorno"
+    ? verRetornoBusca.slice().sort((a, b) => {
+        const fx = (b.fixado ? 1 : 0) - (a.fixado ? 1 : 0);                 // 0) fixado sempre no topo
+        if (fx !== 0) return fx;
+        const pa = ORC_PERDIDO.includes(orcsDoLead(a)[0]?.status) ? 1 : 0;   // 1) orçamento marcado perdido vai pro fim
+        const pb = ORC_PERDIDO.includes(orcsDoLead(b)[0]?.status) ? 1 : 0;
+        if (pa !== pb) return pa - pb;
+        return diasOrcado(b) - diasOrcado(a);                               // 2) esperando há mais tempo primeiro
+      })
+    : naoAtendidoBusca
+      .filter(l => filtroNA !== "followup" || precisaFollowup(l))
+      .slice()
+      .sort((a, b) => {
+        const fx = (b.fixado ? 1 : 0) - (a.fixado ? 1 : 0);              // 0) fixado sempre no topo
+        if (fx !== 0) return fx;
+        const s = ordemTrabalho(a) - ordemTrabalho(b);                   // 1) pendente → follow-up → resto
+        if (s !== 0) return s;
+        const tp = ordemTemp(a) - ordemTemp(b);                          // 2) mais quente primeiro
+        if (tp !== 0) return tp;
+        return new Date(a.criado_em || 0) - new Date(b.criado_em || 0);  // 3) mais antigo primeiro
+      });
   // ⏱ SLA — há quanto tempo o lead está esperando (pra alertar lead parado).
   const tempoDesde = (iso) => {
     const min = Math.max(0, Math.floor((Date.now() - new Date(iso || Date.now()).getTime()) / 60000));
@@ -7192,27 +7261,57 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
         <button onClick={carregar} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: COLORS.card, color: COLORS.textMuted, border: `1px solid ${COLORS.border}` }}>Atualizar</button>
       </div>
       <p style={{ color: COLORS.textMuted, fontSize: 14, margin: "0 0 18px" }}>
-        Leads da Mariana pra você atender. Ao chamar no WhatsApp o lead já vira "Atendido". Fazendo o orçamento ele sai daqui e vai pra aba Orçamentos.
+        <b style={{ color: COLORS.text }}>Não Atendido</b>: lead que ainda não ganhou orçamento. Assim que um orçamento é feito com o telefone do cliente (com ou sem o botão), ele passa sozinho pra <b style={{ color: COLORS.text }}>Ver Retorno</b>. Virou venda, sai da lista.
       </p>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
-        {ehGestao && (
+      {ehGestao && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <select value={consultorSel} onChange={e => setConsultorSel(e.target.value)} style={selStyle}>
             {souConsultor && <option value={meuConsultor}>Meus leads ({meuConsultor})</option>}
             <option value="todos">Todos os consultores</option>
             {CONSULTORES.filter(c => c !== meuConsultor).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        )}
-        <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} style={selStyle}>
-          <option value="a_trabalhar">A trabalhar ({aTrabalhar.length})</option>
-          <option value="followup">🔔 Follow-up ({cont.followup})</option>
-          <option value="pendente">Pendentes ({cont.pendente})</option>
-          <option value="atendido">Atendidos ({cont.atendido})</option>
-          <option value="aguardando">Aguardando cliente ({cont.aguardando})</option>
-        </select>
+        </div>
+      )}
+
+      {/* Subabas: Não Atendido | Ver Retorno */}
+      <div role="tablist" style={{ display: "flex", gap: 6, background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 5, marginBottom: 10 }}>
+        {[
+          { v: "nao_atendido", lab: "Não Atendido", ico: "🕓", n: naoAtendidoBusca.length, cor: COLORS.accent },
+          { v: "ver_retorno", lab: "Ver Retorno", ico: "📨", n: verRetornoBusca.length, cor: AZUL },
+        ].map(t => {
+          const on = aba === t.v;
+          return (
+            <button key={t.v} role="tab" aria-selected={on} onClick={() => setAba(t.v)}
+              style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 6 : 8, padding: isMobile ? "11px 6px" : "11px 10px", borderRadius: 9, cursor: "pointer", fontSize: 14, fontWeight: 800, fontFamily: "inherit", background: on ? t.cor + "22" : "transparent", color: on ? t.cor : COLORS.textMuted, border: `1px solid ${on ? t.cor + "77" : "transparent"}`, transition: "background .15s, color .15s" }}>
+              {!isMobile && <span aria-hidden>{t.ico}</span>}
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.lab}</span>
+              <span style={{ minWidth: 24, padding: "1px 8px", borderRadius: 999, fontSize: 12, fontWeight: 800, background: on ? t.cor : COLORS.surface, color: on ? "#000" : COLORS.textMuted, border: `1px solid ${on ? t.cor : COLORS.border}` }}>{loading ? "…" : t.n}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {!loading && cont.pendente > 0 && (
+      {/* Busca por nome (vale nas duas subabas) */}
+      <div style={{ position: "relative", marginBottom: termo ? 6 : 16 }}>
+        <span aria-hidden style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", fontSize: 15, opacity: 0.7, pointerEvents: "none" }}>🔎</span>
+        <input type="text" value={busca} onChange={e => setBusca(e.target.value)} onKeyDown={e => { if (e.key === "Escape") setBusca(""); }}
+          placeholder="Buscar por nome ou telefone…" aria-label="Buscar cliente por nome ou telefone"
+          style={{ width: "100%", boxSizing: "border-box", padding: "11px 38px 11px 38px", borderRadius: 10, fontSize: 14, fontFamily: "inherit", background: COLORS.card, color: COLORS.text, border: `1px solid ${termo ? COLORS.accent : COLORS.border}`, outline: "none" }} />
+        {busca && (
+          <button onClick={() => setBusca("")} title="Limpar busca" aria-label="Limpar busca"
+            style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", width: 26, height: 26, borderRadius: 999, border: "none", cursor: "pointer", background: COLORS.surface, color: COLORS.textMuted, fontSize: 14, fontWeight: 700, lineHeight: 1 }}>×</button>
+        )}
+      </div>
+      {termo && !loading && (
+        <div style={{ fontSize: 12.5, color: COLORS.textMuted, margin: "0 2px 16px", display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
+          <span>“{busca.trim()}”: <b style={{ color: COLORS.text }}>{naoAtendidoBusca.length}</b> em Não Atendido · <b style={{ color: COLORS.text }}>{verRetornoBusca.length}</b> em Ver Retorno</span>
+          {foraDasAbas.venda > 0 && <span style={{ color: COLORS.success }}>🏆 {foraDasAbas.venda} {foraDasAbas.venda > 1 ? "já viraram" : "já virou"} venda</span>}
+          {foraDasAbas.desistiu > 0 && <span style={{ color: COLORS.danger }}>✖ {foraDasAbas.desistiu} {foraDasAbas.desistiu > 1 ? "desistiram" : "desistiu"}</span>}
+        </div>
+      )}
+
+      {aba === "nao_atendido" && !loading && cont.pendente > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, background: COLORS.danger + "18", border: `1px solid ${COLORS.danger}55`, borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
           <span style={{ fontSize: 20 }}>⚠️</span>
           <span style={{ color: COLORS.text, fontSize: 14, fontWeight: 600 }}>
@@ -7220,13 +7319,20 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
           </span>
         </div>
       )}
-      {!loading && cont.followup > 0 && (
+      {aba === "nao_atendido" && !loading && cont.followup > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, background: COLORS.accent + "18", border: `1px solid ${COLORS.accent}55`, borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
           <span style={{ fontSize: 20 }}>🔔</span>
           <span style={{ color: COLORS.text, fontSize: 14, fontWeight: 600 }}>
             <b style={{ color: COLORS.accent }}>{cont.followup} lead{cont.followup > 1 ? "s" : ""}</b> esperando follow-up (sem contato há {FOLLOWUP_DIAS}+ dias). Um retorno agora pode reativar a conversa.{" "}
-            <button onClick={() => setFiltroStatus("followup")} style={{ background: "none", border: "none", color: COLORS.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 14 }}>Ver</button>
+            <button onClick={() => setFiltroNA(filtroNA === "followup" ? "todos" : "followup")} style={{ background: "none", border: "none", color: COLORS.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 14 }}>{filtroNA === "followup" ? "Ver todos" : "Ver só esses"}</button>
           </span>
+        </div>
+      )}
+      {aba === "ver_retorno" && !loading && verRetorno.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 18px", background: AZUL + "14", border: `1px solid ${AZUL}44`, borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 14, color: COLORS.text }}>
+          <span>💰 <b style={{ color: AZUL }}>{fmtMoney(valorAguardando)}</b> em orçamentos esperando resposta</span>
+          <span style={{ color: COLORS.textMuted }}>⏳ {verRetorno.filter(l => diasOrcado(l) >= 3).length} há 3+ dias sem retorno</span>
+          {viraramVenda > 0 && <span style={{ color: COLORS.success, fontWeight: 600 }}>🏆 {viraramVenda} lead{viraramVenda > 1 ? "s já viraram" : " já virou"} venda</span>}
         </div>
       )}
       {ehGestao && !loading && base.length > 0 && (
@@ -7246,7 +7352,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {[
                   { label: "Leads", n: desempenho.total, p: null, cor: COLORS.textMuted },
-                  { label: "Atendidos", n: desempenho.atend, p: pct(desempenho.atend, desempenho.total), cor: COLORS.success },
+                  { label: "Não atendido (sem orçamento)", n: desempenho.naoAtend, p: pct(desempenho.naoAtend, desempenho.total), cor: desempenho.naoAtend ? COLORS.danger : COLORS.success },
                   { label: "Viraram orçamento", n: desempenho.orc, p: pct(desempenho.orc, desempenho.total), cor: COLORS.accent },
                   { label: "Viraram venda", n: desempenho.venda, p: pct(desempenho.venda, desempenho.total), cor: "#22C55E" },
                 ].map((s) => (
@@ -7259,7 +7365,6 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                 ))}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, fontSize: 12.5, color: COLORS.textMuted }}>
-                <span>🚫 Não atendidos: <b style={{ color: desempenho.naoAtend ? COLORS.danger : COLORS.text }}>{desempenho.naoAtend}</b> ({pct(desempenho.naoAtend, desempenho.total)}%)</span>
                 {desempenho.respN > 0 && <span>⏱ Tempo médio até 1º contato: <b style={{ color: COLORS.text }}>{fmtDur(desempenho.respMed)}</b> <span style={{ color: COLORS.textDim }}>({desempenho.respN})</span></span>}
                 {desempenho.topMotivo && <span>💬 Maior motivo de desistência: <b style={{ color: COLORS.text }}>{desempenho.topMotivo[0]}</b> ({desempenho.topMotivo[1]})</span>}
               </div>
@@ -7270,9 +7375,21 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
       {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 14 }}>Erro: {erro}</div>}
       {loading && <div style={{ color: COLORS.textMuted, fontSize: 14 }}>Carregando…</div>}
       {!loading && listaFiltrada.length === 0 && (
-        <div style={{ color: COLORS.textDim, fontSize: 14, textAlign: "center", padding: "48px 0" }}>
-          Nenhum lead {filtroStatus === "a_trabalhar" ? "pra trabalhar" : "nesse filtro"} agora.
-          {viraramOrc > 0 ? ` ${viraramOrc} já viraram orçamento (aba Orçamentos).` : ""}
+        <div style={{ color: COLORS.textDim, fontSize: 14, textAlign: "center", padding: "48px 12px", lineHeight: 1.6 }}>
+          {termo ? (
+            <>
+              Nenhum cliente com “{busca.trim()}” em {aba === "ver_retorno" ? "Ver Retorno" : "Não Atendido"}.
+              {(aba === "ver_retorno" ? naoAtendidoBusca.length : verRetornoBusca.length) > 0 && (
+                <> {" "}<button onClick={() => setAba(aba === "ver_retorno" ? "nao_atendido" : "ver_retorno")} style={{ background: "none", border: "none", color: COLORS.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 14 }}>Está em {aba === "ver_retorno" ? "Não Atendido" : "Ver Retorno"} →</button></>
+              )}
+            </>
+          ) : aba === "ver_retorno" ? (
+            <>Nenhum orçamento esperando retorno agora.{viraramVenda > 0 ? ` 🏆 ${viraramVenda} lead${viraramVenda > 1 ? "s já viraram" : " já virou"} venda.` : ""}</>
+          ) : filtroNA === "followup" ? (
+            <>Nenhum lead esperando follow-up. <button onClick={() => setFiltroNA("todos")} style={{ background: "none", border: "none", color: COLORS.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 14 }}>Ver todos</button></>
+          ) : (
+            <>Nenhum lead esperando orçamento. 🎉</>
+          )}
         </div>
       )}
 
@@ -7282,17 +7399,29 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
           const ct = corTemp(l.temperatura);
           const cur = st(l);
           const resumo = resumoLead(l);
+          const emRetorno = aba === "ver_retorno";
+          const orcs = emRetorno ? orcsDoLead(l) : [];
+          const u = orcs[0]; // orçamento mais recente
+          const dOrc = emRetorno ? diasOrcado(l) : 0;
+          const corEspera = dOrc <= 2 ? COLORS.success : dOrc <= 7 ? COLORS.accent : COLORS.danger;
+          const corBorda = l.fixado ? COLORS.accent : emRetorno ? ((!u?.oculto && corOrcStatus[u?.status]) || AZUL) + "66" : corStatus(cur) + "55";
           return (
-            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${l.fixado ? COLORS.accent : corStatus(cur) + "55"}`, borderRadius: 12, padding: 16 }}>
+            <div key={l.id} style={{ background: COLORS.card, border: `1px solid ${corBorda}`, borderRadius: 12, padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
-                  {cur === "pendente" && (() => { const tt = tempoDesde(l.criado_em); return <span style={{ fontSize: 11, fontWeight: 700, color: tt.cor }}>{tt.atrasado ? "⏱ parado " : "⏱ novo · "}{tt.label}</span>; })()}
-                  {precisaFollowup(l) && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent }}>🔔 {diasDesde(l.ultimo_contato_em)} dias sem contato</span>}
+                  {!emRetorno && cur === "pendente" && (() => { const tt = tempoDesde(l.criado_em); return <span style={{ fontSize: 11, fontWeight: 700, color: tt.cor }}>{tt.atrasado ? "⏱ parado " : "⏱ novo · "}{tt.label}</span>; })()}
+                  {!emRetorno && precisaFollowup(l) && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent }}>🔔 {diasDesde(l.ultimo_contato_em)} dias sem contato</span>}
+                  {emRetorno && (
+                    <span style={{ fontSize: 11, fontWeight: 800, color: corEspera }}>
+                      ⏳ {dOrc === 0 ? "orçado hoje" : dOrc === 1 ? "orçado ontem" : `orçado há ${dOrc} dias`}
+                      {dOrc >= 3 && <span style={{ fontWeight: 600, opacity: 0.85 }}> · {dOrc <= 7 ? "hora de cobrar o retorno" : "esfriando"}</span>}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                  {temOrcamento(l) && chip("🔁 Cliente voltou", "#F59E0B")}
-                  {chip(labelStatus(cur), corStatus(cur))}
+                  {orcAntes(l) && chip("🔁 Cliente voltou", "#F59E0B")}
+                  {!emRetorno && chip(labelStatus(cur), corStatus(cur))}
                   {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
                   <button
                     onClick={() => fixarLead(l)}
@@ -7323,6 +7452,30 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                   </span>
                 )}
               </div>
+              {/* Ver Retorno: o orçamento feito pra esse lead (mais recente; avisa se houver outros) */}
+              {emRetorno && u && u.oculto && (
+                <div style={{ marginTop: 6, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${AZUL}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: COLORS.textMuted }}>
+                  📋 Orçamento feito · detalhes restritos
+                </div>
+              )}
+              {emRetorno && u && !u.oculto && (
+                <div style={{ marginTop: 6, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${corOrcStatus[u.status] || AZUL}`, borderRadius: 8, padding: "10px 12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                      📋 Orçamento #{String(u.id || "").slice(0, 6).toUpperCase()}{orcs.length > 1 ? ` · +${orcs.length - 1} outro${orcs.length > 2 ? "s" : ""}` : ""}
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: COLORS.text, fontVariantNumeric: "tabular-nums" }}>{fmtMoney(u.total)}</div>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 10px", marginTop: 6, fontSize: 13, color: COLORS.textMuted }}>
+                    {u.cliente && <span style={{ color: COLORS.text, fontWeight: 600 }}>{u.cliente}</span>}
+                    <span>{new Date(u.ts).toLocaleDateString("pt-BR")} · por {nomeVendedor(u.vendedorId)}</span>
+                    {u.status && chip(u.status, corOrcStatus[u.status] || COLORS.textMuted)}
+                  </div>
+                  {ORC_PERDIDO.includes(u.status) && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: COLORS.danger }}>Orçamento marcado como “{u.status}” na aba Orçamentos — se o cliente não vai mesmo fechar, use Desistir.</div>
+                  )}
+                </div>
+              )}
               {/* Resumo da conversa da Mariana + conversa completa (real, da memória) */}
               {(resumo || (l.duvidas && String(l.duvidas).trim() && String(l.duvidas).trim().toLowerCase() !== "nenhuma")) && (
                 <div style={{ marginTop: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 12px" }}>
@@ -7371,12 +7524,13 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14, alignItems: "center" }}>
                 {wpp && (
                   <a
-                    href={wpp}
+                    href={emRetorno ? `${wpp}?text=${encodeURIComponent(msgRetorno(l))}` : wpp}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => { if (cur === "pendente") setStatus(l, "atendido"); }}
+                    title={emRetorno ? "Abre o WhatsApp com uma mensagem pronta pra cobrar o retorno (dá pra editar antes de enviar)" : undefined}
                     style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}
-                  >Chamar no WhatsApp · {l.telefone}</a>
+                  >{emRetorno ? "Cobrar retorno no WhatsApp" : "Chamar no WhatsApp"} · {l.telefone}</a>
                 )}
                 <button onClick={() => setNotaEdit({ id: l.id, texto: l.observacao_vendedor || "" })} style={{ padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.border}` }}>📝 {l.observacao_vendedor ? "Editar anotação" : "Anotar"}</button>
               </div>
@@ -7418,8 +7572,8 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                   ) : (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                       <span style={{ fontSize: 12, color: COLORS.textDim, marginRight: 2 }}>E agora:</span>
-                      {(cur === "atendido" || cur === "aguardando") && acaoBtn("Aguardando cliente", AZUL, cur === "aguardando", () => setStatus(l, "aguardando"))}
-                      {acaoBtn("Fazer orçamento", COLORS.accent, false, () => fazerOrcamento(l))}
+                      {!emRetorno && (cur === "atendido" || cur === "aguardando") && acaoBtn("Aguardando cliente", AZUL, cur === "aguardando", () => setStatus(l, "aguardando"))}
+                      {!emRetorno && acaoBtn("Fazer orçamento", COLORS.accent, false, () => fazerOrcamento(l))}
                       {acaoBtn("📅 Agendar tarefa", COLORS.orange, false, () => abrirAgendaLead(l))}
                       {acaoBtn("Desistir", COLORS.danger, false, () => setDesistindo(l.id))}
                     </div>
@@ -8872,7 +9026,7 @@ function PainelPage({ user }) {
         if (f.length !== 8) return;
         const ts = Date.parse(r.data); if (Number.isNaN(ts)) return;
         const e = map.get(f) || { orc: [], venda: [] };
-        e.orc.push(ts); if (String(r.status) === "Concluído") e.venda.push(ts);
+        e.orc.push(ts); if (String(r.status) === "Concluído" || String(r.status) === "Fazer Pedido") e.venda.push(ts); // mesma regra da aba Leads
         map.set(f, e);
       });
       setOrcs(conc); setLeads(l.data || []); setOrcMap(map); setLoading(false);
