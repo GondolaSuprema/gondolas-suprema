@@ -7137,8 +7137,13 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   // Etapa 1 → 2: chamou no WhatsApp
   const atenderLead = async (l) => {
     const snap = { ...l };
+    // Pra onde ele vai depois do contato (cliente que voltou pode já ter orçamento)
+    const destino = converteu(l, "venda") ? "já comprou antes · está em Vendas — se for comprar de novo, faça o orçamento"
+      : converteu(l, "orc") && !perdidoNoOrc(l) ? "foi pra etapa 3 · Esperando retorno (já tem orçamento)"
+      : converteu(l, "orc") ? "orçamento anterior foi perdido · faça um novo orçamento"
+      : "foi pra etapa 2 · Sem orçamento";
     if (!(await setStatus(l, "atendido"))) { notify("Não consegui salvar o lead — tente de novo", "erro"); return; }
-    setDesfazer({ id: Date.now(), msg: `${nomeCurto(l)} foi pra etapa 2 · Sem orçamento`, voltar: () => restaurarLead(snap) });
+    setDesfazer({ id: Date.now(), msg: `${nomeCurto(l)} ${destino}`, voltar: () => restaurarLead(snap) });
   };
   // Sai da lista. Na etapa 3, o orçamento acompanha (Desistiu / Fechou Concorrência) p/ a aba Orçamentos não ficar diferente.
   const desistirLead = async (l, motivo, orc) => {
@@ -7253,9 +7258,13 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   // tira o lead da etapa 3 (menos fixado 📌, que só sai à mão). Virou venda vai pra etapa 4.
   const perdidoNoOrc = (l) => !l.fixado && ORC_PERDIDO.includes(orcsDoLead(l)[0]?.status);
   const ativos = base.filter(l => st(l) !== "desistiu");
-  const naoAtendido = ativos.filter(l => !converteu(l, "orc") && st(l) === "pendente");
-  const semOrcamento = ativos.filter(l => !converteu(l, "orc") && st(l) !== "pendente");
-  const verRetorno = ativos.filter(l => converteu(l, "orc") && !converteu(l, "venda") && !perdidoNoOrc(l));
+  // Etapa 1 = TODO lead "pendente", tenha orçamento ou não: lead novo da Mariana E cliente que voltou a chamar
+  // (o gatilho de dedup do banco reabre o lead antigo como "pendente" — ele precisa de contato de novo).
+  const naoAtendido = ativos.filter(l => st(l) === "pendente");
+  const semOrcamento = ativos.filter(l => st(l) !== "pendente" && !converteu(l, "orc"));
+  const verRetorno = ativos.filter(l => st(l) !== "pendente" && converteu(l, "orc") && !converteu(l, "venda") && !perdidoNoOrc(l));
+  // Cliente que voltou: já tinha orçamento antes deste lead, ou o lead foi reaberto (já fora atendido / já tem orçamento)
+  const clienteVoltou = (l) => orcAntes(l) || (st(l) === "pendente" && (!!l.primeiro_contato_em || orcsDoLead(l).length > 0));
   const vendaDoLead = (l) => orcsDoLead(l).find(o => ehVenda(o.status)); // orçamento que fechou (mais recente)
   // Mês da venda: quando fechou (botão Fechou / "Fazer Pedido") → senão a entrega (Concluído, mesma regra da ADM)
   // → senão a data do orçamento. data_entrega é só data (AAAA-MM-DD): pega o mês pela string, sem fuso.
@@ -7305,7 +7314,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const vendasBusca = termo ? vendasTodas.filter(bateBusca) : vendas; // buscando, procura em todos os meses
   const ABA_INFO = {
     nao_atendido: { num: 1, lab: "Primeiro contato", curto: "Contato", ico: "🕓", n: naoAtendidoBusca.length, cor: COLORS.danger,
-      dica: "Leads novos da Mariana esperando o 1º contato. Chamou no WhatsApp → vai pra etapa 2." },
+      dica: "Leads novos da Mariana e clientes que voltaram a chamar (🔁), esperando contato. Chamou no WhatsApp → anda sozinho pra próxima etapa." },
     sem_orcamento: { num: 2, lab: "Sem orçamento", curto: "Orçar", ico: "🗣️", n: semOrcamentoBusca.length, cor: COLORS.accent,
       dica: "Já atendidos, esperando orçamento. Salvou um orçamento com o telefone do cliente → vai sozinho pra etapa 3." },
     ver_retorno: { num: 3, lab: "Esperando retorno", curto: "Retorno", ico: "📨", n: verRetornoBusca.length, cor: AZUL,
@@ -7351,7 +7360,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const desempenho = (() => {
     const bp = base.filter(noPeriodo);
     const total = bp.length;
-    const naoAtend = bp.filter(l => st(l) === "pendente" && !converteu(l, "orc")).length; // = subaba Não Atendido
+    const naoAtend = bp.filter(l => st(l) === "pendente").length; // = etapa 1
     const semOrc = bp.filter(l => st(l) !== "pendente" && st(l) !== "desistiu" && !converteu(l, "orc")).length; // = subaba Sem Orçamento
     const orc = bp.filter(l => converteu(l, "orc")).length;
     const venda = bp.filter(l => converteu(l, "venda")).length;
@@ -7474,7 +7483,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, background: COLORS.danger + "18", border: `1px solid ${COLORS.danger}55`, borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
           <span style={{ fontSize: 20 }}>⚠️</span>
           <span style={{ color: COLORS.text, fontSize: 14, fontWeight: 600 }}>
-            Você tem <b style={{ color: COLORS.danger }}>{cont.pendente} lead{cont.pendente > 1 ? "s" : ""}</b> que ninguém chamou ainda. Quanto mais rápido chamar, maior a chance de fechar.
+            Você tem <b style={{ color: COLORS.danger }}>{cont.pendente} lead{cont.pendente > 1 ? "s" : ""}</b> esperando contato. Quanto mais rápido chamar, maior a chance de fechar.
           </span>
         </div>
       )}
@@ -7608,7 +7617,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, color: COLORS.textDim }}>{fmt(l.criado_em)}</span>
-                  {!emRetorno && cur === "pendente" && (() => { const tt = tempoDesde(l.criado_em); return <span style={{ fontSize: 11, fontWeight: 700, color: tt.cor }}>{tt.atrasado ? "⏱ parado " : "⏱ novo · "}{tt.label}</span>; })()}
+                  {!emRetorno && cur === "pendente" && !clienteVoltou(l) && (() => { const tt = tempoDesde(l.criado_em); return <span style={{ fontSize: 11, fontWeight: 700, color: tt.cor }}>{tt.atrasado ? "⏱ parado " : "⏱ novo · "}{tt.label}</span>; })()}
                   {!emRetorno && precisaFollowup(l) && <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent }}>🔔 {diasDesde(l.ultimo_contato_em)} dias sem contato</span>}
                   {aba === "sem_orcamento" && l.primeiro_contato_em && (() => {
                     const d = diasAtendido(l);
@@ -7624,7 +7633,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                  {orcAntes(l) && chip("🔁 Cliente voltou", "#F59E0B")}
+                  {clienteVoltou(l) && chip("🔁 Cliente voltou", "#F59E0B")}
                   {!emRetorno && chip(labelStatus(cur), corStatus(cur))}
                   {l.temperatura && chip(String(l.temperatura).toUpperCase(), ct)}
                   <button
@@ -7657,6 +7666,16 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                 )}
               </div>
               {/* Ver Retorno: o orçamento feito pra esse lead (mais recente; avisa se houver outros) */}
+              {/* Etapa 1, cliente que voltou: mostra o orçamento que ele já tem (contexto pra quem vai chamar) */}
+              {aba === "nao_atendido" && (() => {
+                const o = orcsDoLead(l)[0];
+                if (!o) return null;
+                return (
+                  <div style={{ marginTop: 6, fontSize: 13, color: COLORS.textMuted, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 12px" }}>
+                    📋 Já tem orçamento{o.oculto ? "" : <> <b style={{ color: COLORS.text }}>#{String(o.id).slice(0, 6).toUpperCase()}</b> · {fmtMoney(o.total)} · {new Date(o.ts).toLocaleDateString("pt-BR")} · {o.status || "—"}</>}
+                  </div>
+                );
+              })()}
               {emRetorno && u && u.oculto && (
                 <div style={{ marginTop: 6, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${AZUL}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: COLORS.textMuted }}>
                   📋 Orçamento feito · detalhes restritos
