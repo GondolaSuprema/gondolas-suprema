@@ -6965,6 +6965,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     return () => clearTimeout(t);
   }, [desfazer]);
   const [fechando, setFechando] = useState(null); // lead.id com a confirmação de "Fechou" aberta
+  const syncConvertidos = useRef(false); // 1x por carga: lead atendido cuja venda foi fechada na aba Orçamentos → "convertido"
   // Só a etapa 4 (Vendas) é por mês — abre sempre no mês atual. As etapas 1-3 não têm mês: o lead fica até alguém agir.
   const [mesVendas, setMesVendas] = useState(() => mesBRT(new Date().toISOString()));
   const [notaEdit, setNotaEdit] = useState({ id: null, texto: "" }); // anotação sendo editada
@@ -7016,6 +7017,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
 
   const carregar = async () => {
     setLoading(true); setErro("");
+    syncConvertidos.current = false;
     // Busca em blocos de 1000 (limite do Supabase por consulta) — senão, passando de 1000 orçamentos,
     // parte deles sumiria em silêncio e o lead voltaria pra "Não Atendido".
     const buscarTudo = async (pagina) => {
@@ -7167,10 +7169,20 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   // Etapa 3 → 4: cliente fechou → orçamento vira "Fazer Pedido" (o mesmo status da aba Orçamentos)
   const fecharVenda = async (l, orc) => {
     setFechando(null);
+    const snap = { ...l };
     const antes = orc.status, fechadoAntes = orc.fechadoEm || null;
     const ok = await mudarStatusOrc(orc.id, "Fazer Pedido", new Date().toISOString(), antes);
     if (!ok) { notify("Não consegui marcar a venda: o orçamento mudou em outra tela ou é de outro vendedor. Clique em Atualizar e confira na aba Orçamentos.", "erro"); return; }
-    setDesfazer({ id: Date.now(), msg: `🏆 Venda! ${nomeCurto(l)} foi pra etapa 4 · orçamento em “Fazer Pedido”`, voltar: () => mudarStatusOrc(orc.id, antes, fechadoAntes, "Fazer Pedido") });
+    // Lead fechado → "convertido" (se o cliente voltar a chamar, a Mariana abre lead novo)
+    const okLead = await setStatus(l, "convertido");
+    if (!okLead) notify("Venda marcada no orçamento, mas o lead não atualizou — clique em Atualizar", "info");
+    setDesfazer({
+      id: Date.now(), msg: `🏆 Venda! ${nomeCurto(l)} foi pra etapa 4 · orçamento em “Fazer Pedido”`,
+      voltar: async () => {
+        if (!(await mudarStatusOrc(orc.id, antes, fechadoAntes, "Fazer Pedido"))) return false;
+        return okLead ? restaurarLead(snap) : true;
+      },
+    });
   };
   // Salva a anotação do vendedor no lead (e carimba o último contato).
   const salvarNota = async (lead) => {
@@ -7219,8 +7231,9 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const chip = (txt, cor) => <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: cor + "1A", color: cor, border: `1px solid ${cor}44` }}>{txt}</span>;
   const corTemp = (t) => { const s = String(t || "").toLowerCase(); if (s.includes("quente")) return COLORS.danger; if (s.includes("morno")) return COLORS.accent; if (s.includes("frio")) return "#3B82F6"; return COLORS.textMuted; };
   const AZUL = "#3B82F6";
-  const corStatus = (s) => s === "atendido" ? COLORS.success : s === "aguardando" ? AZUL : s === "desistiu" ? COLORS.danger : COLORS.accent;
-  const labelStatus = (s) => s === "atendido" ? "Atendido" : s === "aguardando" ? "Aguardando cliente" : s === "desistiu" ? "Desistiu" : "Pendente";
+  // "convertido" só aparece aqui se a venda deixou de existir → mostra como atendido
+  const corStatus = (s) => s === "atendido" || s === "convertido" ? COLORS.success : s === "aguardando" ? AZUL : s === "desistiu" ? COLORS.danger : COLORS.accent;
+  const labelStatus = (s) => s === "atendido" || s === "convertido" ? "Atendido" : s === "aguardando" ? "Aguardando cliente" : s === "desistiu" ? "Desistiu" : "Pendente";
   // Lead ↔ orçamento: mesmo telefone (8 últimos díg.) e orçamento feito a partir da chegada do lead (−1 dia).
   // Vale com ou sem o botão "Fazer orçamento". Orçamento ANTERIOR ao lead = cliente que voltou (recompra).
   const ehVenda = (s) => s === "Concluído" || s === "Fazer Pedido"; // Fazer Pedido = cliente fechou, falta pedir ao fornecedor
@@ -7257,7 +7270,10 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   // deixa a Mariana criar lead NOVO). Orçamento marcado Desistiu/Fechou Concorrência na aba Orçamentos também
   // tira o lead da etapa 3 (menos fixado 📌, que só sai à mão). Virou venda vai pra etapa 4.
   const perdidoNoOrc = (l) => !l.fixado && ORC_PERDIDO.includes(orcsDoLead(l)[0]?.status);
-  const ativos = base.filter(l => st(l) !== "desistiu");
+  // "convertido" = já comprou (lead fechado). Sai das etapas 1-3 e o gatilho de dedup não o reabre:
+  // se o cliente voltar, a Mariana cria um lead NOVO (funil do zero). A venda dele segue na etapa 4.
+  // (se a venda deixar de existir — orçamento voltou/foi excluído — o "convertido" volta pro funil normalmente)
+  const ativos = base.filter(l => st(l) !== "desistiu" && !(st(l) === "convertido" && converteu(l, "venda")));
   // Etapa 1 = TODO lead "pendente", tenha orçamento ou não: lead novo da Mariana E cliente que voltou a chamar
   // (o gatilho de dedup do banco reabre o lead antigo como "pendente" — ele precisa de contato de novo).
   const naoAtendido = ativos.filter(l => st(l) === "pendente");
@@ -7290,6 +7306,24 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   })();
   const vendas = vendasTodas.filter(l => mesVenda(vendaDoLead(l)) === mesVendas);
   const viraramVenda = vendasTodas.length;
+  // Venda fechada na aba Orçamentos (sem o botão "Fechou"): o lead atendido vira "convertido" aqui, 1x por carga.
+  // Só atendido/aguardando — lead "pendente" (cliente que voltou a chamar) fica na etapa 1 esperando contato.
+  // O filtro de status no update impede sobrescrever algo que outra tela mudou nesse meio-tempo.
+  useEffect(() => {
+    if (loading || erro || syncConvertidos.current) return;
+    syncConvertidos.current = true;
+    // Só venda feita DEPOIS da chegada do lead (sem a folga de −1 dia da janela): evita que um lead novo
+    // do mesmo cliente herde a venda do lead anterior e seja convertido por engano.
+    const vendeuDepois = (l) => orcsDoLead(l).some(o => ehVenda(o.status) && o.ts >= Date.parse(l.criado_em));
+    const ids = mariana.filter(l => (l.status_atendimento === "atendido" || l.status_atendimento === "aguardando") && vendeuDepois(l)).map(l => l.id);
+    if (!ids.length) return;
+    supabase.from("mariana_leads").update({ status_atendimento: "convertido" }).in("id", ids).in("status_atendimento", ["atendido", "aguardando"]).select("id")
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        const feitos = new Set(data.map(r => r.id));
+        setMariana(ls => ls.map(l => feitos.has(l.id) ? { ...l, status_atendimento: "convertido" } : l));
+      });
+  }, [loading, erro]);
   const nomeMes = (ym) => { const [a, m] = String(ym).split("-"); const n = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][Number(m) - 1]; return n ? `${n} ${a}` : ym; };
   const mudarMesVendas = (delta) => { const [a, m] = mesVendas.split("-").map(Number); const d = new Date(a, m - 1 + delta, 1); setMesVendas(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); };
   const mesAtual = mesBRT(new Date().toISOString());
@@ -7361,7 +7395,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     const bp = base.filter(noPeriodo);
     const total = bp.length;
     const naoAtend = bp.filter(l => st(l) === "pendente").length; // = etapa 1
-    const semOrc = bp.filter(l => st(l) !== "pendente" && st(l) !== "desistiu" && !converteu(l, "orc")).length; // = subaba Sem Orçamento
+    const semOrc = bp.filter(l => st(l) !== "pendente" && st(l) !== "desistiu" && !converteu(l, "orc")).length; // = etapa 2 (convertido com venda já sai por ter orçamento)
     const orc = bp.filter(l => converteu(l, "orc")).length;
     const venda = bp.filter(l => converteu(l, "venda")).length;
     const resp = bp
@@ -8110,9 +8144,12 @@ function AdminPage({ user }) {
       if (cd.pag2_valor) pagStr += " R$ " + Number(cd.pag2_valor).toFixed(2);
     }
     const info = "\n📋 CONCLUÍDO — Entrega: " + cd.data_entrega + " | Pedido: " + cd.numero_pedido + " | Pagamento: " + pagStr;
-    const existingNotes = allOrders.find(o => o.id === concluidoIdAdm)?.notes || "";
+    // Pedido sendo concluído (também alimenta o evento de venda do Meta abaixo — a falta dele
+    // derrubava o envio em silêncio desde 23-jul)
+    const ordAdm = allOrders.find(o => o.id === concluidoIdAdm);
+    const existingNotes = ordAdm?.notes || "";
     // Venda nasce "a receber": valor_recebido = 0 até ser marcada "Pago" no ADM.
-    await supabase.from("orcamentos").update({
+    const { data: gravouConcluir, error: erroConcluir } = await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
       cliente_cnpj: cd.cnpj || null,
@@ -8122,12 +8159,13 @@ function AdminPage({ user }) {
       data_conclusao: new Date().toISOString(),
       venda_empresa_recebedora: "gondolas_suprema",
       valor_recebido: 0,
-    }).eq("id", concluidoIdAdm);
+    }).eq("id", concluidoIdAdm).select("id");
 
     // Ponte CAPI (Fase 1 - coleta): manda a verdade da venda pro Meta aprender.
-    // Fire-and-forget: nunca trava nem quebra o fluxo do "Concluído".
+    // Fire-and-forget: nunca trava nem quebra o fluxo do "Concluído". Só envia se a conclusão gravou
+    // (RLS bloqueando devolve 0 linhas SEM erro — por isso confere o retorno).
     try {
-      if (ordAdm) {
+      if (ordAdm && !erroConcluir && gravouConcluir?.length > 0) {
         fetch("/api/meta-capi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -9730,6 +9768,8 @@ function FinanceiroPage({ user }) {
   const [boletoStatusFiltro, setBoletoStatusFiltro] = useState("em_aberto");
   // Célula de boleto em edição inline: { id, campo: "data_emissao"|"vencimento"|"valor" }
   const [editBoleto, setEditBoleto] = useState({ id: null, campo: null });
+  const dataTimer = useRef(null); // espera o fim da digitação antes de gravar a data (salvarData)
+  useEffect(() => () => clearTimeout(dataTimer.current), []);
 
   const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
 
@@ -9761,26 +9801,36 @@ function FinanceiroPage({ user }) {
   // Edição inline de vencimento/valor direto na lista de boletos.
   // Clica em cima → vira input → salva no blur/Enter. Escape cancela.
   const atualizarBoletoCampo = async (id, campo, valorRaw) => {
-    if (somenteLeitura) { setEditBoleto({ id: null, campo: null }); return; }
+    // Fecha só o editor DESTE campo/boleto — a resposta do banco pode chegar quando outro editor já foi aberto
+    const fechar = () => setEditBoleto(cur => (cur.id === id && cur.campo === campo ? { id: null, campo: null } : cur));
+    if (somenteLeitura) { fechar(); return; }
     let valor = valorRaw;
     if (campo === "valor") {
       valor = Number(String(valorRaw).replace(",", "."));
-      if (!isFinite(valor) || valor < 0) { setEditBoleto({ id: null, campo: null }); return; }
+      if (!isFinite(valor) || valor < 0) { fechar(); return; }
     }
-    if (campo === "vencimento" && !valorRaw) { setEditBoleto({ id: null, campo: null }); return; }
-    // Emissão: ignora vazio e o ano incompleto da digitação (0002, 0020, 0202…) — editor segue aberto
-    if (campo === "data_emissao" && (!valorRaw || !/^20\d\d-/.test(valorRaw))) return;
+    if (campo === "vencimento" && !valorRaw) { fechar(); return; }
+    // Datas: ignora vazio (emissão) e ano incompleto da digitação (0002, 0020, 0202…)
+    if (campo === "data_emissao" && !valorRaw) return;
+    if ((campo === "data_emissao" || campo === "vencimento") && !/^20\d\d-/.test(valorRaw)) return;
     // Sem mudança real → só fecha o editor
     const atual = boletos.find(b => b.id === id);
-    if (atual && String(atual[campo]) === String(valor)) { setEditBoleto({ id: null, campo: null }); return; }
+    if (atual && String(atual[campo]) === String(valor)) { fechar(); return; }
     const { error } = await supabase.from("boletos_a_pagar").update({ [campo]: valor }).eq("id", id);
-    if (error) { notify("Não foi possível salvar: " + error.message, "erro"); setEditBoleto({ id: null, campo: null }); return; }
+    if (error) { notify("Não foi possível salvar: " + error.message, "erro"); fechar(); return; }
     setBoletos(prev => prev.map(b => b.id === id ? { ...b, [campo]: valor } : b));
-    setEditBoleto({ id: null, campo: null });
+    fechar();
+  };
+  // Datas (emissão/vencimento): digitando, cada tecla já forma uma data "válida" (dia 3 em vez de 30) —
+  // por isso só grava 1,5 s depois da última mudança, ou na hora ao sair do campo / Enter.
+  const salvarData = (id, campo, valor, agora) => {
+    clearTimeout(dataTimer.current);
+    if (agora) { atualizarBoletoCampo(id, campo, valor); return; }
+    dataTimer.current = setTimeout(() => atualizarBoletoCampo(id, campo, valor), 1500);
   };
 
   // Quantos boletos atrasados (vencidos e não pagos)
-  const hojeISO = new Date().toISOString().slice(0, 10);
+  const hojeISO = agendaHojeStr(); // data LOCAL (toISOString é UTC: depois das 21h virava o dia seguinte e boleto de hoje aparecia "Vencida")
   const boletosAtrasados = boletos.filter(b => b.status === "pendente" && b.vencimento < hojeISO).length;
 
   // Calcula a chave do mes anterior no formato YYYY-MM (ex: "2026-05" -> "2026-04")
@@ -10025,7 +10075,7 @@ function FinanceiroPage({ user }) {
     setDespesas(despesas.filter(d => d.id !== id));
   };
 
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = agendaHojeStr(); // data local (UTC virava o dia seguinte depois das 21h)
   const fixas = despesas.filter(d => d.fixa);
   // Variáveis = despesas variáveis reais (pagas via extrato bancário ou
   // lançadas à mão). Exclui os lançamentos de fornecedor (nome "forn_..."),
@@ -10382,7 +10432,7 @@ function FinanceiroPage({ user }) {
             const lista = boletos.filter(b => noMes(b) && passaFiltro(b)).sort((a, b) => (a.vencimento || "").localeCompare(b.vencimento || ""));
             const vencidos = boletos.filter(b => b.status === "pendente" && b.vencimento && b.vencimento < hojeISO && noMes(b));
             // Proativo: boletos NÃO vencidos mas vencendo em até 3 dias (qualquer mês) — pagar antes de virar juros.
-            const em3diasISO = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            const em3diasISO = agendaAddDias(hojeISO, 3); // data local
             const venceEmBreve = boletos.filter(b => b.status === "pendente" && b.vencimento && b.vencimento >= hojeISO && b.vencimento <= em3diasISO);
             const totalAberto = boletos.filter(b => b.status === "pendente" && noMes(b)).reduce((s, b) => s + (Number(b.valor) || 0), 0);
             return (
@@ -10473,9 +10523,9 @@ function FinanceiroPage({ user }) {
                             <td style={{ padding: "10px 12px", textAlign: "center", fontSize: 11 }}>
                               {editandoEmis ? (
                                 <input type="date" autoFocus defaultValue={b.data_emissao || ""}
-                                  onChange={e => atualizarBoletoCampo(b.id, "data_emissao", e.target.value)}
-                                  onBlur={() => setEditBoleto({ id: null, campo: null })}
-                                  onKeyDown={e => { if (e.key === "Escape") setEditBoleto({ id: null, campo: null }); }}
+                                  onChange={e => salvarData(b.id, "data_emissao", e.target.value)}
+                                  onBlur={e => { if (e.currentTarget.dataset.cancel) return; salvarData(b.id, "data_emissao", e.target.value, true); setEditBoleto({ id: null, campo: null }); }}
+                                  onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { e.currentTarget.dataset.cancel = "1"; clearTimeout(dataTimer.current); setEditBoleto({ id: null, campo: null }); } }}
                                   style={{ background: COLORS.bg, border: `1px solid ${COLORS.accent}`, borderRadius: 6, color: COLORS.text, padding: "4px 6px", fontSize: 11, fontFamily: "'DM Sans', sans-serif", outline: "none", colorScheme: "dark" }} />
                               ) : (
                                 <span onClick={() => !somenteLeitura && setEditBoleto({ id: b.id, campo: "data_emissao" })}
@@ -10486,9 +10536,9 @@ function FinanceiroPage({ user }) {
                             <td style={{ padding: "10px 12px", textAlign: "center", fontSize: 11 }}>
                               {editandoVenc ? (
                                 <input type="date" autoFocus defaultValue={b.vencimento || ""}
-                                  onChange={e => atualizarBoletoCampo(b.id, "vencimento", e.target.value)}
-                                  onBlur={() => setEditBoleto({ id: null, campo: null })}
-                                  onKeyDown={e => { if (e.key === "Escape") setEditBoleto({ id: null, campo: null }); }}
+                                  onChange={e => salvarData(b.id, "vencimento", e.target.value)}
+                                  onBlur={e => { if (e.currentTarget.dataset.cancel) return; salvarData(b.id, "vencimento", e.target.value, true); setEditBoleto({ id: null, campo: null }); }}
+                                  onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { e.currentTarget.dataset.cancel = "1"; clearTimeout(dataTimer.current); setEditBoleto({ id: null, campo: null }); } }}
                                   style={{ background: COLORS.bg, border: `1px solid ${COLORS.accent}`, borderRadius: 6, color: COLORS.text, padding: "4px 6px", fontSize: 11, fontFamily: "'DM Sans', sans-serif", outline: "none", colorScheme: "dark" }} />
                               ) : (
                                 <span onClick={() => !somenteLeitura && setEditBoleto({ id: b.id, campo: "vencimento" })}
@@ -10619,10 +10669,9 @@ function DrePage() {
 
   // ─── Sprint 3.3 — Fluxo de caixa projetado 30 dias ───
   const calcularFluxo30d = () => {
-    const hoje = new Date();
-    const daqui30 = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const iso = (d) => d.toISOString().split("T")[0];
-    const inRange = (dt) => dt && dt >= iso(hoje) && dt <= iso(daqui30);
+    // Datas LOCAIS (toISOString é UTC: depois das 21h "hoje" virava amanhã e o que vence hoje sumia do fluxo)
+    const hojeStr = agendaHojeStr(), daqui30Str = agendaAddDias(hojeStr, 30);
+    const inRange = (dt) => dt && dt >= hojeStr && dt <= daqui30Str;
     // A Pagar: boletos pendentes + despesas Em Aberto vencendo em 30d
     const boletos30d = boletosAbertos.filter(b => inRange(b.vencimento)).reduce((s, b) => s + (Number(b.valor) || 0), 0);
     const despesas30d = despesas
@@ -12229,7 +12278,7 @@ function BoletosAtrasadosBanner({ user, setPage }) {
   useEffect(() => {
     if (!user || user.id !== "v1") return;
     const carregar = async () => {
-      const hoje = new Date().toISOString().slice(0, 10);
+      const hoje = agendaHojeStr(); // data local (UTC virava o dia seguinte à noite)
       const { data } = await supabase.from("boletos_a_pagar")
         .select("*")
         .eq("status", "pendente")
