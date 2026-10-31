@@ -7347,7 +7347,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   const verRetornoBusca = verRetorno.filter(bateBusca);
   const vendasBusca = termo ? vendasTodas.filter(bateBusca) : vendas; // buscando, procura em todos os meses
   const ABA_INFO = {
-    nao_atendido: { num: 1, lab: "Primeiro contato", curto: "Contato", ico: "🕓", n: naoAtendidoBusca.length, cor: COLORS.danger,
+    nao_atendido: { num: 1, lab: "Pendente", curto: "Pendente", ico: "🕓", n: naoAtendidoBusca.length, cor: COLORS.danger,
       dica: "Leads novos da Mariana e clientes que voltaram a chamar (🔁), esperando contato. Chamou no WhatsApp → anda sozinho pra próxima etapa." },
     sem_orcamento: { num: 2, lab: "Sem orçamento", curto: "Orçar", ico: "🗣️", n: semOrcamentoBusca.length, cor: COLORS.accent,
       dica: "Já atendidos, esperando orçamento. Salvou um orçamento com o telefone do cliente → vai sozinho pra etapa 3." },
@@ -7610,7 +7610,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
           ) : aba === "sem_orcamento" ? (
             <>Nenhum lead atendido esperando orçamento. 🎉</>
           ) : (
-            <>Ninguém esperando o primeiro contato. 🎉</>
+            <>Nenhum lead pendente — todo mundo já foi chamado. 🎉</>
           )}
         </div>
       )}
