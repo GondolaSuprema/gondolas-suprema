@@ -6136,7 +6136,8 @@ function ComissoesPage({ user }) {
 function LeadContextoModal({ lead, onClose }) {
   if (!lead) return null;
   const l = lead;
-  const linha = (rot, val) => val ? (
+  const semInfo = (v) => { const s = String(v ?? "").trim(); return !s || /^(n[ãa]o informad[oa]|n[ãa]o se aplica|n[ãa]o aplic[áa]vel|nenhuma?|indefinid[oa]|-|—)\.?$/i.test(s); };
+  const linha = (rot, val) => !semInfo(val) ? (
     <div style={{ display: "flex", gap: 8, fontSize: 13, marginBottom: 6 }}>
       <span style={{ color: COLORS.textDim, minWidth: 96, flexShrink: 0 }}>{rot}</span>
       <span style={{ color: COLORS.text, whiteSpace: "pre-wrap" }}>{val}</span>
@@ -6994,7 +6995,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
 
   // Resumo legível: usa o lead_texto quando já é prosa; se for o cartão cru (Nome:/Cidade:…),
   // monta uma frase a partir das colunas estruturadas (que o trigger já preencheu).
-  const semInfo = (v) => { const s = String(v ?? "").trim(); return !s || /^(n[ãa]o informad[oa]|nenhuma?|indefinid[oa]|-|—)$/i.test(s); };
+  const semInfo = (v) => { const s = String(v ?? "").trim(); return !s || /^(n[ãa]o informad[oa]|n[ãa]o se aplica|n[ãa]o aplic[áa]vel|nenhuma?|indefinid[oa]|-|—)\.?$/i.test(s); };
   const ehCartaoCru = (t) => { const s = String(t || ""); return /(^|\n)\s*nome\s*:/i.test(s) && /\n\s*(cidade|interesse|ramo)\s*:/i.test(s); };
   const resumoLead = (l) => {
     const t = String(l.lead_texto || "").trim();
