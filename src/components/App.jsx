@@ -11883,10 +11883,12 @@ function NFPage({ user }) {
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NF-e de mercadoria · destinatário: <strong style={{ color: COLORS.text }}>{confirmEmitir.cliente_empresa}</strong></div>
                     <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.total))}</div>
                   </button>
-                  <button onClick={() => { setEmitenteSel("instalacoes"); setValorEditado(Number(getValorRecebido(confirmEmitir)).toFixed(2)); setEditandoValor(false); setTomadorTipo("rre"); setTomadorCustom(TOMADOR_VAZIO); setObservacaoNfse(""); }} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
+                  {/* NFS-e da Suprema Instalações = intermediação → valor SEMPRE é a comissão da venda
+                      (regra do Ale, 01-nov-2026), mesmo quando o cliente pagou o total pela Instalações. */}
+                  <button onClick={() => { setEmitenteSel("instalacoes"); setValorEditado(Number(confirmEmitir.comissao || 0).toFixed(2)); setEditandoValor(false); setTomadorTipo("rre"); setTomadorCustom(TOMADOR_VAZIO); setObservacaoNfse(""); }} style={{ background: "#3B82F612", border: "1px solid #3B82F640", color: COLORS.text, padding: "14px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textAlign: "left" }}>
                     <div style={{ color: "#3B82F6", fontSize: 13, fontWeight: 700 }}>🔧 Suprema Instalações</div>
                     <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>NFS-e de serviço · destinatário: <strong style={{ color: COLORS.text }}>Gôndolas Brasil</strong> (23.505.287/0001-07)</div>
-                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(getValorRecebido(confirmEmitir))} <em style={{ color: COLORS.textDim }}>{confirmEmitir.valor_recebido != null && Math.abs(Number(confirmEmitir.valor_recebido) - Number(confirmEmitir.comissao || 0)) >= 0.01 ? "(valor recebido — editado)" : "(comissão)"}</em></div>
+                    <div style={{ color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Valor: {fmt(Number(confirmEmitir.comissao || 0))} <em style={{ color: COLORS.textDim }}>(comissão)</em></div>
                   </button>
                 </div>
                 <div style={{ marginTop: 16, textAlign: "center" }}>
