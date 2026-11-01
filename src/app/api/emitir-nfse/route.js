@@ -50,6 +50,10 @@ const SERVICO_CFG = {
   aliquota: 3.0,
   iss_retido: false,
   item_lista_servico: "100501",
+  // NBS obrigatório em Palhoça desde out/2026 (erro 00366 sem ele — Reforma Tributária).
+  // 1.0201.00.00 = "Serviços de intermediação na distribuição de mercadorias" (tabela
+  // oficial Anexo B NBS 2.0 do gov.br/nfse). Escolha validada pelo Ale/contador.
+  codigo_nbs: "102010000",
   codigo_cnae: "7490104",
   natureza_operacao: "1",     // 1 = Tributação no município
   regime_tributacao: "6",     // 6 = Simples Nacional
@@ -267,6 +271,7 @@ export async function POST(request) {
         iss_retido: SERVICO_CFG.iss_retido,
         discriminacao: montarDiscriminacao(ordem, tomadorResolvido, observacao),
         item_lista_servico: SERVICO_CFG.item_lista_servico,
+        codigo_nbs: SERVICO_CFG.codigo_nbs,
         codigo_cnae: SERVICO_CFG.codigo_cnae,
       },
       natureza_operacao: SERVICO_CFG.natureza_operacao,
