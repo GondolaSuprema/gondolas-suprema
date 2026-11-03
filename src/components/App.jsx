@@ -7410,32 +7410,25 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     const topMotivo = Object.entries(motivos).sort((a, b) => b[1] - a[1])[0] || null;
     return { total, naoAtend, semOrc, orc, venda, respMed, respN: resp.length, topMotivo };
   })();
-  // Prioridade por temperatura: quente > morno > frio > (sem temperatura).
-  const ordemTemp = (l) => { const t = String(l.temperatura || "").toLowerCase(); return t.includes("quente") ? 0 : t.includes("morno") ? 1 : t.includes("frio") ? 2 : 3; };
-  // Ordem de trabalho: pendente (speed-to-lead) → follow-up esquecido → atendido → aguardando.
-  const ordemTrabalho = (l) => { const s = st(l); if (s === "pendente") return 0; if (precisaFollowup(l)) return 1; if (s === "atendido") return 2; if (s === "aguardando") return 3; return 4; };
+  // Ordem das 4 etapas (pedido do Ale, 03-nov-2026): do MAIS ANTIGO para o mais novo, pela data que o
+  // card mostra — chegada do lead (Pendente/Sem orçamento), data do orçamento (Esperando retorno) e data
+  // em que fechou (Vendas). Só o fixado 📌 fura a fila e fica no topo.
+  const tsLead = (l) => new Date(l.criado_em || 0).getTime();
+  const fixadoPrimeiro = (a, b) => (b.fixado ? 1 : 0) - (a.fixado ? 1 : 0);
   const listaFiltrada = aba === "vendas"
-    ? vendasBusca.slice().sort((a, b) => dataVenda(vendaDoLead(b)) - dataVenda(vendaDoLead(a))) // fechou mais recente primeiro
+    ? vendasBusca.slice().sort((a, b) => (dataVenda(vendaDoLead(a)) - dataVenda(vendaDoLead(b))) || (tsLead(a) - tsLead(b)))
     : aba === "ver_retorno"
     ? verRetornoBusca.slice().sort((a, b) => {
-        const fx = (b.fixado ? 1 : 0) - (a.fixado ? 1 : 0);                 // 0) fixado sempre no topo
+        const fx = fixadoPrimeiro(a, b);
         if (fx !== 0) return fx;
-        const pa = ORC_PERDIDO.includes(orcsDoLead(a)[0]?.status) ? 1 : 0;   // 1) orçamento marcado perdido vai pro fim
+        const pa = ORC_PERDIDO.includes(orcsDoLead(a)[0]?.status) ? 1 : 0;   // orçamento marcado perdido (só fixado) vai pro fim
         const pb = ORC_PERDIDO.includes(orcsDoLead(b)[0]?.status) ? 1 : 0;
         if (pa !== pb) return pa - pb;
-        return diasOrcado(b) - diasOrcado(a);                               // 2) esperando há mais tempo primeiro
+        return (diasOrcado(b) - diasOrcado(a)) || (tsLead(a) - tsLead(b)); // orçado há mais tempo primeiro
       })
     : (aba === "sem_orcamento" ? semOrcamentoBusca.filter(l => filtroFollow !== "followup" || precisaFollowup(l)) : naoAtendidoBusca)
       .slice()
-      .sort((a, b) => {
-        const fx = (b.fixado ? 1 : 0) - (a.fixado ? 1 : 0);              // 0) fixado sempre no topo
-        if (fx !== 0) return fx;
-        const s = ordemTrabalho(a) - ordemTrabalho(b);                   // 1) pendente → follow-up → resto
-        if (s !== 0) return s;
-        const tp = ordemTemp(a) - ordemTemp(b);                          // 2) mais quente primeiro
-        if (tp !== 0) return tp;
-        return new Date(a.criado_em || 0) - new Date(b.criado_em || 0);  // 3) mais antigo primeiro
-      });
+      .sort((a, b) => fixadoPrimeiro(a, b) || (tsLead(a) - tsLead(b)));
   // ⏱ SLA — há quanto tempo o lead está esperando (pra alertar lead parado).
   const tempoDesde = (iso) => {
     const min = Math.max(0, Math.floor((Date.now() - new Date(iso || Date.now()).getTime()) / 60000));
