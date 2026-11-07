@@ -10,10 +10,10 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-import { COL_X, COL_Z, VAO, FACE_Z, LINHAS, ALTURAS, MAX_MODULOS, MAX_CORREDORES, LARGURA_CORREDOR, comprimentoFileira, larguraFileira } from "./projetoMedidas";
+import { COL_X, COL_Z, VAO, FACE_Z, LINHAS, ALTURAS, LETRA_PAREDE, ATRAS_PAREDE, MAX_MODULOS, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_CORREDORES, LARGURA_CORREDOR, comprimentoFileira, larguraFileira, layoutDe, paredesDe, trechosDoLado, nomeModuloParede, VAO_COLUNA, PROF_PILAR, CANTO_ATE_COLUNA } from "./projetoMedidas";
 
 const Y_BASE = 0.135;
-const CHAVES = ["aco", "amarelo", "furo", "nylon", "rosca", "arame", "gancho", "etiqueta"];
+const CHAVES = ["aco", "amarelo", "furo", "nylon", "rosca", "arame", "gancho", "etiqueta", "pilar"];
 const GANCHOS_POR_REGUA = 5;
 const PROF_CESTO = 0.37; // cesto 370 x 900 mm
 const SALA_X = 32, SALA_Z = 32, PE_DIREITO = 3; // grande o bastante para a câmera recuar com 6 corredores no celular
@@ -400,12 +400,13 @@ function juntar(partes) {
 }
 
 // Só a estrutura do módulo: cada lado é um modelo à parte, para poder ser bandeja, gancho ou cesto.
-function modeloModulo(linha, alt) {
+// Na parede a estrutura é a mesma, com a coluna servindo de um lado só.
+function modeloModulo(linha, alt, lados = [1, -1]) {
   const partes = novaPartes();
   const miolo = caixa(VAO, alt.m - 0.055, 2 * (FACE_Z - 0.005), 0.001);
   miolo.translate(VAO / 2, 0.055 + (alt.m - 0.055) / 2, 0);
   partes.aco.push(miolo);
-  coluna(partes, VAO + COL_X / 2, [1, -1], linha, alt, true);
+  coluna(partes, VAO + COL_X / 2, lados, linha, alt, true);
   return juntar(partes);
 }
 
@@ -424,9 +425,82 @@ function modeloFace(linha, alt, tipo) {
   return juntar(partes);
 }
 
-function modeloColunaInicial(linha, alt) {
+function modeloColunaInicial(linha, alt, lados = [1, -1]) {
   const partes = novaPartes();
-  coluna(partes, -COL_X / 2, [1, -1], linha, alt, true);
+  coluna(partes, -COL_X / 2, lados, linha, alt, true);
+  return juntar(partes);
+}
+
+// Canto: painel reto a 45° de uma coluna à outra, sem coluna própria, e bandeja em trapézio.
+// Local: centrado em x=0, com a frente para +Z. As laterais da bandeja seguem a frente das paredes vizinhas.
+function modeloCanto(linha, alt) {
+  const partes = novaPartes();
+  const meio = CANTO_ATE_COLUNA / Math.SQRT2;
+  const fundo = caixa(2 * meio, alt.m - 0.055, 0.02, 0.001);
+  fundo.translate(0, 0.055 + (alt.m - 0.055) / 2, -0.012);
+  partes.aco.push(fundo);
+  const hPainel = (alt.m - 0.055) / alt.paineis;
+  for (let i = 0; i < alt.paineis; i++) {
+    const p = caixa(2 * meio - 0.001, hPainel - 0.0016, 0.004, 0.0012);
+    p.translate(0, 0.055 + hPainel * (i + 0.5), -0.002);
+    partes.aco.push(p);
+  }
+  const nivel = (y, prof, aba, altMao) => {
+    const d = (FACE_Z + prof) / Math.SQRT2;
+    const frente = meio - d;
+    const s = new THREE.Shape();
+    s.moveTo(-meio, 0);
+    s.lineTo(meio, 0);
+    s.lineTo(frente, -d);
+    s.lineTo(-frente, -d);
+    s.closePath();
+    const chapa = extrudar(s, 0.0016);
+    chapa.rotateX(-Math.PI / 2);
+    chapa.translate(0, y - 0.0016, 0);
+    partes.aco.push(chapa);
+    const dobraFrente = caixa(2 * frente, aba, 0.0016, 0.0004);
+    dobraFrente.translate(0, y - aba / 2, d - 0.0008);
+    partes.aco.push(dobraFrente);
+    const e = aoLongo(perfilEtiqueta(d, aba), 2 * frente + 0.012, 6);
+    e.translate(-frente - 0.006, y, 0);
+    partes.amarelo.push(e);
+    for (const lado of [1, -1]) {
+      const dobra = caixa(0.0014, aba * 0.6, Math.SQRT2 * d - 0.002, 0.0004);
+      dobra.rotateY(-lado * Math.PI / 4);
+      dobra.translate(lado * (meio - d / 2), y - aba * 0.3, d / 2);
+      partes.aco.push(dobra);
+      if (altMao) {
+        const m = aoLongo(perfilMaoFrancesa(Math.SQRT2 * d, altMao), 0.003, 10);
+        m.translate(-0.0015, y, 0);
+        m.rotateY(-lado * Math.PI / 4);
+        m.translate(lado * (meio - 0.002), 0, 0);
+        partes.aco.push(m);
+      }
+    }
+  };
+  nivel(Y_BASE, linha.profBase, 0.045, 0);
+  for (const y of alt.niveis) nivel(y, linha.profPrat, 0.038, 0.13);
+  const dBase = (FACE_Z + linha.profBase) / Math.SQRT2;
+  for (const lado of [1, -1]) pe(partes, lado * (meio - dBase - 0.03), dBase - 0.03);
+  return juntar(partes);
+}
+
+// Lateral e fundo sem canto: a lateral nasce na frente das prateleiras do fundo. Esta chapa fecha a fresta atrás delas.
+function modeloFecho(linha, alt) {
+  const partes = novaPartes();
+  const larg = linha.profBase + 0.015;
+  const c = caixa(larg, alt.m - 0.055, 0.012, 0.001);
+  c.translate(larg / 2, 0.055 + (alt.m - 0.055) / 2, 0);
+  partes.aco.push(c);
+  return juntar(partes);
+}
+
+// Pilar da loja entre duas paredes do mesmo lado, do piso ao forro.
+function modeloPilar() {
+  const partes = novaPartes();
+  const c = caixa(VAO_COLUNA - 0.004, PE_DIREITO, PROF_PILAR, 0.003);
+  c.translate(0, PE_DIREITO / 2, PROF_PILAR / 2 - ATRAS_PAREDE);
+  partes.pilar.push(c);
   return juntar(partes);
 }
 
@@ -459,7 +533,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate = false;
 
-  const estado = { modulos: config.modulos, pontas: config.pontas, linha: config.linha, altura: config.altura, corredores: config.corredores, tipos: config.tipos, vista: config.vista || "ponta", ladoCamera: 1 };
+  const estado = { ...config, vista: config.vista || "ponta", ladoCamera: 1 };
 
   const normalPintura = textura(alturaParaNormal(ruidoAltura(512, 1.2, 11), 1.4), 9);
   const MAT = {
@@ -471,6 +545,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     arame: new THREE.MeshStandardMaterial({ color: 0x2c2c32, roughness: 0.36, metalness: 0.2, envMapIntensity: 1 }),
     gancho: new THREE.MeshStandardMaterial({ color: 0x5a5a64, roughness: 0.3, metalness: 0.4, envMapIntensity: 1.1 }), // mais claro: preto sobre painel preto some
     etiqueta: new THREE.MeshStandardMaterial({ color: 0x9fb0e0, roughness: 0.2, envMapIntensity: 0.8, transparent: true, opacity: 0.7 }),
+    pilar: new THREE.MeshStandardMaterial({ color: 0xd6d2c9, roughness: 0.85 }),
   };
 
   const cena = new THREE.Scene();
@@ -483,7 +558,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   controles.enablePan = false;
   controles.maxPolarAngle = 1.54;
   controles.minDistance = 1.2;
-  controles.maxDistance = SALA_Z - 2.5;
+  controles.maxDistance = 60;
+  controles.minPolarAngle = 0.12; // pode ver de cima: acima do forro ele some
   controles.target.set(0, 0.95, 0);
   // Dedo na vertical rola a página; gesto que começa para o lado gira em qualquer direção.
   canvas.style.touchAction = "pan-y";
@@ -504,8 +580,9 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     sala.add(m);
     return m;
   }
-  plano(pisoMat, SALA_X * 2, SALA_Z * 2, (m) => { m.rotation.x = -Math.PI / 2; m.receiveShadow = true; });
-  plano(new THREE.MeshStandardMaterial({ ...texturasForro(), roughness: 0.9 }), SALA_X * 2, SALA_Z * 2, (m) => { m.rotation.x = Math.PI / 2; m.position.y = PE_DIREITO; });
+  // O piso passa das paredes: visto de longe e de cima, numa loja enorme, ele não acaba no preto.
+  plano(pisoMat, 240, 240, (m) => { m.rotation.x = -Math.PI / 2; m.receiveShadow = true; });
+  const teto = [plano(new THREE.MeshStandardMaterial({ ...texturasForro(), roughness: 0.9 }), SALA_X * 2, SALA_Z * 2, (m) => { m.rotation.x = Math.PI / 2; m.position.y = PE_DIREITO; })];
   const paredeMat = new THREE.MeshStandardMaterial({ color: 0xcfcbc2, roughness: 0.85 });
   const rodapeMat = new THREE.MeshStandardMaterial({ color: 0x8d877b, roughness: 0.5 });
   for (const [x, z, ry, larg] of [[0, -SALA_Z, 0, SALA_X * 2], [0, SALA_Z, Math.PI, SALA_X * 2], [-SALA_X, 0, Math.PI / 2, SALA_Z * 2], [SALA_X, 0, -Math.PI / 2, SALA_Z * 2]]) {
@@ -531,6 +608,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
       molduras.setMatrixAt(i, m.makeTranslation(x, PE_DIREITO - 0.001, z));
     });
     sala.add(leds, molduras);
+    teto.push(leds, molduras);
   }
 
   // Luzes com sombra: uma por fila de painéis perto da gôndola
@@ -560,9 +638,9 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
 
   const contatoMat = new THREE.MeshBasicMaterial({ alphaMap: texturaContato(), color: 0x050403, transparent: true, opacity: 0.62, depthWrite: false, toneMapped: false });
   const pernas = 1 / (1 - 2 * FATOR_CONTATO);
-  const contatos = new THREE.Group(); // uma sombra por fileira
+  const contatos = new THREE.Group(); // uma sombra por fileira e por parede
   const contatoGeo = new THREE.PlaneGeometry(1, 1);
-  for (let i = 0; i < MAX_CORREDORES; i++) {
+  for (let i = 0; i < MAX_CORREDORES + 3 * MAX_PAREDES_LADO + 2; i++) {
     const c = new THREE.Mesh(contatoGeo, contatoMat);
     c.rotation.x = -Math.PI / 2;
     c.position.y = 0.002;
@@ -600,6 +678,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   let ambiente = null;
   function capturarAmbiente() {
     const ocultos = [luzGeral, sombras, contatos, gondola];
+    teto.forEach((o) => { o.visible = true; });
     ocultos.forEach((o) => { o.visible = false; });
     cena.environment = null;
     const cubo = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
@@ -638,14 +717,22 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
 
   // ── Montagem ──
   // Instâncias: cada tipo de peça é desenhado de uma vez só, então muitas fileiras não pesam em chamadas de desenho.
-  const CAPACIDADE = { modulo: MAX_MODULOS * MAX_CORREDORES, inicio: MAX_CORREDORES, ponta: 2 * MAX_CORREDORES, face: 2 * MAX_MODULOS * MAX_CORREDORES };
+  const CAPACIDADE = { modulo: MAX_MODULOS * MAX_CORREDORES, inicio: MAX_CORREDORES, ponta: 2 * MAX_CORREDORES, moduloParede: 3 * MAX_MODULOS_LADO, inicioParede: 3 * MAX_PAREDES_LADO, canto: 2, fecho: 2, pilar: 3 * (MAX_PAREDES_LADO - 1), face: 2 * MAX_MODULOS * MAX_CORREDORES + 3 * MAX_MODULOS_LADO };
   const modelos = new Map(); // "linha:altura:tipo" → modelo (fica guardado para trocar de opção sem refazer)
   function modelo(linha, altura, tipo) {
     const chave = `${linha}:${altura}:${tipo}`;
     if (modelos.has(chave)) return modelos.get(chave);
     const def = LINHAS[linha], alt = alturaDe(altura);
     const ehFace = tipo.startsWith("face:");
-    const partes = ehFace ? modeloFace(def, alt, tipo.slice(5)) : tipo === "modulo" ? modeloModulo(def, alt) : tipo === "inicio" ? modeloColunaInicial(def, alt) : modeloPonta(def, alt);
+    const partes = ehFace ? modeloFace(def, alt, tipo.slice(5))
+      : tipo === "modulo" ? modeloModulo(def, alt)
+      : tipo === "moduloParede" ? modeloModulo(def, alt, [1])
+      : tipo === "inicio" ? modeloColunaInicial(def, alt)
+      : tipo === "inicioParede" ? modeloColunaInicial(def, alt, [1])
+      : tipo === "canto" ? modeloCanto(def, alt)
+      : tipo === "fecho" ? modeloFecho(def, alt)
+      : tipo === "pilar" ? modeloPilar()
+      : modeloPonta(def, alt);
     const cap = CAPACIDADE[ehFace ? "face" : tipo];
     const matriz = new THREE.InstancedBufferAttribute(new Float32Array(cap * 16), 16);
     matriz.setUsage(THREE.DynamicDrawUsage);
@@ -660,10 +747,12 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     };
     for (const { k, g } of partes) {
       const m = instancia(g, k);
-      m.castShadow = !["furo", "arame", "gancho", "etiqueta"].includes(k); // fio fino não faz sombra que apareça e custa caro
+      // Fio fino não faz sombra nem aparece no reflexo desfocado, e custa caro.
+      const fino = ["furo", "arame", "gancho", "etiqueta"].includes(k);
+      m.castShadow = !fino;
       m.receiveShadow = true;
       gondola.add(m);
-      reflexo.add(instancia(g, k));
+      if (!fino) reflexo.add(instancia(g, k));
     }
     const novo = { matriz, malhas, usados: 0 };
     modelos.set(chave, novo);
@@ -686,50 +775,105 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   }
 
   function limites() {
-    const L = comprimentoFileira(estado.modulos);
-    const avanco = FACE_Z + LINHAS[estado.linha].profBase + 0.015;
-    const metade = ((fileiras() - 1) / 2) * passoFileiras();
-    return { xMin: -L / 2 - (estado.pontas >= 2 ? avanco : 0), xMax: L / 2 + (estado.pontas >= 1 ? avanco : 0), z: metade + avanco, avanco };
+    const l = layoutDe(estado);
+    const alturas = [];
+    if (l.centro) alturas.push(ALTURAS[estado.altura].m);
+    if (l.Le || l.Ld || l.Lf) alturas.push(ALTURAS[estado.alturaParede].m);
+    return { ...l, yMax: Math.max(0, ...alturas) };
   }
 
   function montar() {
-    const L = comprimentoFileira(estado.modulos);
-    const x0 = -L / 2;
+    const l = limites();
     const querer = new Map();
-    for (let f = 0; f < fileiras(); f++) {
-      const z = zDaFileira(f);
-      const pos = (tipo, chave, x, rot) => querer.set(`${estado.linha}:${estado.altura}:${f}:${chave}`, { tipo, x, z, rot });
-      pos("inicio", "inicio", x0 + COL_X, 0);
-      for (let i = 0; i < estado.modulos; i++) {
-        const xi = x0 + COL_X + i * (VAO + COL_X);
-        const { esq, dir } = estado.tipos[i];
-        pos("modulo", `m${i}`, xi, 0);
-        pos(`face:${esq}`, `m${i}:esq:${esq}`, xi, 0); // lado esquerdo = +Z, visto de quem está na ponta olhando a fileira
-        pos(`face:${dir}`, `m${i}:dir:${dir}`, xi + VAO, Math.PI);
+    const pos = (altura, tipo, chave, x, z, rot) => querer.set(`${estado.linha}:${altura}:${chave}`, { altura, tipo, x, z, rot });
+    const passo = VAO + COL_X;
+    if (l.centro) {
+      const L = comprimentoFileira(estado.modulos);
+      const x0 = -L / 2, a = estado.altura;
+      for (let f = 0; f < fileiras(); f++) {
+        const z = zDaFileira(f);
+        pos(a, "inicio", `c${f}:inicio`, x0 + COL_X, z, 0);
+        for (let i = 0; i < estado.modulos; i++) {
+          const xi = x0 + COL_X + i * passo;
+          const { esq, dir } = estado.tipos[i];
+          pos(a, "modulo", `c${f}:m${i}`, xi, z, 0);
+          pos(a, `face:${esq}`, `c${f}:m${i}:esq:${esq}`, xi, z, 0); // lado esquerdo = +Z, visto de quem está na ponta olhando a fileira
+          pos(a, `face:${dir}`, `c${f}:m${i}:dir:${dir}`, xi + VAO, z, Math.PI);
+        }
+        if (estado.pontas >= 1) pos(a, "ponta", `c${f}:pontaD`, L / 2, z, 0);
+        if (estado.pontas >= 2) pos(a, "ponta", `c${f}:pontaE`, -L / 2, z, Math.PI);
       }
-      if (estado.pontas >= 1) pos("ponta", "pontaD", L / 2, 0);
-      if (estado.pontas >= 2) pos("ponta", "pontaE", -L / 2, Math.PI);
     }
+    // Paredes: módulo 1 fica junto do fundo nas laterais, então os números não mudam quando a parede cresce.
+    const a = estado.alturaParede;
+    const q = paredesDe(estado);
+    const parede = (lado, t, n, inicio, modulo, rot) => {
+      pos(a, "inicioParede", `${lado}${t}:inicio`, inicio[0], inicio[1], rot);
+      for (let i = 0; i < n; i++) {
+        const [x, z] = modulo(i);
+        const tipo = estado.tiposParede[lado][t][i];
+        pos(a, "moduloParede", `${lado}${t}:m${i}`, x, z, rot);
+        pos(a, `face:${tipo}`, `${lado}${t}:m${i}:${tipo}`, x, z, rot);
+      }
+    };
+    trechosDoLado(q.dir).forEach(({ n, inicio }, t) => {
+      const x = l.inicioD + inicio + COL_X;
+      parede("dir", t, n, [x, -l.planoLateral], (i) => [x + i * passo, -l.planoLateral], 0);
+    });
+    trechosDoLado(q.esq).forEach(({ n, inicio }, t) => {
+      const x = l.inicioE + inicio;
+      parede("esq", t, n, [x + n * passo, l.planoLateral], (i) => [x + COL_X + i * passo + VAO, l.planoLateral], Math.PI);
+    });
+    trechosDoLado(q.fundo).forEach(({ n, inicio }, t) => {
+      const z = l.fundoIni - inicio - COL_X;
+      parede("fundo", t, n, [l.planoFundo, z], (i) => [l.planoFundo, z - i * passo], Math.PI / 2);
+    });
+    // Um pilar em cada vão entre duas paredes do mesmo lado.
+    const noVao = (lista, fazer) => trechosDoLado(lista).slice(0, -1).forEach(({ n, inicio }, t) => fazer(t, inicio + comprimentoFileira(n) + VAO_COLUNA / 2));
+    noVao(q.dir, (t, d) => pos(a, "pilar", `dir${t}:pilar`, l.inicioD + d, -l.planoLateral, 0));
+    noVao(q.esq, (t, d) => pos(a, "pilar", `esq${t}:pilar`, l.inicioE + d, l.planoLateral, Math.PI));
+    noVao(q.fundo, (t, d) => pos(a, "pilar", `fundo${t}:pilar`, l.planoFundo, l.fundoIni - d, Math.PI / 2));
+    const meioCanto = CANTO_ATE_COLUNA / 2;
+    if (l.cantoE) pos(a, "canto", "canto:esq", l.planoFundo + meioCanto, l.planoLateral - meioCanto, (3 * Math.PI) / 4);
+    if (l.cantoD) pos(a, "canto", "canto:dir", l.planoFundo + meioCanto, meioCanto - l.planoLateral, Math.PI / 4);
+    if (l.Lf && l.Ld && !l.cantoD) pos(a, "fecho", "fecho:dir", l.planoFundo + FACE_Z, -l.planoLateral, 0);
+    if (l.Lf && l.Le && !l.cantoE) pos(a, "fecho", "fecho:esq", l.inicioE, l.planoLateral, Math.PI);
+
     for (let i = unidades.length - 1; i >= 0; i--) if (!querer.has(unidades[i].chave)) unidades.splice(i, 1);
     modelos.forEach((m) => { m.usados = 0; });
-    for (const [chave, q] of querer) {
+    for (const [chave, u0] of querer) {
       let u = unidades.find((v) => v.chave === chave);
       if (!u) {
-        u = { chave, modelo: modelo(estado.linha, estado.altura, q.tipo), xAtual: q.x, zAtual: q.z, yAtual: semMovimento ? 0 : 0.55 };
+        u = { chave, modelo: modelo(estado.linha, u0.altura, u0.tipo), xAtual: u0.x, zAtual: u0.z, yAtual: semMovimento ? 0 : 0.55 };
         unidades.push(u);
       }
-      u.xAlvo = q.x; u.zAlvo = q.z; u.rot = q.rot;
+      u.xAlvo = u0.x; u.zAlvo = u0.z; u.rot = u0.rot;
       u.slot = u.modelo.usados++;
     }
     modelos.forEach((m) => { m.malhas.forEach((malha) => { malha.count = m.usados; malha.visible = m.usados > 0; }); });
     escreverPosicoes();
 
-    const { xMin, xMax, avanco } = limites();
-    contatos.children.forEach((c, f) => {
-      c.visible = f < fileiras();
-      if (!c.visible) return;
-      c.position.set((xMin + xMax) / 2, 0.002, zDaFileira(f));
-      c.scale.set((xMax - xMin + 0.16) * pernas, (2 * avanco + 0.16) * pernas, 1);
+    // Sombra de contato no piso: [centro x, centro z, tamanho x, tamanho z]
+    const fund = l.avanco + ATRAS_PAREDE;
+    const marcas = [];
+    if (l.centro) for (let f = 0; f < fileiras(); f++) marcas.push([(l.centro.xMin + l.centro.xMax) / 2, zDaFileira(f), l.centro.xMax - l.centro.xMin, 2 * l.avanco]);
+    const emLateral = (lista, x0, z) => trechosDoLado(lista).forEach(({ n, inicio }) => marcas.push([x0 + inicio + comprimentoFileira(n) / 2, z, comprimentoFileira(n), fund]));
+    emLateral(q.esq, l.inicioE, l.planoLateral + (ATRAS_PAREDE - l.avanco) / 2);
+    emLateral(q.dir, l.inicioD, -l.planoLateral - (ATRAS_PAREDE - l.avanco) / 2);
+    trechosDoLado(q.fundo).forEach(({ n, inicio }) => marcas.push([l.planoFundo + (l.avanco - ATRAS_PAREDE) / 2, l.fundoIni - inicio - comprimentoFileira(n) / 2, fund, comprimentoFileira(n)]));
+    // [.., ângulo]: o canto fica a 45° no piso
+    const fundoCanto = (FACE_Z + LINHAS[estado.linha].profBase) / Math.SQRT2;
+    const recuoCanto = (CANTO_ATE_COLUNA + fundoCanto / Math.SQRT2) / 2;
+    const marcaCanto = (sinal) => marcas.push([l.planoFundo + recuoCanto, sinal * (l.planoLateral - recuoCanto), Math.SQRT2 * CANTO_ATE_COLUNA - fundoCanto, fundoCanto, -sinal * Math.PI / 4]);
+    if (l.cantoE) marcaCanto(1);
+    if (l.cantoD) marcaCanto(-1);
+    contatos.children.forEach((c, i) => {
+      const m = marcas[i];
+      c.visible = !!m;
+      if (!m) return;
+      c.position.set(m[0], 0.002, m[1]);
+      c.rotation.z = m[4] || 0;
+      c.scale.set((m[2] + 0.16) * pernas, (m[3] + 0.16) * pernas, 1);
     });
     renderer.shadowMap.needsUpdate = true;
     pedirQuadro(3);
@@ -739,17 +883,17 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   let voo = null;
   // Distância exata para a gôndola inteira caber no quadro, seja qual for o formato da tela.
   // Com "centrar", também move a mira para a gôndola ficar no meio da imagem.
-  function enquadrar(dir, alvo, centrar = true) {
+  function enquadrar(dir, alvo, centrar = true, caixa = null) {
     const tv = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), th = tv * camera.aspect;
     const direita = new THREE.Vector3(0, 1, 0).cross(dir).normalize();
     const cima = dir.clone().cross(direita).normalize();
-    const { xMin, xMax, z } = limites();
+    const { xMin, xMax, zMin, zMax, yMax } = caixa || limites();
     const v = new THREE.Vector3();
     let d = 0;
     for (let passo = 0; passo < (centrar ? 3 : 1); passo++) {
       const cantos = [];
       d = 0;
-      for (const x of [xMin, xMax]) for (const y of [0, ALTURAS[estado.altura].m]) for (const zz of [-z, z]) {
+      for (const x of [xMin, xMax]) for (const y of [0, yMax]) for (const zz of [zMin, zMax]) {
         v.set(x, y, zz).sub(alvo);
         const c = [v.dot(direita), v.dot(cima), v.dot(dir)];
         cantos.push(c);
@@ -763,37 +907,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     return Math.min(d * (compacto ? 1.08 : 1.06), controles.maxDistance);
   }
 
-  function irPara(vista, instantaneo) {
-    estado.vista = vista;
-    controles.autoRotate = vista === "giro" && !semMovimento;
-    const { xMin, xMax } = limites();
-    const total = xMax - xMin;
-    const varias = fileiras() > 1;
-    const alvo = new THREE.Vector3((xMin + xMax) / 2, ALTURAS[estado.altura].m / 2, 0);
-    // Com mais de uma fileira a câmera sobe e fica mais de lado, para os corredores aparecerem.
-    const azQuina = varias ? 1.15 : compacto ? 0.95 : 0.82;
-    const subida = varias ? 0.2 : 0.1;
-    let p;
-    if (vista === "corredor") {
-      const d = Math.min(total / 2 + 1.4, 6);
-      const lado = estado.pontas >= 1 ? 1 : -1;
-      const z = varias ? zDaFileira(Math.floor((fileiras() - 2) / 2)) + passoFileiras() / 2 : FACE_Z + LINHAS[estado.linha].profBase + 0.9;
-      p = new THREE.Vector3(lado * d, 1.5, z);
-      alvo.set(0, 1.0, varias ? z : 0.1);
-    } else if (vista === "giro") {
-      // Longe o bastante para caber em qualquer ângulo da volta inteira.
-      const dir = new THREE.Vector3(Math.sin(azQuina), subida, Math.cos(azQuina) * estado.ladoCamera).normalize();
-      let d = 0;
-      for (let a = 0; a < Math.PI; a += 0.26) d = Math.max(d, enquadrar(new THREE.Vector3(Math.sin(a), subida, Math.cos(a)).normalize(), alvo, false));
-      p = dir.multiplyScalar(d).add(alvo);
-    } else {
-      // Tela estreita: fileira longa não cabe de frente, então a câmera fica um pouco de lado.
-      const az = vista === "frente" ? (camera.aspect < 1.1 ? THREE.MathUtils.clamp((total - 3) * 0.22, 0, 0.95) : 0) : azQuina;
-      const dir = new THREE.Vector3(Math.sin(az), vista === "frente" ? (varias ? 0.12 : 0.05) : subida, Math.cos(az) * estado.ladoCamera).normalize();
-      const d = enquadrar(dir, alvo);
-      p = dir.multiplyScalar(d).add(alvo);
-    }
-    p.y = Math.min(p.y, PE_DIREITO - 0.3); // não atravessa o forro
+  function voarPara(p, alvo, instantaneo) {
     if (instantaneo || semMovimento) {
       voo = null;
       camera.position.copy(p);
@@ -811,47 +925,180 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     pedirQuadro(3);
   }
 
+  // Uma lateral sozinha: a câmera fica do lado das prateleiras dela, não nas costas.
+  const ladoDaLateral = (l) => (l.Le && !l.Ld ? -1 : l.Ld && !l.Le ? 1 : 0);
+  function acertarLado() {
+    const lado = ladoDaLateral(limites());
+    if (lado) estado.ladoCamera = lado;
+  }
+
+  function irPara(vista, instantaneo) {
+    estado.vista = vista;
+    controles.autoRotate = vista === "giro" && !semMovimento;
+    const l = limites();
+    const total = l.xMax - l.xMin;
+    const temParede = !!(l.Le || l.Ld || l.Lf);
+    const varias = !!l.centro && fileiras() > 1;
+    if (!l.centro) acertarLado(); // com centro, o lado também serve para olhar os dois lados dele
+    const soUmaLateral = !l.centro && !l.Lf && !!ladoDaLateral(l);
+    const lado = estado.ladoCamera;
+    const alvo = new THREE.Vector3((l.xMin + l.xMax) / 2, l.yMax / 2, (l.zMin + l.zMax) / 2);
+    // Com parede a câmera sobe, para ver por cima das gôndolas; mais ainda se tiver parede do lado dela.
+    const paredeNaFrente = lado > 0 ? l.Le : l.Ld;
+    const azQuina = temParede ? (paredeNaFrente ? 1.22 : 1.0) : varias ? 1.15 : compacto ? 0.95 : 0.82;
+    const subida = temParede ? (paredeNaFrente ? 0.85 : 0.5) : varias ? 0.2 : 0.1;
+    let p;
+    if (vista === "corredor" && l.centro) {
+      const d = Math.min((l.centro.xMax - l.centro.xMin) / 2 + 1.4, 6);
+      const sentido = temParede || estado.pontas >= 1 ? 1 : -1;
+      const entreLinhas = varias || !!l.Le;
+      const z = varias ? zDaFileira(Math.floor((fileiras() - 2) / 2)) + passoFileiras() / 2
+        : l.Le ? l.centro.z + (l.vaoInterno - l.centro.z) / 2
+        : FACE_Z + LINHAS[estado.linha].profBase + 0.9;
+      p = new THREE.Vector3(sentido * d, 1.5, z);
+      alvo.set(0, 1.0, entreLinhas ? z : 0.1);
+    } else if (vista === "corredor") {
+      // Só parede: de pé no meio da loja, olhando para o fundo.
+      const z = l.Le && !l.Ld ? l.vaoInterno - 0.6 : l.Ld && !l.Le ? 0.6 - l.vaoInterno : 0;
+      const fim = l.Le || l.Ld ? Math.max(l.inicioE + l.Le, l.inicioD + l.Ld) : l.planoFundo + l.avanco + 3;
+      p = new THREE.Vector3(fim + 2.4, 1.5, z);
+      alvo.set(l.planoFundo, 1.0, z);
+    } else if (vista === "geral") {
+      // Parede única vista da ponta viraria um risco: fica de frente para ela.
+      const az = soUmaLateral ? 0.45 : 1.45;
+      const dir = new THREE.Vector3(Math.sin(az), soUmaLateral ? 0.7 : 0.95, Math.cos(az) * lado).normalize();
+      const d = enquadrar(dir, alvo);
+      p = dir.multiplyScalar(d).add(alvo);
+    } else if (vista === "giro") {
+      // Longe o bastante para caber em qualquer ângulo da volta inteira.
+      const dir = new THREE.Vector3(Math.sin(azQuina), subida, Math.cos(azQuina) * lado).normalize();
+      let d = 0;
+      for (let a = 0; a < Math.PI; a += 0.26) d = Math.max(d, enquadrar(new THREE.Vector3(Math.sin(a), subida, Math.cos(a)).normalize(), alvo, false));
+      p = dir.multiplyScalar(d).add(alvo);
+    } else {
+      // Frente com parede = da entrada, olhando para o fundo; parede única, de frente para ela. Sem parede, em tela estreita, fileira longa não cabe de frente: a câmera fica um pouco de lado.
+      const az = vista === "frente" ? (temParede && !soUmaLateral ? Math.PI / 2 : camera.aspect < 1.1 ? THREE.MathUtils.clamp((total - 3) * 0.22, 0, 0.95) : 0) : azQuina;
+      const y = vista === "frente" ? (temParede ? 0.22 : varias ? 0.12 : 0.05) : subida;
+      const dir = new THREE.Vector3(Math.sin(az), y, Math.cos(az) * lado).normalize();
+      const d = enquadrar(dir, alvo);
+      p = dir.multiplyScalar(d).add(alvo);
+    }
+    if ((!temParede && vista !== "geral") || vista === "frente") p.y = Math.min(p.y, PE_DIREITO - 0.3); // nessas vistas fica abaixo do forro
+    if (vista === "frente") { // e dentro do salão: numa loja enorme, as pontas das laterais podem ficar fora do quadro
+      p.x = THREE.MathUtils.clamp(p.x, 0.5 - SALA_X, SALA_X - 0.5);
+      p.z = THREE.MathUtils.clamp(p.z, 0.5 - SALA_Z, SALA_Z - 0.5);
+    }
+    voarPara(p, alvo, instantaneo);
+  }
+
+  // Mudou o tamanho com a câmera solta (arrastada ou olhando uma parede): mantém o ângulo e faz tudo caber de novo.
+  function reenquadrar() {
+    const l = limites();
+    const alvo = new THREE.Vector3((l.xMin + l.xMax) / 2, l.yMax / 2, (l.zMin + l.zMax) / 2);
+    const dir = (voo ? voo.para.clone().sub(voo.tPara) : camera.position.clone().sub(controles.target)).normalize();
+    const d = enquadrar(dir, alvo);
+    voarPara(dir.multiplyScalar(d).add(alvo), alvo);
+  }
+
   // Trocou um lado que está de costas: a câmera vai até ele, para a mudança aparecer.
   function verLado(lado) {
     const sinal = lado === "esq" ? 1 : -1;
     estado.ladoCamera = sinal;
     if (estado.vista === "giro" || estado.vista === "corredor") return;
-    if (Math.sign(camera.position.z - controles.target.z) === sinal) return;
-    irPara(estado.vista || "ponta");
+    if (estado.vista !== "geral" && Math.sign(camera.position.z - controles.target.z) === sinal) return;
+    irPara(estado.vista === "geral" ? "ponta" : estado.vista || "ponta");
     aoMudarVista?.(estado.vista);
   }
 
+  // Trocou o tipo de uma parede que não está à vista: a câmera enquadra só ela, de cima, para olhar por cima do centro.
+  function verParede(lado) {
+    if (estado.vista === "giro") return;
+    const n = lado === "esq" ? [0, -1] : lado === "dir" ? [0, 1] : [1, 0];
+    const olhar = camera.position.clone().sub(controles.target);
+    if ((olhar.x * n[0] + olhar.z * n[1]) / (Math.hypot(olhar.x, olhar.z) || 1) > 0.25) return;
+    if (n[1]) estado.ladoCamera = n[1];
+    const l = limites();
+    const yMax = ALTURAS[estado.alturaParede].m;
+    const caixa = lado === "fundo"
+      ? { xMin: l.planoFundo - ATRAS_PAREDE, xMax: l.planoFundo + l.avanco, zMin: l.fundoIni - l.Lf, zMax: l.fundoIni, yMax }
+      : { xMin: lado === "esq" ? l.inicioE : l.inicioD, xMax: lado === "esq" ? l.inicioE + l.Le : l.inicioD + l.Ld, zMin: lado === "esq" ? l.vaoInterno : -l.planoLateral - ATRAS_PAREDE, zMax: lado === "esq" ? l.planoLateral + ATRAS_PAREDE : -l.vaoInterno, yMax };
+    const alvo = new THREE.Vector3((caixa.xMin + caixa.xMax) / 2, yMax / 2, (caixa.zMin + caixa.zMax) / 2);
+    const dir = lado === "fundo"
+      ? new THREE.Vector3(1, l.centro ? 0.8 : 0.45, 0.12).normalize()
+      : new THREE.Vector3(0.25, l.centro ? 1.25 : 0.7, n[1]).normalize();
+    const d = enquadrar(dir, alvo, true, caixa);
+    controles.autoRotate = false;
+    estado.vista = "";
+    aoMudarVista?.("");
+    voarPara(dir.multiplyScalar(d).add(alvo), alvo);
+  }
+
   // Números dos módulos e o lado à vista: ficam na tela, nunca entram na imagem do cliente.
-  let rotulosLigados = false;
+  let rotulosLigados = { centro: false, parede: false };
   const estiloRotulo = "position:absolute;pointer-events:none;font-family:'DM Sans',sans-serif;";
-  const rotulosModulo = Array.from({ length: MAX_MODULOS }, (_, i) => {
+  const novoRotulo = (texto) => {
     const el = document.createElement("div");
-    el.textContent = i + 1;
-    el.style.cssText = `${estiloRotulo}left:0;top:0;display:none;width:22px;height:22px;line-height:22px;border-radius:11px;text-align:center;background:#F5A623;color:#000;font-size:12px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.6);`;
+    el.textContent = texto;
+    el.style.cssText = `${estiloRotulo}left:0;top:0;display:none;min-width:22px;height:22px;line-height:22px;padding:0 4px;box-sizing:border-box;border-radius:11px;text-align:center;background:#F5A623;color:#000;font-size:12px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.6);`;
     camadaRotulos?.appendChild(el);
     return el;
-  });
+  };
+  const rotulosModulo = Array.from({ length: MAX_MODULOS }, (_, i) => novoRotulo(i + 1));
+  const rotulosParede = Object.fromEntries(Object.keys(LETRA_PAREDE).map((lado) => [lado, Array.from({ length: MAX_MODULOS_LADO }, () => novoRotulo(""))]));
   const tagLado = document.createElement("div");
   tagLado.style.cssText = `${estiloRotulo}bottom:46px;left:10px;display:none;padding:5px 11px;border-radius:14px;background:rgba(0,0,0,.74);color:#fff;font-size:12px;font-weight:600;`;
   camadaRotulos?.appendChild(tagLado);
   const proj = new THREE.Vector3();
+  let rotulosNaTela = [];
+  const colocarRotulo = (el, x, y, z, ver) => {
+    if (ver) proj.set(x, y, z).project(camera);
+    const px = ((proj.x + 1) / 2) * W, py = ((1 - proj.y) / 2) * H_TELA;
+    // Muitos módulos longe da câmera: os números se atropelariam, então mostra só os que cabem.
+    const aparece = ver && proj.z < 1 && !rotulosNaTela.some(([a, b]) => Math.abs(a - px) < Math.max(30, el.textContent.length * 9) && Math.abs(b - py) < 22);
+    el.style.display = aparece ? "block" : "none";
+    if (aparece) {
+      rotulosNaTela.push([px, py]);
+      el.style.transform = `translate(${px.toFixed(1)}px,${py.toFixed(1)}px) translate(-50%,-50%)`;
+    }
+  };
   function atualizarRotulos() {
-    const ver = rotulosLigados && estado.vista !== "corredor";
-    tagLado.style.display = ver ? "block" : "none";
-    if (ver) tagLado.textContent = camera.position.z >= controles.target.z ? "Vendo o lado esquerdo" : "Vendo o lado direito";
-    const L = comprimentoFileira(estado.modulos);
-    const f = camera.position.z >= controles.target.z ? fileiras() - 1 : 0; // a fileira mais perto da câmera
-    rotulosModulo.forEach((el, i) => {
-      proj.set(-L / 2 + COL_X + i * (VAO + COL_X) + VAO / 2, ALTURAS[estado.altura].m + 0.11, zDaFileira(f)).project(camera);
-      const aparece = ver && i < estado.modulos && proj.z < 1;
-      el.style.display = aparece ? "block" : "none";
-      if (aparece) el.style.transform = `translate(${(((proj.x + 1) / 2) * W - 11).toFixed(1)}px,${(((1 - proj.y) / 2) * H_TELA - 11).toFixed(1)}px)`;
-    });
+    rotulosNaTela = [];
+    const l = limites();
+    const foraDoCorredor = estado.vista !== "corredor";
+    const verCentro = rotulosLigados.centro && foraDoCorredor && !!l.centro;
+    const verParedes = rotulosLigados.parede && foraDoCorredor;
+    const passo = VAO + COL_X;
+    const doLadoEsquerdo = camera.position.z >= controles.target.z;
+    tagLado.style.display = verCentro ? "block" : "none";
+    if (verCentro) tagLado.textContent = doLadoEsquerdo ? "Vendo o lado esquerdo" : "Vendo o lado direito";
+    const x0 = -comprimentoFileira(estado.modulos) / 2;
+    const f = doLadoEsquerdo ? fileiras() - 1 : 0; // a fileira mais perto da câmera
+    rotulosModulo.forEach((el, i) => colocarRotulo(el, x0 + COL_X + i * passo + VAO / 2, ALTURAS[estado.altura].m + 0.11, zDaFileira(f), verCentro && i < estado.modulos));
+    const q = paredesDe(estado);
+    const y = ALTURAS[estado.alturaParede].m + 0.11;
+    const lugar = {
+      esq: (inicio, i) => [l.inicioE + inicio + COL_X + i * passo + VAO / 2, l.planoLateral],
+      dir: (inicio, i) => [l.inicioD + inicio + COL_X + i * passo + VAO / 2, -l.planoLateral],
+      fundo: (inicio, i) => [l.planoFundo, l.fundoIni - inicio - COL_X - i * passo - VAO / 2],
+    };
+    for (const lado of Object.keys(LETRA_PAREDE)) {
+      let k = 0;
+      trechosDoLado(q[lado]).forEach(({ n, inicio }, t) => {
+        for (let i = 0; i < n; i++, k++) {
+          const el = rotulosParede[lado][k];
+          const texto = nomeModuloParede(lado, q[lado].length, t, i);
+          if (el.textContent !== texto) el.textContent = texto;
+          const [x, z] = lugar[lado](inicio, i);
+          colocarRotulo(el, x, y, z, verParedes);
+        }
+      });
+      for (; k < MAX_MODULOS_LADO; k++) colocarRotulo(rotulosParede[lado][k], 0, 0, 0, false);
+    }
   }
-  function mostrarRotulos(v) { rotulosLigados = !!v; atualizarRotulos(); }
+  function mostrarRotulos(v) { rotulosLigados = v; atualizarRotulos(); }
 
   // ── Pós-processamento ──
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: compacto ? 2 : 4 }));
   composer.addPass(new RenderPass(cena, camera));
   const gtao = new GTAOPass(cena, camera, 1, 1);
   gtao.updateGtaoMaterial({ radius: 0.32, distanceExponent: 1.2, thickness: 1, scale: 1.25, samples: compacto ? 8 : 16, distanceFallOff: 1, screenSpaceRadius: false });
@@ -946,10 +1193,10 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     }
     if (mexeu) { escreverPosicoes(); pedirQuadro(2); renderer.shadowMap.needsUpdate = true; }
 
-    // limite: a câmera não atravessa o forro
-    const dist = camera.position.distanceTo(controles.target);
-    controles.minPolarAngle = Math.acos(Math.min(0.98, (PE_DIREITO - 0.25 - controles.target.y) / dist));
     controles.update();
+    // Acima do forro ele some: dá para ver a loja inteira de cima.
+    const acimaDoForro = camera.position.y > PE_DIREITO - 0.05;
+    if (teto[0].visible === acimaDoForro) teto.forEach((o) => { o.visible = !acimaDoForro; });
     if (controles.autoRotate) pedirQuadro(2);
 
     // Girando: sem o sombreamento fino, para ficar fluido. Parou: um quadro completo.
@@ -964,7 +1211,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
       medirFolego(msQuadro, movendo);
       if (!(fraco && movendo)) desenharReflexo();
       composer.render(dt);
-      if (rotulosLigados) atualizarRotulos();
+      if (rotulosLigados.centro || rotulosLigados.parede) atualizarRotulos();
     }
   }
   function ligarLaco() {
@@ -973,13 +1220,20 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
 
   // ── Mouse e toque ──
   let aoTocar = null, baixo = false;
+  const soltarVista = () => { if (estado.vista !== "giro" && estado.vista) { estado.vista = ""; aoMudarVista?.(""); } };
   const aoIniciarControle = () => {
     aoTocar = { pos: camera.position.clone(), alvo: controles.target.clone(), voo, vista: estado.vista };
+    if (voo) soltarVista(); // a câmera para no meio do caminho
     voo = null;
     pedirQuadro(2);
-    if (estado.vista !== "giro" && estado.vista) { estado.vista = ""; aoMudarVista?.(""); }
   };
-  const aoMudarControle = () => pedirQuadro(2);
+  // Só clicar não solta a vista: o clique também serve para ligar a rodinha do mouse.
+  const aoMudarControle = () => {
+    pedirQuadro(2);
+    // A folga é proporcional à distância: 1 px de tremida num clique já move a câmera alguns centímetros.
+    if (baixo && aoTocar && aoTocar.pos.distanceTo(camera.position) > 0.01 * aoTocar.pos.distanceTo(aoTocar.alvo)) soltarVista();
+  };
+  const aoRodar = () => { if (controles.enableZoom) soltarVista(); };
   const aoBaixar = () => { baixo = true; controles.enableZoom = true; canvas.style.cursor = "grabbing"; };
   const aoSoltar = () => {
     canvas.style.cursor = "grab";
@@ -1008,6 +1262,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   canvas.addEventListener("pointerup", aoSoltar);
   canvas.addEventListener("pointercancel", aoCancelar);
   canvas.addEventListener("pointerleave", aoSair);
+  canvas.addEventListener("wheel", aoRodar, { passive: true });
   canvas.style.cursor = "grab";
 
   // O aparelho pode derrubar o WebGL (voltar de segundo plano, pouca memória); o preventDefault deixa a cena voltar.
@@ -1029,23 +1284,31 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   // ── Ligar ──
   // Deixa as fontes prontas agora: a imagem é desenhada de uma vez, sem espera entre o toque e o compartilhar.
   ["700 34px 'Playfair Display'", "700 32px 'DM Sans'", "500 26px 'DM Sans'"].forEach((f) => document.fonts?.load(f).catch(() => {}));
-  montar();
-  ajustarTela();
-  irPara(estado.vista || "ponta", true);
-  iniciado = true;
-  ligarLaco();
-
-  function configurar({ modulos, pontas, linha, altura, corredores, tipos }) {
-    // Trocar só o tipo de um lado não muda o tamanho: a câmera fica onde está.
-    const mudouTamanho = modulos !== estado.modulos || pontas !== estado.pontas || linha !== estado.linha || altura !== estado.altura || corredores !== estado.corredores;
-    Object.assign(estado, { modulos, pontas, linha, altura, corredores, tipos });
+  try {
     montar();
-    if (mudouTamanho && estado.vista) irPara(estado.vista);
+    acertarLado();
+    ajustarTela();
+    irPara(estado.vista || "ponta", true);
+    iniciado = true;
+    ligarLaco();
+  } catch (e) {
+    destruir(); // "Tentar de novo" cria tudo outra vez: o contexto WebGL e os observadores não podem ficar soltos
+    throw e;
+  }
+
+  function configurar(cfg) {
+    const mudouParedes = cfg.montagem !== estado.montagem || cfg.cantos.esq !== estado.cantos.esq || cfg.cantos.dir !== estado.cantos.dir || Object.keys(LETRA_PAREDE).some((k) => cfg.paredes[k].join() !== estado.paredes[k].join());
+    // Trocar só o tipo de um lado não muda o tamanho: a câmera fica onde está.
+    const mudouTamanho = mudouParedes || ["modulos", "pontas", "linha", "altura", "corredores", "alturaParede"].some((k) => cfg[k] !== estado[k]);
+    Object.assign(estado, cfg);
+    montar();
+    if (mudouParedes) acertarLado();
+    if (mudouTamanho) { if (estado.vista) irPara(estado.vista); else reenquadrar(); }
     atualizarRotulos();
   }
 
   // Imagem para mandar ao cliente: quadro completo em alta resolução, com as medidas numa faixa embaixo.
-  function gerarImagem({ titulo, expositor, medidas, nota }) {
+  function gerarImagem({ titulo, extras = [], medidas, nota }) {
     if (renderer.getContext().isContextLost()) throw new Error("WebGL indisponível"); // sairia uma imagem preta
     // Termina na hora o que estiver animando: a imagem tem que sair com a configuração final.
     for (const u of unidades) { u.xAtual = u.xAlvo; u.zAtual = u.zAlvo; u.yAtual = 0; }
@@ -1066,7 +1329,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
 
     const largura = canvas.width, altura = canvas.height;
     const faixaBase = Math.round(Math.max(150, largura * 0.115));
-    const faixa = expositor ? Math.round(faixaBase * 1.24) : faixaBase; // linha a mais para os tipos, sem encolher o título
+    const faixa = Math.round(faixaBase * (1 + 0.24 * extras.length)); // linhas a mais, sem encolher o título
     const [saidaImg, g] = folha(largura, altura + faixa);
     g.drawImage(canvas, 0, 0);
     definirNitidez(anterior);
@@ -1098,7 +1361,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     };
     const linhas = [
       [titulo, 32, 700, "#FFFFFF"],
-      ...(expositor ? [[expositor, 26, 600, "#ECEDF1"]] : []),
+      ...extras.map((t) => [t, 26, 600, "#ECEDF1"]),
       [medidas, 26, 500, "#ECEDF1"],
       [nota, 21, 500, "#8B8C97"],
     ];
@@ -1122,11 +1385,11 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     canvas.removeEventListener("pointerup", aoSoltar);
     canvas.removeEventListener("pointercancel", aoCancelar);
     canvas.removeEventListener("pointerleave", aoSair);
+    canvas.removeEventListener("wheel", aoRodar);
     canvas.removeEventListener("webglcontextlost", aoPerderContexto);
     canvas.removeEventListener("webglcontextrestored", aoRecuperarContexto);
     controles.dispose();
-    rotulosModulo.forEach((el) => el.remove());
-    tagLado.remove();
+    [...rotulosModulo, ...Object.values(rotulosParede).flat(), tagLado].forEach((el) => el.remove());
     const materiais = new Set(), geometrias = new Set();
     const coletar = (o) => o.traverse((n) => {
       if (n.geometry) geometrias.add(n.geometry);
@@ -1147,5 +1410,5 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     renderer.forceContextLoss?.();
   }
 
-  return { configurar, irPara, verLado, mostrarRotulos, gerarImagem, destruir };
+  return { configurar, irPara, verLado, verParede, mostrarRotulos, gerarImagem, destruir };
 }

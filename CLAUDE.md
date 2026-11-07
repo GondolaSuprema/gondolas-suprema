@@ -48,8 +48,10 @@ Rodar local: `npm run dev`. Build: `npm run build`.
 **Mudar acesso = editar o objeto `ROLE_PERMISSIONS` (`App.jsx` ~L2343). NÃO
 espalhe `if` de papel pelo código.** `canAccess(user, aba)` é a única porta.
 
-- `ALE_ONLY_TABS = ["leadmarc"]` → só o Ale (`user.id === "v1"`), independente do
-  papel. (DRE e Conciliação SAÍRAM em 15-set: a contabilidade passou a vê-los.)
+- `ALE_ONLY_TABS = []` → hoje nenhuma aba é exclusiva do Ale. O mecanismo continua
+  em `canAccess`. (DRE e Conciliação saíram em 15-set: a contabilidade passou a
+  vê-los. A aba Lead Marcenaria foi excluída do sistema em 7-nov-2026, a pedido do
+  Ale; as tabelas `marcenaria_leads` e `marc_orcamentos` continuam no banco, sem tela.)
 - **gestor (Zanella)**: SEM comissões. TEM Financeiro **somente leitura**
   (bloqueio via `somenteLeitura` no `FinanceiroPage`). TEM NF **completa**
   (emite/cancela/CC-e via `podeEmitir`).
@@ -123,7 +125,7 @@ Regras por família (motivo de existirem — fáceis de quebrar):
 
 `orcamentos`, `notas_fiscais`, `despesas`, `boletos_a_pagar`,
 `lancamentos_bancarios`, `agenda_tarefas` (RLS por `auth.uid()`),
-`marcenaria_leads`, `marc_orcamentos` (RLS só o Ale / `is_ale()`),
+`marcenaria_leads`, `marc_orcamentos` (RLS só o Ale / `is_ale()`; sem tela desde 7-nov-2026),
 `mariana_leads`, `mariana_chat_memory`, `produtos_uniplus`, `produtos_mpp_china`.
 
 Ao inserir, `user_id` normalmente vai por DEFAULT `auth.uid()` no banco — o
@@ -166,7 +168,7 @@ silêncio.
 |---|---|---|---|
 | Login | `Login` | 2701 | Supabase Auth |
 | Painel (3D interativo em WebGL: `Arena3D` + `src/lib/arena3d.js`, com Three.js) | `PainelPage` | 9459 | orcamentos + mariana_leads |
-| Projeto (configurador 3D da gôndola: `src/lib/projeto3d.js` + `projetoMedidas.js`, sem banco) | `ProjetoPage` | 13246 | nenhuma |
+| Projeto (configurador 3D de gôndola de centro e parede, com até 4 paredes por lado, pilar e canto: `src/lib/projeto3d.js` + `projetoMedidas.js`, sem banco) | `ProjetoPage` | 12761 | nenhuma |
 | Dados do cliente | `ClientPage` | 2163 | estado `clientData` |
 | Catálogo | `Catalog` | 2813 | PRODUCTS + produtos_uniplus |
 | Carrinho | `Quote` | 3334 | — |
@@ -175,8 +177,6 @@ silêncio.
 | Logística (entregas) | `LogisticaPage` | 5204 | orcamentos (data_entrega) |
 | Comissões | `ComissoesPage` | 5683 | orcamentos + despesas (espelho) |
 | CRM de Leads | `LeadsPage` | 6793 | mariana_leads + mariana_chat_memory |
-| Lead Marcenaria | `MarcenariaLeadsPage` | 6105 | marcenaria_leads |
-| Marcenaria › Orçamentos | `MarcenariaPage` | 11544 | marc_orcamentos |
 | Agenda | `AgendaPage` | 6381 | agenda_tarefas |
 | ADM / Vendas Concluídas | `AdminPage` | 7313 | orcamentos (mês da ENTREGA) |
 | Gráficos | `GraficosPage` | 8758 | orcamentos |
@@ -218,7 +218,7 @@ silêncio.
 
 ### Conversa da Mariana (painel)
 - `prepararConversa` L6077 — normaliza texto picotado (streaming) + quebra em
-  bolhas + detecta foto. Usada em LeadsPage e MarcenariaLeadsPage. RPC
+  bolhas + detecta foto. Usada em LeadsPage. RPC
   `mariana_conversa`.
 
 ### Utilitários

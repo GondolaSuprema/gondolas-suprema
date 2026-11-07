@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
-import { LINHAS, ALTURAS, TIPOS_FACE, MAX_MODULOS, MAX_CORREDORES, medidasDe } from "../lib/projetoMedidas";
+import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_CORREDORES, medidasDe, nomeModuloParede } from "../lib/projetoMedidas";
 
 // Chamadas às rotas /api protegidas (NF-e, NFS-e, conciliação): envia o token
 // da sessão do Supabase. Sem ele a rota responde 401.
@@ -2132,7 +2132,6 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
   const tabs = [
     { k: "painel", l: "Painel" },
     { k: "leads", l: "Leads" },
-    { k: "leadmarc", l: "Lead Marcenaria" },
     { k: "client", l: "Cliente" },
     { k: "catalog", l: "Produtos" },
     { k: "projeto", l: "Projeto" },
@@ -2575,20 +2574,19 @@ const ROLE_PERMISSIONS = {
   contabilidade: ["financeiro", "nf", "conciliacao", "dre"],
 };
 
-// Abas com acesso restrito SOMENTE ao Alessandro (user.id === "v1"),
-// independente da role. Mesmo que alguém vire admin no futuro, essa
-// aba continua exclusiva dele.
+// Abas com acesso restrito SOMENTE ao Alessandro (user.id === "v1"), independente
+// da role. Hoje a lista está vazia: Lead Marcenaria foi excluída do sistema em 7-nov-2026.
 // financeiro/nf SAÍRAM: Zanella (gestor) vê financeiro (só leitura) e emite NF.
 // DRE e Conciliação SAÍRAM: a contabilidade (Nexx) passou a ver os dois (leitura),
 // via ROLE_PERMISSIONS. Continuam invisíveis a gestor/vendedores (não estão nos
-// roles deles). Só leadmarc segue exclusiva do Ale.
-const ALE_ONLY_TABS = ["leadmarc"];
+// roles deles). Nenhuma aba é exclusiva do Ale hoje.
+const ALE_ONLY_TABS = [];
 
 // canAccess(user, "adm") => true/false
 // Se nao tiver role no metadata, deriva de isAdmin (back-compat).
 function canAccess(user, tab) {
   if (!user) return false;
-  // Acesso exclusivo do Ale (v1) pras 4 abas financeiras
+  // Acesso exclusivo do Ale (v1)
   if (ALE_ONLY_TABS.includes(tab)) return user.id === "v1";
   const role = user.role || (user.isAdmin ? "admin" : "vendedor");
   return (ROLE_PERMISSIONS[role] || []).includes(tab);
@@ -6246,277 +6244,6 @@ function prepararConversa(rows, getCliente, getTexto, getFoto) {
     });
   });
   return out;
-}
-
-// ─── LEAD MARCENARIA ───
-// Aba separada pros leads de móveis/marcenaria (fluxo de WhatsApp próprio grava
-// em marcenaria_leads). Nome + telefone + status pro Ale atender e acompanhar.
-function MarcenariaLeadsPage({ user }) {
-  const C = COLORS;
-  const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState("");
-  const [filtro, setFiltro] = useState("pendente");
-  const [notaEdit, setNotaEdit] = useState({ id: null, texto: "" });
-  const [addOpen, setAddOpen] = useState(false);
-  const [novo, setNovo] = useState({ nome: "", telefone: "", cidade: "" });
-  const [subAba, setSubAba] = useState("leads"); // "leads" (Meta, a atender) | "orcamentos" (já realizados)
-
-  const carregar = async () => {
-    setLoading(true); setErro("");
-    const { data, error } = await supabase.from("marcenaria_leads").select("*").order("criado_em", { ascending: false });
-    if (error) setErro(error.message); else setLeads(data || []);
-    setLoading(false);
-  };
-  useEffect(() => { carregar(); }, []);
-
-  const STATUS = [
-    { v: "pendente", lbl: "Pendente", col: "#F59E0B" },
-    { v: "atendido", lbl: "Atendido", col: "#3B82F6" },
-    { v: "fechado",  lbl: "Fechado",  col: "#10B981" },
-    { v: "perdido",  lbl: "Perdido",  col: "#EF4444" },
-  ];
-  const stOf = (v) => STATUS.find(s => s.v === (v || "pendente")) || STATUS[0];
-
-  const setStatus = async (lead, ns) => {
-    const agora = new Date().toISOString();
-    const patch = { status_atendimento: ns, ultimo_contato_em: agora };
-    if (!lead.primeiro_contato_em && ns !== "pendente") patch.primeiro_contato_em = agora;
-    setLeads(ls => ls.map(l => l.id === lead.id ? { ...l, ...patch } : l));
-    const { error } = await supabase.from("marcenaria_leads").update(patch).eq("id", lead.id);
-    if (error) { notify("Erro ao atualizar: " + error.message, "erro"); carregar(); return; }
-    notify("Marcado como " + stOf(ns).lbl, "ok");
-  };
-
-  const salvarNota = async (lead) => {
-    const texto = notaEdit.texto.trim();
-    const patch = { observacao_vendedor: texto || null, ultimo_contato_em: new Date().toISOString() };
-    setLeads(ls => ls.map(l => l.id === lead.id ? { ...l, ...patch } : l));
-    const { error } = await supabase.from("marcenaria_leads").update(patch).eq("id", lead.id);
-    if (error) { notify("Erro ao salvar nota: " + error.message, "erro"); carregar(); }
-    else { setNotaEdit({ id: null, texto: "" }); notify("Nota salva", "ok"); }
-  };
-
-  // Fixa/desafixa o lead no topo da lista. Atualiza otimista + persiste.
-  const fixarLead = async (lead) => {
-    const novoFix = !lead.fixado;
-    setLeads(ls => ls.map(x => x.id === lead.id ? { ...x, fixado: novoFix } : x));
-    const { error } = await supabase.from("marcenaria_leads").update({ fixado: novoFix }).eq("id", lead.id);
-    if (error) { notify("Não foi possível fixar o lead: " + error.message, "erro"); carregar(); return; }
-    notify(novoFix ? "Lead fixado no topo" : "Lead desafixado", "ok");
-  };
-
-  // Conversa completa do WhatsApp (memória da Mariana, sessão "-moveis").
-  const [conversa, setConversa] = useState({ id: null, msgs: null, loading: false });
-  const verConversa = async (lead) => {
-    if (conversa.id === lead.id) { setConversa({ id: null, msgs: null, loading: false }); return; }
-    setConversa({ id: lead.id, msgs: null, loading: true });
-    const { data, error } = await supabase
-      .from("mariana_chat_memory")
-      .select("id,message")
-      .eq("session_id", String(lead.telefone || "") + "-moveis")
-      .order("id", { ascending: true });
-    if (error) { notify("Não foi possível carregar a conversa: " + error.message, "erro"); setConversa({ id: null, msgs: null, loading: false }); return; }
-    const msgs = (data || []).map(r => {
-      const m = r.message || {};
-      const texto = String(m.content || "").replace(/^\[INTERNO:[^\]]*\]\n?/, "").trim();
-      return { id: r.id, deCliente: m.type === "human", texto };
-    }).filter(m => m.texto);
-    setConversa({ id: lead.id, msgs, loading: false });
-  };
-
-  // "Fazer orçamento": cria o card na sub-aba Orçamentos (marc_orcamentos) já com os dados do lead.
-  const [criandoOrc, setCriandoOrc] = useState(null);
-  const fazerOrcamento = async (lead) => {
-    setCriandoOrc(lead.id);
-    // próximo "ordem" (fim da fila)
-    const { data: last } = await supabase.from("marc_orcamentos").select("ordem").order("ordem", { ascending: false }).limit(1);
-    const ordem = ((last && last[0] && last[0].ordem) || 0) + 1;
-    const interesse = (lead.interesse || "").trim();
-    const nomeMovel = (interesse.split(" · ")[0] || "").slice(0, 80) || "Móvel sob medida";
-    const obsPartes = ["Lead da Mariana (Meta)."];
-    if (interesse) obsPartes.push(interesse);
-    (lead.foto_urls || []).forEach((u, i) => obsPartes.push(`Foto ${i + 1}: ${u}`));
-    const { error } = await supabase.from("marc_orcamentos").insert({
-      ordem, nome_movel: nomeMovel, status_crm: "fazer",
-      cliente: lead.nome || null, cliente_telefone: lead.telefone || null, cliente_cidade: lead.cidade || null,
-      obs: obsPartes.join("\n"),
-    });
-    setCriandoOrc(null);
-    if (error) { notify("Não foi possível criar o orçamento: " + error.message, "erro"); return; }
-    if ((lead.status_atendimento || "pendente") === "pendente") setStatus(lead, "atendido");
-    notify("Orçamento criado em 'Fazer Orçamento' com os dados do cliente", "ok");
-    setSubAba("orcamentos");
-  };
-
-  // Exclui o lead de vez (com confirmação — não tem volta).
-  const excluirLead = async (lead) => {
-    const quem = lead.nome || telMostrar(lead.telefone);
-    if (!window.confirm(`Excluir o lead "${quem}"? Essa ação não tem volta.`)) return;
-    const { error } = await supabase.from("marcenaria_leads").delete().eq("id", lead.id);
-    if (error) { notify("Não foi possível excluir: " + error.message, "erro"); return; }
-    setLeads(ls => ls.filter(x => x.id !== lead.id));
-    notify("Lead excluído", "ok");
-  };
-
-  const adicionar = async () => {
-    const nome = novo.nome.trim();
-    const tel = novo.telefone.replace(/\D/g, "");
-    if (!nome && !tel) { notify("Informe nome ou telefone", "erro"); return; }
-    const { error } = await supabase.from("marcenaria_leads").insert({ nome: nome || null, telefone: tel || null, cidade: novo.cidade.trim() || null, origem: "manual" });
-    if (error) { notify("Erro ao adicionar: " + error.message, "erro"); return; }
-    setNovo({ nome: "", telefone: "", cidade: "" }); setAddOpen(false); notify("Lead adicionado", "ok"); carregar();
-  };
-
-  const waLink = (t) => { const d = String(t || "").replace(/\D/g, ""); if (!d) return null; return "https://wa.me/" + (d.startsWith("55") ? d : "55" + d); };
-  const telMostrar = (t) => { const d = String(t || "").replace(/\D/g, ""); const s = d.startsWith("55") ? d.slice(2) : d; if (s.length === 11) return `(${s.slice(0,2)}) ${s.slice(2,7)}-${s.slice(7)}`; if (s.length === 10) return `(${s.slice(0,2)}) ${s.slice(2,6)}-${s.slice(6)}`; return t || "—"; };
-  const fmtData = (s) => { if (!s) return ""; const d = new Date(s); return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); };
-
-  const pendentes = leads.filter(l => (l.status_atendimento || "pendente") === "pendente").length;
-  const lista = (filtro === "todos" ? leads : leads.filter(l => (l.status_atendimento || "pendente") === filtro))
-    .slice()
-    .sort((a, b) => (b.fixado ? 1 : 0) - (a.fixado ? 1 : 0)); // fixado no topo; no resto, mantém mais recente primeiro
-  const inp = { width: "100%", padding: "10px 12px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
-
-  return (
-    <div style={{ maxWidth: subAba === "orcamentos" ? 1150 : 900, margin: "0 auto", padding: "28px 20px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 28, margin: 0 }}>🪵 Lead Marcenaria</h1>
-        {subAba === "leads" && <button onClick={() => setAddOpen(o => !o)} style={{ background: C.orange, color: "#000", border: "none", padding: "8px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{addOpen ? "Fechar" : "+ Adicionar lead"}</button>}
-      </div>
-      <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 14px", fontFamily: "'DM Sans', sans-serif" }}>
-        {subAba === "leads" ? "Leads que chegam do Meta pela Mariana — pra você atender e acompanhar." : "Orçamentos de móveis já realizados — funil, PDF e acompanhamento."}
-      </p>
-
-      {/* Sub-abas: Leads (a atender) | Orçamentos (realizados) */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-        {[["leads", "Leads"], ["orcamentos", "Orçamentos"]].map(([v, lab]) => (
-          <button key={v} onClick={() => setSubAba(v)} style={{ background: subAba === v ? C.orange : "transparent", color: subAba === v ? "#000" : C.textMuted, border: `1px solid ${subAba === v ? C.orange : C.border}`, padding: "8px 22px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{lab}</button>
-        ))}
-      </div>
-
-      {subAba === "orcamentos" && <MarcenariaPage compact />}
-
-      {subAba === "leads" && <>
-      {addOpen && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 16, marginBottom: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
-          <input placeholder="Nome do cliente" value={novo.nome} onChange={e => setNovo(n => ({ ...n, nome: e.target.value }))} style={inp} />
-          <input placeholder="Telefone / WhatsApp" value={novo.telefone} onChange={e => setNovo(n => ({ ...n, telefone: e.target.value }))} style={inp} />
-          <input placeholder="Cidade" value={novo.cidade} onChange={e => setNovo(n => ({ ...n, cidade: e.target.value }))} style={{ ...inp, gridColumn: "1 / -1" }} />
-          <button onClick={adicionar} style={{ gridColumn: "1 / -1", background: C.orange, color: "#000", border: "none", padding: "10px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Salvar lead</button>
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-        {[{ v: "pendente", l: `Pendentes (${pendentes})` }, { v: "atendido", l: "Atendidos" }, { v: "todos", l: "Todos" }].map(f => (
-          <button key={f.v} onClick={() => setFiltro(f.v)} style={{ background: filtro === f.v ? C.orange : "transparent", color: filtro === f.v ? "#000" : C.textMuted, border: `1px solid ${filtro === f.v ? C.orange : C.border}`, padding: "5px 14px", borderRadius: 18, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{f.l}</button>
-        ))}
-      </div>
-
-      {erro && <div style={{ color: "#EF4444", fontSize: 13, marginBottom: 12, fontFamily: "'DM Sans', sans-serif" }}>{erro}</div>}
-      {loading ? (
-        <div style={{ color: C.textMuted, fontSize: 13, padding: 30, textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>Carregando…</div>
-      ) : lista.length === 0 ? (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 40, textAlign: "center", color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
-          <div style={{ fontSize: 36, marginBottom: 10 }}>🪵</div>
-          Nenhum lead {filtro !== "todos" ? "nesse status" : "cadastrado"} ainda.<br />
-          Quando o fluxo do WhatsApp de marcenaria gravar aqui, os leads aparecem nesta lista.
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {lista.map(l => {
-            const st = stOf(l.status_atendimento);
-            const wa = waLink(l.telefone);
-            return (
-              <div key={l.id} style={{ background: C.card, border: `1px solid ${l.fixado ? C.orange : C.border}`, borderLeft: `3px solid ${l.fixado ? C.orange : st.col}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: "14px 16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 17, marginBottom: 2 }}>{l.nome || "Sem nome"}</div>
-                    <div style={{ color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{telMostrar(l.telefone)}{l.cidade ? " · " + l.cidade : ""}</div>
-                    <div style={{ color: C.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>{fmtData(l.criado_em)}{l.origem ? " · " + l.origem : ""}</div>
-                    {l.interesse && (
-                      <p style={{ color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.5, margin: "8px 0 0", maxWidth: 640 }}>🪵 {l.interesse}</p>
-                    )}
-                    {Array.isArray(l.foto_urls) && l.foto_urls.length > 0 && (
-                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                        {l.foto_urls.map((u, i) => (
-                          <a key={u} href={u} target="_blank" rel="noreferrer" title="Abrir foto de referência do cliente">
-                            <img src={u} alt={`Foto de referência ${i + 1}`} style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}`, display: "block" }} />
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
-                    <button
-                      onClick={() => fixarLead(l)}
-                      title={l.fixado ? "Desafixar do topo" : "Fixar no topo da lista"}
-                      style={{ background: l.fixado ? C.orange : "transparent", color: l.fixado ? "#000" : C.textMuted, border: `1px solid ${l.fixado ? C.orange : C.border}`, padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
-                    >📌{l.fixado ? " Fixado" : ""}</button>
-                    {wa && <a href={wa} target="_blank" rel="noreferrer" onClick={() => { if ((l.status_atendimento || "pendente") === "pendente") setStatus(l, "atendido"); }} style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "7px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>WhatsApp</a>}
-                    <button
-                      onClick={() => fazerOrcamento(l)}
-                      disabled={criandoOrc === l.id}
-                      title="Criar o orçamento na sub-aba Orçamentos com os dados deste lead"
-                      style={{ background: C.orange, color: "#000", border: `1px solid ${C.orange}`, padding: "6px 12px", borderRadius: 8, cursor: criandoOrc === l.id ? "wait" : "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", opacity: criandoOrc === l.id ? 0.6 : 1 }}
-                    >{criandoOrc === l.id ? "Criando…" : "📋 Fazer orçamento"}</button>
-                    <button
-                      onClick={() => verConversa(l)}
-                      title="Ler a conversa completa do WhatsApp com a Mariana"
-                      style={{ background: conversa.id === l.id ? C.orange : "transparent", color: conversa.id === l.id ? "#000" : C.textMuted, border: `1px solid ${conversa.id === l.id ? C.orange : C.border}`, padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
-                    >💬 Conversa</button>
-                    <button
-                      onClick={() => excluirLead(l)}
-                      title="Excluir este lead (não tem volta)"
-                      style={{ background: "transparent", color: "#EF4444", border: "1px solid #EF444455", padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}
-                    >🗑</button>
-                  </div>
-                </div>
-                {conversa.id === l.id && (
-                  <div style={{ marginTop: 12, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, maxHeight: 420, overflowY: "auto" }}>
-                    {conversa.loading && <div style={{ color: C.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Carregando conversa…</div>}
-                    {!conversa.loading && (!conversa.msgs || conversa.msgs.length === 0) && (
-                      <div style={{ color: C.textDim, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Sem histórico de conversa pra esse número (a memória pode ter sido limpa).</div>
-                    )}
-                    {!conversa.loading && prepararConversa(conversa.msgs, m => m.deCliente, m => m.texto).map((m, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: m.cliente ? "flex-end" : "flex-start", marginBottom: 8 }}>
-                        <div style={{ maxWidth: "78%", padding: "8px 12px", borderRadius: 10, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", fontFamily: "'DM Sans', sans-serif", background: m.cliente ? "#1F5133" : C.card, color: C.text, border: `1px solid ${m.cliente ? "#2E7D4F" : C.border}` }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: m.cliente ? "#8FD6A9" : C.textDim, marginBottom: 2 }}>{m.cliente ? "Cliente" : "Mariana"}</div>
-                          {m.ehFoto ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontStyle: "italic", color: m.cliente ? "#CFE9D8" : C.textMuted }}>
-                              <span style={{ fontSize: 15 }}>📷</span><span>{m.texto}</span>
-                            </div>
-                          ) : m.texto}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 4, marginTop: 12, flexWrap: "wrap" }}>
-                  <span style={{ background: st.col + "22", border: `1px solid ${st.col}`, color: st.col, padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{st.lbl}</span>
-                  {l.handoff_em && <span title="A Mariana já avisou o cliente que o consultor vai chamar" style={{ background: "#3B82F622", border: "1px solid #3B82F6", color: "#60A5FA", padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>→ Encaminhado ao consultor</span>}
-                  {l.nudge_site_em && !l.handoff_em && <span title="Cliente ficou 1h sem responder e recebeu o lembrete do site" style={{ background: "#FBBF2422", border: "1px solid #FBBF24", color: "#FBBF24", padding: "4px 12px", borderRadius: 14, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>🔔 Recebeu lembrete</span>}
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  {notaEdit.id === l.id ? (
-                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <textarea autoFocus value={notaEdit.texto} onChange={e => setNotaEdit(n => ({ ...n, texto: e.target.value }))} rows={2} placeholder="Anotação do atendimento…" style={{ ...inp, resize: "vertical" }} />
-                      <button onClick={() => salvarNota(l)} style={{ background: C.orange, color: "#000", border: "none", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Salvar</button>
-                    </div>
-                  ) : (
-                    <div onClick={() => setNotaEdit({ id: l.id, texto: l.observacao_vendedor || "" })} style={{ cursor: "pointer", color: l.observacao_vendedor ? C.text : C.textDim, fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontStyle: l.observacao_vendedor ? "normal" : "italic" }}>
-                      {l.observacao_vendedor ? "📝 " + l.observacao_vendedor : "+ adicionar anotação"}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      </>}
-    </div>
-  );
 }
 
 // ─── AGENDA ───
@@ -12604,243 +12331,6 @@ function BoletosAtrasadosBanner({ user, setPage }) {
 // ─── Conciliação Bancária ─────────────────────────────────────────────
 // Fase 1 (upload PDF) + Fase 2 (matching automático) + Fase 3 (ações
 // inline: criar despesa, marcar ignorado, vincular venda).
-// ─── MARCENARIA (orçamentos de móveis sob medida — exclusivo do Ale/v1) ───
-// Dados na tabela marc_orcamentos (RLS: só is_ale()). O html_conteudo é o
-// orçamento pronto (formato celular, com logo/marca d'água) — abre em nova aba
-// para visualizar/imprimir em PDF. Carregado sob demanda (é grande).
-// Funil (CRM) da marcenaria. Ordem e cor de cada etapa.
-const MARC_STATUS = [
-  { k: "fazer",    l: "Fazer Orçamento", cor: "#A78BFA" },
-  { k: "enviado",  l: "Enviado",  cor: "#60A5FA" },
-  { k: "pensando", l: "Pensando", cor: "#FBBF24" },
-  { k: "retornar", l: "Retornar", cor: "#FB923C" },
-  { k: "fechado",  l: "Fechado",  cor: "#34D399" },
-  { k: "perdido",  l: "Perdido",  cor: "#F87171" },
-];
-const MARC_STATUS_MAP = Object.fromEntries(MARC_STATUS.map(s => [s.k, s]));
-
-function MarcenariaPage({ compact }) {
-  const [orcs, setOrcs] = useState(null);
-  const [erro, setErro] = useState("");
-  const [abrindo, setAbrindo] = useState(null);
-  const [filtro, setFiltro] = useState("todos");
-  const [novo, setNovo] = useState(null); // null = fechado; objeto = formulário aberto
-  const [salvando, setSalvando] = useState(false);
-  const hoje = new Date().toISOString().slice(0, 10);
-
-  useEffect(() => {
-    supabase.from("marc_orcamentos")
-      .select("id,numero,nome_movel,cliente,cliente_telefone,cliente_cidade,dimensoes,preco_venda,custo_material,mao_obra,lucro,margem,status_crm,retorno_em,motivo_perda,obs")
-      .order("ordem", { ascending: true })
-      .then(({ data, error }) => {
-        if (error) setErro(error.message);
-        else setOrcs(data || []);
-      });
-  }, []);
-
-  const setLocal = (id, campos) => setOrcs(prev => prev.map(o => o.id === id ? { ...o, ...campos } : o));
-  const persist = async (id, campos) => {
-    const { error } = await supabase.from("marc_orcamentos").update(campos).eq("id", id);
-    if (error) setErro("Erro ao salvar: " + error.message);
-  };
-  const mudar = (id, campos) => { setLocal(id, campos); persist(id, campos); };
-
-  async function abrir(id) {
-    setAbrindo(id);
-    const { data, error } = await supabase.from("marc_orcamentos").select("html_conteudo").eq("id", id).single();
-    setAbrindo(null);
-    if (error) { alert("Não foi possível abrir: " + error.message); return; }
-    if (!data || !data.html_conteudo) { alert("Este orçamento ainda não tem PDF gerado.\n\nPeça pro Claude gerar o PDF a partir das medidas."); return; }
-    const w = window.open("", "_blank");
-    if (!w) { alert("Permita pop-ups para visualizar/imprimir o orçamento."); return; }
-    w.document.open(); w.document.write(data.html_conteudo); w.document.close();
-  }
-
-  async function abrirPlano(id) {
-    setAbrindo("plano-" + id);
-    const { data, error } = await supabase.from("marc_orcamentos").select("plano_corte").eq("id", id).single();
-    setAbrindo(null);
-    if (error) { alert("Não foi possível abrir: " + error.message); return; }
-    if (!data || !data.plano_corte) { alert("Este orçamento ainda não tem plano de corte.\n\nPeça pro Claude gerar o plano de corte das chapas."); return; }
-    const w = window.open("", "_blank");
-    if (!w) { alert("Permita pop-ups para visualizar/imprimir o plano de corte."); return; }
-    w.document.open(); w.document.write(data.plano_corte); w.document.close();
-  }
-
-  function abrirWhats(o) {
-    const tel = (o.cliente_telefone || "").replace(/\D/g, "");
-    if (!tel) { alert("Adicione o telefone do cliente primeiro."); return; }
-    const num = tel.startsWith("55") ? tel : "55" + tel;
-    const msg = encodeURIComponent(`Olá! Aqui é da Gôndolas Suprema, sobre o orçamento do seu ${o.nome_movel}. Posso te ajudar em algo?`);
-    window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
-  }
-
-  async function excluir(o) {
-    if (!window.confirm(`Excluir o orçamento "${o.nome_movel}" (Nº ${o.numero})?\n\nEssa ação apaga o orçamento do sistema e não pode ser desfeita.`)) return;
-    const { error } = await supabase.from("marc_orcamentos").delete().eq("id", o.id);
-    if (error) { setErro("Erro ao excluir: " + error.message); return; }
-    setOrcs(prev => prev.filter(x => x.id !== o.id));
-  }
-
-  async function criar() {
-    const f = novo || {};
-    if (!f.nome_movel || !f.nome_movel.trim()) { alert("Preencha ao menos o nome do móvel."); return; }
-    const preco = f.preco_venda ? Number(String(f.preco_venda).replace(",", ".")) : null;
-    const custo = f.custo_material ? Number(String(f.custo_material).replace(",", ".")) : null;
-    const mo = preco != null ? Math.round(preco * 0.15 * 100) / 100 : null;
-    const lucro = (preco != null && custo != null && mo != null) ? Math.round((preco - custo - mo) * 100) / 100 : null;
-    const margem = (lucro != null && preco) ? Math.round((lucro / preco) * 1000) / 10 : null;
-    const ordem = (orcs && orcs.length ? Math.max(...orcs.map(o => o.ordem || 0)) : 0) + 1;
-    const row = {
-      ordem, numero: f.numero || null, nome_movel: f.nome_movel.trim(),
-      cliente: f.cliente || null, cliente_cidade: f.cliente_cidade || null, cliente_telefone: f.cliente_telefone || null,
-      dimensoes: f.dimensoes || null, preco_venda: preco, custo_material: custo, mao_obra: mo, lucro, margem,
-      status_crm: f.status_crm || "fazer", obs: f.obs || null,
-    };
-    setSalvando(true);
-    const { data, error } = await supabase.from("marc_orcamentos").insert(row)
-      .select("id,numero,nome_movel,cliente,cliente_telefone,cliente_cidade,dimensoes,preco_venda,custo_material,mao_obra,lucro,margem,status_crm,retorno_em,motivo_perda,obs").single();
-    setSalvando(false);
-    if (error) { setErro("Erro ao criar: " + error.message); return; }
-    setOrcs(prev => [...(prev || []), data]);
-    setNovo(null);
-  }
-
-  const fmt = (n) => (n == null ? "—" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-  const inp = { background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "7px 9px", color: COLORS.text, fontSize: 12.5, fontFamily: "'DM Sans', sans-serif", width: "100%", boxSizing: "border-box" };
-
-  const lista = orcs ? (filtro === "todos" ? orcs : orcs.filter(o => (o.status_crm || "enviado") === filtro)) : [];
-  const contagem = (k) => orcs ? orcs.filter(o => (o.status_crm || "enviado") === k).length : 0;
-
-  return (
-    <div style={compact ? { padding: "4px 0 40px" } : { maxWidth: 1150, margin: "0 auto", padding: "24px 20px 60px" }}>
-      <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-        {compact ? <div /> : (
-          <div>
-            <h1 style={{ color: COLORS.text, fontSize: 24, fontWeight: 800, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Marcenaria — Acompanhamento</h1>
-            <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "6px 0 0" }}>Seu funil de orçamentos de móveis sob medida — visível somente para você. Acompanhe cada cliente, agende retornos e chame no WhatsApp.</p>
-          </div>
-        )}
-        <button onClick={() => setNovo(novo ? null : { status_crm: "fazer" })} style={{ flexShrink: 0, marginLeft: "auto", background: novo ? COLORS.card : COLORS.orange, color: novo ? COLORS.textMuted : "#000", border: `1px solid ${novo ? COLORS.border : COLORS.orange}`, borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-          {novo ? "Cancelar" : "+ Novo orçamento"}
-        </button>
-      </div>
-
-      {novo && (
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.orange}`, borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: CARD_GLOW }}>
-          <div style={{ color: COLORS.orange, fontSize: 13, fontWeight: 800, marginBottom: 4, fontFamily: "'DM Sans', sans-serif" }}>Novo orçamento</div>
-          <div style={{ color: COLORS.textDim, fontSize: 11.5, marginBottom: 14 }}>Preencha o que tiver. Só o nome do móvel é obrigatório — o PDF você pede pro Claude gerar depois.</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
-            <input placeholder="Nome do móvel *" value={novo.nome_movel || ""} onChange={e => setNovo({ ...novo, nome_movel: e.target.value })} style={inp} />
-            <input placeholder="Nº do orçamento" value={novo.numero || ""} onChange={e => setNovo({ ...novo, numero: e.target.value })} style={inp} />
-            <input placeholder="Medidas (ex: 1,50 × 1,00 × 0,60 m)" value={novo.dimensoes || ""} onChange={e => setNovo({ ...novo, dimensoes: e.target.value })} style={inp} />
-            <input placeholder="Cliente" value={novo.cliente || ""} onChange={e => setNovo({ ...novo, cliente: e.target.value })} style={inp} />
-            <input placeholder="Cidade" value={novo.cliente_cidade || ""} onChange={e => setNovo({ ...novo, cliente_cidade: e.target.value })} style={inp} />
-            <input placeholder="WhatsApp (só números)" value={novo.cliente_telefone || ""} onChange={e => setNovo({ ...novo, cliente_telefone: e.target.value })} style={inp} />
-            <input placeholder="Preço de venda (R$)" value={novo.preco_venda || ""} onChange={e => setNovo({ ...novo, preco_venda: e.target.value })} style={inp} />
-            <input placeholder="Custo de material (R$) — opcional" value={novo.custo_material || ""} onChange={e => setNovo({ ...novo, custo_material: e.target.value })} style={inp} />
-            <select value={novo.status_crm || "fazer"} onChange={e => setNovo({ ...novo, status_crm: e.target.value })} style={inp}>
-              {MARC_STATUS.map(s => <option key={s.k} value={s.k} style={{ color: COLORS.text, background: COLORS.card }}>{s.l}</option>)}
-            </select>
-          </div>
-          <textarea placeholder="Observações" value={novo.obs || ""} onChange={e => setNovo({ ...novo, obs: e.target.value })} rows={2} style={{ ...inp, marginTop: 10, resize: "vertical" }} />
-          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-            <button onClick={criar} disabled={salvando} style={{ background: COLORS.orange, color: "#000", border: "none", borderRadius: 9, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: salvando ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", opacity: salvando ? 0.6 : 1 }}>{salvando ? "Salvando…" : "Criar orçamento"}</button>
-            <button onClick={() => setNovo(null)} style={{ background: "transparent", color: COLORS.textMuted, border: `1px solid ${COLORS.border}`, borderRadius: 9, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
-          </div>
-          <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 8 }}>Mão de obra (15%), lucro e margem são calculados automaticamente se você informar preço e custo.</div>
-        </div>
-      )}
-
-      {/* Filtro por etapa do funil */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
-        <button onClick={() => setFiltro("todos")} style={{ padding: "7px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: filtro === "todos" ? COLORS.orange : COLORS.card, color: filtro === "todos" ? "#000" : COLORS.textMuted, border: `1px solid ${filtro === "todos" ? COLORS.orange : COLORS.border}` }}>Todos ({orcs ? orcs.length : 0})</button>
-        {MARC_STATUS.map(s => (
-          <button key={s.k} onClick={() => setFiltro(s.k)} style={{ padding: "7px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: filtro === s.k ? s.cor : COLORS.card, color: filtro === s.k ? "#000" : COLORS.textMuted, border: `1px solid ${filtro === s.k ? s.cor : COLORS.border}` }}>{s.l} ({contagem(s.k)})</button>
-        ))}
-      </div>
-
-      {erro && <div style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12 }}>{erro}</div>}
-      {orcs === null && !erro && <div style={{ color: COLORS.textMuted }}>Carregando…</div>}
-      {orcs && lista.length === 0 && <div style={{ color: COLORS.textMuted }}>Nenhum orçamento nesta etapa.</div>}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(330px, 1fr))", gap: 16 }}>
-        {lista.map(o => {
-          const st = MARC_STATUS_MAP[o.status_crm] || MARC_STATUS_MAP.enviado;
-          const atrasado = o.status_crm === "retornar" && o.retorno_em && o.retorno_em < hoje;
-          return (
-            <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${atrasado ? COLORS.danger : COLORS.border}`, borderRadius: 14, padding: 18, boxShadow: CARD_GLOW, display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.2 }}>{o.nome_movel}</div>
-                  <div style={{ color: COLORS.textDim, fontSize: 11, marginTop: 3 }}>Nº {o.numero} · {o.dimensoes}{o.cliente_cidade ? ` · ${o.cliente_cidade}` : ""}</div>
-                </div>
-                <span style={{ flexShrink: 0, width: 10, height: 10, borderRadius: "50%", background: st.cor, marginTop: 5 }} />
-              </div>
-
-              <div style={{ color: COLORS.orange, fontSize: 22, fontWeight: 800, fontFamily: "'DM Sans', sans-serif" }}>{fmt(o.preco_venda)}</div>
-
-              {/* Etapa do funil */}
-              <div>
-                <label style={{ fontSize: 10.5, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>Etapa</label>
-                <select value={o.status_crm || "enviado"} onChange={e => mudar(o.id, { status_crm: e.target.value })} style={{ ...inp, borderColor: st.cor, color: st.cor, fontWeight: 700, marginTop: 3 }}>
-                  {MARC_STATUS.map(s => <option key={s.k} value={s.k} style={{ color: COLORS.text, background: COLORS.card }}>{s.l}</option>)}
-                </select>
-              </div>
-
-              {/* Cliente + telefone */}
-              <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input placeholder="Nome do cliente" value={o.cliente || ""} onChange={e => setLocal(o.id, { cliente: e.target.value })} onBlur={e => persist(o.id, { cliente: e.target.value })} style={{ ...inp, flex: 1.4 }} />
-                  <input placeholder="Cidade" value={o.cliente_cidade || ""} onChange={e => setLocal(o.id, { cliente_cidade: e.target.value })} onBlur={e => persist(o.id, { cliente_cidade: e.target.value })} style={{ ...inp, flex: 1 }} />
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input placeholder="WhatsApp (só números)" value={o.cliente_telefone || ""} onChange={e => setLocal(o.id, { cliente_telefone: e.target.value })} onBlur={e => persist(o.id, { cliente_telefone: e.target.value })} style={{ ...inp, flex: 1 }} />
-                  <button onClick={() => abrirWhats(o)} title="Chamar no WhatsApp" style={{ flexShrink: 0, background: "#25D366", color: "#fff", border: "none", borderRadius: 8, padding: "0 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>WhatsApp</button>
-                </div>
-              </div>
-
-              {/* Retorno (só quando etapa = Retornar) */}
-              {o.status_crm === "retornar" && (
-                <div>
-                  <label style={{ fontSize: 10.5, color: atrasado ? COLORS.danger : COLORS.textDim, textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>{atrasado ? "Retorno vencido!" : "Retornar em"}</label>
-                  <input type="date" value={o.retorno_em || ""} onChange={e => mudar(o.id, { retorno_em: e.target.value || null })} style={{ ...inp, borderColor: atrasado ? COLORS.danger : COLORS.border, marginTop: 3 }} />
-                </div>
-              )}
-
-              {/* Motivo da perda (só quando etapa = Perdido) */}
-              {o.status_crm === "perdido" && (
-                <input placeholder="Motivo da perda (preço, prazo, concorrência…)" value={o.motivo_perda || ""} onChange={e => setLocal(o.id, { motivo_perda: e.target.value })} onBlur={e => persist(o.id, { motivo_perda: e.target.value })} style={{ ...inp, borderColor: COLORS.danger }} />
-              )}
-
-              {/* Observações */}
-              <textarea placeholder="Observações / o que rolou na conversa…" value={o.obs || ""} onChange={e => setLocal(o.id, { obs: e.target.value })} onBlur={e => persist(o.id, { obs: e.target.value })} rows={2} style={{ ...inp, resize: "vertical" }} />
-
-              {/* Números internos */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11.5, color: COLORS.textMuted, borderTop: `1px solid ${COLORS.border}`, paddingTop: 10 }}>
-                <span>Material: <b style={{ color: COLORS.text }}>{fmt(o.custo_material)}</b></span>
-                <span>Mão de obra: <b style={{ color: COLORS.text }}>{fmt(o.mao_obra)}</b></span>
-                <span>Lucro: <b style={{ color: COLORS.success }}>{fmt(o.lucro)}</b></span>
-                <span>Margem: <b style={{ color: COLORS.text }}>{o.margem != null ? o.margem + "%" : "—"}</b></span>
-              </div>
-
-              <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
-                <button onClick={() => abrir(o.id)} disabled={abrindo === o.id} style={{ flex: 1, background: COLORS.orange, color: "#000", border: "none", borderRadius: 9, padding: "10px 12px", fontSize: 12.5, fontWeight: 700, cursor: abrindo === o.id ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", opacity: abrindo === o.id ? 0.6 : 1 }}>
-                  {abrindo === o.id ? "Abrindo…" : "Ver / Imprimir PDF"}
-                </button>
-                <button onClick={() => abrirPlano(o.id)} disabled={abrindo === "plano-" + o.id} title="Ver plano de corte das chapas" style={{ flex: 1, background: "transparent", color: COLORS.orange, border: `1px solid ${COLORS.orange}`, borderRadius: 9, padding: "10px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-                  {abrindo === "plano-" + o.id ? "Abrindo…" : "Plano de corte"}
-                </button>
-              </div>
-              <button onClick={() => excluir(o)} style={{ background: "transparent", border: "none", color: COLORS.textDim, fontSize: 11.5, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", alignSelf: "center", padding: "2px 6px" }}>Excluir orçamento</button>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function ConciliacaoPage({ user }) {
   const BANCOS = [
     { k: "c6_instalacoes",   l: "C6 (Suprema Instalações)",     cor: "#3B82F6" },
@@ -13237,46 +12727,101 @@ function ConciliacaoPage({ user }) {
 // tipo: "ok" (verde) | "erro" (vermelho) | "info" (âmbar).
 // ─── PROJETO: configurador 3D da gôndola para mostrar ao cliente ──────────────
 const PROJETO_VISTAS = [
+  { key: "geral", nome: "Geral" },
   { key: "ponta", nome: "Quina" },
   { key: "frente", nome: "Frente" },
   { key: "corredor", nome: "Corredor" },
   { key: "giro", nome: "Girar" },
 ];
+const projetoPadrao = () => ({
+  montagem: "centro", // centro | parede | ambos
+  modulos: 3,
+  pontas: 1,
+  linha: "fit40",
+  altura: "2,02",
+  corredores: 1,
+  tipos: Array.from({ length: MAX_MODULOS }, () => ({ esq: "bandeja", dir: "bandeja" })),
+  alturaParede: "2,02",
+  paredes: { esq: [4], dir: [4], fundo: [4] }, // módulos de cada parede, por lado
+  cantos: { esq: false, dir: false }, // canto do fundo com cada lateral
+  tiposParede: Object.fromEntries(Object.keys(LADOS_PAREDE).map(l => [l, Array.from({ length: MAX_PAREDES_LADO }, () => Array(MAX_MODULOS_PAREDE).fill("bandeja"))])),
+  vista: "ponta",
+});
+// Sair da aba e voltar não perde o que foi montado. Fica só neste navegador, até fechar a aba dele; nunca vai para o banco.
+const PROJETO_GUARDADO = "projeto3d-v2";
+function projetoGuardado() {
+  try {
+    const guardado = { ...projetoPadrao(), ...JSON.parse(sessionStorage.getItem(PROJETO_GUARDADO)) };
+    guardado.cantos = { esq: !!guardado.cantos?.esq, dir: !!guardado.cantos?.dir };
+    medidasDe({ ...guardado, montagem: "ambos" }); // formato inesperado lança aqui e a aba abre no padrão, em vez de derrubar o sistema
+    return guardado;
+  } catch { return projetoPadrao(); }
+}
 
 function ProjetoPage() {
   const isMobile = useIsMobile();
+  const toque = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
   const canvasRef = useRef(null);
   const rotulosRef = useRef(null);
   const motor = useRef(null);
+  const [inicial] = useState(projetoGuardado);
   const [estado, setEstado] = useState("carregando"); // carregando | ok | erro
-  const [tipos, setTipos] = useState(() => Array.from({ length: MAX_MODULOS }, () => ({ esq: "bandeja", dir: "bandeja" })));
+  const [tentativa, setTentativa] = useState(0);
+  const [tipos, setTipos] = useState(inicial.tipos);
   const [abrirTipos, setAbrirTipos] = useState(false);
-  const [modulos, setModulos] = useState(3);
-  const [pontas, setPontas] = useState(1);
-  const [linha, setLinha] = useState("fit40");
-  const [altura, setAltura] = useState("2,02");
-  const [corredores, setCorredores] = useState(1);
-  const [vista, setVista] = useState("ponta");
+  const [montagem, setMontagem] = useState(inicial.montagem);
+  const [alturaParede, setAlturaParede] = useState(inicial.alturaParede);
+  const [paredes, setParedes] = useState(inicial.paredes);
+  const [cantos, setCantos] = useState(inicial.cantos);
+  const [tiposParede, setTiposParede] = useState(inicial.tiposParede);
+  const [abrirParede, setAbrirParede] = useState(false);
+  const [modulos, setModulos] = useState(inicial.modulos);
+  const [pontas, setPontas] = useState(inicial.pontas);
+  const [linha, setLinha] = useState(inicial.linha);
+  const [altura, setAltura] = useState(inicial.altura);
+  const [corredores, setCorredores] = useState(inicial.corredores);
+  const [vista, setVista] = useState(inicial.vista);
   const [mexeu, setMexeu] = useState(false);
   const [gerando, setGerando] = useState(false);
   const [falhaImagem, setFalhaImagem] = useState(false);
+  const [confirmarLimpar, setConfirmarLimpar] = useState(false);
+  // Tablet em pé: com o painel ao lado, o 3D ficaria estreito demais. Celular deitado: pouca altura, cada linha conta.
+  const [forma, setForma] = useState({ tabletEmPe: false, deitado: false });
+  useEffect(() => {
+    const emPe = window.matchMedia("(max-width: 1000px) and (orientation: portrait)");
+    const baixa = window.matchMedia("(max-height: 500px) and (orientation: landscape)");
+    const ver = () => setForma({ tabletEmPe: emPe.matches, deitado: baixa.matches });
+    ver();
+    emPe.addEventListener("change", ver);
+    baixa.addEventListener("change", ver);
+    return () => { emPe.removeEventListener("change", ver); baixa.removeEventListener("change", ver); };
+  }, []);
+  const { tabletEmPe, deitado } = forma;
   // O motor carrega depois: ao abrir, usa o que estiver na tela naquele momento.
   const atual = useRef(null);
-  atual.current = { modulos, pontas, linha, altura, corredores, tipos, vista, abrirTipos };
+  const config = { montagem, modulos, pontas, linha, altura, corredores, tipos, alturaParede, paredes, cantos, tiposParede };
+  atual.current = { ...config, vista, abrirTipos, abrirParede };
   const timerFalha = useRef(null);
-  const medidas = medidasDe({ modulos, pontas, linha, altura, corredores, tipos });
-  const usados = Object.keys(TIPOS_FACE).filter(t => tipos.slice(0, modulos).some(m => m.esq === t || m.dir === t));
-  const nomesUsados = usados.map(t => TIPOS_FACE[t].toLowerCase()).join(", ").replace(/, ([^,]*)$/, " e $1");
+  const vistaPendente = useRef(null);
+  const pedidoLimpar = useRef({ quando: 0, timer: null });
+  const comCentro = montagem !== "parede";
+  const comParede = montagem !== "centro";
+  const medidas = medidasDe(config);
+  const nomesDe = (lista) => Object.keys(TIPOS_FACE).filter(t => lista.includes(t)).map(t => TIPOS_FACE[t].toLowerCase()).join(", ").replace(/, ([^,]*)$/, " e $1");
+  const tiposDoCentro = tipos.slice(0, modulos).flatMap(m => [m.esq, m.dir]);
+  const tiposDasParedes = Object.keys(LADOS_PAREDE).flatMap(l => paredes[l].flatMap((n, t) => tiposParede[l][t].slice(0, n)));
+  const emUso = [...(comCentro ? tiposDoCentro : []), ...(comParede ? tiposDasParedes : [])];
+  const resumoTipos = (lista) => (new Set(lista).size === 1 ? `Todos com ${nomesDe(lista)}` : `Com ${nomesDe(lista)}`);
 
   useEffect(() => {
     let vivo = true;
     import("../lib/projeto3d").then(({ criarProjeto3D }) => {
-      // Ao reabrir a aba no celular, o isMobile ainda vem como computador: espera ele acertar para não criar a cena duas vezes.
-      if (!vivo || !canvasRef.current || isMobile !== window.innerWidth < 720) return;
+      if (!vivo || !canvasRef.current) return;
       motor.current = criarProjeto3D({
         canvas: canvasRef.current,
         camadaRotulos: rotulosRef.current,
-        compacto: isMobile,
+        // Pelo aparelho, não pela largura: celular deitado continua leve, e girar a tela não recria a cena.
+        compacto: toque || window.innerWidth < 720,
         semMovimento: p3dSemMovimento(),
         config: atual.current,
         aoMudarVista: setVista,
@@ -13285,8 +12830,9 @@ function ProjetoPage() {
         aoFalhar: () => { timerFalha.current = setTimeout(() => setEstado("erro"), 2500); },
         aoVoltar: () => { clearTimeout(timerFalha.current); setEstado("ok"); },
       });
+      vistaPendente.current = null; // a cena nova já abre na vista atual
       if (!atual.current.vista) setVista("ponta"); // cena nova sempre abre numa vista pronta
-      motor.current.mostrarRotulos(atual.current.abrirTipos);
+      motor.current.mostrarRotulos({ centro: atual.current.abrirTipos, parede: atual.current.abrirParede });
       setEstado("ok");
     }).catch((e) => { console.error("Projeto 3D:", e); if (vivo) setEstado("erro"); });
     return () => {
@@ -13295,15 +12841,84 @@ function ProjetoPage() {
       motor.current?.destruir();
       motor.current = null;
     };
-  }, [isMobile]);
+  }, [tentativa]);
 
-  useEffect(() => { motor.current?.configurar({ modulos, pontas, linha, altura, corredores, tipos }); }, [modulos, pontas, linha, altura, corredores, tipos]);
-  useEffect(() => { motor.current?.mostrarRotulos(abrirTipos); }, [abrirTipos]);
+  useEffect(() => {
+    if (!motor.current) return;
+    motor.current.configurar(config);
+    if (vistaPendente.current) { motor.current.irPara(vistaPendente.current); vistaPendente.current = null; }
+  }, [montagem, modulos, pontas, linha, altura, corredores, tipos, alturaParede, paredes, cantos, tiposParede]);
+  useEffect(() => { motor.current?.mostrarRotulos({ centro: abrirTipos, parede: abrirParede }); }, [abrirTipos, abrirParede]);
+  useEffect(() => {
+    try { sessionStorage.setItem(PROJETO_GUARDADO, JSON.stringify({ ...config, vista })); } catch {}
+  }, [montagem, modulos, pontas, linha, altura, corredores, tipos, alturaParede, paredes, cantos, tiposParede, vista]);
+
+  const tentarDeNovo = () => { setEstado("carregando"); setTentativa(t => t + 1); };
+  const limpar = () => {
+    const pedido = pedidoLimpar.current;
+    if (!confirmarLimpar) {
+      pedido.quando = Date.now();
+      setConfirmarLimpar(true);
+      clearTimeout(pedido.timer);
+      pedido.timer = setTimeout(() => setConfirmarLimpar(false), 3000);
+      return;
+    }
+    if (Date.now() - pedido.quando < 400) return; // clique duplo sem querer não apaga a montagem
+    clearTimeout(pedido.timer);
+    const p = projetoPadrao();
+    setConfirmarLimpar(false);
+    setMontagem(p.montagem);
+    setModulos(p.modulos);
+    setPontas(p.pontas);
+    setLinha(p.linha);
+    setAltura(p.altura);
+    setCorredores(p.corredores);
+    setTipos(p.tipos);
+    setAlturaParede(p.alturaParede);
+    setParedes(p.paredes);
+    setCantos(p.cantos);
+    setTiposParede(p.tiposParede);
+    setAbrirTipos(false);
+    setAbrirParede(false);
+    setVista(p.vista);
+    vistaPendente.current = p.vista;
+  };
 
   const trocarVista = (v) => { setVista(v); motor.current?.irPara(v); };
   const trocarTipo = (i, lado, t) => { setTipos(ts => ts.map((m, j) => (j === i ? { ...m, [lado]: t } : m))); motor.current?.verLado(lado); };
   const trocarTodos = (lado, t) => { setTipos(ts => ts.map(m => ({ ...m, [lado]: t }))); motor.current?.verLado(lado); };
+  const trocarMontagem = (v) => {
+    if (v === montagem) return;
+    setMontagem(v);
+    if (v !== "centro" && !totalParede) setParedes(projetoPadrao().paredes);
+    const nova = v === "centro" ? "ponta" : "geral";
+    setVista(nova);
+    vistaPendente.current = nova;
+  };
+  const somaLado = (l) => paredes[l].reduce((soma, n) => soma + n, 0);
+  const totalParede = somaLado("esq") + somaLado("dir") + somaLado("fundo");
+  const nomeDaParede = (l, t) => (paredes[l].length > 1 ? `${LADOS_PAREDE[l]} ${t + 1}` : LADOS_PAREDE[l]);
+  // Só parede precisa de pelo menos um módulo na tela.
+  const podeTirar = comCentro || totalParede > 1;
+  // A parede que fica sem módulo sai, e as seguintes sobem levando os tipos delas.
+  const menosModulo = (l, t) => {
+    if (!podeTirar || !paredes[l][t]) return;
+    if (paredes[l][t] > 1) { setParedes(p => ({ ...p, [l]: p[l].map((n, j) => (j === t ? n - 1 : n)) })); return; }
+    setParedes(p => ({ ...p, [l]: p[l].filter((_, j) => j !== t) }));
+    setTiposParede(ts => ({ ...ts, [l]: [...ts[l].filter((_, j) => j !== t), Array(MAX_MODULOS_PAREDE).fill("bandeja")] }));
+  };
+  const maisModulo = (l, t) => setParedes(p => ({ ...p, [l]: p[l].length ? p[l].map((n, j) => (j === t ? n + 1 : n)) : [1] }));
+  const maisParede = (l) => setParedes(p => ({ ...p, [l]: [...p[l], Math.min(2, MAX_MODULOS_LADO - somaLado(l))] }));
+  const trocarTipoParede = (l, t, i, v) => { setTiposParede(ts => ({ ...ts, [l]: ts[l].map((lista, j) => (j === t ? lista.map((x, k) => (k === i ? v : x)) : lista)) })); motor.current?.verParede(l); };
+  const trocarTodaParede = (l, t, v) => { setTiposParede(ts => ({ ...ts, [l]: ts[l].map((lista, j) => (j === t ? lista.map(() => v) : lista)) })); motor.current?.verParede(l); };
 
+  const algumaParede = comParede && totalParede > 0;
+  const espacoEntre = comCentro ? corredores > 1 || algumaParede : paredes.esq.length > 0 && paredes.dir.length > 0 && !paredes.fundo.length;
+  const comColuna = algumaParede && Object.keys(LADOS_PAREDE).some(l => paredes[l].length > 1);
+  // "Mínimo": com fundo longo, a lateral fica mais longe do centro que 1,20 m.
+  const notaEspacos = espacoEntre && comColuna ? ` Espaço mínimo de ${medidas.espaco} entre corredores e pilar de ${medidas.vaoColuna} entre paredes do mesmo lado.`
+    : espacoEntre ? ` Espaço mínimo de ${medidas.espaco} entre corredores.`
+    : comColuna ? ` Pilar de ${medidas.vaoColuna} entre paredes do mesmo lado.` : "";
   const baixarImagem = async () => {
     if (!motor.current || gerando) return;
     setGerando(true);
@@ -13311,15 +12926,24 @@ function ProjetoPage() {
     try {
       const nomePontas = pontas === 0 ? "sem pontas" : pontas === 1 ? "1 ponta" : "2 pontas";
       const nomeModulos = `${modulos} ${modulos === 1 ? "módulo" : "módulos"}`;
+      const nomeCentro = corredores > 1
+        ? `Gôndola de centro · ${corredores} corredores · ${pontas ? `${nomeModulos} e ${nomePontas}` : nomeModulos} em cada`
+        : `Gôndola de centro · ${nomeModulos} · ${nomePontas}`;
+      const nomeParede = `Gôndola de parede · ${totalParede} ${totalParede === 1 ? "módulo" : "módulos"}`;
+      // Em linha própria: junto do título, o texto longo encolheria a fonte da linha inteira.
+      const ladosParede = [["Esquerda", paredes.esq], ["Direita", paredes.dir], ["Fundo", paredes.fundo]].filter(([, lista]) => lista.length).map(([nome, lista]) => `${nome} ${lista.join(" + ")}`).concat(medidas.nomeCantos ? [`Canto ${medidas.nomeCantos}`] : []).join(" · ");
+      const soBandeja = new Set(emUso).size === 1 && emUso[0] === "bandeja";
       const blob = await motor.current.gerarImagem({
-        titulo: corredores > 1
-          ? `Gôndola de centro · ${corredores} corredores · ${pontas ? `${nomeModulos} e ${nomePontas}` : nomeModulos} em cada`
-          : `Gôndola de centro · ${nomeModulos} · ${nomePontas}`,
-        expositor: usados.length === 1 && usados[0] === "bandeja" ? "" : `Com ${nomesUsados}`,
-        medidas: `Comprimento ${medidas.comprimento} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
-        nota: `Medidas aproximadas, a confirmar no projeto.${corredores > 1 ? ` Espaço de ${medidas.espaco} entre corredores.` : ""}`,
+        titulo: comCentro ? nomeCentro : nomeParede,
+        extras: [...(comCentro && algumaParede ? [nomeParede] : []), ...(algumaParede ? [ladosParede] : []), ...(soBandeja ? [] : [`Com ${nomesDe(emUso)}`])],
+        medidas: algumaParede
+          ? `Espaço ocupado ${medidas.ocupado} · ${comCentro ? `Altura: centro ${medidas.altura} e parede ${medidas.alturaParede}` : `Altura ${medidas.alturaParede}`}`
+          : `Comprimento ${medidas.comprimento} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
+        nota: `Medidas aproximadas, a confirmar no projeto.${notaEspacos}`,
       });
-      const nome = `gondola-${corredores > 1 ? `${corredores}-corredores-` : ""}${modulos}-${modulos === 1 ? "modulo" : "modulos"}-${pontas === 1 ? "1-ponta" : pontas === 2 ? "2-pontas" : "sem-pontas"}.jpg`;
+      const nome = algumaParede
+        ? `gondola-${comCentro ? "centro-e-parede" : "parede"}.jpg`
+        : `gondola-${corredores > 1 ? `${corredores}-corredores-` : ""}${modulos}-${modulos === 1 ? "modulo" : "modulos"}-${pontas === 1 ? "1-ponta" : pontas === 2 ? "2-pontas" : "sem-pontas"}.jpg`;
       const arquivo = new File([blob], nome, { type: "image/jpeg" });
       // No celular abre o compartilhar, com WhatsApp e "Salvar imagem"; no computador, baixa o arquivo.
       if (window.matchMedia?.("(pointer: coarse)").matches && navigator.canShare?.({ files: [arquivo] })) {
@@ -13345,115 +12969,238 @@ function ProjetoPage() {
   const fonte = "'DM Sans', sans-serif";
   const rotulo = { display: "block", margin: "0 0 6px", color: COLORS.textMuted, fontSize: 12, fontFamily: fonte };
   const caixaOpcoes = { display: "grid", gridAutoFlow: "column", gridAutoColumns: "1fr", gap: 4, padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 };
-  const opcao = (ativo) => ({ height: 38, border: 0, borderRadius: 8, background: ativo ? COLORS.orange : "transparent", color: ativo ? "#000" : COLORS.text, fontWeight: ativo ? 700 : 500, fontSize: 13, fontFamily: fonte, cursor: "pointer", padding: "0 4px" });
-  const passo = (bloqueado) => ({ width: 38, height: 38, border: 0, borderRadius: 8, background: "rgba(255,255,255,.07)", color: COLORS.text, fontSize: 20, fontFamily: fonte, cursor: bloqueado ? "default" : "pointer", opacity: bloqueado ? 0.3 : 1 });
+  const tocavel = isMobile || toque; // dedo pede botão maior que mouse
+  const opcao = (ativo) => ({ height: tocavel ? 42 : 38, border: 0, borderRadius: 8, background: ativo ? COLORS.orange : "transparent", color: ativo ? "#000" : COLORS.text, fontWeight: ativo ? 700 : 500, fontSize: 13, fontFamily: fonte, cursor: "pointer", padding: "0 4px" });
+  const passo = (bloqueado) => ({ width: tocavel ? 42 : 38, height: tocavel ? 42 : 38, border: 0, borderRadius: 8, background: "rgba(255,255,255,.07)", color: COLORS.text, fontSize: 20, fontFamily: fonte, cursor: bloqueado ? "default" : "pointer", opacity: bloqueado ? 0.3 : 1 });
   const nomeLinha = (k) => LINHAS[k].nome;
   const seletorTipo = (valor, aoEscolher, descricao) => (
     <div role="group" aria-label={descricao} style={{ display: "grid", gridTemplateColumns: "1.25fr 1.15fr .9fr", gap: 2, padding: 2, border: `1px solid ${COLORS.border}`, borderRadius: 8 }}>
       {Object.entries(TIPOS_FACE).map(([t, nome]) => (
-        <button key={t} aria-pressed={valor === t} aria-label={`${descricao}: ${nome}`} onClick={() => aoEscolher(t)} style={{ height: isMobile ? 34 : 30, padding: 0, border: 0, borderRadius: 6, background: valor === t ? COLORS.orange : "transparent", color: valor === t ? "#000" : COLORS.text, fontSize: 11, fontWeight: valor === t ? 700 : 500, fontFamily: fonte, cursor: "pointer" }}>{nome}</button>
+        <button key={t} aria-pressed={valor === t} aria-label={`${descricao}: ${nome}`} onClick={() => aoEscolher(t)} style={{ height: tocavel ? 40 : 30, padding: 0, border: 0, borderRadius: 6, background: valor === t ? COLORS.orange : "transparent", color: valor === t ? "#000" : COLORS.text, fontSize: 11, fontWeight: valor === t ? 700 : 500, fontFamily: fonte, cursor: "pointer" }}>{nome}</button>
       ))}
     </div>
   );
   const linhaTipos = { display: "grid", gridTemplateColumns: "18px 1fr 1fr", gap: 6, alignItems: "center" };
   const todosIguais = (lado) => { const t = tipos[0][lado]; return tipos.slice(0, modulos).every(m => m[lado] === t) ? t : null; };
+  const paredeIgual = (l, t) => { const lista = tiposParede[l][t].slice(0, paredes[l][t]); return lista.every(v => v === lista[0]) ? lista[0] : null; };
+  const tituloSecao = { color: COLORS.white, fontSize: 13.5, fontWeight: 700, margin: "4px 0 10px", paddingTop: 12, borderTop: `1px solid ${COLORS.border}` };
+  const abrirFechar = (aberto, aoTrocar, titulo, resumo) => (
+    <button aria-expanded={aberto} onClick={aoTrocar} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px", background: "transparent", border: 0, cursor: "pointer", textAlign: "left", fontFamily: fonte }}>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: "block", color: COLORS.text, fontSize: 13, fontWeight: 600 }}>{titulo}</span>
+        <span style={{ display: "block", color: COLORS.textMuted, fontSize: 12, marginTop: 1 }}>{resumo}</span>
+      </span>
+      <span style={{ color: COLORS.orange, fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>{aberto ? "Fechar" : "Trocar"}</span>
+    </button>
+  );
+  const itensMedidas = [
+    ...(comCentro ? [[algumaParede ? "Comprimento do centro" : "Comprimento", medidas.comprimento], [algumaParede ? `${medidas.rotuloLargura} do centro` : medidas.rotuloLargura, medidas.largura], [algumaParede ? "Altura do centro" : "Altura", medidas.altura]] : []),
+    ...(algumaParede ? Object.keys(LADOS_PAREDE).flatMap(l => medidas.paredes[l].map((v, t) => [nomeDaParede(l, t), v])) : []),
+    ...(medidas.nomeCantos ? [["Canto", medidas.nomeCantos[0].toUpperCase() + medidas.nomeCantos.slice(1)]] : []),
+    ...(algumaParede ? [[comCentro ? "Altura da parede" : "Altura", medidas.alturaParede]] : []),
+    ["Níveis no total", medidas.niveis],
+  ];
+  const umaColuna = !deitado && (isMobile || tabletEmPe);
+  const altura3D = isMobile ? "min(300px, 36dvh)" : "min(460px, 42dvh)";
+  const alturaColunas = deitado ? "max(260px, calc(100dvh - 76px))" : "min(640px, 78vh)";
+  const topoDaAba = isMobile ? 108 : 150; // barra do sistema + título
 
   return (
-    <div style={{ maxWidth: 1240, margin: "0 auto", padding: isMobile ? "14px 12px 40px" : "24px 20px 44px" }}>
-      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 26, margin: "0 0 3px" }}>Projeto</h1>
-      <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 14px", fontFamily: fonte }}>Monte a gôndola e mostre ao cliente como vai ficar.</p>
+    <div style={{ maxWidth: 1240, margin: "0 auto", padding: deitado ? "8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left))" : isMobile ? "10px 12px 8px" : tabletEmPe ? "24px 20px 8px" : "24px 20px 44px" }}>
+      {!deitado && <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: isMobile ? 22 : 26, margin: isMobile ? "0 0 8px" : "0 0 3px" }}>Projeto</h1>}
+      {!isMobile && !deitado && <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 14px", fontFamily: fonte }}>Monte a gôndola e mostre ao cliente como vai ficar.</p>}
       {/* O painel rola por dentro e o 3D fica parado à vista: quem troca uma opção vê a mudança na hora. */}
-      <div style={isMobile ? undefined : { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 380px", gap: 14, alignItems: "start" }}>
-        <div style={{ position: "relative", height: isMobile ? "min(360px, 44vh)" : "min(640px, 78vh)", marginBottom: isMobile ? 12 : 0, borderRadius: 14, overflow: "hidden", background: "#000", border: `1px solid ${COLORS.border}` }}>
-          {/* key: ao recriar a cena (girar o aparelho) precisa de canvas novo; o contexto WebGL do antigo já foi derrubado. */}
-          <canvas key={isMobile ? "celular" : "computador"} ref={canvasRef} role="img" aria-label={`Gôndola em 3D: ${corredores} corredores de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}, com ${nomesUsados}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
-          <div ref={rotulosRef} aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }} />
-          {estado === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte }}>Carregando o 3D…</div>}
-          {estado === "erro" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte, background: "#000" }}>Este aparelho não conseguiu abrir o 3D. As medidas continuam ao lado.</div>}
-          {estado === "ok" && !mexeu && <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, margin: "0 auto", width: "fit-content", maxWidth: "92%", textAlign: "center", padding: "6px 12px", borderRadius: 20, background: "rgba(0,0,0,.66)", color: COLORS.text, fontSize: 11.5, fontFamily: fonte, pointerEvents: "none" }}>{window.matchMedia?.("(pointer: coarse)").matches ? "Arraste de lado para girar · dois dedos: zoom" : "Arraste para girar · clique e use a rodinha para aproximar"}</div>}
-        </div>
-
-        <div style={{ maxHeight: isMobile ? "calc(100dvh - min(360px, 44vh) - 24px)" : "min(640px, 78vh)", overflowY: "auto", background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: isMobile ? 14 : 18, fontFamily: fonte }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-            <div>
-              <span style={rotulo}>Módulos</span>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-                <button aria-label="Menos um módulo" disabled={modulos <= 1} onClick={() => setModulos(m => Math.max(1, m - 1))} style={passo(modulos <= 1)}>−</button>
-                <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{modulos}</b>
-                <button aria-label="Mais um módulo" disabled={modulos >= MAX_MODULOS} onClick={() => setModulos(m => Math.min(MAX_MODULOS, m + 1))} style={passo(modulos >= MAX_MODULOS)}>+</button>
-              </div>
-            </div>
-            <div>
-              <span style={rotulo}>Corredores</span>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-                <button aria-label="Menos um corredor" disabled={corredores <= 1} onClick={() => setCorredores(c => Math.max(1, c - 1))} style={passo(corredores <= 1)}>−</button>
-                <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{corredores}</b>
-                <button aria-label="Mais um corredor" disabled={corredores >= MAX_CORREDORES} onClick={() => setCorredores(c => Math.min(MAX_CORREDORES, c + 1))} style={passo(corredores >= MAX_CORREDORES)}>+</button>
-              </div>
-            </div>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <span style={rotulo}>Pontas</span>
-            <div style={caixaOpcoes}>
-              {[0, 1, 2].map(n => <button key={n} aria-pressed={pontas === n} onClick={() => setPontas(n)} style={opcao(pontas === n)}>{n}</button>)}
-            </div>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <span style={rotulo}>Altura</span>
-            <div style={caixaOpcoes}>
-              {Object.keys(ALTURAS).map(k => <button key={k} aria-pressed={altura === k} onClick={() => setAltura(k)} style={opcao(altura === k)}>{k} m</button>)}
-            </div>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <span style={rotulo}>Linha</span>
-            <div style={caixaOpcoes}>
-              {["fit40", "fit60"].map(k => <button key={k} aria-pressed={linha === k} onClick={() => setLinha(k)} style={opcao(linha === k)}>{nomeLinha(k)}</button>)}
-            </div>
-          </div>
-          <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-            <button aria-expanded={abrirTipos} onClick={() => setAbrirTipos(!abrirTipos)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px", background: "transparent", border: 0, cursor: "pointer", textAlign: "left", fontFamily: fonte }}>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: "block", color: COLORS.text, fontSize: 13, fontWeight: 600 }}>Bandeja, gancho ou cesto</span>
-                <span style={{ display: "block", color: COLORS.textMuted, fontSize: 12, marginTop: 1 }}>{usados.length === 1 ? `Todos com ${nomesUsados}` : `Com ${nomesUsados}`}</span>
-              </span>
-              <span style={{ color: COLORS.orange, fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>{abrirTipos ? "Fechar" : "Trocar"}</span>
-            </button>
-            {abrirTipos && (
-              <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
-                <div style={{ ...linhaTipos, color: COLORS.textMuted, fontSize: 11.5, textAlign: "center" }}><span /><span>Lado esquerdo</span><span>Lado direito</span></div>
-                <div style={linhaTipos}>
-                  <span />
-                  {seletorTipo(todosIguais("esq"), t => trocarTodos("esq", t), "Todos os módulos, lado esquerdo")}
-                  {seletorTipo(todosIguais("dir"), t => trocarTodos("dir", t), "Todos os módulos, lado direito")}
-                </div>
-                <div style={{ color: COLORS.textMuted, fontSize: 11, textAlign: "center", margin: "0 0 2px" }}>A linha acima troca todos. Abaixo, módulo por módulo:</div>
-                {tipos.slice(0, modulos).map((m, i) => (
-                  <div key={i} style={linhaTipos}>
-                    <b style={{ color: COLORS.orange, fontSize: 12.5, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{i + 1}</b>
-                    {seletorTipo(m.esq, t => trocarTipo(i, "esq", t), `Módulo ${i + 1}, lado esquerdo`)}
-                    {seletorTipo(m.dir, t => trocarTipo(i, "dir", t), `Módulo ${i + 1}, lado direito`)}
-                  </div>
-                ))}
+      <div style={umaColuna ? undefined : { display: "grid", gridTemplateColumns: `minmax(0, 1fr) ${deitado ? 340 : 380}px`, gap: deitado ? 10 : 14, alignItems: "start" }}>
+        <div style={{ minWidth: 0, marginBottom: umaColuna ? 10 : 0 }}>
+          <div style={{ position: "relative", height: umaColuna ? altura3D : `calc(${alturaColunas} - 58px)`, borderRadius: 14, overflow: "hidden", background: "#000", border: `1px solid ${COLORS.border}` }}>
+            {/* key: "Tentar de novo" precisa de canvas novo; o contexto WebGL do antigo já foi derrubado. */}
+            <canvas key={tentativa} ref={canvasRef} role="img" aria-label={`Projeto em 3D: ${comCentro ? `${corredores} corredores de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
+            <div ref={rotulosRef} aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }} />
+            {estado === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte }}>Carregando o 3D…</div>}
+            {estado === "erro" && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", gap: 12, alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte, background: "#000" }}>
+                Este aparelho não conseguiu abrir o 3D. As medidas continuam no painel.
+                <button onClick={tentarDeNovo} style={{ height: 42, padding: "0 18px", border: 0, borderRadius: 10, background: COLORS.orange, color: "#000", fontSize: 13, fontWeight: 700, fontFamily: fonte, cursor: "pointer" }}>Tentar de novo</button>
               </div>
             )}
+            {estado === "ok" && !mexeu && <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, margin: "0 auto", width: "fit-content", maxWidth: "92%", textAlign: "center", padding: "6px 12px", borderRadius: 20, background: "rgba(0,0,0,.66)", color: COLORS.text, fontSize: 11.5, fontFamily: fonte, pointerEvents: "none" }}>{toque ? "Arraste de lado para girar · dois dedos: zoom" : "Arraste para girar · clique e use a rodinha para aproximar"}</div>}
           </div>
-          <div style={{ marginBottom: 14 }}>
-            <span style={rotulo}>Ver de</span>
-            <div style={caixaOpcoes}>
-              {PROJETO_VISTAS.map(v => <button key={v.key} aria-pressed={vista === v.key} onClick={() => trocarVista(v.key)} style={opcao(vista === v.key)}>{v.nome}</button>)}
-            </div>
+          <div role="group" aria-label="Ver de" style={{ ...caixaOpcoes, gridAutoColumns: "auto", marginTop: 8, background: COLORS.surface }}>
+            {PROJETO_VISTAS.map(v => <button key={v.key} aria-pressed={vista === v.key} onClick={() => trocarVista(v.key)} style={{ ...opcao(vista === v.key), height: 38, fontSize: isMobile ? 12.5 : 13 }}>{v.nome}</button>)}
           </div>
-          <dl style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 14px", margin: 0, paddingTop: 12, borderTop: `1px solid ${COLORS.border}` }}>
-            {[["Comprimento", medidas.comprimento], [medidas.rotuloLargura, medidas.largura], ["Altura", medidas.altura], ["Níveis no total", medidas.niveis]].map(([n, v]) => (
-              <div key={n}>
-                <dt style={{ color: COLORS.textMuted, fontSize: 12 }}>{n}</dt>
-                <dd style={{ margin: "1px 0 0", color: COLORS.white, fontSize: 16, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{v}</dd>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", maxHeight: umaColuna ? `max(260px, calc(100dvh - ${topoDaAba}px - ${altura3D} - 74px - env(safe-area-inset-top) - env(safe-area-inset-bottom)))` : alturaColunas, overflow: "hidden", background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, fontFamily: fonte }}>
+          <div style={{ minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: isMobile ? 14 : 18, scrollbarWidth: "thin", scrollbarColor: `${COLORS.border} transparent` }}>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                <span style={rotulo}>O que montar</span>
+                <button onClick={limpar} style={{ margin: "-8px 0 0", padding: "8px 0 8px 12px", border: 0, background: "transparent", color: confirmarLimpar ? COLORS.orange : COLORS.textMuted, fontSize: 12, fontWeight: confirmarLimpar ? 700 : 500, fontFamily: fonte, cursor: "pointer" }}>{confirmarLimpar ? `${toque ? "Toque" : "Clique"} de novo para limpar` : "Recomeçar"}</button>
               </div>
-            ))}
-          </dl>
-          <p style={{ margin: "10px 0 12px", color: COLORS.textMuted, fontSize: 12 }}>Medidas aproximadas, a confirmar no projeto.{corredores > 1 && ` Espaço de ${medidas.espaco} entre corredores.`}</p>
-          <button onClick={baixarImagem} disabled={estado !== "ok" || gerando} style={{ width: "100%", height: 44, border: 0, borderRadius: 10, background: COLORS.orange, color: "#000", fontSize: 14, fontWeight: 700, fontFamily: fonte, cursor: estado === "ok" && !gerando ? "pointer" : "default", opacity: estado === "ok" ? 1 : 0.45 }}>{gerando ? "Gerando a imagem…" : "Baixar imagem para o WhatsApp"}</button>
-          {falhaImagem && <p style={{ margin: "8px 0 0", color: COLORS.danger, fontSize: 12 }}>Não consegui gerar a imagem. Tente de novo.</p>}
+              <div style={caixaOpcoes}>
+                {[["centro", "Só centro"], ["parede", "Só parede"], ["ambos", "Ambos"]].map(([k, n]) => <button key={k} aria-pressed={montagem === k} onClick={() => trocarMontagem(k)} style={opcao(montagem === k)}>{n}</button>)}
+              </div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <span style={rotulo}>Linha</span>
+              <div style={caixaOpcoes}>
+                {["fit40", "fit60"].map(k => <button key={k} aria-pressed={linha === k} onClick={() => setLinha(k)} style={opcao(linha === k)}>{nomeLinha(k)}</button>)}
+              </div>
+            </div>
+            {comCentro && (
+              <>
+                {comParede && <div style={tituloSecao}>Gôndola de centro</div>}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <span style={rotulo}>Módulos</span>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                      <button aria-label="Menos um módulo" disabled={modulos <= 1} onClick={() => setModulos(m => Math.max(1, m - 1))} style={passo(modulos <= 1)}>−</button>
+                      <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{modulos}</b>
+                      <button aria-label="Mais um módulo" disabled={modulos >= MAX_MODULOS} onClick={() => setModulos(m => Math.min(MAX_MODULOS, m + 1))} style={passo(modulos >= MAX_MODULOS)}>+</button>
+                    </div>
+                  </div>
+                  <div>
+                    <span style={rotulo}>Corredores</span>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                      <button aria-label="Menos um corredor" disabled={corredores <= 1} onClick={() => setCorredores(c => Math.max(1, c - 1))} style={passo(corredores <= 1)}>−</button>
+                      <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{corredores}</b>
+                      <button aria-label="Mais um corredor" disabled={corredores >= MAX_CORREDORES} onClick={() => setCorredores(c => Math.min(MAX_CORREDORES, c + 1))} style={passo(corredores >= MAX_CORREDORES)}>+</button>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <span style={rotulo}>Pontas</span>
+                  <div style={caixaOpcoes}>
+                    {[0, 1, 2].map(n => <button key={n} aria-pressed={pontas === n} onClick={() => setPontas(n)} style={opcao(pontas === n)}>{n}</button>)}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <span style={rotulo}>Altura</span>
+                  <div style={caixaOpcoes}>
+                    {Object.keys(ALTURAS).map(k => <button key={k} aria-pressed={altura === k} onClick={() => setAltura(k)} style={opcao(altura === k)}>{k} m</button>)}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                  {abrirFechar(abrirTipos, () => setAbrirTipos(!abrirTipos), "Bandeja, gancho ou cesto", resumoTipos(tiposDoCentro))}
+                  {abrirTipos && (
+                    <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
+                      <div style={{ ...linhaTipos, color: COLORS.textMuted, fontSize: 11.5, textAlign: "center" }}><span /><span>Lado esquerdo</span><span>Lado direito</span></div>
+                      <div style={linhaTipos}>
+                        <span />
+                        {seletorTipo(todosIguais("esq"), t => trocarTodos("esq", t), "Todos os módulos, lado esquerdo")}
+                        {seletorTipo(todosIguais("dir"), t => trocarTodos("dir", t), "Todos os módulos, lado direito")}
+                      </div>
+                      <div style={{ color: COLORS.textMuted, fontSize: 11, textAlign: "center", margin: "0 0 2px" }}>A linha acima troca todos. Abaixo, módulo por módulo:</div>
+                      {tipos.slice(0, modulos).map((m, i) => (
+                        <div key={i} style={linhaTipos}>
+                          <b style={{ color: COLORS.orange, fontSize: 12.5, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{i + 1}</b>
+                          {seletorTipo(m.esq, t => trocarTipo(i, "esq", t), `Módulo ${i + 1}, lado esquerdo`)}
+                          {seletorTipo(m.dir, t => trocarTipo(i, "dir", t), `Módulo ${i + 1}, lado direito`)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+            {comParede && (
+              <>
+                {comCentro && <div style={tituloSecao}>Gôndola de parede</div>}
+                <div style={{ marginBottom: 12 }}>
+                  <span style={rotulo}>Altura</span>
+                  <div style={caixaOpcoes}>
+                    {ALTURAS_PAREDE.map(k => <button key={k} aria-pressed={alturaParede === k} aria-label={`Altura da parede ${k} m`} onClick={() => setAlturaParede(k)} style={opcao(alturaParede === k)}>{k} m</button>)}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <span style={rotulo}>Módulos em cada parede (0 = sem parede)</span>
+                  {Object.keys(LADOS_PAREDE).map(l => (
+                    <div key={l} style={{ marginBottom: 8 }}>
+                      {(paredes[l].length ? paredes[l] : [0]).map((n, t) => {
+                        const nome = nomeDaParede(l, t);
+                        const semMenos = !n || !podeTirar;
+                        const semMais = n >= MAX_MODULOS_PAREDE || somaLado(l) >= MAX_MODULOS_LADO;
+                        return (
+                          <div key={t} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+                            <span style={{ color: n ? COLORS.text : COLORS.textMuted, fontSize: 13 }}>{nome}</span>
+                            <div style={{ width: 132, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 3, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                              <button aria-label={`Menos um módulo, ${nome}`} disabled={semMenos} onClick={() => menosModulo(l, t)} style={passo(semMenos)}>−</button>
+                              <b style={{ color: COLORS.white, fontSize: 18, fontVariantNumeric: "tabular-nums" }}>{n}</b>
+                              <button aria-label={`Mais um módulo, ${nome}`} disabled={semMais} onClick={() => maisModulo(l, t)} style={passo(semMais)}>+</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {paredes[l].length > 0 && paredes[l].length < MAX_PAREDES_LADO && somaLado(l) < MAX_MODULOS_LADO && (
+                        <button onClick={() => maisParede(l)} style={{ padding: tocavel ? "8px 0" : "3px 0", border: 0, background: "transparent", color: COLORS.orange, fontSize: 12.5, fontWeight: 600, fontFamily: fonte, cursor: "pointer" }}>+ Mais uma {LADOS_PAREDE[l].toLowerCase()}</button>
+                      )}
+                    </div>
+                  ))}
+                  {comColuna && <p style={{ margin: 0, color: COLORS.textMuted, fontSize: 12 }}>Entre uma parede e outra do mesmo lado fica um pilar de {medidas.vaoColuna}.</p>}
+                </div>
+                {paredes.fundo.length > 0 && (paredes.esq.length > 0 || paredes.dir.length > 0) && (
+                  <div style={{ marginBottom: 12 }}>
+                    <span style={rotulo}>Canto da parede do fundo</span>
+                    {[["esq", "Lado esquerdo"], ["dir", "Lado direito"]].filter(([l]) => paredes[l].length > 0).map(([l, nome]) => (
+                      <div key={l} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+                        <span style={{ color: COLORS.text, fontSize: 13 }}>{nome}</span>
+                        <div role="group" aria-label={`Canto, ${nome.toLowerCase()}`} style={{ ...caixaOpcoes, width: 132, flexShrink: 0, boxSizing: "border-box" }}>
+                          {[[false, "Não"], [true, "Sim"]].map(([v, t]) => <button key={t} aria-pressed={cantos[l] === v} aria-label={`Canto, ${nome.toLowerCase()}: ${t}`} onClick={() => setCantos(c => ({ ...c, [l]: v }))} style={opcao(cantos[l] === v)}>{t}</button>)}
+                        </div>
+                      </div>
+                    ))}
+                    {medidas.fundoParaCanto && <p style={{ margin: "0 0 6px", color: COLORS.orange, fontSize: 12 }}>O canto direito só entra com a parede do fundo de pelo menos {medidas.fundoParaCanto}: com menos, ele ficaria solto.</p>}
+                    {medidas.nomeCantos && <p style={{ margin: 0, color: COLORS.textMuted, fontSize: 12 }}>O canto ocupa cerca de {medidas.cantoParede} em cada parede e só tem bandeja.</p>}
+                  </div>
+                )}
+                {algumaParede && (
+                  <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                    {abrirFechar(abrirParede, () => setAbrirParede(!abrirParede), "Bandeja, gancho ou cesto na parede", resumoTipos(tiposDasParedes))}
+                    {abrirParede && (
+                      <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
+                        {Object.keys(LADOS_PAREDE).flatMap(l => paredes[l].map((n, t) => {
+                          const nome = nomeDaParede(l, t);
+                          return (
+                            <div key={`${l}${t}`} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
+                              <div style={{ color: COLORS.text, fontSize: 12.5, fontWeight: 600 }}>{nome}</div>
+                              <div style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 6, alignItems: "center" }}>
+                                <span style={{ color: COLORS.textMuted, fontSize: 11, textAlign: "center" }}>Todos</span>
+                                {seletorTipo(paredeIgual(l, t), v => trocarTodaParede(l, t, v), `${nome}, todos os módulos`)}
+                              </div>
+                              {tiposParede[l][t].slice(0, n).map((tipo, i) => (
+                                <div key={i} style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 6, alignItems: "center" }}>
+                                  <b style={{ color: COLORS.orange, fontSize: 12.5, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{nomeModuloParede(l, paredes[l].length, t, i)}</b>
+                                  {seletorTipo(tipo, v => trocarTipoParede(l, t, i, v), `${nome}, módulo ${i + 1}`)}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+            <dl style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 14px", margin: 0, paddingTop: 12, borderTop: `1px solid ${COLORS.border}` }}>
+              {itensMedidas.map(([n, v]) => (
+                <div key={n}>
+                  <dt style={{ color: COLORS.textMuted, fontSize: 12 }}>{n}</dt>
+                  <dd style={{ margin: "1px 0 0", color: COLORS.white, fontSize: 16, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <p style={{ margin: "10px 0 0", color: COLORS.textMuted, fontSize: 12 }}>Medidas aproximadas, a confirmar no projeto.{notaEspacos}</p>
+          </div>
+          {/* Fora da rolagem: a medida total e a imagem ficam sempre à mão, mesmo com as listas abertas. */}
+          <div style={{ flexShrink: 0, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 12px", padding: isMobile ? "9px 14px" : "12px 18px", borderTop: `1px solid ${COLORS.border}` }}>
+            <div style={{ flex: "1 1 0", minWidth: 0 }}>
+              <div style={{ color: COLORS.textMuted, fontSize: 11.5 }}>Espaço ocupado</div>
+              <div style={{ color: COLORS.white, fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{medidas.resumo}</div>
+            </div>
+            <button onClick={baixarImagem} disabled={estado !== "ok" || gerando} style={{ flexShrink: 0, height: 44, padding: "0 16px", border: 0, borderRadius: 10, background: COLORS.orange, color: "#000", fontSize: 14, fontWeight: 700, fontFamily: fonte, cursor: estado === "ok" && !gerando ? "pointer" : "default", opacity: estado === "ok" ? 1 : 0.45 }}>{gerando ? "Gerando…" : toque ? "Enviar imagem" : "Baixar imagem"}</button>
+            {falhaImagem && <p style={{ flexBasis: "100%", margin: 0, color: COLORS.danger, fontSize: 12 }}>Não consegui gerar a imagem. Tente de novo.</p>}
+          </div>
         </div>
       </div>
     </div>
@@ -14217,8 +13964,6 @@ export default function App() {
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} setClientData={setClientData} setPage={setPage} setLeadContexto={setLeadContexto} />}
-      {page === "leadmarc" && canAccess(user, "leadmarc") && <MarcenariaLeadsPage user={user} />}
-      {page === "leadmarc" && !canAccess(user, "leadmarc") && <Login onLogin={login} setPage={setPage} />}
       {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
