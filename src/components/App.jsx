@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
+import { LINHAS, ALTURAS, TIPOS_FACE, MAX_MODULOS, MAX_CORREDORES, medidasDe } from "../lib/projetoMedidas";
 
 // Chamadas às rotas /api protegidas (NF-e, NFS-e, conciliação): envia o token
 // da sessão do Supabase. Sem ele a rota responde 401.
@@ -2134,6 +2135,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "leadmarc", l: "Lead Marcenaria" },
     { k: "client", l: "Cliente" },
     { k: "catalog", l: "Produtos" },
+    { k: "projeto", l: "Projeto" },
     { k: "orders", l: "Orçamentos" },
     { k: "graficos", l: "Gráficos" },
     { k: "logistica", l: "Logística" },
@@ -2161,7 +2163,7 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
           {user && !isMobile && (
             <div style={{ display: "flex", gap: 2 }}>
               {tabs.map(i => (
-                <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 14px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <button key={i.k} onClick={() => setPage(i.k)} style={{ background: page === i.k ? COLORS.orange + "18" : "transparent", color: page === i.k ? COLORS.orange : COLORS.textMuted, border: "none", padding: "7px 12px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'DM Sans', sans-serif", display: "inline-flex", alignItems: "center", gap: 6 }}>
                   {i.l}
                   {i.k === "agenda" && agendaAlerta > 0 && (
                     <span style={{ background: COLORS.danger, color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10, lineHeight: 1.5, minWidth: 16, textAlign: "center" }}>{agendaAlerta}</span>
@@ -2554,15 +2556,15 @@ const VENDEDORES = [
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
-  admin:           ["painel", "agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao", "fotos"],
+  admin:           ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao", "fotos"],
   // gestor (Zanella) — SEM comissoes (regra do Ale). TEM financeiro mas SOMENTE
   // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage). TEM nf
   // com acesso COMPLETO (pode emitir/cancelar/CC-e via podeEmitir=gestor).
-  gestor:          ["painel", "agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "adm", "financeiro", "nf", "fotos"],
+  gestor:          ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "graficos", "logistica", "adm", "financeiro", "nf", "fotos"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
-  vendedor:        ["painel", "agenda", "client", "catalog", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "fotos"],
+  vendedor:        ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "fotos"],
   // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
   // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes", "fotos"],
@@ -13233,6 +13235,231 @@ function ConciliacaoPage({ user }) {
 // notify("Boleto pago", "ok") e um card sobe no canto e some sozinho —
 // substitui o alert() nativo (que trava a tela, ruim no iPhone).
 // tipo: "ok" (verde) | "erro" (vermelho) | "info" (âmbar).
+// ─── PROJETO: configurador 3D da gôndola para mostrar ao cliente ──────────────
+const PROJETO_VISTAS = [
+  { key: "ponta", nome: "Quina" },
+  { key: "frente", nome: "Frente" },
+  { key: "corredor", nome: "Corredor" },
+  { key: "giro", nome: "Girar" },
+];
+
+function ProjetoPage() {
+  const isMobile = useIsMobile();
+  const canvasRef = useRef(null);
+  const rotulosRef = useRef(null);
+  const motor = useRef(null);
+  const [estado, setEstado] = useState("carregando"); // carregando | ok | erro
+  const [tipos, setTipos] = useState(() => Array.from({ length: MAX_MODULOS }, () => ({ esq: "bandeja", dir: "bandeja" })));
+  const [abrirTipos, setAbrirTipos] = useState(false);
+  const [modulos, setModulos] = useState(3);
+  const [pontas, setPontas] = useState(1);
+  const [linha, setLinha] = useState("fit40");
+  const [altura, setAltura] = useState("2,02");
+  const [corredores, setCorredores] = useState(1);
+  const [vista, setVista] = useState("ponta");
+  const [mexeu, setMexeu] = useState(false);
+  const [gerando, setGerando] = useState(false);
+  const [falhaImagem, setFalhaImagem] = useState(false);
+  // O motor carrega depois: ao abrir, usa o que estiver na tela naquele momento.
+  const atual = useRef(null);
+  atual.current = { modulos, pontas, linha, altura, corredores, tipos, vista, abrirTipos };
+  const timerFalha = useRef(null);
+  const medidas = medidasDe({ modulos, pontas, linha, altura, corredores, tipos });
+  const usados = Object.keys(TIPOS_FACE).filter(t => tipos.slice(0, modulos).some(m => m.esq === t || m.dir === t));
+  const nomesUsados = usados.map(t => TIPOS_FACE[t].toLowerCase()).join(", ").replace(/, ([^,]*)$/, " e $1");
+
+  useEffect(() => {
+    let vivo = true;
+    import("../lib/projeto3d").then(({ criarProjeto3D }) => {
+      // Ao reabrir a aba no celular, o isMobile ainda vem como computador: espera ele acertar para não criar a cena duas vezes.
+      if (!vivo || !canvasRef.current || isMobile !== window.innerWidth < 720) return;
+      motor.current = criarProjeto3D({
+        canvas: canvasRef.current,
+        camadaRotulos: rotulosRef.current,
+        compacto: isMobile,
+        semMovimento: p3dSemMovimento(),
+        config: atual.current,
+        aoMudarVista: setVista,
+        aoInteragir: () => setMexeu(true),
+        // O iPhone derruba e devolve o WebGL ao voltar de segundo plano: só avisa se ele não voltar logo.
+        aoFalhar: () => { timerFalha.current = setTimeout(() => setEstado("erro"), 2500); },
+        aoVoltar: () => { clearTimeout(timerFalha.current); setEstado("ok"); },
+      });
+      if (!atual.current.vista) setVista("ponta"); // cena nova sempre abre numa vista pronta
+      motor.current.mostrarRotulos(atual.current.abrirTipos);
+      setEstado("ok");
+    }).catch((e) => { console.error("Projeto 3D:", e); if (vivo) setEstado("erro"); });
+    return () => {
+      vivo = false;
+      clearTimeout(timerFalha.current);
+      motor.current?.destruir();
+      motor.current = null;
+    };
+  }, [isMobile]);
+
+  useEffect(() => { motor.current?.configurar({ modulos, pontas, linha, altura, corredores, tipos }); }, [modulos, pontas, linha, altura, corredores, tipos]);
+  useEffect(() => { motor.current?.mostrarRotulos(abrirTipos); }, [abrirTipos]);
+
+  const trocarVista = (v) => { setVista(v); motor.current?.irPara(v); };
+  const trocarTipo = (i, lado, t) => { setTipos(ts => ts.map((m, j) => (j === i ? { ...m, [lado]: t } : m))); motor.current?.verLado(lado); };
+  const trocarTodos = (lado, t) => { setTipos(ts => ts.map(m => ({ ...m, [lado]: t }))); motor.current?.verLado(lado); };
+
+  const baixarImagem = async () => {
+    if (!motor.current || gerando) return;
+    setGerando(true);
+    setFalhaImagem(false);
+    try {
+      const nomePontas = pontas === 0 ? "sem pontas" : pontas === 1 ? "1 ponta" : "2 pontas";
+      const nomeModulos = `${modulos} ${modulos === 1 ? "módulo" : "módulos"}`;
+      const blob = await motor.current.gerarImagem({
+        titulo: corredores > 1
+          ? `Gôndola de centro · ${corredores} corredores · ${pontas ? `${nomeModulos} e ${nomePontas}` : nomeModulos} em cada`
+          : `Gôndola de centro · ${nomeModulos} · ${nomePontas}`,
+        expositor: usados.length === 1 && usados[0] === "bandeja" ? "" : `Com ${nomesUsados}`,
+        medidas: `Comprimento ${medidas.comprimento} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
+        nota: `Medidas aproximadas, a confirmar no projeto.${corredores > 1 ? ` Espaço de ${medidas.espaco} entre corredores.` : ""}`,
+      });
+      const nome = `gondola-${corredores > 1 ? `${corredores}-corredores-` : ""}${modulos}-${modulos === 1 ? "modulo" : "modulos"}-${pontas === 1 ? "1-ponta" : pontas === 2 ? "2-pontas" : "sem-pontas"}.jpg`;
+      const arquivo = new File([blob], nome, { type: "image/jpeg" });
+      // No celular abre o compartilhar, com WhatsApp e "Salvar imagem"; no computador, baixa o arquivo.
+      if (window.matchMedia?.("(pointer: coarse)").matches && navigator.canShare?.({ files: [arquivo] })) {
+        try { await navigator.share({ files: [arquivo] }); return; }
+        catch (e) { if (e.name === "AbortError") return; }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nome;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+      console.error("Imagem do Projeto:", e);
+      setFalhaImagem(true);
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const fonte = "'DM Sans', sans-serif";
+  const rotulo = { display: "block", margin: "0 0 6px", color: COLORS.textMuted, fontSize: 12, fontFamily: fonte };
+  const caixaOpcoes = { display: "grid", gridAutoFlow: "column", gridAutoColumns: "1fr", gap: 4, padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 };
+  const opcao = (ativo) => ({ height: 38, border: 0, borderRadius: 8, background: ativo ? COLORS.orange : "transparent", color: ativo ? "#000" : COLORS.text, fontWeight: ativo ? 700 : 500, fontSize: 13, fontFamily: fonte, cursor: "pointer", padding: "0 4px" });
+  const passo = (bloqueado) => ({ width: 38, height: 38, border: 0, borderRadius: 8, background: "rgba(255,255,255,.07)", color: COLORS.text, fontSize: 20, fontFamily: fonte, cursor: bloqueado ? "default" : "pointer", opacity: bloqueado ? 0.3 : 1 });
+  const nomeLinha = (k) => LINHAS[k].nome;
+  const seletorTipo = (valor, aoEscolher, descricao) => (
+    <div role="group" aria-label={descricao} style={{ display: "grid", gridTemplateColumns: "1.25fr 1.15fr .9fr", gap: 2, padding: 2, border: `1px solid ${COLORS.border}`, borderRadius: 8 }}>
+      {Object.entries(TIPOS_FACE).map(([t, nome]) => (
+        <button key={t} aria-pressed={valor === t} aria-label={`${descricao}: ${nome}`} onClick={() => aoEscolher(t)} style={{ height: isMobile ? 34 : 30, padding: 0, border: 0, borderRadius: 6, background: valor === t ? COLORS.orange : "transparent", color: valor === t ? "#000" : COLORS.text, fontSize: 11, fontWeight: valor === t ? 700 : 500, fontFamily: fonte, cursor: "pointer" }}>{nome}</button>
+      ))}
+    </div>
+  );
+  const linhaTipos = { display: "grid", gridTemplateColumns: "18px 1fr 1fr", gap: 6, alignItems: "center" };
+  const todosIguais = (lado) => { const t = tipos[0][lado]; return tipos.slice(0, modulos).every(m => m[lado] === t) ? t : null; };
+
+  return (
+    <div style={{ maxWidth: 1240, margin: "0 auto", padding: isMobile ? "14px 12px 40px" : "24px 20px 44px" }}>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 26, margin: "0 0 3px" }}>Projeto</h1>
+      <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 14px", fontFamily: fonte }}>Monte a gôndola e mostre ao cliente como vai ficar.</p>
+      {/* O painel rola por dentro e o 3D fica parado à vista: quem troca uma opção vê a mudança na hora. */}
+      <div style={isMobile ? undefined : { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 380px", gap: 14, alignItems: "start" }}>
+        <div style={{ position: "relative", height: isMobile ? "min(360px, 44vh)" : "min(640px, 78vh)", marginBottom: isMobile ? 12 : 0, borderRadius: 14, overflow: "hidden", background: "#000", border: `1px solid ${COLORS.border}` }}>
+          {/* key: ao recriar a cena (girar o aparelho) precisa de canvas novo; o contexto WebGL do antigo já foi derrubado. */}
+          <canvas key={isMobile ? "celular" : "computador"} ref={canvasRef} role="img" aria-label={`Gôndola em 3D: ${corredores} corredores de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}, com ${nomesUsados}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
+          <div ref={rotulosRef} aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }} />
+          {estado === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte }}>Carregando o 3D…</div>}
+          {estado === "erro" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte, background: "#000" }}>Este aparelho não conseguiu abrir o 3D. As medidas continuam ao lado.</div>}
+          {estado === "ok" && !mexeu && <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, margin: "0 auto", width: "fit-content", maxWidth: "92%", textAlign: "center", padding: "6px 12px", borderRadius: 20, background: "rgba(0,0,0,.66)", color: COLORS.text, fontSize: 11.5, fontFamily: fonte, pointerEvents: "none" }}>{window.matchMedia?.("(pointer: coarse)").matches ? "Arraste de lado para girar · dois dedos: zoom" : "Arraste para girar · clique e use a rodinha para aproximar"}</div>}
+        </div>
+
+        <div style={{ maxHeight: isMobile ? "calc(100dvh - min(360px, 44vh) - 24px)" : "min(640px, 78vh)", overflowY: "auto", background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: isMobile ? 14 : 18, fontFamily: fonte }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <span style={rotulo}>Módulos</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                <button aria-label="Menos um módulo" disabled={modulos <= 1} onClick={() => setModulos(m => Math.max(1, m - 1))} style={passo(modulos <= 1)}>−</button>
+                <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{modulos}</b>
+                <button aria-label="Mais um módulo" disabled={modulos >= MAX_MODULOS} onClick={() => setModulos(m => Math.min(MAX_MODULOS, m + 1))} style={passo(modulos >= MAX_MODULOS)}>+</button>
+              </div>
+            </div>
+            <div>
+              <span style={rotulo}>Corredores</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                <button aria-label="Menos um corredor" disabled={corredores <= 1} onClick={() => setCorredores(c => Math.max(1, c - 1))} style={passo(corredores <= 1)}>−</button>
+                <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{corredores}</b>
+                <button aria-label="Mais um corredor" disabled={corredores >= MAX_CORREDORES} onClick={() => setCorredores(c => Math.min(MAX_CORREDORES, c + 1))} style={passo(corredores >= MAX_CORREDORES)}>+</button>
+              </div>
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <span style={rotulo}>Pontas</span>
+            <div style={caixaOpcoes}>
+              {[0, 1, 2].map(n => <button key={n} aria-pressed={pontas === n} onClick={() => setPontas(n)} style={opcao(pontas === n)}>{n}</button>)}
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <span style={rotulo}>Altura</span>
+            <div style={caixaOpcoes}>
+              {Object.keys(ALTURAS).map(k => <button key={k} aria-pressed={altura === k} onClick={() => setAltura(k)} style={opcao(altura === k)}>{k} m</button>)}
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <span style={rotulo}>Linha</span>
+            <div style={caixaOpcoes}>
+              {["fit40", "fit60"].map(k => <button key={k} aria-pressed={linha === k} onClick={() => setLinha(k)} style={opcao(linha === k)}>{nomeLinha(k)}</button>)}
+            </div>
+          </div>
+          <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+            <button aria-expanded={abrirTipos} onClick={() => setAbrirTipos(!abrirTipos)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px", background: "transparent", border: 0, cursor: "pointer", textAlign: "left", fontFamily: fonte }}>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: "block", color: COLORS.text, fontSize: 13, fontWeight: 600 }}>Bandeja, gancho ou cesto</span>
+                <span style={{ display: "block", color: COLORS.textMuted, fontSize: 12, marginTop: 1 }}>{usados.length === 1 ? `Todos com ${nomesUsados}` : `Com ${nomesUsados}`}</span>
+              </span>
+              <span style={{ color: COLORS.orange, fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>{abrirTipos ? "Fechar" : "Trocar"}</span>
+            </button>
+            {abrirTipos && (
+              <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
+                <div style={{ ...linhaTipos, color: COLORS.textMuted, fontSize: 11.5, textAlign: "center" }}><span /><span>Lado esquerdo</span><span>Lado direito</span></div>
+                <div style={linhaTipos}>
+                  <span />
+                  {seletorTipo(todosIguais("esq"), t => trocarTodos("esq", t), "Todos os módulos, lado esquerdo")}
+                  {seletorTipo(todosIguais("dir"), t => trocarTodos("dir", t), "Todos os módulos, lado direito")}
+                </div>
+                <div style={{ color: COLORS.textMuted, fontSize: 11, textAlign: "center", margin: "0 0 2px" }}>A linha acima troca todos. Abaixo, módulo por módulo:</div>
+                {tipos.slice(0, modulos).map((m, i) => (
+                  <div key={i} style={linhaTipos}>
+                    <b style={{ color: COLORS.orange, fontSize: 12.5, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{i + 1}</b>
+                    {seletorTipo(m.esq, t => trocarTipo(i, "esq", t), `Módulo ${i + 1}, lado esquerdo`)}
+                    {seletorTipo(m.dir, t => trocarTipo(i, "dir", t), `Módulo ${i + 1}, lado direito`)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <span style={rotulo}>Ver de</span>
+            <div style={caixaOpcoes}>
+              {PROJETO_VISTAS.map(v => <button key={v.key} aria-pressed={vista === v.key} onClick={() => trocarVista(v.key)} style={opcao(vista === v.key)}>{v.nome}</button>)}
+            </div>
+          </div>
+          <dl style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 14px", margin: 0, paddingTop: 12, borderTop: `1px solid ${COLORS.border}` }}>
+            {[["Comprimento", medidas.comprimento], [medidas.rotuloLargura, medidas.largura], ["Altura", medidas.altura], ["Níveis no total", medidas.niveis]].map(([n, v]) => (
+              <div key={n}>
+                <dt style={{ color: COLORS.textMuted, fontSize: 12 }}>{n}</dt>
+                <dd style={{ margin: "1px 0 0", color: COLORS.white, fontSize: 16, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <p style={{ margin: "10px 0 12px", color: COLORS.textMuted, fontSize: 12 }}>Medidas aproximadas, a confirmar no projeto.{corredores > 1 && ` Espaço de ${medidas.espaco} entre corredores.`}</p>
+          <button onClick={baixarImagem} disabled={estado !== "ok" || gerando} style={{ width: "100%", height: 44, border: 0, borderRadius: 10, background: COLORS.orange, color: "#000", fontSize: 14, fontWeight: 700, fontFamily: fonte, cursor: estado === "ok" && !gerando ? "pointer" : "default", opacity: estado === "ok" ? 1 : 0.45 }}>{gerando ? "Gerando a imagem…" : "Baixar imagem para o WhatsApp"}</button>
+          {falhaImagem && <p style={{ margin: "8px 0 0", color: COLORS.danger, fontSize: 12 }}>Não consegui gerar a imagem. Tente de novo.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // ABA FOTOS — acervo visual de montagens reais, um álbum por tipo de produto.
 // Fotos ficam no Supabase Storage (bucket público "fotos"), uma pasta por álbum.
@@ -13997,6 +14224,8 @@ export default function App() {
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
       {page === "agenda" && canAccess(user, "agenda") && <AgendaPage user={user} setPage={setPage} />}
       {page === "agenda" && !canAccess(user, "agenda") && <Login onLogin={login} setPage={setPage} />}
+      {page === "projeto" && canAccess(user, "projeto") && <ProjetoPage />}
+      {page === "projeto" && !canAccess(user, "projeto") && <Login onLogin={login} setPage={setPage} />}
       {page === "fotos" && canAccess(user, "fotos") && <FotosPage user={user} />}
       {page === "fotos" && !canAccess(user, "fotos") && <Login onLogin={login} setPage={setPage} />}
       {page === "financeiro" && canAccess(user, "financeiro") && <FinanceiroWrapper user={user} />}
