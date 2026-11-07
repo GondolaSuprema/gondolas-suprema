@@ -9279,6 +9279,178 @@ function AdminPage({ user }) {
 }
 
 // ─── GRÁFICOS ───
+// ─── PAINEL 3D ───
+// A cena 3D (WebGL) fica em lib/arena3d.js e só é baixada quando o Painel abre.
+const p3dSemMovimento = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+function useContagem(alvo, ms = 1100) {
+  const [v, setV] = useState(0);
+  const atual = useRef(0);
+  useEffect(() => {
+    if (p3dSemMovimento()) { atual.current = alvo; setV(alvo); return; }
+    const ini = atual.current, t0 = performance.now();
+    let raf;
+    const passo = (t) => {
+      const p = Math.min(1, (t - t0) / ms);
+      atual.current = p === 1 ? alvo : ini + (alvo - ini) * (1 - Math.pow(1 - p, 3));
+      setV(atual.current);
+      if (p < 1) raf = requestAnimationFrame(passo);
+    };
+    raf = requestAnimationFrame(passo);
+    return () => cancelAnimationFrame(raf);
+  }, [alvo, ms]);
+  return v;
+}
+
+function Contador({ valor, formato }) {
+  const v = useContagem(valor);
+  return formato ? formato(v) : Math.round(v).toLocaleString("pt-BR");
+}
+
+const ARENA_TITULOS = { consultores: "Leads por consultor", meses: "Faturamento nos últimos 12 meses", funil: "Funil de leads", vendedores: "Faturamento por vendedor" };
+const ARENA_LEGENDA = {
+  consultores: (m, a) => `Leads que chegaram em ${m}/${a}, o que cada um recebeu e no que eles viraram`,
+  meses: (m, a) => `Vendas concluídas por mês da entrega · até ${m}/${a}`,
+  funil: (m, a) => `Leads que chegaram em ${m}/${a}`,
+  vendedores: () => "Bloco cheio = realizado no mês · vidro = meta",
+};
+const ARENA_VISTAS = [
+  { key: "consultores", nome: "Consultores" },
+  { key: "meses", nome: "12 meses" },
+  { key: "funil", nome: "Funil" },
+  { key: "vendedores", nome: "Vendedores" },
+];
+
+function Arena3D({ vista, aoTrocarVista, dados, aria, isMobile, cabecalho, legendaCheia }) {
+  const canvasRef = useRef(null);
+  const rotulosRef = useRef(null);
+  const arena = useRef(null);
+  const [estado, setEstado] = useState("carregando"); // carregando | ok | erro
+  const [dica, setDica] = useState(null);
+  const [escolha, setEscolha] = useState(null);
+  const [mexeu, setMexeu] = useState(false);
+  const [giro, setGiro] = useState(!p3dSemMovimento());
+  const [cheia, setCheia] = useState(false);
+  const chave = JSON.stringify(dados);
+  // O motor carrega depois: ao abrir, usa o que estiver na tela naquele momento, não o do início do carregamento.
+  const atual = useRef(null);
+  atual.current = { vista, dados, giro, cheia };
+
+  useEffect(() => {
+    let vivo = true;
+    import("../lib/arena3d").then(({ criarArena }) => {
+      if (!vivo || !canvasRef.current) return;
+      arena.current = criarArena({
+        canvas: canvasRef.current,
+        camadaRotulos: rotulosRef.current,
+        semMovimento: p3dSemMovimento(),
+        compacto: isMobile,
+        aoDica: setDica,
+        aoEscolher: setEscolha,
+        aoInteragir: () => setMexeu(true),
+        aoFalhar: () => setEstado("erro"),
+        aoVoltar: () => setEstado("ok"),
+      });
+      const agora = atual.current;
+      arena.current.setGiro(agora.giro);
+      arena.current.setExpandida(agora.cheia);
+      arena.current.mostrar(agora.vista, agora.dados);
+      setEstado("ok");
+    }).catch((e) => { console.error("Painel 3D:", e); if (vivo) setEstado("erro"); });
+    return () => {
+      vivo = false;
+      arena.current?.destruir();
+      arena.current = null;
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (arena.current) { arena.current.mostrar(vista, dados); setEscolha(null); }
+  }, [vista, chave]);
+
+  // Tela cheia: trava a rolagem da página atrás e fecha com Esc.
+  useEffect(() => {
+    arena.current?.setExpandida(cheia);
+    if (!cheia) return;
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const tecla = (e) => { if (e.key === "Escape") setCheia(false); };
+    window.addEventListener("keydown", tecla);
+    return () => {
+      document.body.style.overflow = anterior;
+      window.removeEventListener("keydown", tecla);
+    };
+  }, [cheia]);
+
+  const executar = (nome) => arena.current?.acao(nome);
+  const trocarGiro = () => { const novo = !giro; setGiro(novo); arena.current?.setGiro(novo); };
+  const pill = (ativo) => ({ background: ativo ? COLORS.orange : "rgba(255,255,255,.04)", color: ativo ? "#000" : COLORS.text, border: `1px solid ${ativo ? COLORS.orange : COLORS.border}`, padding: isMobile ? "8px 10px" : "7px 15px", borderRadius: 20, cursor: "pointer", fontSize: 12.5, fontWeight: ativo ? 700 : 500, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 });
+  const botoes = [
+    { nome: giro ? "Parar giro" : "Girar sozinho", ativo: giro, fn: trocarGiro },
+    { nome: "Virar", fn: () => executar("virar") },
+    { nome: "De frente", fn: () => executar("frente") },
+    { nome: "De lado", fn: () => executar("lado") },
+    { nome: "De cima", fn: () => executar("cima") },
+    { nome: "Por baixo", fn: () => executar("baixo") },
+    { nome: "−", fn: () => executar("menos"), rotulo: "Afastar" },
+    { nome: "+", fn: () => executar("mais"), rotulo: "Aproximar" },
+    { nome: "Voltar", fn: () => executar("centro") },
+    { nome: cheia ? "Fechar tela cheia" : "Tela cheia", fn: () => setCheia(!cheia) },
+  ];
+  const textoDica = dica || escolha;
+  const altura = cheia ? undefined : (isMobile ? 360 : "min(540px, 82vh)"); // 82vh: celular deitado tem pouca altura
+
+  return (
+    <div role={cheia ? "dialog" : undefined} aria-modal={cheia || undefined} aria-label={cheia ? "Gráfico 3D em tela cheia" : undefined} style={cheia ? { position: "fixed", inset: 0, zIndex: 3000, background: COLORS.bg, display: "flex", flexDirection: "column", padding: "calc(env(safe-area-inset-top, 0px) + 10px) 12px calc(env(safe-area-inset-bottom, 0px) + 10px)" } : undefined}>
+      <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 8, scrollbarWidth: "none" }}>
+        {ARENA_VISTAS.map(v => <button key={v.key} aria-pressed={vista === v.key} onClick={() => aoTrocarVista(v.key)} style={pill(vista === v.key)}>{v.nome}</button>)}
+      </div>
+      {cheia ? legendaCheia : cabecalho}
+      <div style={{ position: "relative", height: altura, flex: cheia ? 1 : undefined, minHeight: 0, borderRadius: 12, overflow: "hidden", background: "radial-gradient(90% 80% at 50% 30%, rgba(245,166,35,.1), transparent 70%)" }}>
+        {/* key: ao recriar a cena (girar o aparelho) precisa de canvas novo; o contexto WebGL do antigo já foi derrubado. */}
+        <canvas key={isMobile ? "celular" : "computador"} ref={canvasRef} role="img" aria-label={aria} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
+        <div ref={rotulosRef} aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }} />
+        {estado === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Carregando o 3D…</div>}
+        {estado === "erro" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Este aparelho não conseguiu abrir o 3D. Os números estão logo abaixo.</div>}
+        {estado === "ok" && textoDica && <div style={{ position: "absolute", top: 10, left: 0, right: 0, margin: "0 auto", width: "fit-content", maxWidth: "92%", padding: "7px 13px", borderRadius: 9, background: "rgba(0,0,0,.84)", border: `1px solid ${COLORS.border}`, color: COLORS.white, fontSize: 12.5, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums", textAlign: "center", pointerEvents: "none", zIndex: 2 }}>{textoDica}</div>}
+        {estado === "ok" && !mexeu && <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, margin: "0 auto", width: "fit-content", maxWidth: "92%", textAlign: "center", padding: "6px 12px", borderRadius: 20, background: "rgba(0,0,0,.66)", color: COLORS.text, fontSize: 11.5, fontFamily: "'DM Sans', sans-serif", pointerEvents: "none", zIndex: 2 }}>{window.matchMedia?.("(pointer: coarse)").matches ? (cheia ? "Arraste para girar · dois dedos: zoom" : "Arraste de lado para girar · dois dedos: zoom") : "Arraste para girar · clique e use a rodinha para aproximar"}</div>}
+      </div>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingTop: 9, scrollbarWidth: "none" }}>
+        {botoes.map(b => <button key={b.nome} onClick={b.fn} aria-label={b.rotulo} style={{ ...pill(false), border: `1px solid ${b.ativo ? COLORS.orange : COLORS.border}`, color: b.ativo ? COLORS.orange : COLORS.text, minWidth: b.rotulo ? 38 : undefined, fontWeight: b.rotulo ? 800 : 500 }}>{b.nome}</button>)}
+      </div>
+    </div>
+  );
+}
+
+// Cartão que inclina acompanhando o mouse, com reflexo dourado.
+function CartaoTilt({ children, estilo, atraso = 0 }) {
+  const ref = useRef(null);
+  const mover = (e) => {
+    const el = ref.current;
+    if (!el || e.pointerType !== "mouse" || p3dSemMovimento()) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    el.style.transform = `perspective(900px) rotateX(${((0.5 - py) * 8).toFixed(2)}deg) rotateY(${((px - 0.5) * 10).toFixed(2)}deg) translateZ(6px)`;
+    el.style.setProperty("--gx", (px * 100).toFixed(0) + "%");
+    el.style.setProperty("--gy", (py * 100).toFixed(0) + "%");
+    el.style.setProperty("--ga", "1");
+  };
+  const sair = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transform = "";
+    el.style.setProperty("--ga", "0");
+  };
+  return (
+    <div className="p3d-entrar" style={{ animationDelay: `${atraso}ms` }}>
+      <div ref={ref} onPointerMove={mover} onPointerLeave={sair} style={{ ...estilo, position: "relative", overflow: "hidden", height: "100%", boxSizing: "border-box", transition: "transform .25s ease-out" }}>
+        <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: "var(--ga, 0)", transition: "opacity .25s", background: "radial-gradient(240px circle at var(--gx, 50%) var(--gy, 50%), rgba(245,166,35,.16), transparent 70%)" }} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // ─── PAINEL (dashboard) — 1ª aba do sistema ───
 // Só LEITURA, dados reais. Faturamento = orçamentos Concluídos agrupados pelo mês
 // da ENTREGA (igual ADM/Gráficos). Funil = mariana_leads casado com orçamentos por
@@ -9294,23 +9466,37 @@ function PainelPage({ user }) {
   const [leads, setLeads] = useState([]);
   const [orcMap, setOrcMap] = useState(new Map());
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState(false);
+  const [vista3D, setVista3D] = useState("consultores");
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!user) return;
     let vivo = true;
     (async () => {
       setLoading(true);
+      // Busca em blocos de 1000 (limite do Supabase por consulta): passando disso, parte sumiria em silêncio.
+      const buscarTudo = async (pagina) => {
+        const linhas = [];
+        for (let i = 0; i < 50; i++) {
+          const { data, error } = await pagina(i * 1000, i * 1000 + 999);
+          if (error) return { linhas, erro: true };
+          linhas.push(...(data || []));
+          if (!data || data.length < 1000) break;
+        }
+        return { linhas, erro: false };
+      };
       const [c, l, o] = await Promise.all([
-        supabase.from("orcamentos").select("*").eq("status", "Concluído"),
-        supabase.from("mariana_leads").select("id, telefone, criado_em, status_atendimento"),
-        supabase.from("orcamentos").select("cliente_telefone, status, data"),
+        buscarTudo((de, ate) => supabase.from("orcamentos").select("*").eq("status", "Concluído").order("id").range(de, ate)),
+        buscarTudo((de, ate) => supabase.from("mariana_leads").select("id, telefone, criado_em, status_atendimento, consultor").order("id").range(de, ate)),
+        buscarTudo((de, ate) => supabase.from("orcamentos").select("cliente_telefone, status, data").order("id").range(de, ate)),
       ]);
       if (!vivo) return;
-      const conc = (c.data || []).filter(x => !isOrcamentoRsOculto(x)).map(x => ({
+      const conc = c.linhas.filter(x => !isOrcamentoRsOculto(x)).map(x => ({
         date: x.data_entrega || x.data, total: Number(x.total) || 0, vendedorId: x.vendedor_id,
       }));
       const map = new Map();
-      (o.data || []).forEach(r => {
+      o.linhas.forEach(r => {
         const f = String(r.cliente_telefone || "").replace(/\D/g, "").slice(-8);
         if (f.length !== 8) return;
         const ts = Date.parse(r.data); if (Number.isNaN(ts)) return;
@@ -9318,7 +9504,8 @@ function PainelPage({ user }) {
         e.orc.push(ts); if (String(r.status) === "Concluído" || String(r.status) === "Fazer Pedido") e.venda.push(ts); // mesma regra da aba Leads
         map.set(f, e);
       });
-      setOrcs(conc); setLeads(l.data || []); setOrcMap(map); setLoading(false);
+      setErro(c.erro || l.erro || o.erro);
+      setOrcs(conc); setLeads(l.linhas); setOrcMap(map); setLoading(false);
     })();
     return () => { vivo = false; };
   }, [user?.id]);
@@ -9327,7 +9514,6 @@ function PainelPage({ user }) {
   const mesStr = (a, m) => a + "-" + String(m + 1).padStart(2, "0");
   const prev = mes === 0 ? { a: ano - 1, m: 11 } : { a: ano, m: mes - 1 };
   const pctBR = (n) => (Number(n) || 0).toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 });
-  const compact = (v) => (Number(v) || 0).toLocaleString("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
 
   const fatDeMes = (a, m) => {
     const ms = mesStr(a, m);
@@ -9342,7 +9528,7 @@ function PainelPage({ user }) {
   const serie12 = (() => {
     let a = ano, m = mes; const seq = [];
     for (let i = 0; i < 12; i++) { seq.unshift({ a, m }); const p = m === 0 ? { a: a - 1, m: 11 } : { a, m: m - 1 }; a = p.a; m = p.m; }
-    return seq.map(({ a, m }) => ({ lab: MES_CURTO[m], y: fatDeMes(a, m).fat }));
+    return seq.map(({ a, m }) => ({ lab: MES_CURTO[m], a, y: fatDeMes(a, m).fat }));
   })();
 
   const SELLERS = VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
@@ -9366,20 +9552,26 @@ function PainelPage({ user }) {
   const fVenda = leadsMes.filter(l => converteu(l, "venda")).length;
   const conv = fTotal ? fVenda / fTotal : 0;
 
-  // Geometria do gráfico de linha (SVG)
-  const CW = 680, CH = 220, PL = 48, PR = 14, PT = 14, PB = 26;
-  const ys = serie12.map(s => s.y);
-  let ymin = 0, ymax = Math.max(...ys, 1); ymax += (ymax - ymin) * 0.12 || 1;
-  const iw = CW - PL - PR, ih = CH - PT - PB;
-  const X = (i) => PL + i * iw / (serie12.length - 1);
-  const Y = (v) => PT + ih - (v - ymin) / (ymax - ymin || 1) * ih;
-  const linePts = serie12.map((s, i) => [X(i), Y(s.y)]);
-  const lineD = linePts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
-  const areaD = lineD + " L " + X(serie12.length - 1).toFixed(1) + " " + (PT + ih) + " L " + PL + " " + (PT + ih) + " Z";
-  const gridVals = [0, 0.25, 0.5, 0.75, 1].map(f => ymin + (ymax - ymin) * f);
-  const lastPt = linePts[linePts.length - 1];
+  // Leads por consultor. O consultor é quem recebeu o lead, não quem fez o orçamento.
+  // O vendedor só enxerga os orçamentos dele (RLS), então vê apenas a própria linha:
+  // os números dos outros sairiam errados para ele.
+  const ehGestao = user?.role === "admin" || user?.role === "gestor";
+  const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
+  const CONSULTORES = ["Willian", "Alessandro", "Adelmo"];
+  const nomeConsultor = (l) => String(l.consultor || "").trim() || "Sem consultor";
+  const SERIES_LEAD = [
+    { key: "recebidos", nome: "Recebidos", cor: "#3B82F6" },
+    { key: "orcamentos", nome: "Viraram orçamento", cor: "#FBBF24" },
+    { key: "vendas", nome: "Viraram venda", cor: "#14B8A6" },
+  ];
+  const nomesConsultores = [...CONSULTORES, ...new Set(leadsMes.map(nomeConsultor).filter(n => !CONSULTORES.includes(n)))];
+  const porConsultor = nomesConsultores.filter(n => ehGestao || n === meuConsultor).map(nome => {
+    const ls = leadsMes.filter(l => nomeConsultor(l) === nome);
+    return { nome, recebidos: ls.length, orcamentos: ls.filter(l => converteu(l, "orc")).length, vendas: ls.filter(l => converteu(l, "venda")).length };
+  });
 
   const card = { background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 14, padding: "16px 18px" };
+  const cardPalco = { ...card, background: `radial-gradient(120% 90% at 50% 0%, rgba(245,166,35,.09), transparent 62%), ${COLORS.card}` };
   const sel = { padding: "9px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", outline: "none", cursor: "pointer" };
   const h2 = { fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 14, fontWeight: 600, margin: "0 0 2px" };
   const capS = { color: COLORS.textDim, fontSize: 11.5, margin: "0 0 14px", fontFamily: "'DM Sans', sans-serif" };
@@ -9391,22 +9583,51 @@ function PainelPage({ user }) {
     return <span style={{ fontSize: 12, fontWeight: 700, color: cor, fontVariantNumeric: "tabular-nums" }}>{flat ? "•" : (up ? "▲" : "▼")} {pctBR(Math.abs(d))} <span style={{ color: COLORS.textDim, fontWeight: 500 }}>vs mês anterior</span></span>;
   };
   const kpis = [
-    { lab: "Faturamento", val: fmtMoney(cur.fat), a: cur.fat, b: ant.fat },
-    { lab: "Nº de pedidos", val: String(cur.pedidos), a: cur.pedidos, b: ant.pedidos },
-    { lab: "Ticket médio", val: fmtMoney(ticket), a: ticket, b: ticketAnt },
+    { lab: "Faturamento", num: cur.fat, formato: fmtMoney, a: cur.fat, b: ant.fat },
+    { lab: "Nº de pedidos", num: cur.pedidos, a: cur.pedidos, b: ant.pedidos },
+    { lab: "Ticket médio", num: ticket, formato: fmtMoney, a: ticket, b: ticketAnt },
   ];
   const funil = [
     { nm: "Leads recebidos", v: fTotal, c: "#3B82F6" },
-    { nm: "Atendidos", v: fAtend, c: "#F5A623" },
-    { nm: "Viraram orçamento", v: fOrc, c: "#A78BFA" },
-    { nm: "Viraram venda", v: fVenda, c: "#22C55E" },
+    { nm: "Atendidos", v: fAtend, c: "#F472B6" },
+    { nm: "Viraram orçamento", v: fOrc, c: "#FBBF24" },
+    { nm: "Viraram venda", v: fVenda, c: "#14B8A6" },
   ];
-  const fmax = Math.max(fTotal, 1);
-  const vmax = Math.max(...porVendedor.map(v => Math.max(v.valor, v.meta)), 1) * 1.05;
   const anos = (() => { const y = _hoje.getFullYear(); return [y - 2, y - 1, y, y + 1]; })();
+
+  const dados3D = {
+    consultores: porConsultor,
+    series: SERIES_LEAD,
+    meses: serie12,
+    funil,
+    vendedores: porVendedor.map(v => ({ nome: v.nome, cor: v.cor, meta: v.meta, valor: v.valor })),
+  };
+  const aria3D = "Gráfico 3D interativo. " + ({
+    consultores: `Leads por consultor em ${MES_NOMES[mes]} de ${ano}: ` + porConsultor.map(c => `${c.nome}, ${c.recebidos} recebidos, ${c.orcamentos} viraram orçamento, ${c.vendas} viraram venda`).join("; "),
+    meses: "Faturamento nos últimos 12 meses: " + serie12.map(s => `${s.lab} ${fmtMoney(s.y)}`).join(", "),
+    funil: "Funil de leads: " + funil.map(f => `${f.nm} ${f.v}`).join(", "),
+    vendedores: "Faturamento por vendedor: " + porVendedor.map(v => `${v.nome} ${fmtMoney(v.valor)} de ${fmtMoney(v.meta)} de meta`).join("; "),
+  })[vista3D];
+  const decimal = (v) => v.toFixed(1).replace(".", ",");
+  const milhar = (v) => v >= 999500 ? decimal(v / 1e6) + " mi" : v >= 9950 ? Math.round(v / 1000) + "k" : v >= 1000 ? decimal(v / 1000) + "k" : String(Math.round(v));
+
+  const legenda = (itens) => (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginBottom: 2 }}>
+      {itens.map(s => (
+        <span key={s.nome} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
+          <span style={{ width: 11, height: 11, borderRadius: 3, background: s.cor, boxShadow: `0 0 8px ${s.cor}88` }} />{s.nome}
+        </span>
+      ))}
+    </div>
+  );
 
   return (
     <div style={{ maxWidth: 1080, margin: "0 auto", padding: "26px 20px 44px" }}>
+      <style>{`
+        @keyframes p3dEntrar{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+        .p3d-entrar{animation:p3dEntrar .7s cubic-bezier(.2,.8,.25,1) backwards}
+        @media (prefers-reduced-motion: reduce){.p3d-entrar{animation:none!important}}
+      `}</style>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 26, margin: "0 0 3px" }}>Painel</h1>
@@ -9420,64 +9641,96 @@ function PainelPage({ user }) {
 
       {loading ? (
         <div style={{ ...card, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>Carregando…</div>
+      ) : erro ? (
+        <div style={{ ...card, textAlign: "center", color: COLORS.danger, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Não consegui carregar todos os dados. Recarregue a página para não ver números incompletos.</div>
       ) : (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, marginBottom: 16 }}>
             {kpis.map((k, i) => (
-              <div key={i} style={card}>
+              <CartaoTilt key={i} estilo={card} atraso={i * 90}>
                 <div style={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".05em", fontFamily: "'DM Sans', sans-serif" }}>{k.lab}</div>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 27, color: COLORS.white, margin: "7px 0 6px", fontVariantNumeric: "tabular-nums" }}>{k.val}</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 27, color: COLORS.white, margin: "7px 0 6px", fontVariantNumeric: "tabular-nums" }}><Contador valor={k.num} formato={k.formato} /></div>
                 {delta(k.a, k.b)}
-              </div>
+              </CartaoTilt>
             ))}
           </div>
 
-          <div style={{ ...card, marginBottom: 16 }}>
-            <h2 style={h2}>Faturamento nos últimos 12 meses</h2>
-            <p style={capS}>Vendas concluídas por mês da entrega · até {MES_NOMES[mes]}/{ano}</p>
-            <svg viewBox={`0 0 ${CW} ${CH}`} width="100%" style={{ maxWidth: "100%" }} preserveAspectRatio="xMidYMid meet">
-              {gridVals.map((v, i) => (
-                <g key={i}>
-                  <line x1={PL} y1={Y(v)} x2={CW - PR} y2={Y(v)} stroke={COLORS.border} strokeWidth="1" />
-                  <text x={PL - 8} y={Y(v) + 3.5} fill={COLORS.textDim} fontSize="10" textAnchor="end" fontFamily="DM Sans">{compact(v)}</text>
-                </g>
-              ))}
-              <defs><linearGradient id="pfat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={COLORS.orange} stopOpacity="0.26" /><stop offset="1" stopColor={COLORS.orange} stopOpacity="0" /></linearGradient></defs>
-              <path d={areaD} fill="url(#pfat)" />
-              <path d={lineD} fill="none" stroke={COLORS.orange} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
-              <circle cx={lastPt[0]} cy={lastPt[1]} r="4" fill={COLORS.orange} stroke={COLORS.card} strokeWidth="2" />
-              {serie12.map((s, i) => <text key={i} x={X(i)} y={CH - 8} fill={COLORS.textDim} fontSize="10" textAnchor="middle" fontFamily="DM Sans">{s.lab}</text>)}
-            </svg>
-          </div>
+          <div className="p3d-entrar" style={{ ...cardPalco, animationDelay: "120ms" }}>
+            <Arena3D vista={vista3D} aoTrocarVista={setVista3D} dados={dados3D} aria={aria3D} isMobile={isMobile} cabecalho={(
+              <div style={{ margin: "4px 0 10px" }}>
+                <h2 style={h2}>{ARENA_TITULOS[vista3D]}</h2>
+                <p style={{ ...capS, margin: "0 0 8px" }}>{ARENA_LEGENDA[vista3D](MES_NOMES[mes], ano)}</p>
+                {vista3D === "consultores" && legenda(SERIES_LEAD)}
+              </div>
+            )} legendaCheia={(
+              <div style={{ margin: "2px 0 8px" }}>
+                {vista3D === "consultores" ? legenda(SERIES_LEAD) : <p style={{ ...capS, margin: 0 }}>{ARENA_LEGENDA[vista3D](MES_NOMES[mes], ano)}</p>}
+              </div>
+            )} />
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
-            <div style={card}>
-              <h2 style={h2}>Funil de leads</h2>
-              <p style={capS}>Leads que chegaram em {MES_NOMES[mes]}/{ano}</p>
-              {funil.map((f, i) => (
-                <div key={i} style={{ margin: "10px 0" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 5, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
-                    <span>{f.nm}</span><b style={{ fontVariantNumeric: "tabular-nums" }}>{f.v}</b>
+            <div style={{ marginTop: 14 }}>
+              {vista3D === "consultores" && (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 240 : 220}px, 1fr))`, gap: 12 }}>
+                    {porConsultor.map((c, i) => (
+                      <CartaoTilt key={c.nome} atraso={i * 90} estilo={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "12px 14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 9 }}>
+                          <span style={{ width: 28, height: 28, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #FFD27A, #B9791A)", color: "#17120A", fontWeight: 800, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{c.nome.charAt(0).toUpperCase()}</span>
+                          <b style={{ color: COLORS.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>{c.nome}</b>
+                        </div>
+                        {SERIES_LEAD.map((s, si) => (
+                          <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 8, margin: "5px 0", fontSize: 12.5, fontFamily: "'DM Sans', sans-serif", color: COLORS.textMuted }}>
+                            <span style={{ width: 9, height: 9, borderRadius: 2, background: s.cor, flexShrink: 0 }} />
+                            <span style={{ flex: 1 }}>{s.nome}</span>
+                            {si > 0 && <span style={{ color: COLORS.textDim, fontSize: 11.5, fontVariantNumeric: "tabular-nums" }}>{pctBR(c.recebidos ? c[s.key] / c.recebidos : 0)}</span>}
+                            <b style={{ color: COLORS.white, fontSize: 14, minWidth: 26, textAlign: "right", fontVariantNumeric: "tabular-nums" }}><Contador valor={c[s.key]} /></b>
+                          </div>
+                        ))}
+                      </CartaoTilt>
+                    ))}
                   </div>
-                  <div style={{ height: 24, borderRadius: 7, background: f.c, width: Math.max(14, f.v / fmax * 100) + "%", minWidth: 34, display: "flex", alignItems: "center", paddingLeft: 10, color: "#0F0F12", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{f.v}</div>
+                  <p style={{ ...capS, margin: "12px 0 0" }}>Orçamento ou venda contam quando o telefone do orçamento é o mesmo do lead. Venda = orçamento "Concluído" ou "Fazer Pedido".</p>
+                </>
+              )}
+              {vista3D === "meses" && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))", gap: 8 }}>
+                  {serie12.map((s, i) => {
+                    const ultimo = i === serie12.length - 1;
+                    return (
+                      <div key={`${s.a}-${s.lab}`} title={fmtMoney(s.y)} style={{ background: COLORS.bg, border: `1px solid ${ultimo ? COLORS.orange : COLORS.border}`, borderRadius: 10, padding: "8px 10px", fontFamily: "'DM Sans', sans-serif" }}>
+                        <div style={{ color: ultimo ? COLORS.orange : COLORS.textMuted, fontSize: 11.5, fontWeight: 600 }}>{s.lab}/{String(s.a).slice(2)}</div>
+                        <div style={{ color: COLORS.white, fontSize: 13.5, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}><Contador valor={s.y} formato={milhar} /></div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-              <p style={{ ...capS, margin: "12px 0 0" }}>Conversão: <b style={{ color: "#22C55E" }}>{pctBR(conv)}</b> dos leads viraram venda</p>
-            </div>
-
-            <div style={card}>
-              <h2 style={h2}>Faturamento por vendedor</h2>
-              <p style={capS}>Realizado no mês · risco = meta ({fmtMoney(META_VEND)})</p>
-              {porVendedor.map((v, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "94px 1fr auto", alignItems: "center", gap: 12, margin: "13px 0" }}>
-                  <span style={{ fontSize: 12.5, color: COLORS.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: "'DM Sans', sans-serif" }}>{v.nome}</span>
-                  <div style={{ position: "relative", height: 12, background: COLORS.bg, borderRadius: 6 }}>
-                    <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: (v.valor / vmax * 100) + "%", background: v.cor, borderRadius: 6, transition: "width .5s" }} />
-                    <div style={{ position: "absolute", top: -3, height: 18, width: 2, background: COLORS.text, opacity: .5, left: (v.meta / vmax * 100) + "%" }} />
+              )}
+              {vista3D === "funil" && (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "6px 22px" }}>
+                    {funil.map((f, i) => (
+                      <div key={f.nm} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
+                        <span style={{ width: 9, height: 9, borderRadius: 2, background: f.c, flexShrink: 0 }} />
+                        <span style={{ flex: 1 }}>{f.nm}</span>
+                        {i > 0 && <span style={{ color: COLORS.textDim, fontSize: 11.5, fontVariantNumeric: "tabular-nums" }}>{pctBR(fTotal ? f.v / fTotal : 0)}</span>}
+                        <b style={{ color: COLORS.white, minWidth: 26, textAlign: "right", fontVariantNumeric: "tabular-nums" }}><Contador valor={f.v} /></b>
+                      </div>
+                    ))}
                   </div>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.text, minWidth: 78, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtMoney(v.valor)}</span>
+                  <p style={{ ...capS, margin: "10px 0 0" }}>Conversão: <b style={{ color: "#22C55E" }}>{pctBR(conv)}</b> dos leads viraram venda</p>
+                </>
+              )}
+              {vista3D === "vendedores" && (
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 240 : 220}px, 1fr))`, gap: 12 }}>
+                  {porVendedor.map((v, i) => (
+                    <CartaoTilt key={v.nome} atraso={i * 90} estilo={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "12px 14px" }}>
+                      <div style={{ color: COLORS.text, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{v.nome}</div>
+                      <div style={{ color: COLORS.white, fontSize: 17, fontWeight: 800, margin: "4px 0 2px", fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums" }}><Contador valor={v.valor} formato={fmtMoney} /></div>
+                      <div style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{pctBR(v.valor / v.meta)} da meta de {fmtMoney(v.meta)}</div>
+                    </CartaoTilt>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </>

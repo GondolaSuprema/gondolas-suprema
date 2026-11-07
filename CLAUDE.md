@@ -165,6 +165,7 @@ silêncio.
 | Aba | Função | ~L | Tabela principal |
 |---|---|---|---|
 | Login | `Login` | 2701 | Supabase Auth |
+| Painel (3D interativo em WebGL: `Arena3D` + `src/lib/arena3d.js`, com Three.js) | `PainelPage` | 9459 | orcamentos + mariana_leads |
 | Dados do cliente | `ClientPage` | 2163 | estado `clientData` |
 | Catálogo | `Catalog` | 2813 | PRODUCTS + produtos_uniplus |
 | Carrinho | `Quote` | 3334 | — |
