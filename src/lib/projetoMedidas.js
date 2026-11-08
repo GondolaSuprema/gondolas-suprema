@@ -171,18 +171,19 @@ export const MPP_COMPRIMENTOS = { "1,00": 1, "1,50": 1.5, "2,00": 2 };
 export const MPP_PROFUNDIDADES = { "0,60": 0.6, "0,80": 0.8 };
 export const MIN_NIVEIS_MPP = 2;
 export const MAX_NIVEIS_MPP = 6;
-export const MAX_MODULOS_MPP = 10; // por fila: a inicial e as continuações
+export const MAX_MODULOS_MPP = 10; // por fila: a inicial e as continuações, cada uma com o seu comprimento
 export const MAX_FILAS_MPP = 6;
 
-// Filas lado a lado, com um corredor entre elas; a fila 1 fica à esquerda (+Z), como no centro da gôndola.
+// m.comprimentos = comprimento de cada módulo da fila, da inicial às continuações: ["2,00", "1,50", "1,00"].
+// Filas lado a lado, com um corredor entre elas e a mesma sequência de módulos; a fila 1 fica à esquerda (+Z), como no centro da gôndola.
 export function layoutMPP(m) {
-  const vao = MPP_COMPRIMENTOS[m.comprimento] - 2 * MONTANTE_MPP; // entre os montantes
+  const vaos = m.comprimentos.map((c) => MPP_COMPRIMENTOS[c] - 2 * MONTANTE_MPP); // entre os montantes de cada módulo
   const prof = MPP_PROFUNDIDADES[m.profundidade];
-  const comprimento = MONTANTE_MPP + m.modulos * (vao + MONTANTE_MPP);
+  const comprimento = vaos.reduce((soma, vao) => soma + vao + MONTANTE_MPP, MONTANTE_MPP);
   const passoZ = prof + LARGURA_CORREDOR;
   const meiaLargura = ((m.filas - 1) / 2) * passoZ + prof / 2;
   return {
-    vao, prof, altura: MPP_ALTURAS[m.altura], comprimento, largura: 2 * meiaLargura,
+    vaos, prof, altura: MPP_ALTURAS[m.altura], comprimento, largura: 2 * meiaLargura,
     filas: Array.from({ length: m.filas }, (_, f) => ((m.filas - 1) / 2 - f) * passoZ),
     xMin: -comprimento / 2, xMax: comprimento / 2, zMin: -meiaLargura, zMax: meiaLargura,
   };
@@ -190,14 +191,18 @@ export function layoutMPP(m) {
 
 export function medidasMPP(m) {
   const l = layoutMPP(m);
-  const continuacoes = m.modulos - 1;
+  const modulos = m.comprimentos.length, continuacoes = modulos - 1;
+  const iguais = m.comprimentos.every((c) => c === m.comprimentos[0]);
   return {
     comprimento: `≈ ${fmt(l.comprimento)} m`,
     rotuloLargura: m.filas > 1 ? "Largura total" : "Profundidade",
     largura: `≈ ${fmt(l.largura)} m`,
     altura: `${fmt(l.altura)} m`,
     modulos: continuacoes ? `1 inicial + ${continuacoes} ${continuacoes === 1 ? "continuação" : "continuações"}` : "Só a inicial",
-    prateleiras: m.modulos * m.niveis * m.filas,
+    // Tamanho de tabela de cada módulo (a continuação mede 4 cm a menos): "1,50 m" ou "2,00 + 1,50 + 1,00 m"
+    iguais,
+    sequencia: iguais ? `${m.comprimentos[0]} m` : `${m.comprimentos.join(" + ")} m`,
+    prateleiras: modulos * m.niveis * m.filas,
     resumo: `≈ ${fmt(l.comprimento)} × ${fmt(l.largura)} m`,
     espaco: `${fmt(LARGURA_CORREDOR)} m`,
   };

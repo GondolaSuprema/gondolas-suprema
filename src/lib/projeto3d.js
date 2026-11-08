@@ -912,12 +912,18 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     const passo = VAO + COL_X;
     if (ehMPP()) {
       // Cada fila: uma lateral em cada ponta e entre os módulos, e um vão com os níveis entre duas laterais.
-      const m = l.mpp, passoMPP = m.vao + MONTANTE_MPP;
+      // Cada módulo tem o seu comprimento; a lateral seguinte fica logo depois do vão dele.
+      const m = l.mpp;
       const lateral = `mppLateral:${m.prof}:${m.altura}`;
-      const vao = `mppVao:${m.vao.toFixed(3)}:${m.prof}:${m.altura}:${estado.mpp.niveis}`;
       m.filas.forEach((z, f) => {
-        for (let k = 0; k <= estado.mpp.modulos; k++) pos("mpp", lateral, `mpp${f}:l${k}:${lateral}`, m.xMin + MONTANTE_MPP / 2 + k * passoMPP, z, 0);
-        for (let k = 0; k < estado.mpp.modulos; k++) pos("mpp", vao, `mpp${f}:v${k}:${vao}`, m.xMin + MONTANTE_MPP + k * passoMPP, z, 0);
+        let x = m.xMin;
+        pos("mpp", lateral, `mpp${f}:l0:${lateral}`, x + MONTANTE_MPP / 2, z, 0);
+        m.vaos.forEach((v, k) => {
+          const vao = `mppVao:${v.toFixed(3)}:${m.prof}:${m.altura}:${estado.mpp.niveis}`;
+          pos("mpp", vao, `mpp${f}:v${k}:${vao}`, x + MONTANTE_MPP, z, 0);
+          x += v + MONTANTE_MPP;
+          pos("mpp", lateral, `mpp${f}:l${k + 1}:${lateral}`, x + MONTANTE_MPP / 2, z, 0);
+        });
       });
     } else {
       if (l.centro) {
@@ -1180,7 +1186,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   }
 
   // Números dos módulos e o lado à vista: ficam na tela, nunca entram na imagem do cliente.
-  let rotulosLigados = { centro: false, parede: false };
+  let rotulosLigados = { centro: false, parede: false, mpp: false };
   const estiloRotulo = "position:absolute;pointer-events:none;font-family:'DM Sans',sans-serif;";
   const novoRotulo = (texto) => {
     const el = document.createElement("div");
@@ -1190,6 +1196,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     return el;
   };
   const rotulosModulo = Array.from({ length: MAX_MODULOS * MAX_CORREDORES_FILA }, (_, j) => novoRotulo((j % MAX_MODULOS) + 1));
+  const rotulosMpp = Array.from({ length: MAX_MODULOS_MPP }, (_, i) => novoRotulo(i + 1));
   const rotulosParede = Object.fromEntries(Object.keys(LETRA_PAREDE).map((lado) => [lado, Array.from({ length: MAX_MODULOS_LADO }, () => novoRotulo(""))]));
   const tagLado = document.createElement("div");
   tagLado.style.cssText = `${estiloRotulo}bottom:46px;left:10px;display:none;padding:5px 11px;border-radius:14px;background:rgba(0,0,0,.74);color:#fff;font-size:12px;font-weight:600;`;
@@ -1222,6 +1229,15 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     rotulosModulo.forEach((el, j) => {
       const c = daFila[Math.floor(j / MAX_MODULOS)], i = j % MAX_MODULOS;
       colocarRotulo(el, (c ? c.x0 : 0) + COL_X + i * passo + VAO / 2, ALTURAS[estado.altura].m + 0.11, c ? c.z : 0, verCentro && !!c && i < estado.modulos);
+    });
+    // Mini porta palete: o número de cada módulo, em cima dele, na fila mais perto da câmera
+    const verMpp = rotulosLigados.mpp && foraDoCorredor && ehMPP();
+    const m = verMpp ? l.mpp : null;
+    let xMpp = m ? m.xMin + MONTANTE_MPP : 0;
+    rotulosMpp.forEach((el, k) => {
+      const v = m?.vaos[k];
+      colocarRotulo(el, xMpp + (v || 0) / 2, m ? m.altura + 0.11 : 0, m ? m.filas[f] : 0, verMpp && v !== undefined);
+      if (v !== undefined) xMpp += v + MONTANTE_MPP;
     });
     const q = paredesDe(estado);
     const y = ALTURAS[estado.alturaParede].m + 0.11;
@@ -1360,7 +1376,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
       medirFolego(msQuadro, movendo);
       if (!(fraco && movendo)) desenharReflexo();
       composer.render(dt);
-      if (rotulosLigados.centro || rotulosLigados.parede) atualizarRotulos();
+      if (rotulosLigados.centro || rotulosLigados.parede || rotulosLigados.mpp) atualizarRotulos();
     }
   }
   function ligarLaco() {
@@ -1541,7 +1557,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     canvas.removeEventListener("webglcontextlost", aoPerderContexto);
     canvas.removeEventListener("webglcontextrestored", aoRecuperarContexto);
     controles.dispose();
-    [...rotulosModulo, ...Object.values(rotulosParede).flat(), tagLado].forEach((el) => el.remove());
+    [...rotulosModulo, ...rotulosMpp, ...Object.values(rotulosParede).flat(), tagLado].forEach((el) => el.remove());
     const materiais = new Set(), geometrias = new Set();
     const coletar = (o) => o.traverse((n) => {
       if (n.geometry) geometrias.add(n.geometry);
