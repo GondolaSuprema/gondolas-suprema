@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
-import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_CORREDORES, medidasDe, nomeModuloParede } from "../lib/projetoMedidas";
+import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, medidasDe, nomeModuloParede } from "../lib/projetoMedidas";
 
 // Chamadas às rotas /api protegidas (NF-e, NFS-e, conciliação): envia o token
 // da sessão do Supabase. Sem ele a rota responde 401.
@@ -12739,7 +12739,7 @@ const projetoPadrao = () => ({
   pontas: 1,
   linha: "fit40",
   altura: "2,02",
-  corredores: 1,
+  filas: [1], // corredores de cada fila, um atrás do outro
   tipos: Array.from({ length: MAX_MODULOS }, () => ({ esq: "bandeja", dir: "bandeja" })),
   alturaParede: "2,02",
   paredes: { esq: [4], dir: [4], fundo: [4] }, // módulos de cada parede, por lado
@@ -12751,8 +12751,14 @@ const projetoPadrao = () => ({
 const PROJETO_GUARDADO = "projeto3d-v2";
 function projetoGuardado() {
   try {
-    const guardado = { ...projetoPadrao(), ...JSON.parse(sessionStorage.getItem(PROJETO_GUARDADO)) };
+    const salvo = JSON.parse(sessionStorage.getItem(PROJETO_GUARDADO));
+    const guardado = { ...projetoPadrao(), ...salvo };
     guardado.cantos = { esq: !!guardado.cantos?.esq, dir: !!guardado.cantos?.dir };
+    // Montagem de antes de 8-nov-2026: "corredores" eram fileiras lado a lado, e cada uma vira uma fila de 1 corredor.
+    if (salvo && !salvo.filas && salvo.corredores) guardado.filas = Array(Math.min(MAX_FILAS, salvo.corredores)).fill(1);
+    delete guardado.corredores;
+    const { filas } = guardado;
+    if (!Array.isArray(filas) || !filas.length || filas.length > MAX_FILAS || !filas.every(n => Number.isInteger(n) && n >= 1 && n <= MAX_CORREDORES_FILA)) throw new Error("filas fora do formato");
     medidasDe({ ...guardado, montagem: "ambos" }); // formato inesperado lança aqui e a aba abre no padrão, em vez de derrubar o sistema
     return guardado;
   } catch { return projetoPadrao(); }
@@ -12779,7 +12785,7 @@ function ProjetoPage() {
   const [pontas, setPontas] = useState(inicial.pontas);
   const [linha, setLinha] = useState(inicial.linha);
   const [altura, setAltura] = useState(inicial.altura);
-  const [corredores, setCorredores] = useState(inicial.corredores);
+  const [filas, setFilas] = useState(inicial.filas);
   const [vista, setVista] = useState(inicial.vista);
   const [mexeu, setMexeu] = useState(false);
   const [gerando, setGerando] = useState(false);
@@ -12799,7 +12805,7 @@ function ProjetoPage() {
   const { tabletEmPe, deitado } = forma;
   // O motor carrega depois: ao abrir, usa o que estiver na tela naquele momento.
   const atual = useRef(null);
-  const config = { montagem, modulos, pontas, linha, altura, corredores, tipos, alturaParede, paredes, cantos, tiposParede };
+  const config = { montagem, modulos, pontas, linha, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede };
   atual.current = { ...config, vista, abrirTipos, abrirParede };
   const timerFalha = useRef(null);
   const vistaPendente = useRef(null);
@@ -12847,11 +12853,11 @@ function ProjetoPage() {
     if (!motor.current) return;
     motor.current.configurar(config);
     if (vistaPendente.current) { motor.current.irPara(vistaPendente.current); vistaPendente.current = null; }
-  }, [montagem, modulos, pontas, linha, altura, corredores, tipos, alturaParede, paredes, cantos, tiposParede]);
+  }, [montagem, modulos, pontas, linha, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede]);
   useEffect(() => { motor.current?.mostrarRotulos({ centro: abrirTipos, parede: abrirParede }); }, [abrirTipos, abrirParede]);
   useEffect(() => {
     try { sessionStorage.setItem(PROJETO_GUARDADO, JSON.stringify({ ...config, vista })); } catch {}
-  }, [montagem, modulos, pontas, linha, altura, corredores, tipos, alturaParede, paredes, cantos, tiposParede, vista]);
+  }, [montagem, modulos, pontas, linha, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede, vista]);
 
   const tentarDeNovo = () => { setEstado("carregando"); setTentativa(t => t + 1); };
   const limpar = () => {
@@ -12872,7 +12878,7 @@ function ProjetoPage() {
     setPontas(p.pontas);
     setLinha(p.linha);
     setAltura(p.altura);
-    setCorredores(p.corredores);
+    setFilas(p.filas);
     setTipos(p.tipos);
     setAlturaParede(p.alturaParede);
     setParedes(p.paredes);
@@ -12895,6 +12901,10 @@ function ProjetoPage() {
     setVista(nova);
     vistaPendente.current = nova;
   };
+  // A fila nova repete os corredores da anterior.
+  const maisFila = () => setFilas(fs => (fs.length < MAX_FILAS ? [...fs, fs[fs.length - 1]] : fs));
+  const menosFila = () => setFilas(fs => (fs.length > 1 ? fs.slice(0, -1) : fs));
+  const trocarCorredores = (f, d) => setFilas(fs => fs.map((n, j) => (j === f ? Math.min(MAX_CORREDORES_FILA, Math.max(1, n + d)) : n)));
   const somaLado = (l) => paredes[l].reduce((soma, n) => soma + n, 0);
   const totalParede = somaLado("esq") + somaLado("dir") + somaLado("fundo");
   const nomeDaParede = (l, t) => (paredes[l].length > 1 ? `${LADOS_PAREDE[l]} ${t + 1}` : LADOS_PAREDE[l]);
@@ -12913,11 +12923,11 @@ function ProjetoPage() {
   const trocarTodaParede = (l, t, v) => { setTiposParede(ts => ({ ...ts, [l]: ts[l].map((lista, j) => (j === t ? lista.map(() => v) : lista)) })); motor.current?.verParede(l); };
 
   const algumaParede = comParede && totalParede > 0;
-  const espacoEntre = comCentro ? corredores > 1 || algumaParede : paredes.esq.length > 0 && paredes.dir.length > 0 && !paredes.fundo.length;
+  const espacoEntre = comCentro ? medidas.corredores > 1 || algumaParede : paredes.esq.length > 0 && paredes.dir.length > 0 && !paredes.fundo.length;
   const comColuna = algumaParede && Object.keys(LADOS_PAREDE).some(l => paredes[l].length > 1);
   // "Mínimo": com fundo longo, a lateral fica mais longe do centro que 1,20 m.
-  const notaEspacos = espacoEntre && comColuna ? ` Espaço mínimo de ${medidas.espaco} entre corredores e pilar de ${medidas.vaoColuna} entre paredes do mesmo lado.`
-    : espacoEntre ? ` Espaço mínimo de ${medidas.espaco} entre corredores.`
+  const notaEspacos = espacoEntre && comColuna ? ` Espaço mínimo de ${medidas.espaco} entre as gôndolas e pilar de ${medidas.vaoColuna} entre paredes do mesmo lado.`
+    : espacoEntre ? ` Espaço mínimo de ${medidas.espaco} entre as gôndolas.`
     : comColuna ? ` Pilar de ${medidas.vaoColuna} entre paredes do mesmo lado.` : "";
   const baixarImagem = async () => {
     if (!motor.current || gerando) return;
@@ -12926,24 +12936,30 @@ function ProjetoPage() {
     try {
       const nomePontas = pontas === 0 ? "sem pontas" : pontas === 1 ? "1 ponta" : "2 pontas";
       const nomeModulos = `${modulos} ${modulos === 1 ? "módulo" : "módulos"}`;
-      const nomeCentro = corredores > 1
-        ? `Gôndola de centro · ${corredores} corredores · ${pontas ? `${nomeModulos} e ${nomePontas}` : nomeModulos} em cada`
+      const nomeCentro = medidas.corredores > 1
+        ? `Gôndola de centro · ${medidas.corredores} corredores · ${pontas ? `${nomeModulos} e ${nomePontas}` : nomeModulos} em cada`
         : `Gôndola de centro · ${nomeModulos} · ${nomePontas}`;
+      // Como os corredores se dividem nas filas, em linha própria pelo mesmo motivo da parede.
+      const nomeFilas = medidas.corredores < 2 ? ""
+        : filas.length === 1 ? "Um corredor atrás do outro"
+        : filas.every(n => n === 1) ? `${filas.length} filas lado a lado`
+        : filas.every(n => n === filas[0]) ? `${filas.length} filas de ${filas[0]} corredores`
+        : `${filas.length} filas · corredores por fila: ${filas.join(", ").replace(/, ([^,]*)$/, " e $1")}`;
       const nomeParede = `Gôndola de parede · ${totalParede} ${totalParede === 1 ? "módulo" : "módulos"}`;
       // Em linha própria: junto do título, o texto longo encolheria a fonte da linha inteira.
       const ladosParede = [["Esquerda", paredes.esq], ["Direita", paredes.dir], ["Fundo", paredes.fundo]].filter(([, lista]) => lista.length).map(([nome, lista]) => `${nome} ${lista.join(" + ")}`).concat(medidas.nomeCantos ? [`Canto ${medidas.nomeCantos}`] : []).join(" · ");
       const soBandeja = new Set(emUso).size === 1 && emUso[0] === "bandeja";
       const blob = await motor.current.gerarImagem({
         titulo: comCentro ? nomeCentro : nomeParede,
-        extras: [...(comCentro && algumaParede ? [nomeParede] : []), ...(algumaParede ? [ladosParede] : []), ...(soBandeja ? [] : [`Com ${nomesDe(emUso)}`])],
+        extras: [...(comCentro && nomeFilas ? [nomeFilas] : []), ...(comCentro && algumaParede ? [nomeParede] : []), ...(algumaParede ? [ladosParede] : []), ...(soBandeja ? [] : [`Com ${nomesDe(emUso)}`])],
         medidas: algumaParede
           ? `Espaço ocupado ${medidas.ocupado} · ${comCentro ? `Altura: centro ${medidas.altura} e parede ${medidas.alturaParede}` : `Altura ${medidas.alturaParede}`}`
-          : `Comprimento ${medidas.comprimento} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
+          : `${medidas.comprimentoTotal ? `Comprimento total ${medidas.comprimentoTotal} · cada corredor ${medidas.comprimento}` : `Comprimento ${medidas.comprimento}`} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
         nota: `Medidas aproximadas, a confirmar no projeto.${notaEspacos}`,
       });
       const nome = algumaParede
         ? `gondola-${comCentro ? "centro-e-parede" : "parede"}.jpg`
-        : `gondola-${corredores > 1 ? `${corredores}-corredores-` : ""}${modulos}-${modulos === 1 ? "modulo" : "modulos"}-${pontas === 1 ? "1-ponta" : pontas === 2 ? "2-pontas" : "sem-pontas"}.jpg`;
+        : `gondola-${medidas.corredores > 1 ? `${medidas.corredores}-corredores-` : ""}${modulos}-${modulos === 1 ? "modulo" : "modulos"}-${pontas === 1 ? "1-ponta" : pontas === 2 ? "2-pontas" : "sem-pontas"}.jpg`;
       const arquivo = new File([blob], nome, { type: "image/jpeg" });
       // No celular abre o compartilhar, com WhatsApp e "Salvar imagem"; no computador, baixa o arquivo.
       if (window.matchMedia?.("(pointer: coarse)").matches && navigator.canShare?.({ files: [arquivo] })) {
@@ -12993,8 +13009,12 @@ function ProjetoPage() {
       <span style={{ color: COLORS.orange, fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>{aberto ? "Fechar" : "Trocar"}</span>
     </button>
   );
+  // Corredores um atrás do outro: o comprimento de cada um e o da fila mais comprida.
+  const itensComprimento = medidas.comprimentoTotal
+    ? [["Comprimento de cada corredor", medidas.comprimento], [algumaParede ? "Comprimento do centro" : "Comprimento total", medidas.comprimentoTotal]]
+    : [[algumaParede ? "Comprimento do centro" : "Comprimento", medidas.comprimento]];
   const itensMedidas = [
-    ...(comCentro ? [[algumaParede ? "Comprimento do centro" : "Comprimento", medidas.comprimento], [algumaParede ? `${medidas.rotuloLargura} do centro` : medidas.rotuloLargura, medidas.largura], [algumaParede ? "Altura do centro" : "Altura", medidas.altura]] : []),
+    ...(comCentro ? [...itensComprimento, [algumaParede ? `${medidas.rotuloLargura} do centro` : medidas.rotuloLargura, medidas.largura], [algumaParede ? "Altura do centro" : "Altura", medidas.altura]] : []),
     ...(algumaParede ? Object.keys(LADOS_PAREDE).flatMap(l => medidas.paredes[l].map((v, t) => [nomeDaParede(l, t), v])) : []),
     ...(medidas.nomeCantos ? [["Canto", medidas.nomeCantos[0].toUpperCase() + medidas.nomeCantos.slice(1)]] : []),
     ...(algumaParede ? [[comCentro ? "Altura da parede" : "Altura", medidas.alturaParede]] : []),
@@ -13014,7 +13034,7 @@ function ProjetoPage() {
         <div style={{ minWidth: 0, marginBottom: umaColuna ? 10 : 0 }}>
           <div style={{ position: "relative", height: umaColuna ? altura3D : `calc(${alturaColunas} - 58px)`, borderRadius: 14, overflow: "hidden", background: "#000", border: `1px solid ${COLORS.border}` }}>
             {/* key: "Tentar de novo" precisa de canvas novo; o contexto WebGL do antigo já foi derrubado. */}
-            <canvas key={tentativa} ref={canvasRef} role="img" aria-label={`Projeto em 3D: ${comCentro ? `${corredores} corredores de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
+            <canvas key={tentativa} ref={canvasRef} role="img" aria-label={`Projeto em 3D: ${comCentro ? `${filas.length} ${filas.length === 1 ? "fila" : "filas"} com ${medidas.corredores} ${medidas.corredores === 1 ? "corredor" : "corredores"} de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimentoTotal || medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
             <div ref={rotulosRef} aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }} />
             {estado === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte }}>Carregando o 3D…</div>}
             {estado === "erro" && (
@@ -13060,13 +13080,26 @@ function ProjetoPage() {
                     </div>
                   </div>
                   <div>
-                    <span style={rotulo}>Corredores</span>
+                    <span style={rotulo}>Filas</span>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-                      <button aria-label="Menos um corredor" disabled={corredores <= 1} onClick={() => setCorredores(c => Math.max(1, c - 1))} style={passo(corredores <= 1)}>−</button>
-                      <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{corredores}</b>
-                      <button aria-label="Mais um corredor" disabled={corredores >= MAX_CORREDORES} onClick={() => setCorredores(c => Math.min(MAX_CORREDORES, c + 1))} style={passo(corredores >= MAX_CORREDORES)}>+</button>
+                      <button aria-label="Menos uma fila" disabled={filas.length <= 1} onClick={menosFila} style={passo(filas.length <= 1)}>−</button>
+                      <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{filas.length}</b>
+                      <button aria-label="Mais uma fila" disabled={filas.length >= MAX_FILAS} onClick={maisFila} style={passo(filas.length >= MAX_FILAS)}>+</button>
                     </div>
                   </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <span style={rotulo}>Corredores em cada fila (um atrás do outro)</span>
+                  {filas.map((n, f) => (
+                    <div key={f} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+                      <span style={{ color: COLORS.text, fontSize: 13 }}>Fila {f + 1}</span>
+                      <div style={{ width: 132, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 3, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                        <button aria-label={`Menos um corredor, fila ${f + 1}`} disabled={n <= 1} onClick={() => trocarCorredores(f, -1)} style={passo(n <= 1)}>−</button>
+                        <b style={{ color: COLORS.white, fontSize: 18, fontVariantNumeric: "tabular-nums" }}>{n}</b>
+                        <button aria-label={`Mais um corredor, fila ${f + 1}`} disabled={n >= MAX_CORREDORES_FILA} onClick={() => trocarCorredores(f, 1)} style={passo(n >= MAX_CORREDORES_FILA)}>+</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <span style={rotulo}>Pontas</span>

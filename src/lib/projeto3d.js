@@ -10,13 +10,13 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-import { COL_X, COL_Z, VAO, FACE_Z, LINHAS, ALTURAS, LETRA_PAREDE, ATRAS_PAREDE, MAX_MODULOS, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_CORREDORES, LARGURA_CORREDOR, comprimentoFileira, larguraFileira, layoutDe, paredesDe, trechosDoLado, nomeModuloParede, VAO_COLUNA, PROF_PILAR, CANTO_ATE_COLUNA } from "./projetoMedidas";
+import { COL_X, COL_Z, VAO, FACE_Z, LINHAS, ALTURAS, LETRA_PAREDE, ATRAS_PAREDE, MAX_MODULOS, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, LARGURA_CORREDOR, comprimentoFileira, corredoresDe, larguraFileira, layoutDe, paredesDe, trechosDoLado, nomeModuloParede, VAO_COLUNA, PROF_PILAR, CANTO_ATE_COLUNA } from "./projetoMedidas";
 
 const Y_BASE = 0.135;
 const CHAVES = ["aco", "amarelo", "furo", "nylon", "rosca", "arame", "gancho", "etiqueta", "pilar"];
 const GANCHOS_POR_REGUA = 5;
 const PROF_CESTO = 0.37; // cesto 370 x 900 mm
-const SALA_X = 32, SALA_Z = 32, PE_DIREITO = 3; // grande o bastante para a câmera recuar com 6 corredores no celular
+const SALA_X = 32, SALA_Z = 32, PE_DIREITO = 3; // grande o bastante para a câmera recuar com 6 filas no celular
 const FATOR_CONTATO = 0.2;
 
 // Prateleiras distribuídas por igual entre a base e o topo da coluna.
@@ -638,9 +638,9 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
 
   const contatoMat = new THREE.MeshBasicMaterial({ alphaMap: texturaContato(), color: 0x050403, transparent: true, opacity: 0.62, depthWrite: false, toneMapped: false });
   const pernas = 1 / (1 - 2 * FATOR_CONTATO);
-  const contatos = new THREE.Group(); // uma sombra por fileira e por parede
+  const contatos = new THREE.Group(); // uma sombra por corredor e por parede
   const contatoGeo = new THREE.PlaneGeometry(1, 1);
-  for (let i = 0; i < MAX_CORREDORES + 3 * MAX_PAREDES_LADO + 2; i++) {
+  for (let i = 0; i < MAX_FILAS * MAX_CORREDORES_FILA + 3 * MAX_PAREDES_LADO + 2; i++) {
     const c = new THREE.Mesh(contatoGeo, contatoMat);
     c.rotation.x = -Math.PI / 2;
     c.position.y = 0.002;
@@ -717,7 +717,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
 
   // ── Montagem ──
   // Instâncias: cada tipo de peça é desenhado de uma vez só, então muitas fileiras não pesam em chamadas de desenho.
-  const CAPACIDADE = { modulo: MAX_MODULOS * MAX_CORREDORES, inicio: MAX_CORREDORES, ponta: 2 * MAX_CORREDORES, moduloParede: 3 * MAX_MODULOS_LADO, inicioParede: 3 * MAX_PAREDES_LADO, canto: 2, fecho: 2, pilar: 3 * (MAX_PAREDES_LADO - 1), face: 2 * MAX_MODULOS * MAX_CORREDORES + 3 * MAX_MODULOS_LADO };
+  const NO_CENTRO = MAX_FILAS * MAX_CORREDORES_FILA; // corredores de centro, no máximo
+  const CAPACIDADE = { modulo: MAX_MODULOS * NO_CENTRO, inicio: NO_CENTRO, ponta: 2 * NO_CENTRO, moduloParede: 3 * MAX_MODULOS_LADO, inicioParede: 3 * MAX_PAREDES_LADO, canto: 2, fecho: 2, pilar: 3 * (MAX_PAREDES_LADO - 1), face: 2 * MAX_MODULOS * NO_CENTRO + 3 * MAX_MODULOS_LADO };
   const modelos = new Map(); // "linha:altura:tipo" → modelo (fica guardado para trocar de opção sem refazer)
   function modelo(linha, altura, tipo) {
     const chave = `${linha}:${altura}:${tipo}`;
@@ -759,9 +760,9 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     return novo;
   }
 
-  const fileiras = () => estado.corredores; // cada corredor é uma fileira
-  const passoFileiras = () => larguraFileira(estado.linha) + LARGURA_CORREDOR;
-  const zDaFileira = (f) => (f - (fileiras() - 1) / 2) * passoFileiras();
+  const fileiras = () => estado.filas.length; // filas lado a lado
+  const emSequencia = () => Math.max(...estado.filas); // corredores um atrás do outro na fila mais comprida
+  const zDaFileira = (f) => ((fileiras() - 1) / 2 - f) * (larguraFileira(estado.linha) + LARGURA_CORREDOR); // igual a corredoresDe: fila 1 em +Z
 
   const unidades = [];
   const matrizUnidade = new THREE.Matrix4();
@@ -788,20 +789,19 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     const pos = (altura, tipo, chave, x, z, rot) => querer.set(`${estado.linha}:${altura}:${chave}`, { altura, tipo, x, z, rot });
     const passo = VAO + COL_X;
     if (l.centro) {
-      const L = comprimentoFileira(estado.modulos);
-      const x0 = -L / 2, a = estado.altura;
-      for (let f = 0; f < fileiras(); f++) {
-        const z = zDaFileira(f);
-        pos(a, "inicio", `c${f}:inicio`, x0 + COL_X, z, 0);
+      const L = comprimentoFileira(estado.modulos), a = estado.altura;
+      for (const { f, k, x0, z } of corredoresDe(estado)) {
+        const c = `c${f}.${k}`;
+        pos(a, "inicio", `${c}:inicio`, x0 + COL_X, z, 0);
         for (let i = 0; i < estado.modulos; i++) {
           const xi = x0 + COL_X + i * passo;
           const { esq, dir } = estado.tipos[i];
-          pos(a, "modulo", `c${f}:m${i}`, xi, z, 0);
-          pos(a, `face:${esq}`, `c${f}:m${i}:esq:${esq}`, xi, z, 0); // lado esquerdo = +Z, visto de quem está na ponta olhando a fileira
-          pos(a, `face:${dir}`, `c${f}:m${i}:dir:${dir}`, xi + VAO, z, Math.PI);
+          pos(a, "modulo", `${c}:m${i}`, xi, z, 0);
+          pos(a, `face:${esq}`, `${c}:m${i}:esq:${esq}`, xi, z, 0); // lado esquerdo = +Z, visto de quem está na ponta olhando a fileira
+          pos(a, `face:${dir}`, `${c}:m${i}:dir:${dir}`, xi + VAO, z, Math.PI);
         }
-        if (estado.pontas >= 1) pos(a, "ponta", `c${f}:pontaD`, L / 2, z, 0);
-        if (estado.pontas >= 2) pos(a, "ponta", `c${f}:pontaE`, -L / 2, z, Math.PI);
+        if (estado.pontas >= 1) pos(a, "ponta", `${c}:pontaD`, x0 + L, z, 0);
+        if (estado.pontas >= 2) pos(a, "ponta", `${c}:pontaE`, x0, z, Math.PI);
       }
     }
     // Paredes: módulo 1 fica junto do fundo nas laterais, então os números não mudam quando a parede cresce.
@@ -856,7 +856,11 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     // Sombra de contato no piso: [centro x, centro z, tamanho x, tamanho z]
     const fund = l.avanco + ATRAS_PAREDE;
     const marcas = [];
-    if (l.centro) for (let f = 0; f < fileiras(); f++) marcas.push([(l.centro.xMin + l.centro.xMax) / 2, zDaFileira(f), l.centro.xMax - l.centro.xMin, 2 * l.avanco]);
+    if (l.centro) {
+      const L = comprimentoFileira(estado.modulos);
+      const atras = estado.pontas >= 2 ? l.avanco : 0, frente = estado.pontas >= 1 ? l.avanco : 0;
+      for (const { x0, z } of corredoresDe(estado)) marcas.push([x0 + (L + frente - atras) / 2, z, L + frente + atras, 2 * l.avanco]);
+    }
     const emLateral = (lista, x0, z) => trechosDoLado(lista).forEach(({ n, inicio }) => marcas.push([x0 + inicio + comprimentoFileira(n) / 2, z, comprimentoFileira(n), fund]));
     emLateral(q.esq, l.inicioE, l.planoLateral + (ATRAS_PAREDE - l.avanco) / 2);
     emLateral(q.dir, l.inicioD, -l.planoLateral - (ATRAS_PAREDE - l.avanco) / 2);
@@ -890,7 +894,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     const { xMin, xMax, zMin, zMax, yMax } = caixa || limites();
     const v = new THREE.Vector3();
     let d = 0;
-    for (let passo = 0; passo < (centrar ? 3 : 1); passo++) {
+    // Três passos centralizam e a última medida já é com a mira final: sem ela, um centro comprido saía do quadro.
+    for (let passo = 0; passo < (centrar ? 4 : 1); passo++) {
       const cantos = [];
       d = 0;
       for (const x of [xMin, xMax]) for (const y of [0, yMax]) for (const zz of [zMin, zMax]) {
@@ -899,7 +904,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
         cantos.push(c);
         d = Math.max(d, Math.abs(c[0]) / th + c[2], Math.abs(c[1]) / tv + c[2]);
       }
-      if (!centrar) break;
+      if (!centrar || passo === 3) break;
       const telaX = cantos.map((c) => c[0] / ((d - c[2]) * th)), telaY = cantos.map((c) => c[1] / ((d - c[2]) * tv));
       alvo.addScaledVector(direita, ((Math.min(...telaX) + Math.max(...telaX)) / 2) * d * th);
       alvo.addScaledVector(cima, ((Math.min(...telaY) + Math.max(...telaY)) / 2) * d * tv);
@@ -938,7 +943,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     const l = limites();
     const total = l.xMax - l.xMin;
     const temParede = !!(l.Le || l.Ld || l.Lf);
-    const varias = !!l.centro && fileiras() > 1;
+    const variasFilas = !!l.centro && fileiras() > 1;
+    const varias = variasFilas || (!!l.centro && emSequencia() > 1); // a câmera sobe para ver uma gôndola por trás da outra
     if (!l.centro) acertarLado(); // com centro, o lado também serve para olhar os dois lados dele
     const soUmaLateral = !l.centro && !l.Lf && !!ladoDaLateral(l);
     const lado = estado.ladoCamera;
@@ -949,10 +955,12 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     const subida = temParede ? (paredeNaFrente ? 0.85 : 0.5) : varias ? 0.2 : 0.1;
     let p;
     if (vista === "corredor" && l.centro) {
-      const d = Math.min((l.centro.xMax - l.centro.xMin) / 2 + 1.4, 6);
+      // Corredores um atrás do outro: de pé na entrada, olhando a fila inteira.
+      const d = Math.min((l.centro.xMax - l.centro.xMin) / 2 + 1.4, emSequencia() > 1 ? SALA_X - 1 : 6);
       const sentido = temParede || estado.pontas >= 1 ? 1 : -1;
-      const entreLinhas = varias || !!l.Le;
-      const z = varias ? zDaFileira(Math.floor((fileiras() - 2) / 2)) + passoFileiras() / 2
+      const entreLinhas = variasFilas || !!l.Le;
+      const meio = Math.floor((fileiras() - 2) / 2);
+      const z = variasFilas ? (zDaFileira(meio) + zDaFileira(meio + 1)) / 2
         : l.Le ? l.centro.z + (l.vaoInterno - l.centro.z) / 2
         : FACE_Z + LINHAS[estado.linha].profBase + 0.9;
       p = new THREE.Vector3(sentido * d, 1.5, z);
@@ -1043,7 +1051,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     camadaRotulos?.appendChild(el);
     return el;
   };
-  const rotulosModulo = Array.from({ length: MAX_MODULOS }, (_, i) => novoRotulo(i + 1));
+  const rotulosModulo = Array.from({ length: MAX_MODULOS * MAX_CORREDORES_FILA }, (_, j) => novoRotulo((j % MAX_MODULOS) + 1));
   const rotulosParede = Object.fromEntries(Object.keys(LETRA_PAREDE).map((lado) => [lado, Array.from({ length: MAX_MODULOS_LADO }, () => novoRotulo(""))]));
   const tagLado = document.createElement("div");
   tagLado.style.cssText = `${estiloRotulo}bottom:46px;left:10px;display:none;padding:5px 11px;border-radius:14px;background:rgba(0,0,0,.74);color:#fff;font-size:12px;font-weight:600;`;
@@ -1071,9 +1079,12 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     const doLadoEsquerdo = camera.position.z >= controles.target.z;
     tagLado.style.display = verCentro ? "block" : "none";
     if (verCentro) tagLado.textContent = doLadoEsquerdo ? "Vendo o lado esquerdo" : "Vendo o lado direito";
-    const x0 = -comprimentoFileira(estado.modulos) / 2;
-    const f = doLadoEsquerdo ? fileiras() - 1 : 0; // a fileira mais perto da câmera
-    rotulosModulo.forEach((el, i) => colocarRotulo(el, x0 + COL_X + i * passo + VAO / 2, ALTURAS[estado.altura].m + 0.11, zDaFileira(f), verCentro && i < estado.modulos));
+    const f = doLadoEsquerdo ? 0 : fileiras() - 1; // a fila mais perto da câmera (a 1 fica do lado esquerdo); os números vão em todos os corredores dela
+    const daFila = corredoresDe(estado).filter((c) => c.f === f);
+    rotulosModulo.forEach((el, j) => {
+      const c = daFila[Math.floor(j / MAX_MODULOS)], i = j % MAX_MODULOS;
+      colocarRotulo(el, (c ? c.x0 : 0) + COL_X + i * passo + VAO / 2, ALTURAS[estado.altura].m + 0.11, c ? c.z : 0, verCentro && !!c && i < estado.modulos);
+    });
     const q = paredesDe(estado);
     const y = ALTURAS[estado.alturaParede].m + 0.11;
     const lugar = {
@@ -1299,7 +1310,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   function configurar(cfg) {
     const mudouParedes = cfg.montagem !== estado.montagem || cfg.cantos.esq !== estado.cantos.esq || cfg.cantos.dir !== estado.cantos.dir || Object.keys(LETRA_PAREDE).some((k) => cfg.paredes[k].join() !== estado.paredes[k].join());
     // Trocar só o tipo de um lado não muda o tamanho: a câmera fica onde está.
-    const mudouTamanho = mudouParedes || ["modulos", "pontas", "linha", "altura", "corredores", "alturaParede"].some((k) => cfg[k] !== estado[k]);
+    const mudouTamanho = mudouParedes || cfg.filas.join() !== estado.filas.join() || ["modulos", "pontas", "linha", "altura", "alturaParede"].some((k) => cfg[k] !== estado[k]);
     Object.assign(estado, cfg);
     montar();
     if (mudouParedes) acertarLado();

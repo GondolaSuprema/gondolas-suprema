@@ -15,8 +15,9 @@ export const PROF_PILAR = 0.3;
 // Canto: da quina até a primeira coluna de cada parede. Medido na foto do catálogo, a confirmar num canto montado.
 export const CANTO_PAREDE = 0.64;
 export const CANTO_ATE_COLUNA = CANTO_PAREDE - ATRAS_PAREDE;
-export const MAX_CORREDORES = 6; // cada corredor é uma fileira de gôndola
-export const LARGURA_CORREDOR = 1.2; // espaço entre um corredor e outro
+export const MAX_FILAS = 6; // filas lado a lado
+export const MAX_CORREDORES_FILA = 4; // corredores um atrás do outro na mesma fila
+export const LARGURA_CORREDOR = 1.2; // espaço entre uma gôndola e outra: entre filas e entre corredores da mesma fila
 
 export const LINHAS = {
   // medidaPonta: quanto cada ponta soma ao comprimento. Padrão: 0,40 m, igual ao orçamento por medidas (PONTA_M).
@@ -44,6 +45,20 @@ export const LETRA_PAREDE = { esq: "E", dir: "D", fundo: "F" };
 export const comprimentoFileira = (modulos) => COL_X + modulos * (VAO + COL_X);
 export const larguraFileira = (linha) => 2 * (FACE_Z + LINHAS[linha].profBase + 0.0145);
 export const avancoFace = (linha) => FACE_Z + LINHAS[linha].profBase + 0.015;
+// filas = corredores de cada fila: [2, 3] = fila 1 com 2 corredores, fila 2 com 3.
+// Vistas da entrada olhando o fundo: a fila 1 fica à esquerda (+Z), todas começam do lado da entrada e cada corredor seguinte
+// fica atrás do anterior, na direção do fundo, com o espaço de um corredor entre eles. A fila mais comprida fica centralizada:
+// o centro inteiro cabe no salão do 3D.
+const pontasDe = ({ pontas, linha }) => ({ atras: pontas >= 2 ? avancoFace(linha) : 0, frente: pontas >= 1 ? avancoFace(linha) : 0 });
+const passoCorredor = (cfg) => { const { atras, frente } = pontasDe(cfg); return atras + comprimentoFileira(cfg.modulos) + frente + LARGURA_CORREDOR; };
+export const comprimentoDoCentro = (cfg) => Math.max(...cfg.filas) * passoCorredor(cfg) - LARGURA_CORREDOR; // como no desenho
+// x0 = onde começam os módulos do corredor (a ponta de trás fica antes dele).
+export function corredoresDe(cfg) {
+  const { linha, filas } = cfg;
+  const primeiro = comprimentoDoCentro(cfg) / 2 - pontasDe(cfg).frente - comprimentoFileira(cfg.modulos); // o corredor 1 encosta na entrada
+  const passoZ = larguraFileira(linha) + LARGURA_CORREDOR;
+  return filas.flatMap((n, f) => Array.from({ length: n }, (_, k) => ({ f, k, x0: primeiro - k * passoCorredor(cfg), z: ((filas.length - 1) / 2 - f) * passoZ })));
+}
 // paredes = módulos de cada parede, por lado: { esq: [4, 3], dir: [], fundo: [4] }. Lado sem parede = lista vazia.
 export const paredesDe = ({ montagem, paredes }) => (montagem === "centro" ? { esq: [], dir: [], fundo: [] } : paredes);
 const comprimentoLado = (lista) => lista.reduce((soma, n) => soma + comprimentoFileira(n) + VAO_COLUNA, -VAO_COLUNA * (lista.length ? 1 : 0));
@@ -61,14 +76,14 @@ export const nomeModuloParede = (lado, quantas, parede, modulo) => (quantas > 1 
 
 // Onde cada coisa fica na loja. O centro fica na origem; as paredes ficam a um corredor dele.
 export function layoutDe(cfg) {
-  const { montagem, modulos, pontas, linha, corredores, cantos } = cfg;
+  const { montagem, linha, filas, cantos } = cfg;
   const p = paredesDe(cfg);
   const avanco = avancoFace(linha);
-  const L = comprimentoFileira(modulos);
+  const meioCentro = comprimentoDoCentro(cfg) / 2;
   const centro = montagem === "parede" ? null : {
-    xMin: -L / 2 - (pontas >= 2 ? avanco : 0),
-    xMax: L / 2 + (pontas >= 1 ? avanco : 0),
-    z: ((corredores - 1) / 2) * (larguraFileira(linha) + LARGURA_CORREDOR) + avanco,
+    xMin: -meioCentro,
+    xMax: meioCentro,
+    z: ((filas.length - 1) / 2) * (larguraFileira(linha) + LARGURA_CORREDOR) + avanco,
   };
   const Le = comprimentoLado(p.esq), Ld = comprimentoLado(p.dir), Lf = comprimentoLado(p.fundo);
   const planoFundo = (centro ? centro.xMin - LARGURA_CORREDOR : -Math.max(Le, Ld) / 2) - avanco;
@@ -99,9 +114,11 @@ export function layoutDe(cfg) {
 }
 
 export function medidasDe(cfg) {
-  const { montagem, modulos, pontas, linha, altura, corredores, tipos, alturaParede, tiposParede } = cfg;
+  const { montagem, modulos, pontas, linha, altura, filas, tipos, alturaParede, tiposParede } = cfg;
   const fmt = (v) => v.toFixed(2).replace(".", ",");
   const p = paredesDe(cfg);
+  const corredores = filas.reduce((soma, n) => soma + n, 0);
+  const emSequencia = Math.max(...filas); // a fila mais comprida
   // Receitas: bandeja = base + prateleiras; gancho e cesto = base + topo + réguas ou cestos no meio.
   const niveisDaFace = (chave, tipo) => ALTURAS[chave].prateleiras + (tipo === "bandeja" ? 1 : 2);
   let niveis = 0;
@@ -114,12 +131,15 @@ export function medidasDe(cfg) {
   const l = layoutDe(cfg);
   niveis += ((l.cantoE ? 1 : 0) + (l.cantoD ? 1 : 0)) * niveisDaFace(alturaParede, "bandeja"); // canto só tem bandeja
   const compr = (n) => `≈ ${fmt(comprimentoFileira(n))} m`;
-  const comprimentoCentro = comprimentoFileira(modulos) + pontas * LINHAS[linha].medidaPonta;
-  const larguraCentro = corredores * larguraFileira(linha) + (corredores - 1) * LARGURA_CORREDOR;
+  const comprimentoCorredor = comprimentoFileira(modulos) + pontas * LINHAS[linha].medidaPonta;
+  const comprimentoCentro = emSequencia * comprimentoCorredor + (emSequencia - 1) * LARGURA_CORREDOR;
+  const larguraCentro = filas.length * larguraFileira(linha) + (filas.length - 1) * LARGURA_CORREDOR;
   const ocupado = `≈ ${fmt(l.xMax - l.xMin)} × ${fmt(l.zMax - l.zMin)} m`;
   return {
-    comprimento: `≈ ${fmt(comprimentoCentro)} m`,
-    rotuloLargura: corredores > 1 ? "Largura total" : "Largura",
+    comprimento: `≈ ${fmt(comprimentoCorredor)} m`, // de um corredor
+    comprimentoTotal: emSequencia > 1 ? `≈ ${fmt(comprimentoCentro)} m` : "", // da fila mais comprida
+    corredores,
+    rotuloLargura: filas.length > 1 ? "Largura total" : "Largura",
     largura: `≈ ${fmt(larguraCentro)} m`,
     altura: `${fmt(ALTURAS[altura].m)} m`,
     alturaParede: `${fmt(ALTURAS[alturaParede].m)} m`,
