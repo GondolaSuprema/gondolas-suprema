@@ -13116,7 +13116,6 @@ function ProjetoPage() {
   );
   const botaoRecomecar = <button onClick={limpar} style={{ margin: "-8px 0 0", padding: "8px 0 8px 12px", border: 0, background: "transparent", color: confirmarLimpar ? COLORS.orange : COLORS.textMuted, fontSize: 12, fontWeight: confirmarLimpar ? 700 : 500, fontFamily: fonte, cursor: "pointer" }}>{confirmarLimpar ? `${toque ? "Toque" : "Clique"} de novo para limpar` : "Recomeçar"}</button>;
   const comMetro = (lista) => Object.fromEntries((Array.isArray(lista) ? lista : Object.keys(lista)).map(k => [k, `${k} m`]));
-  const nomeTamanho = mpp.linha === "preta" ? "Comprimento" : "Longarina"; // na linha cinza o módulo é escolhido pela longarina
   const linhaOpcoes = (titulo, lista, valor, aoEscolher, ao_lado) => (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
@@ -13145,16 +13144,17 @@ function ProjetoPage() {
       {mpp.linha !== "preta" && linhaOpcoes("Cor", Object.fromEntries(linhaMpp.cores(mpp.peso).map(k => [k, MPP_CORES[k]])), mpp.cor, v => mudarMpp("cor", v))}
       {linhaOpcoes("Altura", comMetro(linhaMpp.alturas(mpp.peso)), mpp.altura, v => mudarMpp("altura", v))}
       {linhaOpcoes("Profundidade", comMetro(linhaMpp.profundidades(mpp.peso)), mpp.profundidade, v => mudarMpp("profundidade", v))}
+      {/* Logo depois das medidas, à vista sem rolar. Mesmo comprimento para todos; com tamanhos diferentes, nenhum fica marcado.
+          Na linha cinza o comprimento é o da longarina (1,20 ou 1,80). */}
+      {linhaOpcoes("Comprimento de todos os módulos", comMetro(linhaMpp.comprimentos), medidasM.iguais ? mpp.comprimentos[0] : null, comprimentoDeTodos)}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 8 }}>
         {contador("Níveis (prateleiras)", mpp.niveis, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP, v => mudarMpp("niveis", v), "um nível")}
         {contador("Módulos", mpp.comprimentos.length, 1, MAX_MODULOS_MPP, mudarModulosMpp, "um módulo")}
         {contador("Filas", mpp.filas, 1, MAX_FILAS_MPP, v => mudarMpp("filas", v), "uma fila")}
       </div>
       <p style={{ margin: "0 0 12px", color: COLORS.textMuted, fontSize: 12 }}>{medidasM.modulos}{mpp.filas > 1 ? " em cada fila, com corredor entre as filas." : "."}</p>
-      {/* Mesmo comprimento para todos; com tamanhos diferentes, nenhum fica marcado. */}
-      {linhaOpcoes(`${nomeTamanho} de todos os módulos`, comMetro(linhaMpp.comprimentos), medidasM.iguais ? mpp.comprimentos[0] : null, comprimentoDeTodos)}
       <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-        {abrirFechar(abrirComprimentos, () => setAbrirComprimentos(!abrirComprimentos), `${nomeTamanho} módulo por módulo`, medidasM.iguais ? `Todos com ${medidasM.sequencia}` : medidasM.sequencia)}
+        {abrirFechar(abrirComprimentos, () => setAbrirComprimentos(!abrirComprimentos), "Comprimento módulo por módulo", medidasM.iguais ? `Todos com ${medidasM.sequencia}` : medidasM.sequencia)}
         {abrirComprimentos && (
           <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
             {mpp.comprimentos.map((c, i) => (
