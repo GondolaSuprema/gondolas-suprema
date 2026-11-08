@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
-import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, CORES_GONDOLA, CORES_ETIQUETA, medidasDe, nomeModuloParede, MPP_PESOS, MPP_ALTURAS, MPP_COMPRIMENTOS, MPP_PROFUNDIDADES, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP, MAX_MODULOS_MPP, MAX_FILAS_MPP, medidasMPP } from "../lib/projetoMedidas";
+import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, CORES_GONDOLA, CORES_ETIQUETA, medidasDe, nomeModuloParede, MPP_LINHAS, MPP_CORES, ajustarMPP, mppValido, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP, MAX_MODULOS_MPP, MAX_FILAS_MPP, medidasMPP } from "../lib/projetoMedidas";
 
 // Chamadas às rotas /api protegidas (NF-e, NFS-e, conciliação): envia o token
 // da sessão do Supabase. Sem ele a rota responde 401.
@@ -12735,8 +12735,13 @@ const PROJETO_VISTAS = [
 ];
 const projetoPadrao = () => ({
   produto: "gondola", // subaba: gondola | mpp (mini porta palete)
-  // Mini porta palete: comprimentos = um por módulo da fila, da inicial às continuações
-  mpp: { peso: "200", altura: "2,00", comprimentos: ["1,50", "1,50"], profundidade: "0,60", niveis: 4, filas: 1 },
+  // Mini porta palete: uma montagem por linha ("preta" = MPP China, "cinza" = MPP Amapá; na tela, só a aparência).
+  // comprimentos = um por módulo da fila, da inicial às continuações.
+  mpp: {
+    linha: "preta",
+    preta: { peso: "200", cor: "preta", altura: "2,00", comprimentos: ["1,50", "1,50"], profundidade: "0,60", niveis: 4, filas: 1 },
+    cinza: { peso: "250", cor: "cinza", altura: "2,00", comprimentos: ["1,20", "1,20"], profundidade: "0,60", niveis: 4, filas: 1 },
+  },
   montagem: "centro", // centro | parede | ambos
   modulos: 3,
   pontas: 1,
@@ -12765,12 +12770,19 @@ function projetoGuardado() {
     if (salvo && !salvo.filas && salvo.corredores) guardado.filas = Array(Math.min(MAX_FILAS, salvo.corredores)).fill(1);
     delete guardado.corredores;
     if (guardado.produto !== "mpp") guardado.produto = "gondola";
-    const m = guardado.mpp || {}, chave = (lista, k) => typeof k === "string" && Object.hasOwn(lista, k), entre = (n, a, b) => Number.isInteger(n) && n >= a && n <= b;
-    // Montagem salva antes do comprimento por módulo (nov-2026): um comprimento só para todos.
-    const comprimentos = Array.isArray(m.comprimentos) ? m.comprimentos : entre(m.modulos, 1, MAX_MODULOS_MPP) ? Array(m.modulos).fill(m.comprimento) : null;
-    guardado.mpp = chave(MPP_PESOS, m.peso) && chave(MPP_ALTURAS, m.altura) && comprimentos?.length >= 1 && comprimentos.length <= MAX_MODULOS_MPP && comprimentos.every(c => chave(MPP_COMPRIMENTOS, c)) && chave(MPP_PROFUNDIDADES, m.profundidade) && entre(m.niveis, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP) && entre(m.filas, 1, MAX_FILAS_MPP)
-      ? { peso: m.peso, altura: m.altura, comprimentos: [...comprimentos], profundidade: m.profundidade, niveis: m.niveis, filas: m.filas }
-      : projetoPadrao().mpp;
+    // Mini porta palete. Montagens salvas antes de 9-nov-2026 só tinham a linha preta, gravada direto em "mpp",
+    // e as mais antigas, um comprimento só para todos os módulos.
+    const padraoMpp = projetoPadrao().mpp, salvoMpp = guardado.mpp || {};
+    const daLinha = (linha, m) => {
+      if (m && !Array.isArray(m.comprimentos) && Number.isInteger(m.modulos) && m.modulos >= 1 && m.modulos <= MAX_MODULOS_MPP) m = { ...m, comprimentos: Array(m.modulos).fill(m.comprimento) };
+      const limpo = m && { peso: m.peso, cor: m.cor ?? MPP_LINHAS[linha].cores(m.peso)[0], altura: m.altura, comprimentos: Array.isArray(m.comprimentos) ? [...m.comprimentos] : null, profundidade: m.profundidade, niveis: m.niveis, filas: m.filas };
+      return mppValido(linha, limpo) ? limpo : padraoMpp[linha];
+    };
+    guardado.mpp = {
+      linha: salvoMpp.linha === "cinza" ? "cinza" : "preta",
+      preta: daLinha("preta", salvoMpp.preta || salvoMpp.cinza ? salvoMpp.preta : salvoMpp),
+      cinza: daLinha("cinza", salvoMpp.cinza),
+    };
     const { filas } = guardado;
     if (!Array.isArray(filas) || !filas.length || filas.length > MAX_FILAS || !filas.every(n => Number.isInteger(n) && n >= 1 && n <= MAX_CORREDORES_FILA)) throw new Error("filas fora do formato");
     medidasDe({ ...guardado, montagem: "ambos" }); // formato inesperado lança aqui e a aba abre no padrão, em vez de derrubar o sistema
@@ -12788,7 +12800,9 @@ function ProjetoPage() {
   const [estado, setEstado] = useState("carregando"); // carregando | ok | erro
   const [tentativa, setTentativa] = useState(0);
   const [produto, setProduto] = useState(inicial.produto);
-  const [mpp, setMpp] = useState(inicial.mpp);
+  const [mppTodos, setMppTodos] = useState(inicial.mpp);
+  const mpp = { linha: mppTodos.linha, ...mppTodos[mppTodos.linha] }; // a linha aberta
+  const linhaMpp = MPP_LINHAS[mpp.linha];
   const [tipos, setTipos] = useState(inicial.tipos);
   const [abrirTipos, setAbrirTipos] = useState(false);
   const [montagem, setMontagem] = useState(inicial.montagem);
@@ -12873,11 +12887,11 @@ function ProjetoPage() {
     if (!motor.current) return;
     motor.current.configurar(config);
     if (vistaPendente.current) { motor.current.irPara(vistaPendente.current); vistaPendente.current = null; }
-  }, [produto, mpp, montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede]);
+  }, [produto, mppTodos, montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede]);
   useEffect(() => { motor.current?.mostrarRotulos({ centro: abrirTipos, parede: abrirParede, mpp: abrirComprimentos }); }, [abrirTipos, abrirParede, abrirComprimentos]);
   useEffect(() => {
-    try { sessionStorage.setItem(PROJETO_GUARDADO, JSON.stringify({ ...config, vista })); } catch {}
-  }, [produto, mpp, montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede, vista]);
+    try { sessionStorage.setItem(PROJETO_GUARDADO, JSON.stringify({ ...config, mpp: mppTodos, vista })); } catch {}
+  }, [produto, mppTodos, montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede, vista]);
 
   const tentarDeNovo = () => { setEstado("carregando"); setTentativa(t => t + 1); };
   const limpar = () => {
@@ -12894,7 +12908,7 @@ function ProjetoPage() {
     const p = projetoPadrao();
     setConfirmarLimpar(false);
     if (produto === "mpp") { // cada subaba recomeça só a sua montagem
-      setMpp(p.mpp);
+      setMppTodos(t => ({ ...t, [t.linha]: p.mpp[t.linha] })); // só a linha aberta
       setVista("ponta");
       vistaPendente.current = "ponta";
       return;
@@ -12927,11 +12941,14 @@ function ProjetoPage() {
     setVista(nova);
     vistaPendente.current = nova;
   };
-  const mudarMpp = (k, v) => setMpp(m => ({ ...m, [k]: v }));
+  // Mexe só na linha aberta; o peso pode mudar a altura, a profundidade e a cor que existem.
+  const mudarLinhaMpp = (fazer) => setMppTodos(t => ({ ...t, [t.linha]: ajustarMPP(t.linha, fazer(t[t.linha])) }));
+  const mudarMpp = (k, v) => mudarLinhaMpp(m => ({ ...m, [k]: v }));
+  const trocarLinhaMpp = (l) => setMppTodos(t => ({ ...t, linha: l })); // cada linha guarda a sua montagem
   // O módulo novo repete o comprimento do último; tirar um módulo tira o último.
-  const mudarModulosMpp = (n) => setMpp(m => ({ ...m, comprimentos: n > m.comprimentos.length ? [...m.comprimentos, m.comprimentos[m.comprimentos.length - 1]] : m.comprimentos.slice(0, n) }));
-  const comprimentoDeTodos = (v) => setMpp(m => ({ ...m, comprimentos: m.comprimentos.map(() => v) }));
-  const comprimentoDoModulo = (i, v) => setMpp(m => ({ ...m, comprimentos: m.comprimentos.map((c, j) => (j === i ? v : c)) }));
+  const mudarModulosMpp = (n) => mudarLinhaMpp(m => ({ ...m, comprimentos: n > m.comprimentos.length ? [...m.comprimentos, m.comprimentos[m.comprimentos.length - 1]] : m.comprimentos.slice(0, n) }));
+  const comprimentoDeTodos = (v) => mudarLinhaMpp(m => ({ ...m, comprimentos: m.comprimentos.map(() => v) }));
+  const comprimentoDoModulo = (i, v) => mudarLinhaMpp(m => ({ ...m, comprimentos: m.comprimentos.map((c, j) => (j === i ? v : c)) }));
   const trocarTipo = (i, lado, t) => { setTipos(ts => ts.map((m, j) => (j === i ? { ...m, [lado]: t } : m))); motor.current?.verLado(lado); };
   const trocarTodos = (lado, t) => { setTipos(ts => ts.map(m => ({ ...m, [lado]: t }))); motor.current?.verLado(lado); };
   const trocarMontagem = (v) => {
@@ -12980,12 +12997,14 @@ function ProjetoPage() {
       if (produto === "mpp") {
         const nModulos = mpp.comprimentos.length;
         // Com uma fila, a profundidade já vai na linha das medidas.
-        const tamanhos = medidasM.iguais ? `inicial de ${mpp.comprimentos[0]} × ${mpp.profundidade} m` : `módulos de ${medidasM.sequencia}${mpp.filas > 1 ? ` · profundidade ${mpp.profundidade} m` : ""}`;
+        const corMpp = mpp.linha === "preta" ? "" : ` · ${MPP_CORES[mpp.cor].toLowerCase()}`; // o preto não tem escolha de cor
+        const tamanhos = !medidasM.iguais ? `${linhaMpp.tamanho[1]} de ${medidasM.sequencia}${mpp.filas > 1 ? ` · profundidade ${mpp.profundidade} m` : ""}`
+          : mpp.linha === "preta" ? `inicial de ${mpp.comprimentos[0]} × ${mpp.profundidade} m` : `longarina de ${mpp.comprimentos[0]} m`;
         blob = await motor.current.gerarImagem({
           titulo: `Mini porta palete · ${nModulos} ${nModulos === 1 ? "módulo" : "módulos"}${mpp.filas > 1 ? " por fila" : ""} · ${mpp.niveis} níveis`,
           extras: medidasM.iguais
-            ? [`${medidasM.modulos} · ${MPP_PESOS[mpp.peso]} por nível · ${tamanhos}`, ...(mpp.filas > 1 ? [`${mpp.filas} filas lado a lado`] : [])]
-            : [`${medidasM.modulos} · ${MPP_PESOS[mpp.peso]} por nível`, tamanhos, ...(mpp.filas > 1 ? [`${mpp.filas} filas lado a lado`] : [])], // linhas curtas: a letra não encolhe
+            ? [`${medidasM.modulos} · ${linhaMpp.pesos[mpp.peso]} por nível${corMpp} · ${tamanhos}`, ...(mpp.filas > 1 ? [`${mpp.filas} filas lado a lado`] : [])]
+            : [`${medidasM.modulos} · ${linhaMpp.pesos[mpp.peso]} por nível${corMpp}`, tamanhos, ...(mpp.filas > 1 ? [`${mpp.filas} filas lado a lado`] : [])], // linhas curtas: a letra não encolhe
           medidas: `Comprimento ${medidasM.comprimento} · ${medidasM.rotuloLargura} ${medidasM.largura} · Altura ${medidasM.altura}`,
           nota: `Medidas aproximadas, a confirmar no projeto.${notaMpp}`,
         });
@@ -13080,7 +13099,7 @@ function ProjetoPage() {
   ];
   const itensMpp = [
     ["Comprimento", medidasM.comprimento], [medidasM.rotuloLargura, medidasM.largura], ["Altura", medidasM.altura],
-    [mpp.filas > 1 ? "Em cada fila" : "Módulos", medidasM.modulos], [medidasM.iguais ? "Cada módulo" : "Módulos de", medidasM.sequencia], ["Prateleiras no total", medidasM.prateleiras],
+    [mpp.filas > 1 ? "Em cada fila" : "Módulos", medidasM.modulos], [mpp.linha === "preta" ? (medidasM.iguais ? "Cada módulo" : "Módulos de") : (medidasM.iguais ? "Longarina" : "Longarinas de"), medidasM.sequencia], ...(mpp.linha === "preta" ? [] : [["Cor", MPP_CORES[mpp.cor]]]), ["Prateleiras no total", medidasM.prateleiras],
   ];
   const umaColuna = !deitado && (isMobile || tabletEmPe);
   const altura3D = isMobile ? "min(300px, 36dvh)" : "min(460px, 42dvh)";
@@ -13096,7 +13115,8 @@ function ProjetoPage() {
     </div>
   );
   const botaoRecomecar = <button onClick={limpar} style={{ margin: "-8px 0 0", padding: "8px 0 8px 12px", border: 0, background: "transparent", color: confirmarLimpar ? COLORS.orange : COLORS.textMuted, fontSize: 12, fontWeight: confirmarLimpar ? 700 : 500, fontFamily: fonte, cursor: "pointer" }}>{confirmarLimpar ? `${toque ? "Toque" : "Clique"} de novo para limpar` : "Recomeçar"}</button>;
-  const comMetro = (lista) => Object.fromEntries(Object.keys(lista).map(k => [k, `${k} m`]));
+  const comMetro = (lista) => Object.fromEntries((Array.isArray(lista) ? lista : Object.keys(lista)).map(k => [k, `${k} m`]));
+  const nomeTamanho = mpp.linha === "preta" ? "Comprimento" : "Longarina"; // na linha cinza o módulo é escolhido pela longarina
   const linhaOpcoes = (titulo, lista, valor, aoEscolher, ao_lado) => (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
@@ -13120,9 +13140,11 @@ function ProjetoPage() {
   );
   const painelMpp = (
     <>
-      {linhaOpcoes("Peso por nível", MPP_PESOS, mpp.peso, v => mudarMpp("peso", v), botaoRecomecar)}
-      {linhaOpcoes("Altura", comMetro(MPP_ALTURAS), mpp.altura, v => mudarMpp("altura", v))}
-      {linhaOpcoes("Profundidade", comMetro(MPP_PROFUNDIDADES), mpp.profundidade, v => mudarMpp("profundidade", v))}
+      {linhaOpcoes("Modelo", Object.fromEntries(Object.entries(MPP_LINHAS).map(([k, L]) => [k, L.nome])), mpp.linha, trocarLinhaMpp, botaoRecomecar)}
+      {linhaOpcoes("Peso por nível", linhaMpp.pesos, mpp.peso, v => mudarMpp("peso", v))}
+      {mpp.linha !== "preta" && linhaOpcoes("Cor", Object.fromEntries(linhaMpp.cores(mpp.peso).map(k => [k, MPP_CORES[k]])), mpp.cor, v => mudarMpp("cor", v))}
+      {linhaOpcoes("Altura", comMetro(linhaMpp.alturas(mpp.peso)), mpp.altura, v => mudarMpp("altura", v))}
+      {linhaOpcoes("Profundidade", comMetro(linhaMpp.profundidades(mpp.peso)), mpp.profundidade, v => mudarMpp("profundidade", v))}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 8 }}>
         {contador("Níveis (prateleiras)", mpp.niveis, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP, v => mudarMpp("niveis", v), "um nível")}
         {contador("Módulos", mpp.comprimentos.length, 1, MAX_MODULOS_MPP, mudarModulosMpp, "um módulo")}
@@ -13130,16 +13152,16 @@ function ProjetoPage() {
       </div>
       <p style={{ margin: "0 0 12px", color: COLORS.textMuted, fontSize: 12 }}>{medidasM.modulos}{mpp.filas > 1 ? " em cada fila, com corredor entre as filas." : "."}</p>
       {/* Mesmo comprimento para todos; com tamanhos diferentes, nenhum fica marcado. */}
-      {linhaOpcoes("Comprimento de todos os módulos", comMetro(MPP_COMPRIMENTOS), medidasM.iguais ? mpp.comprimentos[0] : null, comprimentoDeTodos)}
+      {linhaOpcoes(`${nomeTamanho} de todos os módulos`, comMetro(linhaMpp.comprimentos), medidasM.iguais ? mpp.comprimentos[0] : null, comprimentoDeTodos)}
       <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-        {abrirFechar(abrirComprimentos, () => setAbrirComprimentos(!abrirComprimentos), "Comprimento módulo por módulo", medidasM.iguais ? `Todos com ${medidasM.sequencia}` : medidasM.sequencia)}
+        {abrirFechar(abrirComprimentos, () => setAbrirComprimentos(!abrirComprimentos), `${nomeTamanho} módulo por módulo`, medidasM.iguais ? `Todos com ${medidasM.sequencia}` : medidasM.sequencia)}
         {abrirComprimentos && (
           <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
             {mpp.comprimentos.map((c, i) => (
               <div key={i} style={{ display: "grid", gridTemplateColumns: "92px 1fr", gap: 6, alignItems: "center" }}>
                 <span style={{ color: COLORS.text, fontSize: 12.5 }}><b style={{ color: COLORS.orange, fontVariantNumeric: "tabular-nums" }}>{i + 1}</b> {i === 0 ? "inicial" : "continuação"}</span>
-                <div role="group" aria-label={`Módulo ${i + 1}`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, padding: 2, border: `1px solid ${COLORS.border}`, borderRadius: 8 }}>
-                  {Object.keys(MPP_COMPRIMENTOS).map(k => (
+                <div role="group" aria-label={`Módulo ${i + 1}`} style={{ display: "grid", gridTemplateColumns: `repeat(${Object.keys(linhaMpp.comprimentos).length}, 1fr)`, gap: 2, padding: 2, border: `1px solid ${COLORS.border}`, borderRadius: 8 }}>
+                  {Object.keys(linhaMpp.comprimentos).map(k => (
                     <button key={k} aria-pressed={c === k} aria-label={`Módulo ${i + 1}: ${k} m`} onClick={() => comprimentoDoModulo(i, k)} style={{ height: tocavel ? 40 : 30, padding: 0, border: 0, borderRadius: 6, background: c === k ? COLORS.orange : "transparent", color: c === k ? "#000" : COLORS.text, fontSize: 12, fontWeight: c === k ? 700 : 500, fontFamily: fonte, cursor: "pointer" }}>{k} m</button>
                   ))}
                 </div>
@@ -13161,7 +13183,7 @@ function ProjetoPage() {
         <div style={{ minWidth: 0, marginBottom: umaColuna ? 10 : 0 }}>
           <div style={{ position: "relative", height: umaColuna ? altura3D : `calc(${alturaColunas} - 58px)`, borderRadius: 14, overflow: "hidden", background: "#000", border: `1px solid ${COLORS.border}` }}>
             {/* key: "Tentar de novo" precisa de canvas novo; o contexto WebGL do antigo já foi derrubado. */}
-            <canvas key={tentativa} ref={canvasRef} role="img" aria-label={produto === "mpp" ? `Projeto em 3D: mini porta palete, ${mpp.filas} ${mpp.filas === 1 ? "fila" : "filas"} com ${medidasM.modulos.toLowerCase()} de ${mpp.niveis} níveis, ${MPP_PESOS[mpp.peso]} por nível, comprimento ${medidasM.comprimento}, ${medidasM.rotuloLargura.toLowerCase()} ${medidasM.largura}, altura ${medidasM.altura}` : `Projeto em 3D: ${comCentro ? `${filas.length} ${filas.length === 1 ? "fila" : "filas"} com ${medidas.corredores} ${medidas.corredores === 1 ? "corredor" : "corredores"} de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimentoTotal || medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}; cor ${CORES_GONDOLA[cor].toLowerCase()} e porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
+            <canvas key={tentativa} ref={canvasRef} role="img" aria-label={produto === "mpp" ? `Projeto em 3D: mini porta palete${mpp.linha === "preta" ? "" : ` ${MPP_CORES[mpp.cor].toLowerCase()}`}, ${mpp.filas} ${mpp.filas === 1 ? "fila" : "filas"} com ${medidasM.modulos.toLowerCase()} de ${mpp.niveis} níveis, ${linhaMpp.pesos[mpp.peso]} por nível, comprimento ${medidasM.comprimento}, ${medidasM.rotuloLargura.toLowerCase()} ${medidasM.largura}, altura ${medidasM.altura}` : `Projeto em 3D: ${comCentro ? `${filas.length} ${filas.length === 1 ? "fila" : "filas"} com ${medidas.corredores} ${medidas.corredores === 1 ? "corredor" : "corredores"} de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimentoTotal || medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}; cor ${CORES_GONDOLA[cor].toLowerCase()} e porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
             <div ref={rotulosRef} aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }} />
             {estado === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte }}>Carregando o 3D…</div>}
             {estado === "erro" && (

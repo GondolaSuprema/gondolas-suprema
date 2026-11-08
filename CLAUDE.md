@@ -168,7 +168,7 @@ silêncio.
 |---|---|---|---|
 | Login | `Login` | 2701 | Supabase Auth |
 | Painel (3D interativo em WebGL: `Arena3D` + `src/lib/arena3d.js`, com Three.js) | `PainelPage` | 9459 | orcamentos + mariana_leads |
-| Projeto (configurador 3D com duas subabas, Gôndola e Mini porta palete; mini porta palete = modelo China preto com MDF, 200/500 kg, 2,0/2,5 m, cada módulo de 1,0/1,5/2,0 m (pode misturar), 0,60/0,80 m, 2 a 6 níveis, até 10 módulos e 6 filas. Gôndola de centro e parede: até 6 filas de centro com até 4 corredores cada, um atrás do outro; até 4 paredes por lado, pilar e canto; gôndola preta ou branca e porta-etiqueta em 10 cores: `src/lib/projeto3d.js` + `projetoMedidas.js`, sem banco) | `ProjetoPage` | 12761 | nenhuma |
+| Projeto (configurador 3D com duas subabas, Gôndola e Mini porta palete; mini porta palete em duas linhas com MDF, que na tela se chamam pela aparência e nunca pelo fornecedor: "Preto" (MPP China: 200/500 kg, 2,0/2,5 m, módulo de 1,0/1,5/2,0 m, 0,60/0,80 m) e "Cinza ou branco" (MPP Amapá: 250 kg cinza+laranja ou branco, 2,0 m, 0,60 m; 500 kg cinza+laranja com transversina, 2,0/3,0 m, 0,80 m; longarina de 1,20/1,80 m); cada módulo com o seu comprimento, 2 a 6 níveis, até 10 módulos e 6 filas. Gôndola de centro e parede: até 6 filas de centro com até 4 corredores cada, um atrás do outro; até 4 paredes por lado, pilar e canto; gôndola preta ou branca e porta-etiqueta em 10 cores: `src/lib/projeto3d.js` + `projetoMedidas.js`, sem banco) | `ProjetoPage` | 12793 | nenhuma |
 | Dados do cliente | `ClientPage` | 2163 | estado `clientData` |
 | Catálogo | `Catalog` | 2813 | PRODUCTS + produtos_uniplus |
 | Carrinho | `Quote` | 3334 | — |

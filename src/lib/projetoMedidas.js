@@ -161,29 +161,72 @@ export function medidasDe(cfg) {
   };
 }
 
-// ── Mini porta palete (modelo China): montante preto, longarina e prateleira de MDF ──
-// Comprimento pela medida de tabela que o Ale escolheu até medir um montado: a inicial tem 1,00, 1,50 ou 2,00 m
-// e cada continuação 4 cm a menos, porque divide o montante com o módulo anterior.
-export const MONTANTE_MPP = 0.04;
-export const MPP_PESOS = { "200": "200 kg", "500": "500 kg" };
-export const MPP_ALTURAS = { "2,00": 2, "2,50": 2.5 };
-export const MPP_COMPRIMENTOS = { "1,00": 1, "1,50": 1.5, "2,00": 2 };
+// ── Mini porta palete: duas linhas, sempre com prateleira de MDF ──
+// Na tela as linhas têm o nome da aparência, nunca o do fornecedor (decisão do Ale, 8-nov-2026).
+// "preta" (MPP China): montante de 4 cm; o comprimento é a medida de tabela da inicial (1,00, 1,50 ou 2,00 m),
+//   que o Ale escolheu até medir um montado; cada continuação mede 4 cm a menos.
+// "cinza" (MPP Amapá): montante de 5 cm; o comprimento é a longarina (1,20 ou 1,80 m), como no orçamento.
+//   A inicial mede a longarina + 10 cm (1,30 e 1,90) e a continuação + 5 cm (1,25 e 1,85).
+//   O 500 kg leva transversina por baixo do MDF: 2 por nível na longarina de 1,20 e 3 na de 1,80.
+export const MPP_LINHAS = {
+  preta: {
+    nome: "Preto", montante: 0.04, tamanho: ["inicial", "módulos"],
+    pesos: { "200": "200 kg", "500": "500 kg" },
+    comprimentos: { "1,00": 1, "1,50": 1.5, "2,00": 2 },
+    vao: (c) => MPP_LINHAS.preta.comprimentos[c] - 2 * MPP_LINHAS.preta.montante,
+    alturas: () => ["2,00", "2,50"],
+    profundidades: () => ["0,60", "0,80"],
+    cores: () => ["preta"],
+    transversinas: () => 0,
+  },
+  cinza: {
+    nome: "Cinza ou branco", montante: 0.05, tamanho: ["longarina", "longarinas"],
+    pesos: { "250": "250 kg", "500": "500 kg" },
+    comprimentos: { "1,20": 1.2, "1,80": 1.8 },
+    vao: (c) => MPP_LINHAS.cinza.comprimentos[c],
+    alturas: (peso) => (peso === "500" ? ["2,00", "3,00"] : ["2,00"]),
+    profundidades: (peso) => (peso === "500" ? ["0,80"] : ["0,60"]),
+    cores: (peso) => (peso === "500" ? ["cinza"] : ["cinza", "branco"]),
+    transversinas: (peso, c) => (peso === "500" ? (c === "1,20" ? 2 : 3) : 0),
+  },
+};
+export const MPP_CORES = { preta: "Preto", cinza: "Cinza e laranja", branco: "Branco" };
+export const MPP_ALTURAS = { "2,00": 2, "2,50": 2.5, "3,00": 3 };
 export const MPP_PROFUNDIDADES = { "0,60": 0.6, "0,80": 0.8 };
 export const MIN_NIVEIS_MPP = 2;
 export const MAX_NIVEIS_MPP = 6;
 export const MAX_MODULOS_MPP = 10; // por fila: a inicial e as continuações, cada uma com o seu comprimento
 export const MAX_FILAS_MPP = 6;
 
-// m.comprimentos = comprimento de cada módulo da fila, da inicial às continuações: ["2,00", "1,50", "1,00"].
+// O que muda junto com o peso: altura, profundidade e cor que não existem naquele peso voltam para a primeira que existe.
+export function ajustarMPP(linha, m) {
+  const L = MPP_LINHAS[linha], ok = (lista, v) => (lista.includes(v) ? v : lista[0]);
+  return { ...m, altura: ok(L.alturas(m.peso), m.altura), profundidade: ok(L.profundidades(m.peso), m.profundidade), cor: ok(L.cores(m.peso), m.cor) };
+}
+
+// Confere uma montagem guardada: tudo tem que existir naquela linha.
+export function mppValido(linha, m) {
+  const L = MPP_LINHAS[linha];
+  const tem = (lista, v) => typeof v === "string" && lista.includes(v);
+  const entre = (n, a, b) => Number.isInteger(n) && n >= a && n <= b;
+  return !!m && tem(Object.keys(L.pesos), m.peso) && tem(L.alturas(m.peso), m.altura) && tem(L.profundidades(m.peso), m.profundidade) && tem(L.cores(m.peso), m.cor)
+    && Array.isArray(m.comprimentos) && entre(m.comprimentos.length, 1, MAX_MODULOS_MPP) && m.comprimentos.every((c) => tem(Object.keys(L.comprimentos), c))
+    && entre(m.niveis, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP) && entre(m.filas, 1, MAX_FILAS_MPP);
+}
+
+// m = a montagem da linha escolhida, com m.linha. m.comprimentos = um por módulo da fila, da inicial às continuações.
 // Filas lado a lado, com um corredor entre elas e a mesma sequência de módulos; a fila 1 fica à esquerda (+Z), como no centro da gôndola.
 export function layoutMPP(m) {
-  const vaos = m.comprimentos.map((c) => MPP_COMPRIMENTOS[c] - 2 * MONTANTE_MPP); // entre os montantes de cada módulo
+  const L = MPP_LINHAS[m.linha];
+  const montante = L.montante;
+  const vaos = m.comprimentos.map(L.vao); // entre os montantes de cada módulo
   const prof = MPP_PROFUNDIDADES[m.profundidade];
-  const comprimento = vaos.reduce((soma, vao) => soma + vao + MONTANTE_MPP, MONTANTE_MPP);
+  const comprimento = vaos.reduce((soma, vao) => soma + vao + montante, montante);
   const passoZ = prof + LARGURA_CORREDOR;
   const meiaLargura = ((m.filas - 1) / 2) * passoZ + prof / 2;
   return {
-    vaos, prof, altura: MPP_ALTURAS[m.altura], comprimento, largura: 2 * meiaLargura,
+    montante, vaos, prof, altura: MPP_ALTURAS[m.altura], comprimento, largura: 2 * meiaLargura,
+    transversinas: m.comprimentos.map((c) => L.transversinas(m.peso, c)),
     filas: Array.from({ length: m.filas }, (_, f) => ((m.filas - 1) / 2 - f) * passoZ),
     xMin: -comprimento / 2, xMax: comprimento / 2, zMin: -meiaLargura, zMax: meiaLargura,
   };
@@ -199,7 +242,7 @@ export function medidasMPP(m) {
     largura: `≈ ${fmt(l.largura)} m`,
     altura: `${fmt(l.altura)} m`,
     modulos: continuacoes ? `1 inicial + ${continuacoes} ${continuacoes === 1 ? "continuação" : "continuações"}` : "Só a inicial",
-    // Tamanho de tabela de cada módulo (a continuação mede 4 cm a menos): "1,50 m" ou "2,00 + 1,50 + 1,00 m"
+    // Tamanho de cada módulo: "1,50 m" ou "2,00 + 1,50 + 1,00 m" (na linha preta, medida de tabela; na cinza, a longarina)
     iguais,
     sequencia: iguais ? `${m.comprimentos[0]} m` : `${m.comprimentos.join(" + ")} m`,
     prateleiras: modulos * m.niveis * m.filas,
