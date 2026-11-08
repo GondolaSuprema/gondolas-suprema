@@ -20,7 +20,9 @@ bancária), logística de entregas, comissões, agenda e leads (inclusive um bot
 - **jsPDF** / `jspdf-autotable` para PDF (`src/lib/pdf.js`).
 - **O app inteiro vive em `src/components/App.jsx` (~12 mil linhas)**, um único
   componente com todas as "páginas" como funções `XxxPage`. Não há roteamento
-  por URL — a navegação é por estado `page` no fim do arquivo.
+  por URL — a navegação é por estado `page` no fim do arquivo. Única exceção:
+  `/projeto/[token]` (`src/components/ProjetoCliente.jsx`), a página pública que o
+  cliente abre pelo botão "Gerar link" da aba Projeto; abre uma vez só.
 - Rotas de API server-side em `src/app/api/*` (emissão de NF, frete, CNPJ,
   conciliação, Meta CAPI, versão).
 - Também existe empacotamento mobile via Capacitor (`capacitor.config.json`,
@@ -126,7 +128,11 @@ Regras por família (motivo de existirem — fáceis de quebrar):
 `orcamentos`, `notas_fiscais`, `despesas`, `boletos_a_pagar`,
 `lancamentos_bancarios`, `agenda_tarefas` (RLS por `auth.uid()`),
 `marcenaria_leads`, `marc_orcamentos` (RLS só o Ale / `is_ale()`; sem tela desde 7-nov-2026),
-`mariana_leads`, `mariana_chat_memory`, `produtos_uniplus`, `produtos_mpp_china`.
+`mariana_leads`, `mariana_chat_memory`, `produtos_uniplus`, `produtos_mpp_china`,
+`projeto_links` (link do Projeto para o cliente: RLS sem policies e sem grants; só
+`projeto_link_criar(jsonb)` para logado e `projeto_link_abrir(uuid, uuid)` para anon, que marca
+`aberto_em` e devolve o projeto na mesma operação; o 2º parâmetro é a chave da aba, que deixa a
+mesma aba pedir de novo por até 1 hora se a resposta se perder).
 
 Ao inserir, `user_id` normalmente vai por DEFAULT `auth.uid()` no banco — o
 cliente não precisa mandar o UUID. Capture erro de RLS para falha não passar em

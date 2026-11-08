@@ -12790,7 +12790,7 @@ function projetoGuardado() {
   } catch { return projetoPadrao(); }
 }
 
-function ProjetoPage() {
+function ProjetoPage({ user }) {
   const isMobile = useIsMobile();
   const toque = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
   const canvasRef = useRef(null);
@@ -12823,6 +12823,10 @@ function ProjetoPage() {
   const [mexeu, setMexeu] = useState(false);
   const [gerando, setGerando] = useState(false);
   const [falhaImagem, setFalhaImagem] = useState(false);
+  // Link para o cliente ver o 3D: cada clique gera um link novo, que abre uma vez só.
+  const [linkCliente, setLinkCliente] = useState(null); // { url, copiado }
+  const [gerandoLink, setGerandoLink] = useState(false);
+  const [falhaLink, setFalhaLink] = useState(false);
   const [confirmarLimpar, setConfirmarLimpar] = useState(false);
   // Tablet em pé: com o painel ao lado, o 3D ficaria estreito demais. Celular deitado: pouca altura, cada linha conta.
   const [forma, setForma] = useState({ tabletEmPe: false, deitado: false });
@@ -12988,55 +12992,100 @@ function ProjetoPage() {
     : espacoEntre ? ` Espaço mínimo de ${medidas.espaco} entre as gôndolas.`
     : comColuna ? ` Pilar de ${medidas.vaoColuna} entre paredes do mesmo lado.` : "";
   const notaMpp = mpp.filas > 1 ? ` Espaço mínimo de ${medidasM.espaco} entre as filas.` : "";
+  // Textos da imagem e da página do cliente: título, linhas extras, medidas e nota, mais o nome do arquivo.
+  const textosDoProjeto = () => {
+    if (produto === "mpp") {
+      const nModulos = mpp.comprimentos.length;
+      // Com uma fila, a profundidade já vai na linha das medidas.
+      const corMpp = mpp.linha === "preta" ? "" : ` · ${MPP_CORES[mpp.cor].toLowerCase()}`; // o preto não tem escolha de cor
+      const tamanhos = !medidasM.iguais ? `${linhaMpp.tamanho[1]} de ${medidasM.sequencia}${mpp.filas > 1 ? ` · profundidade ${mpp.profundidade} m` : ""}`
+        : mpp.linha === "preta" ? `inicial de ${mpp.comprimentos[0]} × ${mpp.profundidade} m` : `longarina de ${mpp.comprimentos[0]} m`;
+      const textos = {
+        titulo: `Mini porta palete · ${nModulos} ${nModulos === 1 ? "módulo" : "módulos"}${mpp.filas > 1 ? " por fila" : ""} · ${mpp.niveis} níveis`,
+        extras: medidasM.iguais
+          ? [`${medidasM.modulos} · ${linhaMpp.pesos[mpp.peso]} por nível${corMpp} · ${tamanhos}`, ...(mpp.filas > 1 ? [`${mpp.filas} filas lado a lado`] : [])]
+          : [`${medidasM.modulos} · ${linhaMpp.pesos[mpp.peso]} por nível${corMpp}`, tamanhos, ...(mpp.filas > 1 ? [`${mpp.filas} filas lado a lado`] : [])], // linhas curtas: a letra não encolhe
+        medidas: `Comprimento ${medidasM.comprimento} · ${medidasM.rotuloLargura} ${medidasM.largura} · Altura ${medidasM.altura}`,
+        nota: `Medidas aproximadas, a confirmar no projeto.${notaMpp}`,
+      };
+      return { ...textos, nome: `mini-porta-palete-${mpp.filas > 1 ? `${mpp.filas}-filas-` : ""}${nModulos}-${nModulos === 1 ? "modulo" : "modulos"}-${mpp.niveis}-niveis.jpg` };
+    } else {
+      const nomePontas = pontas === 0 ? "sem pontas" : pontas === 1 ? "1 ponta" : "2 pontas";
+      const nomeModulos = `${modulos} ${modulos === 1 ? "módulo" : "módulos"}`;
+      const nomeCentro = medidas.corredores > 1
+        ? `Gôndola de centro · ${medidas.corredores} corredores · ${pontas ? `${nomeModulos} e ${nomePontas}` : nomeModulos} em cada`
+        : `Gôndola de centro · ${nomeModulos} · ${nomePontas}`;
+      // Como os corredores se dividem nas filas, em linha própria pelo mesmo motivo da parede.
+      const nomeFilas = medidas.corredores < 2 ? ""
+        : filas.length === 1 ? "Um corredor atrás do outro"
+        : filas.every(n => n === 1) ? `${filas.length} filas lado a lado`
+        : filas.every(n => n === filas[0]) ? `${filas.length} filas de ${filas[0]} corredores`
+        : `${filas.length} filas · corredores por fila: ${filas.join(", ").replace(/, ([^,]*)$/, " e $1")}`;
+      const nomeParede = `Gôndola de parede · ${totalParede} ${totalParede === 1 ? "módulo" : "módulos"}`;
+      // Em linha própria: junto do título, o texto longo encolheria a fonte da linha inteira.
+      const ladosParede = [["Esquerda", paredes.esq], ["Direita", paredes.dir], ["Fundo", paredes.fundo]].filter(([, lista]) => lista.length).map(([nome, lista]) => `${nome} ${lista.join(" + ")}`).concat(medidas.nomeCantos ? [`Canto ${medidas.nomeCantos}`] : []).join(" · ");
+      const soBandeja = new Set(emUso).size === 1 && emUso[0] === "bandeja";
+      const textos = {
+        titulo: comCentro ? nomeCentro : nomeParede,
+        extras: [...(comCentro && nomeFilas ? [nomeFilas] : []), ...(comCentro && algumaParede ? [nomeParede] : []), ...(algumaParede ? [ladosParede] : []), `Cor ${CORES_GONDOLA[cor].toLowerCase()} · porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}${soBandeja ? "" : ` · com ${nomesDe(emUso)}`}`],
+        medidas: algumaParede
+          ? `Espaço ocupado ${medidas.ocupado} · ${comCentro ? `Altura: centro ${medidas.altura} e parede ${medidas.alturaParede}` : `Altura ${medidas.alturaParede}`}`
+          : `${medidas.comprimentoTotal ? `Comprimento total ${medidas.comprimentoTotal} · cada corredor ${medidas.comprimento}` : `Comprimento ${medidas.comprimento}`} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
+        nota: `Medidas aproximadas, a confirmar no projeto.${notaEspacos}`,
+      };
+      const nome = algumaParede
+        ? `gondola-${comCentro ? "centro-e-parede" : "parede"}.jpg`
+        : `gondola-${medidas.corredores > 1 ? `${medidas.corredores}-corredores-` : ""}${modulos}-${modulos === 1 ? "modulo" : "modulos"}-${pontas === 1 ? "1-ponta" : pontas === 2 ? "2-pontas" : "sem-pontas"}.jpg`;
+      return { ...textos, nome };
+    }
+  };
+  const gerarLink = async () => {
+    if (gerandoLink) return;
+    setGerandoLink(true);
+    setFalhaLink(false);
+    try {
+      const { nome, ...textos } = textosDoProjeto();
+      const consultor = (user?.name || "").trim().split(/\s+/)[0];
+      const { data, error } = await supabase.rpc("projeto_link_criar", { p_dados: { config: { ...config, vista: vista || "ponta" }, textos, consultor } });
+      if (error || !data) throw error || new Error("o banco não devolveu o link");
+      setLinkCliente({ url: `${window.location.origin}/projeto/${data}`, copiado: false });
+    } catch (e) {
+      console.error("Link do Projeto:", e);
+      setFalhaLink(true);
+    } finally {
+      setGerandoLink(false);
+    }
+  };
+  const mensagemLink = (url) => `Olá! Preparei o seu projeto em 3D. Veja como vai ficar: ${url}`;
+  const copiarLink = async () => {
+    try { await navigator.clipboard.writeText(linkCliente.url); setLinkCliente(l => l && ({ ...l, copiado: true })); }
+    catch { // sem permissão de área de transferência: seleciona o texto para copiar à mão
+      const el = document.getElementById("projeto-link-url");
+      if (el) { const r = document.createRange(); r.selectNodeContents(el); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+      setLinkCliente(l => l && ({ ...l, copiado: "manual" }));
+    }
+  };
+  const linkWhats = (url) => `https://wa.me/?text=${encodeURIComponent(mensagemLink(url))}`;
+  const enviarLink = async () => {
+    const url = linkCliente.url;
+    if (toque && navigator.share) { // no celular: a folha de compartilhar, com o WhatsApp
+      try { await navigator.share({ title: "Veja como vai ficar o seu projeto", text: mensagemLink(url) }); return; }
+      catch (e) {
+        if (e.name === "AbortError") return;
+        // Depois de um await o navegador pode barrar o window.open como pop-up: mostra um link para tocar.
+        setLinkCliente(l => l && ({ ...l, whatsManual: true }));
+        return;
+      }
+    }
+    window.open(linkWhats(url), "_blank", "noopener");
+  };
   const baixarImagem = async () => {
     if (!motor.current || gerando) return;
     setGerando(true);
     setFalhaImagem(false);
     try {
-      let blob, nome;
-      if (produto === "mpp") {
-        const nModulos = mpp.comprimentos.length;
-        // Com uma fila, a profundidade já vai na linha das medidas.
-        const corMpp = mpp.linha === "preta" ? "" : ` · ${MPP_CORES[mpp.cor].toLowerCase()}`; // o preto não tem escolha de cor
-        const tamanhos = !medidasM.iguais ? `${linhaMpp.tamanho[1]} de ${medidasM.sequencia}${mpp.filas > 1 ? ` · profundidade ${mpp.profundidade} m` : ""}`
-          : mpp.linha === "preta" ? `inicial de ${mpp.comprimentos[0]} × ${mpp.profundidade} m` : `longarina de ${mpp.comprimentos[0]} m`;
-        blob = await motor.current.gerarImagem({
-          titulo: `Mini porta palete · ${nModulos} ${nModulos === 1 ? "módulo" : "módulos"}${mpp.filas > 1 ? " por fila" : ""} · ${mpp.niveis} níveis`,
-          extras: medidasM.iguais
-            ? [`${medidasM.modulos} · ${linhaMpp.pesos[mpp.peso]} por nível${corMpp} · ${tamanhos}`, ...(mpp.filas > 1 ? [`${mpp.filas} filas lado a lado`] : [])]
-            : [`${medidasM.modulos} · ${linhaMpp.pesos[mpp.peso]} por nível${corMpp}`, tamanhos, ...(mpp.filas > 1 ? [`${mpp.filas} filas lado a lado`] : [])], // linhas curtas: a letra não encolhe
-          medidas: `Comprimento ${medidasM.comprimento} · ${medidasM.rotuloLargura} ${medidasM.largura} · Altura ${medidasM.altura}`,
-          nota: `Medidas aproximadas, a confirmar no projeto.${notaMpp}`,
-        });
-        nome = `mini-porta-palete-${mpp.filas > 1 ? `${mpp.filas}-filas-` : ""}${nModulos}-${nModulos === 1 ? "modulo" : "modulos"}-${mpp.niveis}-niveis.jpg`;
-      } else {
-        const nomePontas = pontas === 0 ? "sem pontas" : pontas === 1 ? "1 ponta" : "2 pontas";
-        const nomeModulos = `${modulos} ${modulos === 1 ? "módulo" : "módulos"}`;
-        const nomeCentro = medidas.corredores > 1
-          ? `Gôndola de centro · ${medidas.corredores} corredores · ${pontas ? `${nomeModulos} e ${nomePontas}` : nomeModulos} em cada`
-          : `Gôndola de centro · ${nomeModulos} · ${nomePontas}`;
-        // Como os corredores se dividem nas filas, em linha própria pelo mesmo motivo da parede.
-        const nomeFilas = medidas.corredores < 2 ? ""
-          : filas.length === 1 ? "Um corredor atrás do outro"
-          : filas.every(n => n === 1) ? `${filas.length} filas lado a lado`
-          : filas.every(n => n === filas[0]) ? `${filas.length} filas de ${filas[0]} corredores`
-          : `${filas.length} filas · corredores por fila: ${filas.join(", ").replace(/, ([^,]*)$/, " e $1")}`;
-        const nomeParede = `Gôndola de parede · ${totalParede} ${totalParede === 1 ? "módulo" : "módulos"}`;
-        // Em linha própria: junto do título, o texto longo encolheria a fonte da linha inteira.
-        const ladosParede = [["Esquerda", paredes.esq], ["Direita", paredes.dir], ["Fundo", paredes.fundo]].filter(([, lista]) => lista.length).map(([nome, lista]) => `${nome} ${lista.join(" + ")}`).concat(medidas.nomeCantos ? [`Canto ${medidas.nomeCantos}`] : []).join(" · ");
-        const soBandeja = new Set(emUso).size === 1 && emUso[0] === "bandeja";
-        blob = await motor.current.gerarImagem({
-          titulo: comCentro ? nomeCentro : nomeParede,
-          extras: [...(comCentro && nomeFilas ? [nomeFilas] : []), ...(comCentro && algumaParede ? [nomeParede] : []), ...(algumaParede ? [ladosParede] : []), `Cor ${CORES_GONDOLA[cor].toLowerCase()} · porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}${soBandeja ? "" : ` · com ${nomesDe(emUso)}`}`],
-          medidas: algumaParede
-            ? `Espaço ocupado ${medidas.ocupado} · ${comCentro ? `Altura: centro ${medidas.altura} e parede ${medidas.alturaParede}` : `Altura ${medidas.alturaParede}`}`
-            : `${medidas.comprimentoTotal ? `Comprimento total ${medidas.comprimentoTotal} · cada corredor ${medidas.comprimento}` : `Comprimento ${medidas.comprimento}`} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
-          nota: `Medidas aproximadas, a confirmar no projeto.${notaEspacos}`,
-        });
-        nome = algumaParede
-          ? `gondola-${comCentro ? "centro-e-parede" : "parede"}.jpg`
-          : `gondola-${medidas.corredores > 1 ? `${medidas.corredores}-corredores-` : ""}${modulos}-${modulos === 1 ? "modulo" : "modulos"}-${pontas === 1 ? "1-ponta" : pontas === 2 ? "2-pontas" : "sem-pontas"}.jpg`;
-      }
+      const { nome, ...textos } = textosDoProjeto();
+      const blob = await motor.current.gerarImagem(textos);
       const arquivo = new File([blob], nome, { type: "image/jpeg" });
       // No celular abre o compartilhar, com WhatsApp e "Salvar imagem"; no computador, baixa o arquivo.
       if (window.matchMedia?.("(pointer: coarse)").matches && navigator.canShare?.({ files: [arquivo] })) {
@@ -13396,15 +13445,34 @@ function ProjetoPage() {
           </div>
           {/* Fora da rolagem: a medida total e a imagem ficam sempre à mão, mesmo com as listas abertas. */}
           <div style={{ flexShrink: 0, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 12px", padding: isMobile ? "9px 14px" : "12px 18px", borderTop: `1px solid ${COLORS.border}` }}>
-            <div style={{ flex: "1 1 0", minWidth: 0 }}>
-              <div style={{ color: COLORS.textMuted, fontSize: 11.5 }}>Espaço ocupado</div>
-              <div style={{ color: COLORS.white, fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{produto === "mpp" ? medidasM.resumo : medidas.resumo}</div>
+            {/* Linha própria: com dois botões ao lado, a medida não cabia e passava por baixo do "Gerar link". */}
+            <div style={{ flexBasis: "100%", minWidth: 0, display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 8px" }}>
+              <span style={{ color: COLORS.textMuted, fontSize: 11.5 }}>Espaço ocupado</span>
+              <span style={{ color: COLORS.white, fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{produto === "mpp" ? medidasM.resumo : medidas.resumo}</span>
             </div>
-            <button onClick={baixarImagem} disabled={estado !== "ok" || gerando} style={{ flexShrink: 0, height: 44, padding: "0 16px", border: 0, borderRadius: 10, background: COLORS.orange, color: "#000", fontSize: 14, fontWeight: 700, fontFamily: fonte, cursor: estado === "ok" && !gerando ? "pointer" : "default", opacity: estado === "ok" ? 1 : 0.45 }}>{gerando ? "Gerando…" : toque ? "Enviar imagem" : "Baixar imagem"}</button>
+            <button onClick={gerarLink} disabled={gerandoLink} style={{ flex: "1 1 0", height: 44, padding: "0 14px", border: `1px solid ${COLORS.orange}`, borderRadius: 10, background: "transparent", color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: fonte, cursor: gerandoLink ? "default" : "pointer" }}>{gerandoLink ? "Gerando…" : "Gerar link"}</button>
+            <button onClick={baixarImagem} disabled={estado !== "ok" || gerando} style={{ flex: "1 1 0", height: 44, padding: "0 16px", border: 0, borderRadius: 10, background: COLORS.orange, color: "#000", fontSize: 14, fontWeight: 700, fontFamily: fonte, cursor: estado === "ok" && !gerando ? "pointer" : "default", opacity: estado === "ok" ? 1 : 0.45 }}>{gerando ? "Gerando…" : toque ? "Enviar imagem" : "Baixar imagem"}</button>
             {falhaImagem && <p style={{ flexBasis: "100%", margin: 0, color: COLORS.danger, fontSize: 12 }}>Não consegui gerar a imagem. Tente de novo.</p>}
+            {falhaLink && <p style={{ flexBasis: "100%", margin: 0, color: COLORS.danger, fontSize: 12 }}>Não consegui gerar o link. Confira a internet e tente de novo.</p>}
           </div>
         </div>
       </div>
+      {linkCliente && (
+        <div role="dialog" aria-modal="true" aria-label="Link para o cliente" onClick={e => { if (e.target === e.currentTarget) setLinkCliente(null); }} style={{ position: "fixed", inset: 0, zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "rgba(0,0,0,.66)" }}>
+          <div style={{ width: "100%", maxWidth: 440, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 20, fontFamily: fonte }}>
+            <div style={{ color: COLORS.white, fontSize: 17, fontWeight: 700, marginBottom: 6 }}>Link pronto para o cliente</div>
+            <p style={{ margin: "0 0 12px", color: COLORS.textMuted, fontSize: 13, lineHeight: 1.5 }}>Abre uma vez só. Não abra você mesmo: o cliente receberia o link já usado. Se ele quiser ver de novo, é só gerar outro link.</p>
+            <div id="projeto-link-url" style={{ padding: "10px 12px", borderRadius: 10, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, fontSize: 12.5, wordBreak: "break-all", userSelect: "all", marginBottom: 14 }}>{linkCliente.url}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <button onClick={copiarLink} style={{ height: 44, border: `1px solid ${COLORS.orange}`, borderRadius: 10, background: "transparent", color: COLORS.orange, fontSize: 14, fontWeight: 700, fontFamily: fonte, cursor: "pointer" }}>{linkCliente.copiado === true ? "Copiado" : "Copiar link"}</button>
+              <button onClick={enviarLink} style={{ height: 44, border: 0, borderRadius: 10, background: COLORS.orange, color: "#000", fontSize: 14, fontWeight: 700, fontFamily: fonte, cursor: "pointer" }}>Enviar no WhatsApp</button>
+            </div>
+            {linkCliente.copiado === "manual" && <p style={{ margin: "8px 0 0", color: COLORS.textMuted, fontSize: 12.5 }}>Este aparelho não deixou copiar sozinho. O link está selecionado acima: é só copiar.</p>}
+            {linkCliente.whatsManual && <a href={linkWhats(linkCliente.url)} target="_blank" rel="noopener" style={{ display: "block", marginTop: 8, color: COLORS.orange, fontSize: 13.5, fontWeight: 700, textAlign: "center" }}>Toque aqui para abrir o WhatsApp</a>}
+            <button onClick={() => setLinkCliente(null)} style={{ width: "100%", marginTop: 8, height: 40, border: 0, borderRadius: 10, background: "transparent", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte, cursor: "pointer" }}>Fechar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -14171,7 +14239,7 @@ export default function App() {
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
       {page === "agenda" && canAccess(user, "agenda") && <AgendaPage user={user} setPage={setPage} />}
       {page === "agenda" && !canAccess(user, "agenda") && <Login onLogin={login} setPage={setPage} />}
-      {page === "projeto" && canAccess(user, "projeto") && <ProjetoPage />}
+      {page === "projeto" && canAccess(user, "projeto") && <ProjetoPage user={user} />}
       {page === "projeto" && !canAccess(user, "projeto") && <Login onLogin={login} setPage={setPage} />}
       {page === "fotos" && canAccess(user, "fotos") && <FotosPage user={user} />}
       {page === "fotos" && !canAccess(user, "fotos") && <Login onLogin={login} setPage={setPage} />}
