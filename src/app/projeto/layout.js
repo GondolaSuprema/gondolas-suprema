@@ -17,6 +17,15 @@ export const metadata = {
 
 export const viewport = { themeColor: '#f3f5f9' };
 
+// O fundo do sistema é preto (globals.css). Aqui ele já sai claro no HTML: o Safari do iPhone pinta a faixa
+// do relógio e a da barra de endereço com essa cor, e antes ela ficava preta até o JavaScript carregar.
+const FUNDO_CLARO = 'html,body{background:#f3f5f9}';
+
 export default function LayoutProjeto({ children }) {
-  return children;
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: FUNDO_CLARO }} />
+      {children}
+    </>
+  );
 }

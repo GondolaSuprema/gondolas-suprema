@@ -42,13 +42,6 @@ export default function ProjetoCliente({ token }) {
   const [tentativa, setTentativa] = useState(0);
   const pedido = useRef(-1);
 
-  // O fundo do sistema é preto; aqui a página é clara.
-  useEffect(() => {
-    const antes = document.body.style.background;
-    document.body.style.background = FUNDO;
-    return () => { document.body.style.background = antes; };
-  }, []);
-
   useEffect(() => {
     const chave = `projeto-link:${token}`;
     try {
@@ -98,7 +91,9 @@ function Projeto({ dados }) {
   const [estado3d, setEstado3d] = useState("carregando"); // carregando | ok | erro
   const [vista, setVista] = useState(dados.config.vista || "ponta");
   const [mexeu, setMexeu] = useState(false);
-  const [larga, setLarga] = useState(true);
+  // Já nasce com a largura certa: o Projeto só aparece no navegador (depois do banco), nunca no servidor.
+  // Começar em true fazia o celular piscar o título grande do computador antes de encolher.
+  const [larga, setLarga] = useState(() => typeof window === "undefined" || window.innerWidth >= 860);
   const toque = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
   // Os textos vêm do banco: tipo errado vira vazio em vez de derrubar a página.
   const t = dados.textos && typeof dados.textos === "object" ? dados.textos : {};
@@ -149,14 +144,15 @@ function Projeto({ dados }) {
             Veja como vai ficar o <span style={{ backgroundImage: `linear-gradient(transparent 62%, rgba(242,178,0,.45) 62%)` }}>seu projeto</span>
           </h1>
           <p style={{ color: APAGADO, fontSize: larga ? 17 : 15, lineHeight: 1.5, margin: 0, maxWidth: 640 }}>
-            {consultor ? `Preparado especialmente para você por ${consultor}, da Gôndolas Suprema. ` : "Preparado especialmente para você pela Gôndolas Suprema. "}
-            {toque ? "Gire com o dedo, aproxime e veja de todos os ângulos." : "Arraste para girar, use a rodinha para aproximar e veja de todos os ângulos."}
+            {consultor ? `Preparado especialmente para você por ${consultor}, da Gôndolas Suprema.` : "Preparado especialmente para você pela Gôndolas Suprema."}
+            {/* No celular a dica já aparece em cima do 3D; aqui ela só empurraria o 3D para baixo. */}
+            {!toque && " Arraste para girar, use a rodinha para aproximar e veja de todos os ângulos."}
           </p>
         </section>
 
         {/* O 3D, com a marca d'água da Suprema por cima (não atrapalha girar: pointer-events none) */}
         <section style={{ ...cartao, padding: 8, marginBottom: 12 }}>
-          <div style={{ position: "relative", height: larga ? "min(620px, 64vh)" : "min(480px, 58vh)", borderRadius: 14, overflow: "hidden", background: "#0b0f17" }}>
+          <div style={{ position: "relative", height: larga ? "min(620px, 64vh)" : "min(470px, 52vh)", borderRadius: 14, overflow: "hidden", background: "#0b0f17" }}>
             <canvas ref={canvasRef} role="img" aria-label={`Projeto em 3D: ${titulo || "gôndola"}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
             <img src="/logo-suprema.png" alt="" aria-hidden="true" draggable={false} style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: larga ? "min(36%, 340px)" : "min(58%, 260px)", opacity: 0.15, pointerEvents: "none", userSelect: "none" }} />
             <div aria-hidden="true" style={{ position: "absolute", right: 12, bottom: 12, display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", backdropFilter: "blur(6px)", pointerEvents: "none" }}>
@@ -165,11 +161,12 @@ function Projeto({ dados }) {
             </div>
             {estado3d === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,.75)", fontSize: 14 }}>Montando o seu projeto…</div>}
             {estado3d === "erro" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", color: "rgba(255,255,255,.85)", fontSize: 14, background: "#0b0f17" }}>Este aparelho não conseguiu abrir o 3D. As medidas do seu projeto estão logo abaixo.</div>}
-            {estado3d === "ok" && !mexeu && <div style={{ position: "absolute", left: 0, right: 0, bottom: 52, margin: "0 auto", width: "fit-content", maxWidth: "90%", padding: "7px 14px", borderRadius: 999, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 12.5, pointerEvents: "none" }}>{toque ? "Arraste para girar · dois dedos para aproximar" : "Arraste para girar"}</div>}
+            {/* No alto da cena: embaixo ela encostava no selo do canto nos celulares estreitos. */}
+            {estado3d === "ok" && !mexeu && <div style={{ position: "absolute", left: 0, right: 0, top: 12, margin: "0 auto", width: "fit-content", maxWidth: "calc(100% - 24px)", padding: "7px 14px", borderRadius: 999, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 12.5, textAlign: "center", pointerEvents: "none" }}>{toque ? "Arraste para girar · dois dedos aproximam" : "Arraste para girar"}</div>}
           </div>
           <div role="group" aria-label="Ver de" style={{ display: "grid", gridTemplateColumns: `repeat(${VISTAS.length}, 1fr)`, gap: 4, padding: 4, marginTop: 8, borderRadius: 12, background: FUNDO }}>
             {VISTAS.map(([k, n]) => (
-              <button key={k} aria-pressed={vista === k} onClick={() => trocarVista(k)} style={{ height: toque ? 44 : 40, border: 0, borderRadius: 9, background: vista === k ? AZUL : "transparent", color: vista === k ? "#fff" : TEXTO, fontSize: 14, fontWeight: vista === k ? 700 : 500, fontFamily: FONTE, cursor: "pointer" }}>{n}</button>
+              <button key={k} aria-pressed={vista === k} onClick={() => trocarVista(k)} style={{ height: toque ? 44 : 40, border: 0, borderRadius: 9, background: vista === k ? AZUL : "transparent", color: vista === k ? "#fff" : TEXTO, fontSize: 14, fontWeight: vista === k ? 700 : 500, fontFamily: FONTE, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>{n}</button>
             ))}
           </div>
         </section>
@@ -177,7 +174,7 @@ function Projeto({ dados }) {
         <div style={{ display: "grid", gridTemplateColumns: larga ? "1.4fr 1fr" : "1fr", gap: 12 }}>
           <section style={{ ...cartao, padding: larga ? "22px 24px" : "18px 18px" }}>
             <div style={{ color: "#8a6500", fontSize: 12, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 6 }}>O seu projeto</div>
-            <h2 style={{ color: AZUL, fontSize: larga ? 20 : 18, lineHeight: 1.3, margin: "0 0 8px" }}>{titulo}</h2>
+            <h2 style={{ color: AZUL, fontSize: larga ? 20 : 18, lineHeight: 1.3, margin: "0 0 8px", textWrap: "balance" }}>{titulo}</h2>
             {extras.map((e, i) => <p key={i} style={{ color: APAGADO, fontSize: 14.5, lineHeight: 1.5, margin: "0 0 2px" }}>{e}</p>)}
             {medidas.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
