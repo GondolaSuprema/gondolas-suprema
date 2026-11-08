@@ -117,9 +117,10 @@ export function layoutDe(cfg) {
   return { centro, avanco, Le, Ld, Lf, cantoE, cantoD, cantoCortado, fundoMinimo, planoFundo, inicioE, inicioD, fundoIni, planoLateral, vaoInterno, xMin: Math.min(...xs), xMax: Math.max(...xs), zMin: Math.min(...zs), zMax: Math.max(...zs) };
 }
 
+const fmt = (v) => v.toFixed(2).replace(".", ",");
+
 export function medidasDe(cfg) {
   const { montagem, modulos, pontas, linha, altura, filas, tipos, alturaParede, tiposParede } = cfg;
-  const fmt = (v) => v.toFixed(2).replace(".", ",");
   const p = paredesDe(cfg);
   const corredores = filas.reduce((soma, n) => soma + n, 0);
   const emSequencia = Math.max(...filas); // a fila mais comprida
@@ -157,5 +158,47 @@ export function medidasDe(cfg) {
     fundoParaCanto: l.cantoCortado ? `${fmt(l.fundoMinimo)} m` : "",
     nomeCantos: l.cantoE && l.cantoD ? "esquerdo e direito" : l.cantoE ? "esquerdo" : l.cantoD ? "direito" : "",
     niveis,
+  };
+}
+
+// ── Mini porta palete (modelo China): montante preto, longarina e prateleira de MDF ──
+// Comprimento pela medida de tabela que o Ale escolheu até medir um montado: a inicial tem 1,00, 1,50 ou 2,00 m
+// e cada continuação 4 cm a menos, porque divide o montante com o módulo anterior.
+export const MONTANTE_MPP = 0.04;
+export const MPP_PESOS = { "200": "200 kg", "500": "500 kg" };
+export const MPP_ALTURAS = { "2,00": 2, "2,50": 2.5 };
+export const MPP_COMPRIMENTOS = { "1,00": 1, "1,50": 1.5, "2,00": 2 };
+export const MPP_PROFUNDIDADES = { "0,60": 0.6, "0,80": 0.8 };
+export const MIN_NIVEIS_MPP = 2;
+export const MAX_NIVEIS_MPP = 6;
+export const MAX_MODULOS_MPP = 10; // por fila: a inicial e as continuações
+export const MAX_FILAS_MPP = 6;
+
+// Filas lado a lado, com um corredor entre elas; a fila 1 fica à esquerda (+Z), como no centro da gôndola.
+export function layoutMPP(m) {
+  const vao = MPP_COMPRIMENTOS[m.comprimento] - 2 * MONTANTE_MPP; // entre os montantes
+  const prof = MPP_PROFUNDIDADES[m.profundidade];
+  const comprimento = MONTANTE_MPP + m.modulos * (vao + MONTANTE_MPP);
+  const passoZ = prof + LARGURA_CORREDOR;
+  const meiaLargura = ((m.filas - 1) / 2) * passoZ + prof / 2;
+  return {
+    vao, prof, altura: MPP_ALTURAS[m.altura], comprimento, largura: 2 * meiaLargura,
+    filas: Array.from({ length: m.filas }, (_, f) => ((m.filas - 1) / 2 - f) * passoZ),
+    xMin: -comprimento / 2, xMax: comprimento / 2, zMin: -meiaLargura, zMax: meiaLargura,
+  };
+}
+
+export function medidasMPP(m) {
+  const l = layoutMPP(m);
+  const continuacoes = m.modulos - 1;
+  return {
+    comprimento: `≈ ${fmt(l.comprimento)} m`,
+    rotuloLargura: m.filas > 1 ? "Largura total" : "Profundidade",
+    largura: `≈ ${fmt(l.largura)} m`,
+    altura: `${fmt(l.altura)} m`,
+    modulos: continuacoes ? `1 inicial + ${continuacoes} ${continuacoes === 1 ? "continuação" : "continuações"}` : "Só a inicial",
+    prateleiras: m.modulos * m.niveis * m.filas,
+    resumo: `≈ ${fmt(l.comprimento)} × ${fmt(l.largura)} m`,
+    espaco: `${fmt(LARGURA_CORREDOR)} m`,
   };
 }

@@ -10,10 +10,10 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-import { COL_X, COL_Z, VAO, FACE_Z, LINHAS, ALTURAS, LETRA_PAREDE, ATRAS_PAREDE, MAX_MODULOS, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, LARGURA_CORREDOR, comprimentoFileira, corredoresDe, larguraFileira, layoutDe, paredesDe, trechosDoLado, nomeModuloParede, VAO_COLUNA, PROF_PILAR, CANTO_ATE_COLUNA } from "./projetoMedidas";
+import { COL_X, COL_Z, VAO, FACE_Z, LINHAS, ALTURAS, LETRA_PAREDE, ATRAS_PAREDE, MAX_MODULOS, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, LARGURA_CORREDOR, comprimentoFileira, corredoresDe, MONTANTE_MPP, MAX_MODULOS_MPP, MAX_FILAS_MPP, layoutMPP, larguraFileira, layoutDe, paredesDe, trechosDoLado, nomeModuloParede, VAO_COLUNA, PROF_PILAR, CANTO_ATE_COLUNA } from "./projetoMedidas";
 
 const Y_BASE = 0.135;
-const CHAVES = ["aco", "amarelo", "furo", "nylon", "rosca", "arame", "gancho", "etiqueta", "pilar"];
+const CHAVES = ["aco", "amarelo", "furo", "nylon", "rosca", "arame", "gancho", "etiqueta", "pilar", "mppAco", "mppFuro", "mdf"];
 const GANCHOS_POR_REGUA = 5;
 const PROF_CESTO = 0.37; // cesto 370 x 900 mm
 const SALA_X = 32, SALA_Z = 32, PE_DIREITO = 3; // grande o bastante para a câmera recuar com 6 filas no celular
@@ -393,7 +393,7 @@ function juntar(partes) {
     if (!partes[k].length) continue;
     const g = mergeGeometries(partes[k].map((p) => (p.index ? p.toNonIndexed() : p)));
     partes[k].forEach((p) => p.dispose());
-    if (k === "aco") uvProjetado(g);
+    if (k === "aco" || k === "mppAco") uvProjetado(g);
     lista.push({ k, g });
   }
   return lista;
@@ -520,6 +520,98 @@ function modeloPonta(linha, alt) {
   return juntar(partes);
 }
 
+// ── Mini porta palete (modelo China, da foto do Ale) ──────────────────────────
+// Montante preto com furos, lateral com travessas e diagonais, par de longarina em degrau e prateleira de MDF.
+const LONGARINA_MPP = 0.09;
+// Topo de cada longarina: a de baixo perto do piso, a de cima perto do topo do montante, as outras por igual.
+function niveisMPP(altura, n) {
+  const base = 0.13, topo = altura - 0.03;
+  return Array.from({ length: n }, (_, i) => base + ((topo - base) * i) / (n - 1));
+}
+
+// Uma lateral: os dois montantes (frente e fundo) ligados pelas travessas. Centrada em x=0.
+function modeloLateralMPP(prof, altura) {
+  const partes = novaPartes();
+  const m = MONTANTE_MPP, zMont = prof / 2 - m / 2, zi = prof / 2 - m;
+  for (const s of [1, -1]) {
+    const c = caixa(m, altura, m, 0.002);
+    c.translate(0, altura / 2, s * zMont);
+    partes.mppAco.push(c);
+    for (let y = 0.1; y < altura - 0.04; y += 0.05) {
+      const f = new THREE.PlaneGeometry(0.012, 0.022);
+      if (s < 0) f.rotateY(Math.PI);
+      f.translate(0, y, s * (prof / 2 + 0.0003));
+      partes.mppFuro.push(f);
+    }
+    const sapata = caixa(0.07, 0.006, 0.07, 0.001);
+    sapata.translate(0, 0.003, s * zMont);
+    partes.mppAco.push(sapata);
+  }
+  const yBaixo = 0.08, yCima = altura - 0.05;
+  for (const y of [yBaixo, yCima]) {
+    const t = caixa(0.012, 0.03, 2 * zi, 0.001);
+    t.translate(0, y, 0);
+    partes.mppAco.push(t);
+  }
+  // Diagonais em zigue-zague, de um montante ao outro
+  const n = Math.max(2, Math.round((yCima - yBaixo) / 0.6));
+  for (let i = 0; i < n; i++) {
+    const y0 = yBaixo + ((yCima - yBaixo) * i) / n, y1 = yBaixo + ((yCima - yBaixo) * (i + 1)) / n;
+    const z0 = i % 2 ? -zi : zi, z1 = -z0;
+    const d = caixa(0.012, 0.03, Math.hypot(y1 - y0, z1 - z0), 0.001);
+    d.rotateX(Math.atan2(-(y1 - y0), z1 - z0));
+    d.translate(0, (y0 + y1) / 2, (z0 + z1) / 2);
+    partes.mppAco.push(d);
+  }
+  return juntar(partes);
+}
+
+// Longarina vista de lado: frente lisa e, por dentro, o degrau onde o MDF apoia. A frente fica em z=0.
+function perfilLongarina() {
+  const h = LONGARINA_MPP;
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.lineTo(0, h);
+  s.lineTo(-0.022, h);
+  s.lineTo(-0.022, h - 0.016);
+  s.lineTo(-0.045, h - 0.016);
+  s.lineTo(-0.045, h - 0.04);
+  s.lineTo(-0.006, h - 0.04);
+  s.lineTo(-0.006, 0);
+  s.closePath();
+  return s;
+}
+
+// Um vão entre dois montantes, com todos os níveis: par de longarina e MDF em cada um. Vai de x=0 a x=vao.
+function modeloVaoMPP(vao, prof, altura, n) {
+  const partes = novaPartes();
+  for (const topo of niveisMPP(altura, n)) {
+    const y = topo - LONGARINA_MPP;
+    for (const s of [1, -1]) {
+      const g = aoLongo(perfilLongarina(), vao);
+      g.translate(0, y, prof / 2);
+      if (s < 0) { g.rotateY(Math.PI); g.translate(vao, 0, 0); }
+      partes.mppAco.push(g);
+      for (const f of [0.35, 0.62]) { // nervuras da frente, como na foto
+        const r = caixa(vao, 0.005, 0.003, 0.0008);
+        r.translate(vao / 2, y + LONGARINA_MPP * f, s * (prof / 2 + 0.0015));
+        partes.mppAco.push(r);
+      }
+    }
+    const mdf = caixa(vao - 0.004, 0.015, prof - 0.048, 0.001);
+    mdf.translate(vao / 2, topo - 0.0085, 0);
+    partes.mdf.push(mdf);
+  }
+  return juntar(partes);
+}
+
+// "mppLateral:prof:altura" ou "mppVao:vao:prof:altura:niveis"
+function modeloMPP(tipo) {
+  const [nome, ...n] = tipo.split(":");
+  const v = n.map(Number);
+  return nome === "mppLateral" ? modeloLateralMPP(v[0], v[1]) : modeloVaoMPP(v[0], v[1], v[2], v[3]);
+}
+
 // ── Motor ────────────────────────────────────────────────────────────────────
 export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMovimento = false, config, aoMudarVista, aoInteragir, aoFalhar, aoVoltar }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
@@ -546,6 +638,10 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     gancho: new THREE.MeshStandardMaterial({ color: 0x5a5a64, roughness: 0.3, metalness: 0.4, envMapIntensity: 1.1 }), // mais claro: preto sobre painel preto some
     etiqueta: new THREE.MeshStandardMaterial({ color: 0x9fb0e0, roughness: 0.2, envMapIntensity: 0.8, transparent: true, opacity: 0.7 }),
     pilar: new THREE.MeshStandardMaterial({ color: 0xd6d2c9, roughness: 0.85 }),
+    // Mini porta palete: preto próprio, que não muda com a cor escolhida para a gôndola
+    mppAco: new THREE.MeshStandardMaterial({ color: 0x18181a, roughness: 0.5, metalness: 0, normalMap: normalPintura, normalScale: new THREE.Vector2(0.08, 0.08), envMapIntensity: 0.72 }),
+    mppFuro: new THREE.MeshStandardMaterial({ color: 0x030303, roughness: 1 }),
+    mdf: new THREE.MeshStandardMaterial({ color: 0xefeee9, roughness: 0.78, envMapIntensity: 0.6 }),
   };
   // Cor da gôndola: só troca a tinta, sem remontar as peças. Mesmas cores da gôndola 3D do site.
   const CORES = {
@@ -735,14 +831,16 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   // ── Montagem ──
   // Instâncias: cada tipo de peça é desenhado de uma vez só, então muitas fileiras não pesam em chamadas de desenho.
   const NO_CENTRO = MAX_FILAS * MAX_CORREDORES_FILA; // corredores de centro, no máximo
-  const CAPACIDADE = { modulo: MAX_MODULOS * NO_CENTRO, inicio: NO_CENTRO, ponta: 2 * NO_CENTRO, moduloParede: 3 * MAX_MODULOS_LADO, inicioParede: 3 * MAX_PAREDES_LADO, canto: 2, fecho: 2, pilar: 3 * (MAX_PAREDES_LADO - 1), face: 2 * MAX_MODULOS * NO_CENTRO + 3 * MAX_MODULOS_LADO };
+  const CAPACIDADE = { mppLateral: MAX_FILAS_MPP * (MAX_MODULOS_MPP + 1), mppVao: MAX_FILAS_MPP * MAX_MODULOS_MPP, modulo: MAX_MODULOS * NO_CENTRO, inicio: NO_CENTRO, ponta: 2 * NO_CENTRO, moduloParede: 3 * MAX_MODULOS_LADO, inicioParede: 3 * MAX_PAREDES_LADO, canto: 2, fecho: 2, pilar: 3 * (MAX_PAREDES_LADO - 1), face: 2 * MAX_MODULOS * NO_CENTRO + 3 * MAX_MODULOS_LADO };
   const modelos = new Map(); // "linha:altura:tipo" → modelo (fica guardado para trocar de opção sem refazer)
   function modelo(linha, altura, tipo) {
-    const chave = `${linha}:${altura}:${tipo}`;
+    const pecaMpp = tipo.startsWith("mpp");
+    const chave = pecaMpp ? tipo : `${linha}:${altura}:${tipo}`; // a peça do mini porta palete não depende da linha da gôndola
     if (modelos.has(chave)) return modelos.get(chave);
-    const def = LINHAS[linha], alt = alturaDe(altura);
+    const def = LINHAS[linha], alt = pecaMpp ? null : alturaDe(altura);
     const ehFace = tipo.startsWith("face:");
-    const partes = ehFace ? modeloFace(def, alt, tipo.slice(5))
+    const partes = pecaMpp ? modeloMPP(tipo)
+      : ehFace ? modeloFace(def, alt, tipo.slice(5))
       : tipo === "modulo" ? modeloModulo(def, alt)
       : tipo === "moduloParede" ? modeloModulo(def, alt, [1])
       : tipo === "inicio" ? modeloColunaInicial(def, alt)
@@ -751,7 +849,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
       : tipo === "fecho" ? modeloFecho(def, alt)
       : tipo === "pilar" ? modeloPilar()
       : modeloPonta(def, alt);
-    const cap = CAPACIDADE[ehFace ? "face" : tipo];
+    const cap = CAPACIDADE[ehFace ? "face" : pecaMpp ? tipo.split(":")[0] : tipo];
     const matriz = new THREE.InstancedBufferAttribute(new Float32Array(cap * 16), 16);
     matriz.setUsage(THREE.DynamicDrawUsage);
     const malhas = [];
@@ -766,7 +864,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     for (const { k, g } of partes) {
       const m = instancia(g, k);
       // Fio fino não faz sombra nem aparece no reflexo desfocado, e custa caro.
-      const fino = ["furo", "arame", "gancho", "etiqueta"].includes(k);
+      const fino = ["furo", "arame", "gancho", "etiqueta", "mppFuro"].includes(k);
       m.castShadow = !fino;
       m.receiveShadow = true;
       gondola.add(m);
@@ -777,9 +875,11 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     return novo;
   }
 
-  const fileiras = () => estado.filas.length; // filas lado a lado
-  const emSequencia = () => Math.max(...estado.filas); // corredores um atrás do outro na fila mais comprida
-  const zDaFileira = (f) => ((fileiras() - 1) / 2 - f) * (larguraFileira(estado.linha) + LARGURA_CORREDOR); // igual a corredoresDe: fila 1 em +Z
+  const ehMPP = () => estado.produto === "mpp";
+  const fileiras = () => (ehMPP() ? estado.mpp.filas : estado.filas.length); // filas lado a lado
+  const emSequencia = () => (ehMPP() ? 1 : Math.max(...estado.filas)); // corredores um atrás do outro na fila mais comprida
+  const larguraDaFila = () => (ehMPP() ? layoutMPP(estado.mpp).prof : larguraFileira(estado.linha));
+  const zDaFileira = (f) => ((fileiras() - 1) / 2 - f) * (larguraDaFila() + LARGURA_CORREDOR); // igual a corredoresDe: fila 1 em +Z
 
   const unidades = [];
   const matrizUnidade = new THREE.Matrix4();
@@ -793,6 +893,11 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   }
 
   function limites() {
+    if (ehMPP()) {
+      // Mesmo formato do layout da gôndola, como um centro sem paredes: as vistas servem para os dois.
+      const m = layoutMPP(estado.mpp);
+      return { centro: { xMin: m.xMin, xMax: m.xMax, z: m.zMax }, avanco: m.prof / 2, Le: 0, Ld: 0, Lf: 0, xMin: m.xMin, xMax: m.xMax, zMin: m.zMin, zMax: m.zMax, yMax: m.altura, mpp: m };
+    }
     const l = layoutDe(estado);
     const alturas = [];
     if (l.centro) alturas.push(ALTURAS[estado.altura].m);
@@ -805,56 +910,67 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     const querer = new Map();
     const pos = (altura, tipo, chave, x, z, rot) => querer.set(`${estado.linha}:${altura}:${chave}`, { altura, tipo, x, z, rot });
     const passo = VAO + COL_X;
-    if (l.centro) {
-      const L = comprimentoFileira(estado.modulos), a = estado.altura;
-      for (const { f, k, x0, z } of corredoresDe(estado)) {
-        const c = `c${f}.${k}`;
-        pos(a, "inicio", `${c}:inicio`, x0 + COL_X, z, 0);
-        for (let i = 0; i < estado.modulos; i++) {
-          const xi = x0 + COL_X + i * passo;
-          const { esq, dir } = estado.tipos[i];
-          pos(a, "modulo", `${c}:m${i}`, xi, z, 0);
-          pos(a, `face:${esq}`, `${c}:m${i}:esq:${esq}`, xi, z, 0); // lado esquerdo = +Z, visto de quem está na ponta olhando a fileira
-          pos(a, `face:${dir}`, `${c}:m${i}:dir:${dir}`, xi + VAO, z, Math.PI);
+    if (ehMPP()) {
+      // Cada fila: uma lateral em cada ponta e entre os módulos, e um vão com os níveis entre duas laterais.
+      const m = l.mpp, passoMPP = m.vao + MONTANTE_MPP;
+      const lateral = `mppLateral:${m.prof}:${m.altura}`;
+      const vao = `mppVao:${m.vao.toFixed(3)}:${m.prof}:${m.altura}:${estado.mpp.niveis}`;
+      m.filas.forEach((z, f) => {
+        for (let k = 0; k <= estado.mpp.modulos; k++) pos("mpp", lateral, `mpp${f}:l${k}:${lateral}`, m.xMin + MONTANTE_MPP / 2 + k * passoMPP, z, 0);
+        for (let k = 0; k < estado.mpp.modulos; k++) pos("mpp", vao, `mpp${f}:v${k}:${vao}`, m.xMin + MONTANTE_MPP + k * passoMPP, z, 0);
+      });
+    } else {
+      if (l.centro) {
+        const L = comprimentoFileira(estado.modulos), a = estado.altura;
+        for (const { f, k, x0, z } of corredoresDe(estado)) {
+          const c = `c${f}.${k}`;
+          pos(a, "inicio", `${c}:inicio`, x0 + COL_X, z, 0);
+          for (let i = 0; i < estado.modulos; i++) {
+            const xi = x0 + COL_X + i * passo;
+            const { esq, dir } = estado.tipos[i];
+            pos(a, "modulo", `${c}:m${i}`, xi, z, 0);
+            pos(a, `face:${esq}`, `${c}:m${i}:esq:${esq}`, xi, z, 0); // lado esquerdo = +Z, visto de quem está na ponta olhando a fileira
+            pos(a, `face:${dir}`, `${c}:m${i}:dir:${dir}`, xi + VAO, z, Math.PI);
+          }
+          if (estado.pontas >= 1) pos(a, "ponta", `${c}:pontaD`, x0 + L, z, 0);
+          if (estado.pontas >= 2) pos(a, "ponta", `${c}:pontaE`, x0, z, Math.PI);
         }
-        if (estado.pontas >= 1) pos(a, "ponta", `${c}:pontaD`, x0 + L, z, 0);
-        if (estado.pontas >= 2) pos(a, "ponta", `${c}:pontaE`, x0, z, Math.PI);
       }
+      // Paredes: módulo 1 fica junto do fundo nas laterais, então os números não mudam quando a parede cresce.
+      const a = estado.alturaParede;
+      const q = paredesDe(estado);
+      const parede = (lado, t, n, inicio, modulo, rot) => {
+        pos(a, "inicioParede", `${lado}${t}:inicio`, inicio[0], inicio[1], rot);
+        for (let i = 0; i < n; i++) {
+          const [x, z] = modulo(i);
+          const tipo = estado.tiposParede[lado][t][i];
+          pos(a, "moduloParede", `${lado}${t}:m${i}`, x, z, rot);
+          pos(a, `face:${tipo}`, `${lado}${t}:m${i}:${tipo}`, x, z, rot);
+        }
+      };
+      trechosDoLado(q.dir).forEach(({ n, inicio }, t) => {
+        const x = l.inicioD + inicio + COL_X;
+        parede("dir", t, n, [x, -l.planoLateral], (i) => [x + i * passo, -l.planoLateral], 0);
+      });
+      trechosDoLado(q.esq).forEach(({ n, inicio }, t) => {
+        const x = l.inicioE + inicio;
+        parede("esq", t, n, [x + n * passo, l.planoLateral], (i) => [x + COL_X + i * passo + VAO, l.planoLateral], Math.PI);
+      });
+      trechosDoLado(q.fundo).forEach(({ n, inicio }, t) => {
+        const z = l.fundoIni - inicio - COL_X;
+        parede("fundo", t, n, [l.planoFundo, z], (i) => [l.planoFundo, z - i * passo], Math.PI / 2);
+      });
+      // Um pilar em cada vão entre duas paredes do mesmo lado.
+      const noVao = (lista, fazer) => trechosDoLado(lista).slice(0, -1).forEach(({ n, inicio }, t) => fazer(t, inicio + comprimentoFileira(n) + VAO_COLUNA / 2));
+      noVao(q.dir, (t, d) => pos(a, "pilar", `dir${t}:pilar`, l.inicioD + d, -l.planoLateral, 0));
+      noVao(q.esq, (t, d) => pos(a, "pilar", `esq${t}:pilar`, l.inicioE + d, l.planoLateral, Math.PI));
+      noVao(q.fundo, (t, d) => pos(a, "pilar", `fundo${t}:pilar`, l.planoFundo, l.fundoIni - d, Math.PI / 2));
+      const meioCanto = CANTO_ATE_COLUNA / 2;
+      if (l.cantoE) pos(a, "canto", "canto:esq", l.planoFundo + meioCanto, l.planoLateral - meioCanto, (3 * Math.PI) / 4);
+      if (l.cantoD) pos(a, "canto", "canto:dir", l.planoFundo + meioCanto, meioCanto - l.planoLateral, Math.PI / 4);
+      if (l.Lf && l.Ld && !l.cantoD) pos(a, "fecho", "fecho:dir", l.planoFundo + FACE_Z, -l.planoLateral, 0);
+      if (l.Lf && l.Le && !l.cantoE) pos(a, "fecho", "fecho:esq", l.inicioE, l.planoLateral, Math.PI);
     }
-    // Paredes: módulo 1 fica junto do fundo nas laterais, então os números não mudam quando a parede cresce.
-    const a = estado.alturaParede;
-    const q = paredesDe(estado);
-    const parede = (lado, t, n, inicio, modulo, rot) => {
-      pos(a, "inicioParede", `${lado}${t}:inicio`, inicio[0], inicio[1], rot);
-      for (let i = 0; i < n; i++) {
-        const [x, z] = modulo(i);
-        const tipo = estado.tiposParede[lado][t][i];
-        pos(a, "moduloParede", `${lado}${t}:m${i}`, x, z, rot);
-        pos(a, `face:${tipo}`, `${lado}${t}:m${i}:${tipo}`, x, z, rot);
-      }
-    };
-    trechosDoLado(q.dir).forEach(({ n, inicio }, t) => {
-      const x = l.inicioD + inicio + COL_X;
-      parede("dir", t, n, [x, -l.planoLateral], (i) => [x + i * passo, -l.planoLateral], 0);
-    });
-    trechosDoLado(q.esq).forEach(({ n, inicio }, t) => {
-      const x = l.inicioE + inicio;
-      parede("esq", t, n, [x + n * passo, l.planoLateral], (i) => [x + COL_X + i * passo + VAO, l.planoLateral], Math.PI);
-    });
-    trechosDoLado(q.fundo).forEach(({ n, inicio }, t) => {
-      const z = l.fundoIni - inicio - COL_X;
-      parede("fundo", t, n, [l.planoFundo, z], (i) => [l.planoFundo, z - i * passo], Math.PI / 2);
-    });
-    // Um pilar em cada vão entre duas paredes do mesmo lado.
-    const noVao = (lista, fazer) => trechosDoLado(lista).slice(0, -1).forEach(({ n, inicio }, t) => fazer(t, inicio + comprimentoFileira(n) + VAO_COLUNA / 2));
-    noVao(q.dir, (t, d) => pos(a, "pilar", `dir${t}:pilar`, l.inicioD + d, -l.planoLateral, 0));
-    noVao(q.esq, (t, d) => pos(a, "pilar", `esq${t}:pilar`, l.inicioE + d, l.planoLateral, Math.PI));
-    noVao(q.fundo, (t, d) => pos(a, "pilar", `fundo${t}:pilar`, l.planoFundo, l.fundoIni - d, Math.PI / 2));
-    const meioCanto = CANTO_ATE_COLUNA / 2;
-    if (l.cantoE) pos(a, "canto", "canto:esq", l.planoFundo + meioCanto, l.planoLateral - meioCanto, (3 * Math.PI) / 4);
-    if (l.cantoD) pos(a, "canto", "canto:dir", l.planoFundo + meioCanto, meioCanto - l.planoLateral, Math.PI / 4);
-    if (l.Lf && l.Ld && !l.cantoD) pos(a, "fecho", "fecho:dir", l.planoFundo + FACE_Z, -l.planoLateral, 0);
-    if (l.Lf && l.Le && !l.cantoE) pos(a, "fecho", "fecho:esq", l.inicioE, l.planoLateral, Math.PI);
 
     for (let i = unidades.length - 1; i >= 0; i--) if (!querer.has(unidades[i].chave)) unidades.splice(i, 1);
     modelos.forEach((m) => { m.usados = 0; });
@@ -871,23 +987,27 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     escreverPosicoes();
 
     // Sombra de contato no piso: [centro x, centro z, tamanho x, tamanho z]
-    const fund = l.avanco + ATRAS_PAREDE;
     const marcas = [];
-    if (l.centro) {
-      const L = comprimentoFileira(estado.modulos);
-      const atras = estado.pontas >= 2 ? l.avanco : 0, frente = estado.pontas >= 1 ? l.avanco : 0;
-      for (const { x0, z } of corredoresDe(estado)) marcas.push([x0 + (L + frente - atras) / 2, z, L + frente + atras, 2 * l.avanco]);
+    if (ehMPP()) for (const z of l.mpp.filas) marcas.push([0, z, l.mpp.comprimento, l.mpp.prof]);
+    else {
+      const fund = l.avanco + ATRAS_PAREDE;
+      const q = paredesDe(estado);
+      if (l.centro) {
+        const L = comprimentoFileira(estado.modulos);
+        const atras = estado.pontas >= 2 ? l.avanco : 0, frente = estado.pontas >= 1 ? l.avanco : 0;
+        for (const { x0, z } of corredoresDe(estado)) marcas.push([x0 + (L + frente - atras) / 2, z, L + frente + atras, 2 * l.avanco]);
+      }
+      const emLateral = (lista, x0, z) => trechosDoLado(lista).forEach(({ n, inicio }) => marcas.push([x0 + inicio + comprimentoFileira(n) / 2, z, comprimentoFileira(n), fund]));
+      emLateral(q.esq, l.inicioE, l.planoLateral + (ATRAS_PAREDE - l.avanco) / 2);
+      emLateral(q.dir, l.inicioD, -l.planoLateral - (ATRAS_PAREDE - l.avanco) / 2);
+      trechosDoLado(q.fundo).forEach(({ n, inicio }) => marcas.push([l.planoFundo + (l.avanco - ATRAS_PAREDE) / 2, l.fundoIni - inicio - comprimentoFileira(n) / 2, fund, comprimentoFileira(n)]));
+      // [.., ângulo]: o canto fica a 45° no piso
+      const fundoCanto = (FACE_Z + LINHAS[estado.linha].profBase) / Math.SQRT2;
+      const recuoCanto = (CANTO_ATE_COLUNA + fundoCanto / Math.SQRT2) / 2;
+      const marcaCanto = (sinal) => marcas.push([l.planoFundo + recuoCanto, sinal * (l.planoLateral - recuoCanto), Math.SQRT2 * CANTO_ATE_COLUNA - fundoCanto, fundoCanto, -sinal * Math.PI / 4]);
+      if (l.cantoE) marcaCanto(1);
+      if (l.cantoD) marcaCanto(-1);
     }
-    const emLateral = (lista, x0, z) => trechosDoLado(lista).forEach(({ n, inicio }) => marcas.push([x0 + inicio + comprimentoFileira(n) / 2, z, comprimentoFileira(n), fund]));
-    emLateral(q.esq, l.inicioE, l.planoLateral + (ATRAS_PAREDE - l.avanco) / 2);
-    emLateral(q.dir, l.inicioD, -l.planoLateral - (ATRAS_PAREDE - l.avanco) / 2);
-    trechosDoLado(q.fundo).forEach(({ n, inicio }) => marcas.push([l.planoFundo + (l.avanco - ATRAS_PAREDE) / 2, l.fundoIni - inicio - comprimentoFileira(n) / 2, fund, comprimentoFileira(n)]));
-    // [.., ângulo]: o canto fica a 45° no piso
-    const fundoCanto = (FACE_Z + LINHAS[estado.linha].profBase) / Math.SQRT2;
-    const recuoCanto = (CANTO_ATE_COLUNA + fundoCanto / Math.SQRT2) / 2;
-    const marcaCanto = (sinal) => marcas.push([l.planoFundo + recuoCanto, sinal * (l.planoLateral - recuoCanto), Math.SQRT2 * CANTO_ATE_COLUNA - fundoCanto, fundoCanto, -sinal * Math.PI / 4]);
-    if (l.cantoE) marcaCanto(1);
-    if (l.cantoD) marcaCanto(-1);
     contatos.children.forEach((c, i) => {
       const m = marcas[i];
       c.visible = !!m;
@@ -969,17 +1089,18 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     // Com parede a câmera sobe, para ver por cima das gôndolas; mais ainda se tiver parede do lado dela.
     const paredeNaFrente = lado > 0 ? l.Le : l.Ld;
     const azQuina = temParede ? (paredeNaFrente ? 1.22 : 1.0) : varias ? 1.15 : compacto ? 0.95 : 0.82;
-    const subida = temParede ? (paredeNaFrente ? 0.85 : 0.5) : varias ? 0.2 : 0.1;
+    // Mini porta palete: um pouco de cima, para as prateleiras de MDF aparecerem.
+    const subida = temParede ? (paredeNaFrente ? 0.85 : 0.5) : ehMPP() ? 0.35 : varias ? 0.2 : 0.1;
     let p;
     if (vista === "corredor" && l.centro) {
       // Corredores um atrás do outro: de pé na entrada, olhando a fila inteira.
-      const d = Math.min((l.centro.xMax - l.centro.xMin) / 2 + 1.4, emSequencia() > 1 ? SALA_X - 1 : 6);
+      const d = Math.min((l.centro.xMax - l.centro.xMin) / 2 + 1.4, emSequencia() > 1 || ehMPP() ? SALA_X - 1 : 6);
       const sentido = temParede || estado.pontas >= 1 ? 1 : -1;
       const entreLinhas = variasFilas || !!l.Le;
       const meio = Math.floor((fileiras() - 2) / 2);
       const z = variasFilas ? (zDaFileira(meio) + zDaFileira(meio + 1)) / 2
         : l.Le ? l.centro.z + (l.vaoInterno - l.centro.z) / 2
-        : FACE_Z + LINHAS[estado.linha].profBase + 0.9;
+        : (ehMPP() ? l.mpp.prof / 2 : FACE_Z + LINHAS[estado.linha].profBase) + 0.9;
       p = new THREE.Vector3(sentido * d, 1.5, z);
       alvo.set(0, 1.0, entreLinhas ? z : 0.1);
     } else if (vista === "corredor") {
@@ -1090,8 +1211,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     rotulosNaTela = [];
     const l = limites();
     const foraDoCorredor = estado.vista !== "corredor";
-    const verCentro = rotulosLigados.centro && foraDoCorredor && !!l.centro;
-    const verParedes = rotulosLigados.parede && foraDoCorredor;
+    const verCentro = rotulosLigados.centro && foraDoCorredor && !!l.centro && !ehMPP();
+    const verParedes = rotulosLigados.parede && foraDoCorredor && !ehMPP();
     const passo = VAO + COL_X;
     const doLadoEsquerdo = camera.position.z >= controles.target.z;
     tagLado.style.display = verCentro ? "block" : "none";
@@ -1327,7 +1448,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   function configurar(cfg) {
     const mudouParedes = cfg.montagem !== estado.montagem || cfg.cantos.esq !== estado.cantos.esq || cfg.cantos.dir !== estado.cantos.dir || Object.keys(LETRA_PAREDE).some((k) => cfg.paredes[k].join() !== estado.paredes[k].join());
     // Trocar só o tipo de um lado não muda o tamanho: a câmera fica onde está.
-    const mudouTamanho = mudouParedes || cfg.filas.join() !== estado.filas.join() || ["modulos", "pontas", "linha", "altura", "alturaParede"].some((k) => cfg[k] !== estado[k]);
+    const semPeso = (m) => JSON.stringify({ ...m, peso: "" }); // o peso não muda o desenho: a câmera fica onde está
+    const mudouTamanho = mudouParedes || cfg.produto !== estado.produto || semPeso(cfg.mpp) !== semPeso(estado.mpp) || cfg.filas.join() !== estado.filas.join() || ["modulos", "pontas", "linha", "altura", "alturaParede"].some((k) => cfg[k] !== estado[k]);
     const mudouCor = cfg.cor !== estado.cor || cfg.etiqueta !== estado.etiqueta;
     Object.assign(estado, cfg);
     if (mudouCor) aplicarCor();

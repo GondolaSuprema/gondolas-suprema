@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
-import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, CORES_GONDOLA, CORES_ETIQUETA, medidasDe, nomeModuloParede } from "../lib/projetoMedidas";
+import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, CORES_GONDOLA, CORES_ETIQUETA, medidasDe, nomeModuloParede, MPP_PESOS, MPP_ALTURAS, MPP_COMPRIMENTOS, MPP_PROFUNDIDADES, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP, MAX_MODULOS_MPP, MAX_FILAS_MPP, medidasMPP } from "../lib/projetoMedidas";
 
 // Chamadas às rotas /api protegidas (NF-e, NFS-e, conciliação): envia o token
 // da sessão do Supabase. Sem ele a rota responde 401.
@@ -12734,6 +12734,9 @@ const PROJETO_VISTAS = [
   { key: "giro", nome: "Girar" },
 ];
 const projetoPadrao = () => ({
+  produto: "gondola", // subaba: gondola | mpp (mini porta palete)
+  // Mini porta palete: módulos por fila = a inicial e as continuações
+  mpp: { peso: "200", altura: "2,00", comprimento: "1,50", profundidade: "0,60", niveis: 4, modulos: 2, filas: 1 },
   montagem: "centro", // centro | parede | ambos
   modulos: 3,
   pontas: 1,
@@ -12761,6 +12764,11 @@ function projetoGuardado() {
     // Montagem de antes de 8-nov-2026: "corredores" eram fileiras lado a lado, e cada uma vira uma fila de 1 corredor.
     if (salvo && !salvo.filas && salvo.corredores) guardado.filas = Array(Math.min(MAX_FILAS, salvo.corredores)).fill(1);
     delete guardado.corredores;
+    if (guardado.produto !== "mpp") guardado.produto = "gondola";
+    const m = guardado.mpp || {}, chave = (lista, k) => typeof k === "string" && Object.hasOwn(lista, k), entre = (n, a, b) => Number.isInteger(n) && n >= a && n <= b;
+    guardado.mpp = chave(MPP_PESOS, m.peso) && chave(MPP_ALTURAS, m.altura) && chave(MPP_COMPRIMENTOS, m.comprimento) && chave(MPP_PROFUNDIDADES, m.profundidade) && entre(m.niveis, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP) && entre(m.modulos, 1, MAX_MODULOS_MPP) && entre(m.filas, 1, MAX_FILAS_MPP)
+      ? { peso: m.peso, altura: m.altura, comprimento: m.comprimento, profundidade: m.profundidade, niveis: m.niveis, modulos: m.modulos, filas: m.filas }
+      : projetoPadrao().mpp;
     const { filas } = guardado;
     if (!Array.isArray(filas) || !filas.length || filas.length > MAX_FILAS || !filas.every(n => Number.isInteger(n) && n >= 1 && n <= MAX_CORREDORES_FILA)) throw new Error("filas fora do formato");
     medidasDe({ ...guardado, montagem: "ambos" }); // formato inesperado lança aqui e a aba abre no padrão, em vez de derrubar o sistema
@@ -12777,6 +12785,8 @@ function ProjetoPage() {
   const [inicial] = useState(projetoGuardado);
   const [estado, setEstado] = useState("carregando"); // carregando | ok | erro
   const [tentativa, setTentativa] = useState(0);
+  const [produto, setProduto] = useState(inicial.produto);
+  const [mpp, setMpp] = useState(inicial.mpp);
   const [tipos, setTipos] = useState(inicial.tipos);
   const [abrirTipos, setAbrirTipos] = useState(false);
   const [montagem, setMontagem] = useState(inicial.montagem);
@@ -12811,7 +12821,7 @@ function ProjetoPage() {
   const { tabletEmPe, deitado } = forma;
   // O motor carrega depois: ao abrir, usa o que estiver na tela naquele momento.
   const atual = useRef(null);
-  const config = { montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede };
+  const config = { produto, mpp, montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede };
   atual.current = { ...config, vista, abrirTipos, abrirParede };
   const timerFalha = useRef(null);
   const vistaPendente = useRef(null);
@@ -12819,6 +12829,7 @@ function ProjetoPage() {
   const comCentro = montagem !== "parede";
   const comParede = montagem !== "centro";
   const medidas = medidasDe(config);
+  const medidasM = medidasMPP(mpp);
   const nomesDe = (lista) => Object.keys(TIPOS_FACE).filter(t => lista.includes(t)).map(t => TIPOS_FACE[t].toLowerCase()).join(", ").replace(/, ([^,]*)$/, " e $1");
   const tiposDoCentro = tipos.slice(0, modulos).flatMap(m => [m.esq, m.dir]);
   const tiposDasParedes = Object.keys(LADOS_PAREDE).flatMap(l => paredes[l].flatMap((n, t) => tiposParede[l][t].slice(0, n)));
@@ -12859,11 +12870,11 @@ function ProjetoPage() {
     if (!motor.current) return;
     motor.current.configurar(config);
     if (vistaPendente.current) { motor.current.irPara(vistaPendente.current); vistaPendente.current = null; }
-  }, [montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede]);
+  }, [produto, mpp, montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede]);
   useEffect(() => { motor.current?.mostrarRotulos({ centro: abrirTipos, parede: abrirParede }); }, [abrirTipos, abrirParede]);
   useEffect(() => {
     try { sessionStorage.setItem(PROJETO_GUARDADO, JSON.stringify({ ...config, vista })); } catch {}
-  }, [montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede, vista]);
+  }, [produto, mpp, montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede, vista]);
 
   const tentarDeNovo = () => { setEstado("carregando"); setTentativa(t => t + 1); };
   const limpar = () => {
@@ -12879,6 +12890,12 @@ function ProjetoPage() {
     clearTimeout(pedido.timer);
     const p = projetoPadrao();
     setConfirmarLimpar(false);
+    if (produto === "mpp") { // cada subaba recomeça só a sua montagem
+      setMpp(p.mpp);
+      setVista("ponta");
+      vistaPendente.current = "ponta";
+      return;
+    }
     setMontagem(p.montagem);
     setModulos(p.modulos);
     setPontas(p.pontas);
@@ -12899,6 +12916,15 @@ function ProjetoPage() {
   };
 
   const trocarVista = (v) => { setVista(v); motor.current?.irPara(v); };
+  // Subabas: cada produto guarda a sua montagem, então trocar de uma para a outra não apaga nada.
+  const trocarProduto = (v) => {
+    if (v === produto) return;
+    setProduto(v);
+    const nova = v === "mpp" || montagem === "centro" ? "ponta" : "geral";
+    setVista(nova);
+    vistaPendente.current = nova;
+  };
+  const mudarMpp = (k, v) => setMpp(m => ({ ...m, [k]: v }));
   const trocarTipo = (i, lado, t) => { setTipos(ts => ts.map((m, j) => (j === i ? { ...m, [lado]: t } : m))); motor.current?.verLado(lado); };
   const trocarTodos = (lado, t) => { setTipos(ts => ts.map(m => ({ ...m, [lado]: t }))); motor.current?.verLado(lado); };
   const trocarMontagem = (v) => {
@@ -12937,37 +12963,49 @@ function ProjetoPage() {
   const notaEspacos = espacoEntre && comColuna ? ` Espaço mínimo de ${medidas.espaco} entre as gôndolas e pilar de ${medidas.vaoColuna} entre paredes do mesmo lado.`
     : espacoEntre ? ` Espaço mínimo de ${medidas.espaco} entre as gôndolas.`
     : comColuna ? ` Pilar de ${medidas.vaoColuna} entre paredes do mesmo lado.` : "";
+  const notaMpp = mpp.filas > 1 ? ` Espaço mínimo de ${medidasM.espaco} entre as filas.` : "";
   const baixarImagem = async () => {
     if (!motor.current || gerando) return;
     setGerando(true);
     setFalhaImagem(false);
     try {
-      const nomePontas = pontas === 0 ? "sem pontas" : pontas === 1 ? "1 ponta" : "2 pontas";
-      const nomeModulos = `${modulos} ${modulos === 1 ? "módulo" : "módulos"}`;
-      const nomeCentro = medidas.corredores > 1
-        ? `Gôndola de centro · ${medidas.corredores} corredores · ${pontas ? `${nomeModulos} e ${nomePontas}` : nomeModulos} em cada`
-        : `Gôndola de centro · ${nomeModulos} · ${nomePontas}`;
-      // Como os corredores se dividem nas filas, em linha própria pelo mesmo motivo da parede.
-      const nomeFilas = medidas.corredores < 2 ? ""
-        : filas.length === 1 ? "Um corredor atrás do outro"
-        : filas.every(n => n === 1) ? `${filas.length} filas lado a lado`
-        : filas.every(n => n === filas[0]) ? `${filas.length} filas de ${filas[0]} corredores`
-        : `${filas.length} filas · corredores por fila: ${filas.join(", ").replace(/, ([^,]*)$/, " e $1")}`;
-      const nomeParede = `Gôndola de parede · ${totalParede} ${totalParede === 1 ? "módulo" : "módulos"}`;
-      // Em linha própria: junto do título, o texto longo encolheria a fonte da linha inteira.
-      const ladosParede = [["Esquerda", paredes.esq], ["Direita", paredes.dir], ["Fundo", paredes.fundo]].filter(([, lista]) => lista.length).map(([nome, lista]) => `${nome} ${lista.join(" + ")}`).concat(medidas.nomeCantos ? [`Canto ${medidas.nomeCantos}`] : []).join(" · ");
-      const soBandeja = new Set(emUso).size === 1 && emUso[0] === "bandeja";
-      const blob = await motor.current.gerarImagem({
-        titulo: comCentro ? nomeCentro : nomeParede,
-        extras: [...(comCentro && nomeFilas ? [nomeFilas] : []), ...(comCentro && algumaParede ? [nomeParede] : []), ...(algumaParede ? [ladosParede] : []), `Cor ${CORES_GONDOLA[cor].toLowerCase()} · porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}${soBandeja ? "" : ` · com ${nomesDe(emUso)}`}`],
-        medidas: algumaParede
-          ? `Espaço ocupado ${medidas.ocupado} · ${comCentro ? `Altura: centro ${medidas.altura} e parede ${medidas.alturaParede}` : `Altura ${medidas.alturaParede}`}`
-          : `${medidas.comprimentoTotal ? `Comprimento total ${medidas.comprimentoTotal} · cada corredor ${medidas.comprimento}` : `Comprimento ${medidas.comprimento}`} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
-        nota: `Medidas aproximadas, a confirmar no projeto.${notaEspacos}`,
-      });
-      const nome = algumaParede
-        ? `gondola-${comCentro ? "centro-e-parede" : "parede"}.jpg`
-        : `gondola-${medidas.corredores > 1 ? `${medidas.corredores}-corredores-` : ""}${modulos}-${modulos === 1 ? "modulo" : "modulos"}-${pontas === 1 ? "1-ponta" : pontas === 2 ? "2-pontas" : "sem-pontas"}.jpg`;
+      let blob, nome;
+      if (produto === "mpp") {
+        blob = await motor.current.gerarImagem({
+          titulo: `Mini porta palete · ${mpp.modulos} ${mpp.modulos === 1 ? "módulo" : "módulos"}${mpp.filas > 1 ? " por fila" : ""} · ${mpp.niveis} níveis`,
+          extras: [`${medidasM.modulos} · ${MPP_PESOS[mpp.peso]} por nível · inicial de ${mpp.comprimento} × ${mpp.profundidade} m`, ...(mpp.filas > 1 ? [`${mpp.filas} filas lado a lado`] : [])],
+          medidas: `Comprimento ${medidasM.comprimento} · ${medidasM.rotuloLargura} ${medidasM.largura} · Altura ${medidasM.altura}`,
+          nota: `Medidas aproximadas, a confirmar no projeto.${notaMpp}`,
+        });
+        nome = `mini-porta-palete-${mpp.filas > 1 ? `${mpp.filas}-filas-` : ""}${mpp.modulos}-${mpp.modulos === 1 ? "modulo" : "modulos"}-${mpp.niveis}-niveis.jpg`;
+      } else {
+        const nomePontas = pontas === 0 ? "sem pontas" : pontas === 1 ? "1 ponta" : "2 pontas";
+        const nomeModulos = `${modulos} ${modulos === 1 ? "módulo" : "módulos"}`;
+        const nomeCentro = medidas.corredores > 1
+          ? `Gôndola de centro · ${medidas.corredores} corredores · ${pontas ? `${nomeModulos} e ${nomePontas}` : nomeModulos} em cada`
+          : `Gôndola de centro · ${nomeModulos} · ${nomePontas}`;
+        // Como os corredores se dividem nas filas, em linha própria pelo mesmo motivo da parede.
+        const nomeFilas = medidas.corredores < 2 ? ""
+          : filas.length === 1 ? "Um corredor atrás do outro"
+          : filas.every(n => n === 1) ? `${filas.length} filas lado a lado`
+          : filas.every(n => n === filas[0]) ? `${filas.length} filas de ${filas[0]} corredores`
+          : `${filas.length} filas · corredores por fila: ${filas.join(", ").replace(/, ([^,]*)$/, " e $1")}`;
+        const nomeParede = `Gôndola de parede · ${totalParede} ${totalParede === 1 ? "módulo" : "módulos"}`;
+        // Em linha própria: junto do título, o texto longo encolheria a fonte da linha inteira.
+        const ladosParede = [["Esquerda", paredes.esq], ["Direita", paredes.dir], ["Fundo", paredes.fundo]].filter(([, lista]) => lista.length).map(([nome, lista]) => `${nome} ${lista.join(" + ")}`).concat(medidas.nomeCantos ? [`Canto ${medidas.nomeCantos}`] : []).join(" · ");
+        const soBandeja = new Set(emUso).size === 1 && emUso[0] === "bandeja";
+        blob = await motor.current.gerarImagem({
+          titulo: comCentro ? nomeCentro : nomeParede,
+          extras: [...(comCentro && nomeFilas ? [nomeFilas] : []), ...(comCentro && algumaParede ? [nomeParede] : []), ...(algumaParede ? [ladosParede] : []), `Cor ${CORES_GONDOLA[cor].toLowerCase()} · porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}${soBandeja ? "" : ` · com ${nomesDe(emUso)}`}`],
+          medidas: algumaParede
+            ? `Espaço ocupado ${medidas.ocupado} · ${comCentro ? `Altura: centro ${medidas.altura} e parede ${medidas.alturaParede}` : `Altura ${medidas.alturaParede}`}`
+            : `${medidas.comprimentoTotal ? `Comprimento total ${medidas.comprimentoTotal} · cada corredor ${medidas.comprimento}` : `Comprimento ${medidas.comprimento}`} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
+          nota: `Medidas aproximadas, a confirmar no projeto.${notaEspacos}`,
+        });
+        nome = algumaParede
+          ? `gondola-${comCentro ? "centro-e-parede" : "parede"}.jpg`
+          : `gondola-${medidas.corredores > 1 ? `${medidas.corredores}-corredores-` : ""}${modulos}-${modulos === 1 ? "modulo" : "modulos"}-${pontas === 1 ? "1-ponta" : pontas === 2 ? "2-pontas" : "sem-pontas"}.jpg`;
+      }
       const arquivo = new File([blob], nome, { type: "image/jpeg" });
       // No celular abre o compartilhar, com WhatsApp e "Salvar imagem"; no computador, baixa o arquivo.
       if (window.matchMedia?.("(pointer: coarse)").matches && navigator.canShare?.({ files: [arquivo] })) {
@@ -13028,21 +13066,72 @@ function ProjetoPage() {
     ...(algumaParede ? [[comCentro ? "Altura da parede" : "Altura", medidas.alturaParede]] : []),
     ["Níveis no total", medidas.niveis],
   ];
+  const itensMpp = [
+    ["Comprimento", medidasM.comprimento], [medidasM.rotuloLargura, medidasM.largura], ["Altura", medidasM.altura],
+    [mpp.filas > 1 ? "Em cada fila" : "Módulos", medidasM.modulos], ["Prateleiras no total", medidasM.prateleiras],
+  ];
   const umaColuna = !deitado && (isMobile || tabletEmPe);
   const altura3D = isMobile ? "min(300px, 36dvh)" : "min(460px, 42dvh)";
-  const alturaColunas = deitado ? "max(260px, calc(100dvh - 76px))" : "min(640px, 78vh)";
-  const topoDaAba = isMobile ? 108 : 150; // barra do sistema + título
+  // Barra das subabas: botão de 35 px no mouse e 43 px no toque, mais a margem de baixo.
+  const alturaSubabas = (tocavel ? 43 : 35) + (isMobile || deitado ? 10 : 14);
+  const alturaColunas = deitado ? "max(260px, calc(100dvh - 76px))" : `min(640px, calc(78vh - ${alturaSubabas}px))`;
+  const topoDaAba = (isMobile ? 108 : 150) + alturaSubabas; // barra do sistema, título e subabas
+  const seletorProduto = (
+    <div role="group" aria-label="Produto" style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: isMobile || deitado ? "0 0 10px" : "0 0 14px" }}>
+      {[["gondola", "Gôndola"], ["mpp", "Mini porta palete"]].map(([k, n]) => (
+        <button key={k} aria-pressed={produto === k} onClick={() => trocarProduto(k)} style={{ padding: tocavel ? "12px 18px" : "8px 18px", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", background: produto === k ? COLORS.orange : COLORS.card, color: produto === k ? "#000" : COLORS.textMuted, border: `1px solid ${produto === k ? COLORS.orange : COLORS.border}`, fontFamily: fonte }}>{n}</button>
+      ))}
+    </div>
+  );
+  const botaoRecomecar = <button onClick={limpar} style={{ margin: "-8px 0 0", padding: "8px 0 8px 12px", border: 0, background: "transparent", color: confirmarLimpar ? COLORS.orange : COLORS.textMuted, fontSize: 12, fontWeight: confirmarLimpar ? 700 : 500, fontFamily: fonte, cursor: "pointer" }}>{confirmarLimpar ? `${toque ? "Toque" : "Clique"} de novo para limpar` : "Recomeçar"}</button>;
+  const comMetro = (lista) => Object.fromEntries(Object.keys(lista).map(k => [k, `${k} m`]));
+  const linhaOpcoes = (titulo, lista, valor, aoEscolher, ao_lado) => (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <span style={rotulo}>{titulo}</span>
+        {ao_lado}
+      </div>
+      <div role="group" aria-label={titulo} style={caixaOpcoes}>
+        {Object.entries(lista).map(([k, n]) => <button key={k} aria-pressed={valor === k} onClick={() => aoEscolher(k)} style={opcao(valor === k)}>{n}</button>)}
+      </div>
+    </div>
+  );
+  const contador = (titulo, valor, min, max, aoMudar, nome) => (
+    <div>
+      <span style={rotulo}>{titulo}</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+        <button aria-label={`Menos ${nome}`} disabled={valor <= min} onClick={() => aoMudar(Math.max(min, valor - 1))} style={passo(valor <= min)}>−</button>
+        <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{valor}</b>
+        <button aria-label={`Mais ${nome}`} disabled={valor >= max} onClick={() => aoMudar(Math.min(max, valor + 1))} style={passo(valor >= max)}>+</button>
+      </div>
+    </div>
+  );
+  const painelMpp = (
+    <>
+      {linhaOpcoes("Peso por nível", MPP_PESOS, mpp.peso, v => mudarMpp("peso", v), botaoRecomecar)}
+      {linhaOpcoes("Altura", comMetro(MPP_ALTURAS), mpp.altura, v => mudarMpp("altura", v))}
+      {linhaOpcoes("Comprimento do módulo", comMetro(MPP_COMPRIMENTOS), mpp.comprimento, v => mudarMpp("comprimento", v))}
+      {linhaOpcoes("Profundidade", comMetro(MPP_PROFUNDIDADES), mpp.profundidade, v => mudarMpp("profundidade", v))}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 8 }}>
+        {contador("Níveis (prateleiras)", mpp.niveis, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP, v => mudarMpp("niveis", v), "um nível")}
+        {contador("Módulos", mpp.modulos, 1, MAX_MODULOS_MPP, v => mudarMpp("modulos", v), "um módulo")}
+        {contador("Filas", mpp.filas, 1, MAX_FILAS_MPP, v => mudarMpp("filas", v), "uma fila")}
+      </div>
+      <p style={{ margin: "0 0 12px", color: COLORS.textMuted, fontSize: 12 }}>{medidasM.modulos}{mpp.filas > 1 ? " em cada fila, com corredor entre as filas." : "."}</p>
+    </>
+  );
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: deitado ? "8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left))" : isMobile ? "10px 12px 8px" : tabletEmPe ? "24px 20px 8px" : "24px 20px 44px" }}>
       {!deitado && <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: isMobile ? 22 : 26, margin: isMobile ? "0 0 8px" : "0 0 3px" }}>Projeto</h1>}
-      {!isMobile && !deitado && <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 14px", fontFamily: fonte }}>Monte a gôndola e mostre ao cliente como vai ficar.</p>}
+      {!isMobile && !deitado && <p style={{ color: COLORS.textMuted, fontSize: 13, margin: "0 0 14px", fontFamily: fonte }}>Monte o projeto e mostre ao cliente como vai ficar.</p>}
+      {!deitado && seletorProduto}
       {/* O painel rola por dentro e o 3D fica parado à vista: quem troca uma opção vê a mudança na hora. */}
       <div style={umaColuna ? undefined : { display: "grid", gridTemplateColumns: `minmax(0, 1fr) ${deitado ? 340 : 380}px`, gap: deitado ? 10 : 14, alignItems: "start" }}>
         <div style={{ minWidth: 0, marginBottom: umaColuna ? 10 : 0 }}>
           <div style={{ position: "relative", height: umaColuna ? altura3D : `calc(${alturaColunas} - 58px)`, borderRadius: 14, overflow: "hidden", background: "#000", border: `1px solid ${COLORS.border}` }}>
             {/* key: "Tentar de novo" precisa de canvas novo; o contexto WebGL do antigo já foi derrubado. */}
-            <canvas key={tentativa} ref={canvasRef} role="img" aria-label={`Projeto em 3D: ${comCentro ? `${filas.length} ${filas.length === 1 ? "fila" : "filas"} com ${medidas.corredores} ${medidas.corredores === 1 ? "corredor" : "corredores"} de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimentoTotal || medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}; cor ${CORES_GONDOLA[cor].toLowerCase()} e porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
+            <canvas key={tentativa} ref={canvasRef} role="img" aria-label={produto === "mpp" ? `Projeto em 3D: mini porta palete, ${mpp.filas} ${mpp.filas === 1 ? "fila" : "filas"} com ${medidasM.modulos.toLowerCase()} de ${mpp.niveis} níveis, ${MPP_PESOS[mpp.peso]} por nível, comprimento ${medidasM.comprimento}, ${medidasM.rotuloLargura.toLowerCase()} ${medidasM.largura}, altura ${medidasM.altura}` : `Projeto em 3D: ${comCentro ? `${filas.length} ${filas.length === 1 ? "fila" : "filas"} com ${medidas.corredores} ${medidas.corredores === 1 ? "corredor" : "corredores"} de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimentoTotal || medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}; cor ${CORES_GONDOLA[cor].toLowerCase()} e porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
             <div ref={rotulosRef} aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }} />
             {estado === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte }}>Carregando o 3D…</div>}
             {estado === "erro" && (
@@ -13060,199 +13149,204 @@ function ProjetoPage() {
 
         <div style={{ display: "flex", flexDirection: "column", maxHeight: umaColuna ? `max(260px, calc(100dvh - ${topoDaAba}px - ${altura3D} - 74px - env(safe-area-inset-top) - env(safe-area-inset-bottom)))` : alturaColunas, overflow: "hidden", background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, fontFamily: fonte }}>
           <div style={{ minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: isMobile ? 14 : 18, scrollbarWidth: "thin", scrollbarColor: `${COLORS.border} transparent` }}>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                <span style={rotulo}>O que montar</span>
-                <button onClick={limpar} style={{ margin: "-8px 0 0", padding: "8px 0 8px 12px", border: 0, background: "transparent", color: confirmarLimpar ? COLORS.orange : COLORS.textMuted, fontSize: 12, fontWeight: confirmarLimpar ? 700 : 500, fontFamily: fonte, cursor: "pointer" }}>{confirmarLimpar ? `${toque ? "Toque" : "Clique"} de novo para limpar` : "Recomeçar"}</button>
-              </div>
-              <div style={caixaOpcoes}>
-                {[["centro", "Só centro"], ["parede", "Só parede"], ["ambos", "Ambos"]].map(([k, n]) => <button key={k} aria-pressed={montagem === k} onClick={() => trocarMontagem(k)} style={opcao(montagem === k)}>{n}</button>)}
-              </div>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <span style={rotulo}>Linha</span>
-              <div style={caixaOpcoes}>
-                {["fit40", "fit60"].map(k => <button key={k} aria-pressed={linha === k} onClick={() => setLinha(k)} style={opcao(linha === k)}>{nomeLinha(k)}</button>)}
-              </div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-              <div>
-                <span style={rotulo}>Cor da gôndola</span>
-                <div style={caixaOpcoes}>
-                  {Object.entries(CORES_GONDOLA).map(([k, n]) => <button key={k} aria-pressed={cor === k} onClick={() => setCor(k)} style={opcao(cor === k)}>{n}</button>)}
-                </div>
-              </div>
-              <div>
-                <label htmlFor="projeto-etiqueta" style={rotulo}>Porta-etiqueta</label>
-                {/* 16px no toque: com fonte menor, o iPhone dá zoom na tela ao abrir a lista */}
-                <select id="projeto-etiqueta" value={etiqueta} onChange={e => setEtiqueta(e.target.value)} style={{ width: "100%", height: (tocavel ? 42 : 38) + 10, padding: "0 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 11, color: COLORS.text, fontSize: tocavel ? 16 : 13, fontFamily: fonte, outline: "none", boxSizing: "border-box", cursor: "pointer" }}>
-                  {Object.entries(CORES_ETIQUETA).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
-                </select>
-              </div>
-            </div>
-            {comCentro && (
+            {deitado && seletorProduto}
+            {produto === "mpp" ? painelMpp : (
               <>
-                {comParede && <div style={tituloSecao}>Gôndola de centro</div>}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                    <span style={rotulo}>O que montar</span>
+                    {botaoRecomecar}
+                  </div>
+                  <div style={caixaOpcoes}>
+                    {[["centro", "Só centro"], ["parede", "Só parede"], ["ambos", "Ambos"]].map(([k, n]) => <button key={k} aria-pressed={montagem === k} onClick={() => trocarMontagem(k)} style={opcao(montagem === k)}>{n}</button>)}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <span style={rotulo}>Linha</span>
+                  <div style={caixaOpcoes}>
+                    {["fit40", "fit60"].map(k => <button key={k} aria-pressed={linha === k} onClick={() => setLinha(k)} style={opcao(linha === k)}>{nomeLinha(k)}</button>)}
+                  </div>
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                   <div>
-                    <span style={rotulo}>Módulos</span>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-                      <button aria-label="Menos um módulo" disabled={modulos <= 1} onClick={() => setModulos(m => Math.max(1, m - 1))} style={passo(modulos <= 1)}>−</button>
-                      <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{modulos}</b>
-                      <button aria-label="Mais um módulo" disabled={modulos >= MAX_MODULOS} onClick={() => setModulos(m => Math.min(MAX_MODULOS, m + 1))} style={passo(modulos >= MAX_MODULOS)}>+</button>
+                    <span style={rotulo}>Cor da gôndola</span>
+                    <div style={caixaOpcoes}>
+                      {Object.entries(CORES_GONDOLA).map(([k, n]) => <button key={k} aria-pressed={cor === k} onClick={() => setCor(k)} style={opcao(cor === k)}>{n}</button>)}
                     </div>
                   </div>
                   <div>
-                    <span style={rotulo}>Filas</span>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-                      <button aria-label="Menos uma fila" disabled={filas.length <= 1} onClick={menosFila} style={passo(filas.length <= 1)}>−</button>
-                      <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{filas.length}</b>
-                      <button aria-label="Mais uma fila" disabled={filas.length >= MAX_FILAS} onClick={maisFila} style={passo(filas.length >= MAX_FILAS)}>+</button>
-                    </div>
+                    <label htmlFor="projeto-etiqueta" style={rotulo}>Porta-etiqueta</label>
+                    {/* 16px no toque: com fonte menor, o iPhone dá zoom na tela ao abrir a lista */}
+                    <select id="projeto-etiqueta" value={etiqueta} onChange={e => setEtiqueta(e.target.value)} style={{ width: "100%", height: (tocavel ? 42 : 38) + 10, padding: "0 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 11, color: COLORS.text, fontSize: tocavel ? 16 : 13, fontFamily: fonte, outline: "none", boxSizing: "border-box", cursor: "pointer" }}>
+                      {Object.entries(CORES_ETIQUETA).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+                    </select>
                   </div>
                 </div>
-                <div style={{ marginBottom: 12 }}>
-                  <span style={rotulo}>Corredores em cada fila (um atrás do outro)</span>
-                  {filas.map((n, f) => (
-                    <div key={f} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-                      <span style={{ color: COLORS.text, fontSize: 13 }}>Fila {f + 1}</span>
-                      <div style={{ width: 132, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 3, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-                        <button aria-label={`Menos um corredor, fila ${f + 1}`} disabled={n <= 1} onClick={() => trocarCorredores(f, -1)} style={passo(n <= 1)}>−</button>
-                        <b style={{ color: COLORS.white, fontSize: 18, fontVariantNumeric: "tabular-nums" }}>{n}</b>
-                        <button aria-label={`Mais um corredor, fila ${f + 1}`} disabled={n >= MAX_CORREDORES_FILA} onClick={() => trocarCorredores(f, 1)} style={passo(n >= MAX_CORREDORES_FILA)}>+</button>
+                {comCentro && (
+                  <>
+                    {comParede && <div style={tituloSecao}>Gôndola de centro</div>}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                      <div>
+                        <span style={rotulo}>Módulos</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                          <button aria-label="Menos um módulo" disabled={modulos <= 1} onClick={() => setModulos(m => Math.max(1, m - 1))} style={passo(modulos <= 1)}>−</button>
+                          <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{modulos}</b>
+                          <button aria-label="Mais um módulo" disabled={modulos >= MAX_MODULOS} onClick={() => setModulos(m => Math.min(MAX_MODULOS, m + 1))} style={passo(modulos >= MAX_MODULOS)}>+</button>
+                        </div>
+                      </div>
+                      <div>
+                        <span style={rotulo}>Filas</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 4, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                          <button aria-label="Menos uma fila" disabled={filas.length <= 1} onClick={menosFila} style={passo(filas.length <= 1)}>−</button>
+                          <b style={{ color: COLORS.white, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{filas.length}</b>
+                          <button aria-label="Mais uma fila" disabled={filas.length >= MAX_FILAS} onClick={maisFila} style={passo(filas.length >= MAX_FILAS)}>+</button>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <span style={rotulo}>Pontas</span>
-                  <div style={caixaOpcoes}>
-                    {[0, 1, 2].map(n => <button key={n} aria-pressed={pontas === n} onClick={() => setPontas(n)} style={opcao(pontas === n)}>{n}</button>)}
-                  </div>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <span style={rotulo}>Altura</span>
-                  <div style={caixaOpcoes}>
-                    {Object.keys(ALTURAS).map(k => <button key={k} aria-pressed={altura === k} onClick={() => setAltura(k)} style={opcao(altura === k)}>{k} m</button>)}
-                  </div>
-                </div>
-                <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-                  {abrirFechar(abrirTipos, () => setAbrirTipos(!abrirTipos), "Bandeja, gancho ou cesto", resumoTipos(tiposDoCentro))}
-                  {abrirTipos && (
-                    <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
-                      <div style={{ ...linhaTipos, color: COLORS.textMuted, fontSize: 11.5, textAlign: "center" }}><span /><span>Lado esquerdo</span><span>Lado direito</span></div>
-                      <div style={linhaTipos}>
-                        <span />
-                        {seletorTipo(todosIguais("esq"), t => trocarTodos("esq", t), "Todos os módulos, lado esquerdo")}
-                        {seletorTipo(todosIguais("dir"), t => trocarTodos("dir", t), "Todos os módulos, lado direito")}
-                      </div>
-                      <div style={{ color: COLORS.textMuted, fontSize: 11, textAlign: "center", margin: "0 0 2px" }}>A linha acima troca todos. Abaixo, módulo por módulo:</div>
-                      {tipos.slice(0, modulos).map((m, i) => (
-                        <div key={i} style={linhaTipos}>
-                          <b style={{ color: COLORS.orange, fontSize: 12.5, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{i + 1}</b>
-                          {seletorTipo(m.esq, t => trocarTipo(i, "esq", t), `Módulo ${i + 1}, lado esquerdo`)}
-                          {seletorTipo(m.dir, t => trocarTipo(i, "dir", t), `Módulo ${i + 1}, lado direito`)}
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={rotulo}>Corredores em cada fila (um atrás do outro)</span>
+                      {filas.map((n, f) => (
+                        <div key={f} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+                          <span style={{ color: COLORS.text, fontSize: 13 }}>Fila {f + 1}</span>
+                          <div style={{ width: 132, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 3, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                            <button aria-label={`Menos um corredor, fila ${f + 1}`} disabled={n <= 1} onClick={() => trocarCorredores(f, -1)} style={passo(n <= 1)}>−</button>
+                            <b style={{ color: COLORS.white, fontSize: 18, fontVariantNumeric: "tabular-nums" }}>{n}</b>
+                            <button aria-label={`Mais um corredor, fila ${f + 1}`} disabled={n >= MAX_CORREDORES_FILA} onClick={() => trocarCorredores(f, 1)} style={passo(n >= MAX_CORREDORES_FILA)}>+</button>
+                          </div>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
-              </>
-            )}
-            {comParede && (
-              <>
-                {comCentro && <div style={tituloSecao}>Gôndola de parede</div>}
-                <div style={{ marginBottom: 12 }}>
-                  <span style={rotulo}>Altura</span>
-                  <div style={caixaOpcoes}>
-                    {ALTURAS_PAREDE.map(k => <button key={k} aria-pressed={alturaParede === k} aria-label={`Altura da parede ${k} m`} onClick={() => setAlturaParede(k)} style={opcao(alturaParede === k)}>{k} m</button>)}
-                  </div>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <span style={rotulo}>Módulos em cada parede (0 = sem parede)</span>
-                  {Object.keys(LADOS_PAREDE).map(l => (
-                    <div key={l} style={{ marginBottom: 8 }}>
-                      {(paredes[l].length ? paredes[l] : [0]).map((n, t) => {
-                        const nome = nomeDaParede(l, t);
-                        const semMenos = !n || !podeTirar;
-                        const semMais = n >= MAX_MODULOS_PAREDE || somaLado(l) >= MAX_MODULOS_LADO;
-                        return (
-                          <div key={t} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-                            <span style={{ color: n ? COLORS.text : COLORS.textMuted, fontSize: 13 }}>{nome}</span>
-                            <div style={{ width: 132, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 3, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-                              <button aria-label={`Menos um módulo, ${nome}`} disabled={semMenos} onClick={() => menosModulo(l, t)} style={passo(semMenos)}>−</button>
-                              <b style={{ color: COLORS.white, fontSize: 18, fontVariantNumeric: "tabular-nums" }}>{n}</b>
-                              <button aria-label={`Mais um módulo, ${nome}`} disabled={semMais} onClick={() => maisModulo(l, t)} style={passo(semMais)}>+</button>
-                            </div>
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={rotulo}>Pontas</span>
+                      <div style={caixaOpcoes}>
+                        {[0, 1, 2].map(n => <button key={n} aria-pressed={pontas === n} onClick={() => setPontas(n)} style={opcao(pontas === n)}>{n}</button>)}
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={rotulo}>Altura</span>
+                      <div style={caixaOpcoes}>
+                        {Object.keys(ALTURAS).map(k => <button key={k} aria-pressed={altura === k} onClick={() => setAltura(k)} style={opcao(altura === k)}>{k} m</button>)}
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                      {abrirFechar(abrirTipos, () => setAbrirTipos(!abrirTipos), "Bandeja, gancho ou cesto", resumoTipos(tiposDoCentro))}
+                      {abrirTipos && (
+                        <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
+                          <div style={{ ...linhaTipos, color: COLORS.textMuted, fontSize: 11.5, textAlign: "center" }}><span /><span>Lado esquerdo</span><span>Lado direito</span></div>
+                          <div style={linhaTipos}>
+                            <span />
+                            {seletorTipo(todosIguais("esq"), t => trocarTodos("esq", t), "Todos os módulos, lado esquerdo")}
+                            {seletorTipo(todosIguais("dir"), t => trocarTodos("dir", t), "Todos os módulos, lado direito")}
                           </div>
-                        );
-                      })}
-                      {paredes[l].length > 0 && paredes[l].length < MAX_PAREDES_LADO && somaLado(l) < MAX_MODULOS_LADO && (
-                        <button onClick={() => maisParede(l)} style={{ padding: tocavel ? "8px 0" : "3px 0", border: 0, background: "transparent", color: COLORS.orange, fontSize: 12.5, fontWeight: 600, fontFamily: fonte, cursor: "pointer" }}>+ Mais uma {LADOS_PAREDE[l].toLowerCase()}</button>
+                          <div style={{ color: COLORS.textMuted, fontSize: 11, textAlign: "center", margin: "0 0 2px" }}>A linha acima troca todos. Abaixo, módulo por módulo:</div>
+                          {tipos.slice(0, modulos).map((m, i) => (
+                            <div key={i} style={linhaTipos}>
+                              <b style={{ color: COLORS.orange, fontSize: 12.5, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{i + 1}</b>
+                              {seletorTipo(m.esq, t => trocarTipo(i, "esq", t), `Módulo ${i + 1}, lado esquerdo`)}
+                              {seletorTipo(m.dir, t => trocarTipo(i, "dir", t), `Módulo ${i + 1}, lado direito`)}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
-                  ))}
-                  {comColuna && <p style={{ margin: 0, color: COLORS.textMuted, fontSize: 12 }}>Entre uma parede e outra do mesmo lado fica um pilar de {medidas.vaoColuna}.</p>}
-                </div>
-                {paredes.fundo.length > 0 && (paredes.esq.length > 0 || paredes.dir.length > 0) && (
-                  <div style={{ marginBottom: 12 }}>
-                    <span style={rotulo}>Canto da parede do fundo</span>
-                    {[["esq", "Lado esquerdo"], ["dir", "Lado direito"]].filter(([l]) => paredes[l].length > 0).map(([l, nome]) => (
-                      <div key={l} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-                        <span style={{ color: COLORS.text, fontSize: 13 }}>{nome}</span>
-                        <div role="group" aria-label={`Canto, ${nome.toLowerCase()}`} style={{ ...caixaOpcoes, width: 132, flexShrink: 0, boxSizing: "border-box" }}>
-                          {[[false, "Não"], [true, "Sim"]].map(([v, t]) => <button key={t} aria-pressed={cantos[l] === v} aria-label={`Canto, ${nome.toLowerCase()}: ${t}`} onClick={() => setCantos(c => ({ ...c, [l]: v }))} style={opcao(cantos[l] === v)}>{t}</button>)}
-                        </div>
-                      </div>
-                    ))}
-                    {medidas.fundoParaCanto && <p style={{ margin: "0 0 6px", color: COLORS.orange, fontSize: 12 }}>O canto direito só entra com a parede do fundo de pelo menos {medidas.fundoParaCanto}: com menos, ele ficaria solto.</p>}
-                    {medidas.nomeCantos && <p style={{ margin: 0, color: COLORS.textMuted, fontSize: 12 }}>O canto ocupa cerca de {medidas.cantoParede} em cada parede e só tem bandeja.</p>}
-                  </div>
+                  </>
                 )}
-                {algumaParede && (
-                  <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
-                    {abrirFechar(abrirParede, () => setAbrirParede(!abrirParede), "Bandeja, gancho ou cesto na parede", resumoTipos(tiposDasParedes))}
-                    {abrirParede && (
-                      <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
-                        {Object.keys(LADOS_PAREDE).flatMap(l => paredes[l].map((n, t) => {
-                          const nome = nomeDaParede(l, t);
-                          return (
-                            <div key={`${l}${t}`} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
-                              <div style={{ color: COLORS.text, fontSize: 12.5, fontWeight: 600 }}>{nome}</div>
-                              <div style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 6, alignItems: "center" }}>
-                                <span style={{ color: COLORS.textMuted, fontSize: 11, textAlign: "center" }}>Todos</span>
-                                {seletorTipo(paredeIgual(l, t), v => trocarTodaParede(l, t, v), `${nome}, todos os módulos`)}
-                              </div>
-                              {tiposParede[l][t].slice(0, n).map((tipo, i) => (
-                                <div key={i} style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 6, alignItems: "center" }}>
-                                  <b style={{ color: COLORS.orange, fontSize: 12.5, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{nomeModuloParede(l, paredes[l].length, t, i)}</b>
-                                  {seletorTipo(tipo, v => trocarTipoParede(l, t, i, v), `${nome}, módulo ${i + 1}`)}
+                {comParede && (
+                  <>
+                    {comCentro && <div style={tituloSecao}>Gôndola de parede</div>}
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={rotulo}>Altura</span>
+                      <div style={caixaOpcoes}>
+                        {ALTURAS_PAREDE.map(k => <button key={k} aria-pressed={alturaParede === k} aria-label={`Altura da parede ${k} m`} onClick={() => setAlturaParede(k)} style={opcao(alturaParede === k)}>{k} m</button>)}
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={rotulo}>Módulos em cada parede (0 = sem parede)</span>
+                      {Object.keys(LADOS_PAREDE).map(l => (
+                        <div key={l} style={{ marginBottom: 8 }}>
+                          {(paredes[l].length ? paredes[l] : [0]).map((n, t) => {
+                            const nome = nomeDaParede(l, t);
+                            const semMenos = !n || !podeTirar;
+                            const semMais = n >= MAX_MODULOS_PAREDE || somaLado(l) >= MAX_MODULOS_LADO;
+                            return (
+                              <div key={t} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+                                <span style={{ color: n ? COLORS.text : COLORS.textMuted, fontSize: 13 }}>{nome}</span>
+                                <div style={{ width: 132, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 3, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                                  <button aria-label={`Menos um módulo, ${nome}`} disabled={semMenos} onClick={() => menosModulo(l, t)} style={passo(semMenos)}>−</button>
+                                  <b style={{ color: COLORS.white, fontSize: 18, fontVariantNumeric: "tabular-nums" }}>{n}</b>
+                                  <button aria-label={`Mais um módulo, ${nome}`} disabled={semMais} onClick={() => maisModulo(l, t)} style={passo(semMais)}>+</button>
                                 </div>
-                              ))}
+                              </div>
+                            );
+                          })}
+                          {paredes[l].length > 0 && paredes[l].length < MAX_PAREDES_LADO && somaLado(l) < MAX_MODULOS_LADO && (
+                            <button onClick={() => maisParede(l)} style={{ padding: tocavel ? "8px 0" : "3px 0", border: 0, background: "transparent", color: COLORS.orange, fontSize: 12.5, fontWeight: 600, fontFamily: fonte, cursor: "pointer" }}>+ Mais uma {LADOS_PAREDE[l].toLowerCase()}</button>
+                          )}
+                        </div>
+                      ))}
+                      {comColuna && <p style={{ margin: 0, color: COLORS.textMuted, fontSize: 12 }}>Entre uma parede e outra do mesmo lado fica um pilar de {medidas.vaoColuna}.</p>}
+                    </div>
+                    {paredes.fundo.length > 0 && (paredes.esq.length > 0 || paredes.dir.length > 0) && (
+                      <div style={{ marginBottom: 12 }}>
+                        <span style={rotulo}>Canto da parede do fundo</span>
+                        {[["esq", "Lado esquerdo"], ["dir", "Lado direito"]].filter(([l]) => paredes[l].length > 0).map(([l, nome]) => (
+                          <div key={l} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+                            <span style={{ color: COLORS.text, fontSize: 13 }}>{nome}</span>
+                            <div role="group" aria-label={`Canto, ${nome.toLowerCase()}`} style={{ ...caixaOpcoes, width: 132, flexShrink: 0, boxSizing: "border-box" }}>
+                              {[[false, "Não"], [true, "Sim"]].map(([v, t]) => <button key={t} aria-pressed={cantos[l] === v} aria-label={`Canto, ${nome.toLowerCase()}: ${t}`} onClick={() => setCantos(c => ({ ...c, [l]: v }))} style={opcao(cantos[l] === v)}>{t}</button>)}
                             </div>
-                          );
-                        }))}
+                          </div>
+                        ))}
+                        {medidas.fundoParaCanto && <p style={{ margin: "0 0 6px", color: COLORS.orange, fontSize: 12 }}>O canto direito só entra com a parede do fundo de pelo menos {medidas.fundoParaCanto}: com menos, ele ficaria solto.</p>}
+                        {medidas.nomeCantos && <p style={{ margin: 0, color: COLORS.textMuted, fontSize: 12 }}>O canto ocupa cerca de {medidas.cantoParede} em cada parede e só tem bandeja.</p>}
                       </div>
                     )}
-                  </div>
+                    {algumaParede && (
+                      <div style={{ marginBottom: 12, border: `1px solid ${COLORS.border}`, borderRadius: 11 }}>
+                        {abrirFechar(abrirParede, () => setAbrirParede(!abrirParede), "Bandeja, gancho ou cesto na parede", resumoTipos(tiposDasParedes))}
+                        {abrirParede && (
+                          <div style={{ display: "grid", gap: 6, padding: "2px 8px 10px" }}>
+                            {Object.keys(LADOS_PAREDE).flatMap(l => paredes[l].map((n, t) => {
+                              const nome = nomeDaParede(l, t);
+                              return (
+                                <div key={`${l}${t}`} style={{ display: "grid", gap: 6, marginBottom: 6 }}>
+                                  <div style={{ color: COLORS.text, fontSize: 12.5, fontWeight: 600 }}>{nome}</div>
+                                  <div style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 6, alignItems: "center" }}>
+                                    <span style={{ color: COLORS.textMuted, fontSize: 11, textAlign: "center" }}>Todos</span>
+                                    {seletorTipo(paredeIgual(l, t), v => trocarTodaParede(l, t, v), `${nome}, todos os módulos`)}
+                                  </div>
+                                  {tiposParede[l][t].slice(0, n).map((tipo, i) => (
+                                    <div key={i} style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 6, alignItems: "center" }}>
+                                      <b style={{ color: COLORS.orange, fontSize: 12.5, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{nomeModuloParede(l, paredes[l].length, t, i)}</b>
+                                      {seletorTipo(tipo, v => trocarTipoParede(l, t, i, v), `${nome}, módulo ${i + 1}`)}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
             <dl style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 14px", margin: 0, paddingTop: 12, borderTop: `1px solid ${COLORS.border}` }}>
-              {itensMedidas.map(([n, v]) => (
+              {(produto === "mpp" ? itensMpp : itensMedidas).map(([n, v]) => (
                 <div key={n}>
                   <dt style={{ color: COLORS.textMuted, fontSize: 12 }}>{n}</dt>
                   <dd style={{ margin: "1px 0 0", color: COLORS.white, fontSize: 16, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{v}</dd>
                 </div>
               ))}
             </dl>
-            <p style={{ margin: "10px 0 0", color: COLORS.textMuted, fontSize: 12 }}>Medidas aproximadas, a confirmar no projeto.{notaEspacos}</p>
+            <p style={{ margin: "10px 0 0", color: COLORS.textMuted, fontSize: 12 }}>Medidas aproximadas, a confirmar no projeto.{produto === "mpp" ? notaMpp : notaEspacos}</p>
           </div>
           {/* Fora da rolagem: a medida total e a imagem ficam sempre à mão, mesmo com as listas abertas. */}
           <div style={{ flexShrink: 0, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 12px", padding: isMobile ? "9px 14px" : "12px 18px", borderTop: `1px solid ${COLORS.border}` }}>
             <div style={{ flex: "1 1 0", minWidth: 0 }}>
               <div style={{ color: COLORS.textMuted, fontSize: 11.5 }}>Espaço ocupado</div>
-              <div style={{ color: COLORS.white, fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{medidas.resumo}</div>
+              <div style={{ color: COLORS.white, fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{produto === "mpp" ? medidasM.resumo : medidas.resumo}</div>
             </div>
             <button onClick={baixarImagem} disabled={estado !== "ok" || gerando} style={{ flexShrink: 0, height: 44, padding: "0 16px", border: 0, borderRadius: 10, background: COLORS.orange, color: "#000", fontSize: 14, fontWeight: 700, fontFamily: fonte, cursor: estado === "ok" && !gerando ? "pointer" : "default", opacity: estado === "ok" ? 1 : 0.45 }}>{gerando ? "Gerando…" : toque ? "Enviar imagem" : "Baixar imagem"}</button>
             {falhaImagem && <p style={{ flexBasis: "100%", margin: 0, color: COLORS.danger, fontSize: 12 }}>Não consegui gerar a imagem. Tente de novo.</p>}
