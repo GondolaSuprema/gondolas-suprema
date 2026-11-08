@@ -547,6 +547,23 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     etiqueta: new THREE.MeshStandardMaterial({ color: 0x9fb0e0, roughness: 0.2, envMapIntensity: 0.8, transparent: true, opacity: 0.7 }),
     pilar: new THREE.MeshStandardMaterial({ color: 0xd6d2c9, roughness: 0.85 }),
   };
+  // Cor da gôndola: só troca a tinta, sem remontar as peças. Mesmas cores da gôndola 3D do site.
+  const CORES = {
+    preta: { aco: 0x161618, furo: 0x020202, nylon: 0x151517, arame: 0x2c2c32, gancho: 0x5a5a64 },
+    // branca: toda clara, inclusive furos, tampas dos vãos e ganchos
+    branca: { aco: 0xe6e5e1, furo: 0xc9c8c3, nylon: 0xd2d1cc, arame: 0xe2e2df, gancho: 0xd4d4d1 },
+  };
+  // Porta-etiqueta: só nas réguas das bandejas (a faixa do cesto fica como está)
+  const CORES_ETIQUETA = {
+    amarelo: 0xffbf00, azul: 0x1f5fbf, branco: 0xf2f2ef, cinza: 0x8e9094, laranja: 0xff7a12,
+    preto: 0x161618, rosa: 0xf06fa8, verdeClaro: 0x7ccf4a, verdeEscuro: 0x1d6b3a, vermelho: 0xd62828,
+  };
+  function aplicarCor() {
+    const c = Object.hasOwn(CORES, estado.cor) ? CORES[estado.cor] : CORES.preta;
+    for (const k of Object.keys(c)) MAT[k].color.setHex(c[k]);
+    MAT.amarelo.color.setHex(Object.hasOwn(CORES_ETIQUETA, estado.etiqueta) ? CORES_ETIQUETA[estado.etiqueta] : CORES_ETIQUETA.amarelo);
+  }
+  aplicarCor();
 
   const cena = new THREE.Scene();
   cena.background = new THREE.Color(0x000000);
@@ -1311,7 +1328,9 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     const mudouParedes = cfg.montagem !== estado.montagem || cfg.cantos.esq !== estado.cantos.esq || cfg.cantos.dir !== estado.cantos.dir || Object.keys(LETRA_PAREDE).some((k) => cfg.paredes[k].join() !== estado.paredes[k].join());
     // Trocar só o tipo de um lado não muda o tamanho: a câmera fica onde está.
     const mudouTamanho = mudouParedes || cfg.filas.join() !== estado.filas.join() || ["modulos", "pontas", "linha", "altura", "alturaParede"].some((k) => cfg[k] !== estado[k]);
+    const mudouCor = cfg.cor !== estado.cor || cfg.etiqueta !== estado.etiqueta;
     Object.assign(estado, cfg);
+    if (mudouCor) aplicarCor();
     montar();
     if (mudouParedes) acertarLado();
     if (mudouTamanho) { if (estado.vista) irPara(estado.vista); else reenquadrar(); }

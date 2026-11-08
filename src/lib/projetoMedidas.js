@@ -37,6 +37,10 @@ export const ALTURAS_PAREDE = ["1,70", "2,02"]; // parede não tem 1,37 m
 // O que cada lado de um módulo expõe.
 export const TIPOS_FACE = { bandeja: "Bandeja", gancho: "Gancho", cesto: "Cesto" };
 
+// Cor da gôndola e do porta-etiqueta, as mesmas da gôndola 3D do site. O porta-etiqueta só existe nas bandejas.
+export const CORES_GONDOLA = { preta: "Preta", branca: "Branca" };
+export const CORES_ETIQUETA = { amarelo: "Amarelo", azul: "Azul", branco: "Branco", cinza: "Cinza", laranja: "Laranja", preto: "Preto", rosa: "Rosa", verdeClaro: "Verde claro", verdeEscuro: "Verde escuro", vermelho: "Vermelho" };
+
 // As paredes são vistas de quem está na entrada da loja olhando para o fundo.
 export const LADOS_PAREDE = { esq: "Parede esquerda", dir: "Parede direita", fundo: "Parede do fundo" };
 export const LETRA_PAREDE = { esq: "E", dir: "D", fundo: "F" };

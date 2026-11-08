@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
-import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, medidasDe, nomeModuloParede } from "../lib/projetoMedidas";
+import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, CORES_GONDOLA, CORES_ETIQUETA, medidasDe, nomeModuloParede } from "../lib/projetoMedidas";
 
 // Chamadas às rotas /api protegidas (NF-e, NFS-e, conciliação): envia o token
 // da sessão do Supabase. Sem ele a rota responde 401.
@@ -12738,6 +12738,8 @@ const projetoPadrao = () => ({
   modulos: 3,
   pontas: 1,
   linha: "fit40",
+  cor: "preta",
+  etiqueta: "amarelo", // cor do porta-etiqueta
   altura: "2,02",
   filas: [1], // corredores de cada fila, um atrás do outro
   tipos: Array.from({ length: MAX_MODULOS }, () => ({ esq: "bandeja", dir: "bandeja" })),
@@ -12754,6 +12756,8 @@ function projetoGuardado() {
     const salvo = JSON.parse(sessionStorage.getItem(PROJETO_GUARDADO));
     const guardado = { ...projetoPadrao(), ...salvo };
     guardado.cantos = { esq: !!guardado.cantos?.esq, dir: !!guardado.cantos?.dir };
+    if (typeof guardado.cor !== "string" || !Object.hasOwn(CORES_GONDOLA, guardado.cor)) guardado.cor = "preta";
+    if (typeof guardado.etiqueta !== "string" || !Object.hasOwn(CORES_ETIQUETA, guardado.etiqueta)) guardado.etiqueta = "amarelo";
     // Montagem de antes de 8-nov-2026: "corredores" eram fileiras lado a lado, e cada uma vira uma fila de 1 corredor.
     if (salvo && !salvo.filas && salvo.corredores) guardado.filas = Array(Math.min(MAX_FILAS, salvo.corredores)).fill(1);
     delete guardado.corredores;
@@ -12784,6 +12788,8 @@ function ProjetoPage() {
   const [modulos, setModulos] = useState(inicial.modulos);
   const [pontas, setPontas] = useState(inicial.pontas);
   const [linha, setLinha] = useState(inicial.linha);
+  const [cor, setCor] = useState(inicial.cor);
+  const [etiqueta, setEtiqueta] = useState(inicial.etiqueta);
   const [altura, setAltura] = useState(inicial.altura);
   const [filas, setFilas] = useState(inicial.filas);
   const [vista, setVista] = useState(inicial.vista);
@@ -12805,7 +12811,7 @@ function ProjetoPage() {
   const { tabletEmPe, deitado } = forma;
   // O motor carrega depois: ao abrir, usa o que estiver na tela naquele momento.
   const atual = useRef(null);
-  const config = { montagem, modulos, pontas, linha, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede };
+  const config = { montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede };
   atual.current = { ...config, vista, abrirTipos, abrirParede };
   const timerFalha = useRef(null);
   const vistaPendente = useRef(null);
@@ -12853,11 +12859,11 @@ function ProjetoPage() {
     if (!motor.current) return;
     motor.current.configurar(config);
     if (vistaPendente.current) { motor.current.irPara(vistaPendente.current); vistaPendente.current = null; }
-  }, [montagem, modulos, pontas, linha, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede]);
+  }, [montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede]);
   useEffect(() => { motor.current?.mostrarRotulos({ centro: abrirTipos, parede: abrirParede }); }, [abrirTipos, abrirParede]);
   useEffect(() => {
     try { sessionStorage.setItem(PROJETO_GUARDADO, JSON.stringify({ ...config, vista })); } catch {}
-  }, [montagem, modulos, pontas, linha, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede, vista]);
+  }, [montagem, modulos, pontas, linha, cor, etiqueta, altura, filas, tipos, alturaParede, paredes, cantos, tiposParede, vista]);
 
   const tentarDeNovo = () => { setEstado("carregando"); setTentativa(t => t + 1); };
   const limpar = () => {
@@ -12877,6 +12883,8 @@ function ProjetoPage() {
     setModulos(p.modulos);
     setPontas(p.pontas);
     setLinha(p.linha);
+    setCor(p.cor);
+    setEtiqueta(p.etiqueta);
     setAltura(p.altura);
     setFilas(p.filas);
     setTipos(p.tipos);
@@ -12951,7 +12959,7 @@ function ProjetoPage() {
       const soBandeja = new Set(emUso).size === 1 && emUso[0] === "bandeja";
       const blob = await motor.current.gerarImagem({
         titulo: comCentro ? nomeCentro : nomeParede,
-        extras: [...(comCentro && nomeFilas ? [nomeFilas] : []), ...(comCentro && algumaParede ? [nomeParede] : []), ...(algumaParede ? [ladosParede] : []), ...(soBandeja ? [] : [`Com ${nomesDe(emUso)}`])],
+        extras: [...(comCentro && nomeFilas ? [nomeFilas] : []), ...(comCentro && algumaParede ? [nomeParede] : []), ...(algumaParede ? [ladosParede] : []), `Cor ${CORES_GONDOLA[cor].toLowerCase()} · porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}${soBandeja ? "" : ` · com ${nomesDe(emUso)}`}`],
         medidas: algumaParede
           ? `Espaço ocupado ${medidas.ocupado} · ${comCentro ? `Altura: centro ${medidas.altura} e parede ${medidas.alturaParede}` : `Altura ${medidas.alturaParede}`}`
           : `${medidas.comprimentoTotal ? `Comprimento total ${medidas.comprimentoTotal} · cada corredor ${medidas.comprimento}` : `Comprimento ${medidas.comprimento}`} · ${medidas.rotuloLargura} ${medidas.largura} · Altura ${medidas.altura}`,
@@ -13034,7 +13042,7 @@ function ProjetoPage() {
         <div style={{ minWidth: 0, marginBottom: umaColuna ? 10 : 0 }}>
           <div style={{ position: "relative", height: umaColuna ? altura3D : `calc(${alturaColunas} - 58px)`, borderRadius: 14, overflow: "hidden", background: "#000", border: `1px solid ${COLORS.border}` }}>
             {/* key: "Tentar de novo" precisa de canvas novo; o contexto WebGL do antigo já foi derrubado. */}
-            <canvas key={tentativa} ref={canvasRef} role="img" aria-label={`Projeto em 3D: ${comCentro ? `${filas.length} ${filas.length === 1 ? "fila" : "filas"} com ${medidas.corredores} ${medidas.corredores === 1 ? "corredor" : "corredores"} de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimentoTotal || medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
+            <canvas key={tentativa} ref={canvasRef} role="img" aria-label={`Projeto em 3D: ${comCentro ? `${filas.length} ${filas.length === 1 ? "fila" : "filas"} com ${medidas.corredores} ${medidas.corredores === 1 ? "corredor" : "corredores"} de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimentoTotal || medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}; cor ${CORES_GONDOLA[cor].toLowerCase()} e porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
             <div ref={rotulosRef} aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }} />
             {estado === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, fontSize: 13, fontFamily: fonte }}>Carregando o 3D…</div>}
             {estado === "erro" && (
@@ -13065,6 +13073,21 @@ function ProjetoPage() {
               <span style={rotulo}>Linha</span>
               <div style={caixaOpcoes}>
                 {["fit40", "fit60"].map(k => <button key={k} aria-pressed={linha === k} onClick={() => setLinha(k)} style={opcao(linha === k)}>{nomeLinha(k)}</button>)}
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div>
+                <span style={rotulo}>Cor da gôndola</span>
+                <div style={caixaOpcoes}>
+                  {Object.entries(CORES_GONDOLA).map(([k, n]) => <button key={k} aria-pressed={cor === k} onClick={() => setCor(k)} style={opcao(cor === k)}>{n}</button>)}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="projeto-etiqueta" style={rotulo}>Porta-etiqueta</label>
+                {/* 16px no toque: com fonte menor, o iPhone dá zoom na tela ao abrir a lista */}
+                <select id="projeto-etiqueta" value={etiqueta} onChange={e => setEtiqueta(e.target.value)} style={{ width: "100%", height: (tocavel ? 42 : 38) + 10, padding: "0 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 11, color: COLORS.text, fontSize: tocavel ? 16 : 13, fontFamily: fonte, outline: "none", boxSizing: "border-box", cursor: "pointer" }}>
+                  {Object.entries(CORES_ETIQUETA).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+                </select>
               </div>
             </div>
             {comCentro && (
