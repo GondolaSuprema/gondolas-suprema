@@ -10,7 +10,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-import { COL_X, COL_Z, VAO, FACE_Z, LINHAS, ALTURAS, LETRA_PAREDE, ATRAS_PAREDE, MAX_MODULOS, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, LARGURA_CORREDOR, comprimentoFileira, corredoresDe, MPP_LINHAS, MAX_MODULOS_MPP, MAX_FILAS_MPP, layoutMPP, larguraFileira, layoutDe, paredesDe, trechosDoLado, nomeModuloParede, VAO_COLUNA, PROF_PILAR, CANTO_ATE_COLUNA } from "./projetoMedidas";
+import { COL_X, COL_Z, VAO, FACE_Z, LINHAS, ALTURAS, LETRA_PAREDE, ATRAS_PAREDE, MAX_MODULOS, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, LARGURA_CORREDOR, comprimentoFileira, corredoresDe, MPP_LINHAS, MAX_MODULOS_MPP, MAX_FILAS_MPP, MAX_MODULOS_LADO_MPP, layoutMPP, larguraFileira, layoutDe, paredesDe, trechosDoLado, nomeModuloParede, VAO_COLUNA, PROF_PILAR, CANTO_ATE_COLUNA } from "./projetoMedidas";
 
 const Y_BASE = 0.135;
 const CHAVES = ["aco", "amarelo", "furo", "nylon", "rosca", "arame", "gancho", "etiqueta", "pilar", "mppAco", "mppLong", "mppFuro", "mdf"];
@@ -877,7 +877,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   // ── Montagem ──
   // Instâncias: cada tipo de peça é desenhado de uma vez só, então muitas fileiras não pesam em chamadas de desenho.
   const NO_CENTRO = MAX_FILAS * MAX_CORREDORES_FILA; // corredores de centro, no máximo
-  const CAPACIDADE = { mppLateral: MAX_FILAS_MPP * (MAX_MODULOS_MPP + 1), mppVao: MAX_FILAS_MPP * MAX_MODULOS_MPP, modulo: MAX_MODULOS * NO_CENTRO, inicio: NO_CENTRO, ponta: 2 * NO_CENTRO, moduloParede: 3 * MAX_MODULOS_LADO, inicioParede: 3 * MAX_PAREDES_LADO, canto: 2, fecho: 2, pilar: 3 * (MAX_PAREDES_LADO - 1), face: 2 * MAX_MODULOS * NO_CENTRO + 3 * MAX_MODULOS_LADO };
+  // Mini porta palete: centro + 3 lados de parede (cada parede tem uma lateral a mais que módulos).
+  const CAPACIDADE = { mppLateral: MAX_FILAS_MPP * (MAX_MODULOS_MPP + 1) + 3 * (MAX_MODULOS_LADO_MPP + MAX_PAREDES_LADO), mppVao: MAX_FILAS_MPP * MAX_MODULOS_MPP + 3 * MAX_MODULOS_LADO_MPP, modulo: MAX_MODULOS * NO_CENTRO, inicio: NO_CENTRO, ponta: 2 * NO_CENTRO, moduloParede: 3 * MAX_MODULOS_LADO, inicioParede: 3 * MAX_PAREDES_LADO, canto: 2, fecho: 2, pilar: 3 * (MAX_PAREDES_LADO - 1), face: 2 * MAX_MODULOS * NO_CENTRO + 3 * MAX_MODULOS_LADO };
   const modelos = new Map(); // "linha:altura:tipo" → modelo (fica guardado para trocar de opção sem refazer)
   function modelo(linha, altura, tipo) {
     const pecaMpp = tipo.startsWith("mpp");
@@ -940,9 +941,9 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
 
   function limites() {
     if (ehMPP()) {
-      // Mesmo formato do layout da gôndola, como um centro sem paredes: as vistas servem para os dois.
+      // O layout do mini porta palete tem os mesmos campos do da gôndola: as vistas servem para os dois.
       const m = layoutMPP(estado.mpp);
-      return { centro: { xMin: m.xMin, xMax: m.xMax, z: m.zMax }, avanco: m.prof / 2, Le: 0, Ld: 0, Lf: 0, xMin: m.xMin, xMax: m.xMax, zMin: m.zMin, zMax: m.zMax, yMax: m.altura, mpp: m };
+      return { ...m, yMax: m.altura, mpp: m };
     }
     const l = layoutDe(estado);
     const alturas = [];
@@ -960,17 +961,27 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     if (ehMPP()) {
       // Cada fila: uma lateral em cada ponta e entre os módulos, e um vão com os níveis entre duas laterais.
       // Cada módulo tem o seu comprimento; a lateral seguinte fica logo depois do vão dele.
+      // ponto(s) = onde fica, no piso, a distância s ao longo da fila; rot vira a fila para correr ao longo do fundo.
       const m = l.mpp, linhaMpp = estado.mpp.linha;
       const lateral = `mppLateral:${linhaMpp}:${m.prof}:${m.altura}`;
-      m.filas.forEach((z, f) => {
-        let x = m.xMin;
-        pos("mpp", lateral, `mpp${f}:l0:${lateral}`, x + m.montante / 2, z, 0);
-        m.vaos.forEach((v, k) => {
-          const vao = `mppVao:${linhaMpp}:${v.toFixed(3)}:${m.prof}:${m.altura}:${estado.mpp.niveis}:${m.transversinas[k]}`;
-          pos("mpp", vao, `mpp${f}:v${k}:${vao}`, x + m.montante, z, 0);
-          x += v + m.montante;
-          pos("mpp", lateral, `mpp${f}:l${k + 1}:${lateral}`, x + m.montante / 2, z, 0);
+      const fileiraMpp = (nome, vaos, transversinas, ponto, rot) => {
+        let s = 0;
+        pos("mpp", lateral, `${nome}:l0:${lateral}`, ...ponto(m.montante / 2), rot);
+        vaos.forEach((v, k) => {
+          const vao = `mppVao:${linhaMpp}:${v.toFixed(3)}:${m.prof}:${m.altura}:${estado.mpp.niveis}:${transversinas[k]}`;
+          pos("mpp", vao, `${nome}:v${k}:${vao}`, ...ponto(s + m.montante), rot);
+          s += v + m.montante;
+          pos("mpp", lateral, `${nome}:l${k + 1}:${lateral}`, ...ponto(s + m.montante / 2), rot);
         });
+      };
+      if (m.centro) m.filas.forEach((z, f) => fileiraMpp(`mpp${f}`, m.vaos, m.transversinas, (s) => [m.centro.xMin + s, z], 0));
+      // Paredes: o módulo 1 fica junto do fundo nas laterais, como na gôndola. O mini porta palete é igual dos dois lados.
+      for (const w of m.paredes) fileiraMpp(`mpp${w.lado}${w.t}`, w.vaos, w.transversinas, (s) => m.noLado(w.lado, w.inicio + s), w.lado === "fundo" ? Math.PI / 2 : 0);
+      // Um pilar em cada vão entre duas paredes do mesmo lado, encostado na parede da loja.
+      for (const lado of Object.keys(LETRA_PAREDE)) m.trechos[lado].slice(0, -1).forEach((t, i) => {
+        const s = t.inicio + t.comprimento + VAO_COLUNA / 2;
+        const [x, z] = lado === "fundo" ? [m.planoFundo, m.fundoIni - s] : [m.inicioE + s, (lado === "esq" ? 1 : -1) * m.planoLateral];
+        pos(estado.alturaParede, "pilar", `mpp${lado}${i}:pilar`, x, z, lado === "fundo" ? Math.PI / 2 : lado === "esq" ? Math.PI : 0);
       });
     } else {
       if (l.centro) {
@@ -1037,11 +1048,19 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
       u.slot = u.modelo.usados++;
     }
     modelos.forEach((m) => { m.malhas.forEach((malha) => { malha.count = m.usados; malha.visible = m.usados > 0; }); });
+    // O pilar vai do piso ao forro, que sobe com o mini porta palete de 3 m.
+    modelos.forEach((m, chave) => { if (chave.endsWith(":pilar")) m.malhas.forEach((malha) => { malha.scale.y = peDireito() / PE_DIREITO; }); });
     escreverPosicoes();
 
     // Sombra de contato no piso: [centro x, centro z, tamanho x, tamanho z]
     const marcas = [];
-    if (ehMPP()) for (const z of l.mpp.filas) marcas.push([0, z, l.mpp.comprimento, l.mpp.prof]);
+    if (ehMPP()) {
+      for (const z of l.mpp.filas) marcas.push([0, z, l.mpp.comprimento, l.mpp.prof]);
+      for (const w of l.mpp.paredes) {
+        const [x, z] = l.mpp.noLado(w.lado, w.inicio + w.comprimento / 2);
+        marcas.push(w.lado === "fundo" ? [x, z, l.mpp.prof, w.comprimento] : [x, z, w.comprimento, l.mpp.prof]);
+      }
+    }
     else {
       const fund = l.avanco + ATRAS_PAREDE;
       const q = paredesDe(estado);
@@ -1233,7 +1252,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   }
 
   // Números dos módulos e o lado à vista: ficam na tela, nunca entram na imagem do cliente.
-  let rotulosLigados = { centro: false, parede: false, mpp: false };
+  let rotulosLigados = { centro: false, parede: false, mpp: false, mppParede: false };
   const estiloRotulo = "position:absolute;pointer-events:none;font-family:'DM Sans',sans-serif;";
   const novoRotulo = (texto) => {
     const el = document.createElement("div");
@@ -1278,34 +1297,44 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
       colocarRotulo(el, (c ? c.x0 : 0) + COL_X + i * passo + VAO / 2, ALTURAS[estado.altura].m + 0.11, c ? c.z : 0, verCentro && !!c && i < estado.modulos);
     });
     // Mini porta palete: o número de cada módulo, em cima dele, na fila mais perto da câmera
-    const verMpp = rotulosLigados.mpp && foraDoCorredor && ehMPP();
+    const verMpp = rotulosLigados.mpp && foraDoCorredor && ehMPP() && !!l.centro;
     const m = verMpp ? l.mpp : null;
-    let xMpp = m ? m.xMin + m.montante : 0;
+    let xMpp = m ? m.centro.xMin + m.montante : 0;
     rotulosMpp.forEach((el, k) => {
       const v = m?.vaos[k];
       colocarRotulo(el, xMpp + (v || 0) / 2, m ? m.altura + 0.11 : 0, m ? m.filas[f] : 0, verMpp && v !== undefined);
       if (v !== undefined) xMpp += v + m.montante;
     });
-    const q = paredesDe(estado);
-    const y = ALTURAS[estado.alturaParede].m + 0.11;
-    const lugar = {
-      esq: (inicio, i) => [l.inicioE + inicio + COL_X + i * passo + VAO / 2, l.planoLateral],
-      dir: (inicio, i) => [l.inicioD + inicio + COL_X + i * passo + VAO / 2, -l.planoLateral],
-      fundo: (inicio, i) => [l.planoFundo, l.fundoIni - inicio - COL_X - i * passo - VAO / 2],
-    };
-    for (const lado of Object.keys(LETRA_PAREDE)) {
-      let k = 0;
-      trechosDoLado(q[lado]).forEach(({ n, inicio }, t) => {
-        for (let i = 0; i < n; i++, k++) {
-          const el = rotulosParede[lado][k];
-          const texto = nomeModuloParede(lado, q[lado].length, t, i);
-          if (el.textContent !== texto) el.textContent = texto;
-          const [x, z] = lugar[lado](inicio, i);
-          colocarRotulo(el, x, y, z, verParedes);
-        }
+    // Paredes: E1, D2, F3 (ou E2.3 com mais de uma parede no lado), em cima de cada módulo.
+    const numeros = Object.fromEntries(Object.keys(LETRA_PAREDE).map((lado) => [lado, []])); // [texto, x, z]
+    let y = 0;
+    if (ehMPP()) {
+      const mp = l.mpp;
+      y = mp.altura + 0.11;
+      if (rotulosLigados.mppParede && foraDoCorredor) for (const w of mp.paredes) {
+        let s = w.inicio + mp.montante;
+        w.vaos.forEach((v, i) => {
+          numeros[w.lado].push([nomeModuloParede(w.lado, mp.trechos[w.lado].length, w.t, i), ...mp.noLado(w.lado, s + v / 2)]);
+          s += v + mp.montante;
+        });
+      }
+    } else if (verParedes) {
+      const q = paredesDe(estado);
+      y = ALTURAS[estado.alturaParede].m + 0.11;
+      const lugar = {
+        esq: (inicio, i) => [l.inicioE + inicio + COL_X + i * passo + VAO / 2, l.planoLateral],
+        dir: (inicio, i) => [l.inicioD + inicio + COL_X + i * passo + VAO / 2, -l.planoLateral],
+        fundo: (inicio, i) => [l.planoFundo, l.fundoIni - inicio - COL_X - i * passo - VAO / 2],
+      };
+      for (const lado of Object.keys(LETRA_PAREDE)) trechosDoLado(q[lado]).forEach(({ n, inicio }, t) => {
+        for (let i = 0; i < n; i++) numeros[lado].push([nomeModuloParede(lado, q[lado].length, t, i), ...lugar[lado](inicio, i)]);
       });
-      for (; k < MAX_MODULOS_LADO; k++) colocarRotulo(rotulosParede[lado][k], 0, 0, 0, false);
     }
+    for (const lado of Object.keys(LETRA_PAREDE)) rotulosParede[lado].forEach((el, k) => {
+      const n = numeros[lado][k];
+      if (n && el.textContent !== n[0]) el.textContent = n[0];
+      colocarRotulo(el, n ? n[1] : 0, y, n ? n[2] : 0, !!n);
+    });
   }
   function mostrarRotulos(v) { rotulosLigados = v; atualizarRotulos(); }
 
@@ -1423,7 +1452,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
       medirFolego(msQuadro, movendo);
       if (!(fraco && movendo)) desenharReflexo();
       composer.render(dt);
-      if (rotulosLigados.centro || rotulosLigados.parede || rotulosLigados.mpp) atualizarRotulos();
+      if (rotulosLigados.centro || rotulosLigados.parede || rotulosLigados.mpp || rotulosLigados.mppParede) atualizarRotulos();
     }
   }
   function ligarLaco() {
@@ -1509,7 +1538,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   }
 
   function configurar(cfg) {
-    const mudouParedes = cfg.montagem !== estado.montagem || cfg.cantos.esq !== estado.cantos.esq || cfg.cantos.dir !== estado.cantos.dir || Object.keys(LETRA_PAREDE).some((k) => cfg.paredes[k].join() !== estado.paredes[k].join());
+    const paredesMpp = (c) => JSON.stringify([c.produto, c.mpp?.linha, c.mpp?.montagem, c.mpp?.paredes]);
+    const mudouParedes = cfg.montagem !== estado.montagem || cfg.cantos.esq !== estado.cantos.esq || cfg.cantos.dir !== estado.cantos.dir || Object.keys(LETRA_PAREDE).some((k) => cfg.paredes[k].join() !== estado.paredes[k].join()) || paredesMpp(cfg) !== paredesMpp(estado);
     // Trocar só o tipo de um lado não muda o tamanho: a câmera fica onde está.
     const semPeso = (m) => JSON.stringify({ ...m, peso: "", cor: "" }); // peso e cor sozinhos não mudam o tamanho: a câmera fica onde está
     const mudouTamanho = mudouParedes || cfg.produto !== estado.produto || semPeso(cfg.mpp) !== semPeso(estado.mpp) || cfg.filas.join() !== estado.filas.join() || ["modulos", "pontas", "linha", "altura", "alturaParede"].some((k) => cfg[k] !== estado[k]);

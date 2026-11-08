@@ -18,6 +18,8 @@ export const CANTO_ATE_COLUNA = CANTO_PAREDE - ATRAS_PAREDE;
 export const MAX_FILAS = 6; // filas lado a lado
 export const MAX_CORREDORES_FILA = 4; // corredores um atrás do outro na mesma fila
 export const LARGURA_CORREDOR = 1.2; // espaço entre uma gôndola e outra: entre filas e entre corredores da mesma fila
+// Só parede esquerda e direita (sem fundo e sem centro): espaço livre entre elas. Com 1,20 m ficavam perto demais (Ale, 8-nov-2026).
+export const DISTANCIA_PAREDES = 3;
 
 export const LINHAS = {
   // medidaPonta: quanto cada ponta soma ao comprimento. Padrão: 0,40 m, igual ao orçamento por medidas (PONTA_M).
@@ -93,8 +95,8 @@ export function layoutDe(cfg) {
   const planoFundo = (centro ? centro.xMin - LARGURA_CORREDOR : -Math.max(Le, Ld) / 2) - avanco;
   // Sem fundo, com centro, a lateral alinha com o fim do centro: não reserva espaço de uma parede que não existe.
   const inicioSemCanto = Lf ? planoFundo + avanco : centro ? centro.xMin : planoFundo;
-  // Sem centro, laterais frente a frente deixam um corredor livre, mesmo com fundo pequeno entre elas.
-  const livreMinimo = !centro && (!Lf || (Le && Ld)) ? LARGURA_CORREDOR / 2 + avanco : 0;
+  // Sem centro, laterais frente a frente deixam espaço livre: 3 m sem fundo, e um corredor com fundo pequeno entre elas.
+  const livreMinimo = centro ? 0 : !Lf && Le && Ld ? DISTANCIA_PAREDES / 2 + avanco : !Lf || (Le && Ld) ? LARGURA_CORREDOR / 2 + avanco : 0;
   const planoLivre = Math.max(centro ? centro.z + LARGURA_CORREDOR + avanco : 0, livreMinimo);
   // O canto liga o fundo a uma lateral e fica de pé nas colunas delas: só existe com as duas paredes.
   const pedeE = !!(cantos?.esq && Lf && Le), pedeD = !!(cantos?.dir && Lf && Ld);
@@ -153,6 +155,7 @@ export function medidasDe(cfg) {
     // Sem parede, usa as mesmas medidas mostradas no painel (a ponta Reforçada soma mais que o desenho).
     resumo: p.esq.length || p.dir.length || p.fundo.length ? ocupado : `≈ ${fmt(comprimentoCentro)} × ${fmt(larguraCentro)} m`,
     espaco: `${fmt(LARGURA_CORREDOR)} m`,
+    distanciaParedes: `${fmt(DISTANCIA_PAREDES)} m`,
     vaoColuna: `${fmt(VAO_COLUNA)} m`,
     cantoParede: `${fmt(CANTO_PAREDE)} m`,
     fundoParaCanto: l.cantoCortado ? `${fmt(l.fundoMinimo)} m` : "",
@@ -197,6 +200,35 @@ export const MIN_NIVEIS_MPP = 2;
 export const MAX_NIVEIS_MPP = 6;
 export const MAX_MODULOS_MPP = 10; // por fila: a inicial e as continuações, cada uma com o seu comprimento
 export const MAX_FILAS_MPP = 6;
+// Parede: o mesmo modelo do centro (decisão do Ale, 8-nov-2026), com até 4 paredes por lado separadas pelo pilar, como na gôndola.
+export const MAX_MODULOS_PAREDE_MPP = 10; // em cada parede
+export const MAX_MODULOS_LADO_MPP = 14; // somando as paredes de um lado: com módulos de 2 m, mais que isso sai do salão do 3D
+export const MPP_MONTAGENS = ["centro", "parede", "ambos"];
+const PAREDES_VAZIAS = { esq: [], dir: [], fundo: [] };
+// paredes = por lado, a lista das paredes; cada parede é a lista dos comprimentos dos módulos dela, da inicial às continuações.
+// Ex.: { esq: [["1,50", "1,50"], ["2,00"]], dir: [], fundo: [["1,50", "1,50", "1,50"]] }. Montagem salva antes das paredes = só centro.
+export const paredesMppDe = (m) => (m.montagem === "parede" || m.montagem === "ambos") && m.paredes ? m.paredes : PAREDES_VAZIAS;
+const comprimentoMpp = (L, comprimentos) => comprimentos.reduce((soma, c) => soma + L.vao(c) + L.montante, L.montante);
+// Onde cada parede começa, medido do começo do lado, e quanto ela mede.
+export function trechosMpp(linha, lista) {
+  const L = MPP_LINHAS[linha];
+  let inicio = 0;
+  return lista.map((comprimentos) => {
+    const comprimento = comprimentoMpp(L, comprimentos);
+    const trecho = { comprimentos, inicio, comprimento };
+    inicio += comprimento + VAO_COLUNA;
+    return trecho;
+  });
+}
+export function paredesMppValidas(linha, p) {
+  const L = MPP_LINHAS[linha];
+  return !!p && typeof p === "object" && Object.keys(LADOS_PAREDE).every((lado) => {
+    const lista = p[lado];
+    return Array.isArray(lista) && lista.length <= MAX_PAREDES_LADO
+      && lista.every((w) => Array.isArray(w) && w.length >= 1 && w.length <= MAX_MODULOS_PAREDE_MPP && w.every((c) => typeof c === "string" && Object.hasOwn(L.comprimentos, c)))
+      && lista.reduce((soma, w) => soma + w.length, 0) <= MAX_MODULOS_LADO_MPP;
+  });
+}
 
 // O que muda junto com o peso: altura, profundidade e cor que não existem naquele peso voltam para a primeira que existe.
 export function ajustarMPP(linha, m) {
@@ -211,24 +243,51 @@ export function mppValido(linha, m) {
   const entre = (n, a, b) => Number.isInteger(n) && n >= a && n <= b;
   return !!m && tem(Object.keys(L.pesos), m.peso) && tem(L.alturas(m.peso), m.altura) && tem(L.profundidades(m.peso), m.profundidade) && tem(L.cores(m.peso), m.cor)
     && Array.isArray(m.comprimentos) && entre(m.comprimentos.length, 1, MAX_MODULOS_MPP) && m.comprimentos.every((c) => tem(Object.keys(L.comprimentos), c))
-    && entre(m.niveis, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP) && entre(m.filas, 1, MAX_FILAS_MPP);
+    && entre(m.niveis, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP) && entre(m.filas, 1, MAX_FILAS_MPP)
+    && MPP_MONTAGENS.includes(m.montagem) && paredesMppValidas(linha, m.paredes);
 }
 
 // m = a montagem da linha escolhida, com m.linha. m.comprimentos = um por módulo da fila, da inicial às continuações.
 // Filas lado a lado, com um corredor entre elas e a mesma sequência de módulos; a fila 1 fica à esquerda (+Z), como no centro da gôndola.
+// Paredes: a mesma conta da gôndola (layoutDe), com as costas do mini porta palete na parede da loja. Sem peça de canto:
+// a lateral começa na frente do fundo. Os nomes dos campos são os do layoutDe, para as vistas da câmera servirem aos dois.
 export function layoutMPP(m) {
   const L = MPP_LINHAS[m.linha];
   const montante = L.montante;
   const vaos = m.comprimentos.map(L.vao); // entre os montantes de cada módulo
   const prof = MPP_PROFUNDIDADES[m.profundidade];
-  const comprimento = vaos.reduce((soma, vao) => soma + vao + montante, montante);
+  const comprimento = comprimentoMpp(L, m.comprimentos);
   const passoZ = prof + LARGURA_CORREDOR;
   const meiaLargura = ((m.filas - 1) / 2) * passoZ + prof / 2;
+  const centro = m.montagem === "parede" ? null : { xMin: -comprimento / 2, xMax: comprimento / 2, z: meiaLargura };
+  const p = paredesMppDe(m);
+  const trechos = { esq: trechosMpp(m.linha, p.esq), dir: trechosMpp(m.linha, p.dir), fundo: trechosMpp(m.linha, p.fundo) };
+  const ladoTodo = (t) => (t.length ? t[t.length - 1].inicio + t[t.length - 1].comprimento : 0);
+  const Le = ladoTodo(trechos.esq), Ld = ladoTodo(trechos.dir), Lf = ladoTodo(trechos.fundo);
+  const planoFundo = (centro ? centro.xMin - LARGURA_CORREDOR : -Math.max(Le, Ld) / 2) - prof;
+  const inicio = Lf ? planoFundo + prof : centro ? centro.xMin : planoFundo;
+  const livreMinimo = centro ? 0 : !Lf && Le && Ld ? DISTANCIA_PAREDES / 2 + prof : !Lf || (Le && Ld) ? LARGURA_CORREDOR / 2 + prof : 0;
+  const planoLateral = Math.max(centro ? centro.z + LARGURA_CORREDOR + prof : 0, livreMinimo, Lf / 2);
+  const fundoIni = Lf / 2, vaoInterno = planoLateral - prof;
+  // s = distância ao longo da parede, desde o começo do lado; volta o ponto no piso, no meio da profundidade.
+  const noLado = (lado, s) => (lado === "fundo" ? [planoFundo + prof / 2, fundoIni - s] : [inicio + s, (lado === "esq" ? 1 : -1) * (planoLateral - prof / 2)]);
+  const paredes = Object.keys(LADOS_PAREDE).flatMap((lado) => trechos[lado].map((t, i) => ({
+    lado, t: i, inicio: t.inicio, comprimento: t.comprimento, comprimentos: t.comprimentos,
+    vaos: t.comprimentos.map(L.vao), transversinas: t.comprimentos.map((c) => L.transversinas(m.peso, c)),
+  })));
+  const xs = [], zs = [];
+  if (centro) { xs.push(centro.xMin, centro.xMax); zs.push(meiaLargura, -meiaLargura); }
+  if (Lf) { xs.push(planoFundo, planoFundo + prof); zs.push(fundoIni, fundoIni - Lf); }
+  if (Le) { xs.push(inicio, inicio + Le); zs.push(planoLateral, vaoInterno); }
+  if (Ld) { xs.push(inicio, inicio + Ld); zs.push(-planoLateral, -vaoInterno); }
+  if (!xs.length) { xs.push(0); zs.push(0); }
   return {
     montante, vaos, prof, altura: MPP_ALTURAS[m.altura], comprimento, largura: 2 * meiaLargura,
     transversinas: m.comprimentos.map((c) => L.transversinas(m.peso, c)),
-    filas: Array.from({ length: m.filas }, (_, f) => ((m.filas - 1) / 2 - f) * passoZ),
-    xMin: -comprimento / 2, xMax: comprimento / 2, zMin: -meiaLargura, zMax: meiaLargura,
+    filas: centro ? Array.from({ length: m.filas }, (_, f) => ((m.filas - 1) / 2 - f) * passoZ) : [],
+    centro, avanco: prof, Le, Ld, Lf, planoFundo, inicioE: inicio, inicioD: inicio, fundoIni, planoLateral, vaoInterno,
+    cantoE: false, cantoD: false, trechos, paredes, noLado,
+    xMin: Math.min(...xs), xMax: Math.max(...xs), zMin: Math.min(...zs), zMax: Math.max(...zs),
   };
 }
 
@@ -236,7 +295,18 @@ export function medidasMPP(m) {
   const l = layoutMPP(m);
   const modulos = m.comprimentos.length, continuacoes = modulos - 1;
   const iguais = m.comprimentos.every((c) => c === m.comprimentos[0]);
+  const daParede = l.paredes.flatMap((w) => w.comprimentos);
+  const ocupado = `≈ ${fmt(l.xMax - l.xMin)} × ${fmt(l.zMax - l.zMin)} m`;
+  // Tamanhos usados nas paredes, do menor ao maior: "1,50" ou "1,00, 1,50 e 2,00" (o número já tem vírgula, então o "e" vai à mão)
+  const tamanhos = [...new Set(daParede)].sort((a, b) => parseFloat(a.replace(",", ".")) - parseFloat(b.replace(",", ".")));
   return {
+    temParede: daParede.length > 0,
+    modulosParede: daParede.length,
+    tamanhosParede: tamanhos.length > 1 ? `${tamanhos.slice(0, -1).join(", ")} e ${tamanhos[tamanhos.length - 1]}` : tamanhos[0] || "",
+    paredes: Object.fromEntries(Object.keys(LADOS_PAREDE).map((lado) => [lado, l.trechos[lado].map((t) => `≈ ${fmt(t.comprimento)} m`)])),
+    ocupado,
+    distanciaParedes: `${fmt(DISTANCIA_PAREDES)} m`,
+    vaoColuna: `${fmt(VAO_COLUNA)} m`,
     comprimento: `≈ ${fmt(l.comprimento)} m`,
     rotuloLargura: m.filas > 1 ? "Largura total" : "Profundidade",
     largura: `≈ ${fmt(l.largura)} m`,
@@ -245,8 +315,8 @@ export function medidasMPP(m) {
     // Tamanho de cada módulo: "1,50 m" ou "2,00 + 1,50 + 1,00 m" (na linha preta, medida de tabela; na cinza, a longarina)
     iguais,
     sequencia: iguais ? `${m.comprimentos[0]} m` : `${m.comprimentos.join(" + ")} m`,
-    prateleiras: modulos * m.niveis * m.filas,
-    resumo: `≈ ${fmt(l.comprimento)} × ${fmt(l.largura)} m`,
+    prateleiras: ((l.centro ? modulos * m.filas : 0) + daParede.length) * m.niveis,
+    resumo: daParede.length ? ocupado : `≈ ${fmt(l.comprimento)} × ${fmt(l.largura)} m`,
     espaco: `${fmt(LARGURA_CORREDOR)} m`,
   };
 }
