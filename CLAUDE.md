@@ -172,25 +172,25 @@ silêncio.
 ### Páginas (cada aba é uma função `XxxPage`)
 | Aba | Função | ~L | Tabela principal |
 |---|---|---|---|
-| Login | `Login` | 2701 | Supabase Auth |
-| Painel (3D interativo em WebGL: `Arena3D` + `src/lib/arena3d.js`, com Three.js) | `PainelPage` | 9459 | orcamentos + mariana_leads |
-| Projeto (configurador 3D com duas subabas, Gôndola e Mini porta palete; mini porta palete em duas linhas com MDF, que na tela se chamam pela aparência e nunca pelo fornecedor: "Preto" (MPP China: 200/500 kg, 2,0/2,5 m, módulo de 1,0/1,5/2,0 m, 0,60/0,80 m) e "Cinza ou branco" (MPP Amapá: 250 kg cinza+laranja ou branco, 2,0 m, 0,60 m; 500 kg cinza+laranja com transversina, 2,0/3,0 m, 0,80 m; longarina de 1,20/1,80 m); cada módulo com o seu comprimento, 2 a 6 níveis, até 10 módulos e 6 filas; só centro, só parede ou ambos, com parede esquerda, direita e do fundo no mesmo modelo do centro (até 4 paredes por lado com pilar, 10 módulos por parede e 14 por lado, cada módulo com o seu comprimento, sem peça de canto). Gôndola de centro e parede: até 6 filas de centro com até 4 corredores cada, um atrás do outro; até 4 paredes por lado, pilar e canto; só parede esquerda e direita (sem fundo e sem centro) ficam a 3,00 m uma da outra, na gôndola e no mini porta palete; gôndola preta ou branca e porta-etiqueta em 10 cores: `src/lib/projeto3d.js` + `projetoMedidas.js`, sem banco) | `ProjetoPage` | 12803 | nenhuma |
-| Dados do cliente | `ClientPage` | 2163 | estado `clientData` |
-| Catálogo | `Catalog` | 2813 | PRODUCTS + produtos_uniplus |
-| Carrinho | `Quote` | 3334 | — |
-| Resumo + **SALVA orçamento** | `ResumoPage` | 3485 | insere em `orcamentos` (~L3618) |
-| Orçamentos (lista/PDF/status) | `Orders` | 3836 | orcamentos |
-| Logística (entregas) | `LogisticaPage` | 5204 | orcamentos (data_entrega) |
-| Comissões | `ComissoesPage` | 5683 | orcamentos + despesas (espelho) |
-| CRM de Leads | `LeadsPage` | 6793 | mariana_leads + mariana_chat_memory |
-| Agenda | `AgendaPage` | 6381 | agenda_tarefas |
-| ADM / Vendas Concluídas | `AdminPage` | 7313 | orcamentos (mês da ENTREGA) |
-| Gráficos | `GraficosPage` | 8758 | orcamentos |
-| Financeiro | `FinanceiroPage` | 8940 | despesas + boletos_a_pagar |
-| DRE | `DrePage` | 9781 | agrega despesas/orcamentos |
-| NF (NFe/NFSe) | `NFPage` | 10285 | notas_fiscais + /api |
-| Conciliação | `ConciliacaoPage` | 11766 | lancamentos_bancarios + /api |
-| Fotos (álbuns) | `FotosPage` | 12220 | Storage bucket `fotos` |
+| Login | `Login` | 2825 | Supabase Auth |
+| Painel (3D interativo em WebGL: `Arena3D` + `src/lib/arena3d.js`, com Three.js) | `PainelPage` | 9220 | orcamentos + mariana_leads |
+| Projeto (configurador 3D com duas subabas, Gôndola e Mini porta palete; mini porta palete em duas linhas com MDF, que na tela se chamam pela aparência e nunca pelo fornecedor: "Preto" (MPP China: 200/500 kg, 2,0/2,5 m, módulo de 1,0/1,5/2,0 m, 0,60/0,80 m) e "Cinza ou branco" (MPP Amapá: 250 kg cinza+laranja ou branco, 2,0 m, 0,60 m; 500 kg cinza+laranja com transversina, 2,0/3,0 m, 0,80 m; longarina de 1,20/1,80 m); cada módulo com o seu comprimento, 2 a 6 níveis, até 10 módulos e 6 filas; só centro, só parede ou ambos, com parede esquerda, direita e do fundo no mesmo modelo do centro (até 4 paredes por lado com pilar, 10 módulos por parede e 14 por lado, cada módulo com o seu comprimento, sem peça de canto). Gôndola de centro e parede: até 6 filas de centro com até 4 corredores cada, um atrás do outro; até 4 paredes por lado, pilar e canto; só parede esquerda e direita (sem fundo e sem centro) ficam a 3,00 m uma da outra, na gôndola e no mini porta palete; gôndola preta ou branca e porta-etiqueta em 10 cores: `src/lib/projeto3d.js` + `projetoMedidas.js`, sem banco) | `ProjetoPage` | 12837 | nenhuma |
+| Dados do cliente | `ClientPage` | 2240 | estado `clientData` |
+| Catálogo | `Catalog` | 2938 | PRODUCTS + produtos_uniplus |
+| Carrinho | `Quote` | 3459 | — |
+| Resumo + **SALVA orçamento** | `ResumoPage` | 3610 | insere em `orcamentos` (~L3618) |
+| Orçamentos (lista/PDF/status) | `Orders` | 3961 | orcamentos |
+| Logística (entregas) | `LogisticaPage` | 5374 | orcamentos (data_entrega) |
+| Comissões | `ComissoesPage` | 5853 | orcamentos + despesas (espelho) |
+| CRM de Leads | `LeadsPage` | 6701 | mariana_leads + mariana_chat_memory |
+| Agenda | `AgendaPage` | 6281 | agenda_tarefas |
+| ADM / Vendas Concluídas | `AdminPage` | 7657 | orcamentos (mês da ENTREGA) |
+| Gráficos | `GraficosPage` | 9569 | orcamentos |
+| Financeiro | `FinanceiroPage` | 9751 | despesas + boletos_a_pagar |
+| DRE | `DrePage` | 10623 | agrega despesas/orcamentos |
+| NF (NFe/NFSe) | `NFPage` | 11122 | notas_fiscais + /api |
+| Conciliação | `ConciliacaoPage` | 12368 | lancamentos_bancarios + /api |
+| Fotos (álbuns) | `FotosPage` | 13731 | Storage bucket `fotos` |
 
 ### Motor de preço (produto → custo → venda)
 - `PRODUCT_RECIPES` ~L157–1566 (dados grandes — NÃO ler inteiro; grep a chave

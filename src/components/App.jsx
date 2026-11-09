@@ -23,7 +23,7 @@ const COLORS = {
   accentHover: "#FFBD4A",
   text: "#ECEDF1",
   textMuted: "#8B8C97",
-  textDim: "#56575F",
+  textDim: "#74757F", // era #56575F (contraste 2,5:1 no card); agora 3,9:1 no card e 4,6:1 no fundo preto
   success: "#34D399",
   danger: "#F87171",
   white: "#FFFFFF",
@@ -3962,6 +3962,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   const [orders, setOrders] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const isMobile = useIsMobile(); // no celular a etapa e o valor vão para baixo do nome (antes saíam do card)
   // Filtro por mês (formato YYYY-MM ou "all")
   const [filterMes, setFilterMes] = useState("all");
   // Filtro por status ("all" ou um dos status)
@@ -4938,11 +4939,41 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         {ordersFiltrados.map(o => {
           const isOpen = expanded === o.id;
           const isConfirming = confirmDel === o.id;
+          const botaoAnotacoes = (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setAnotacoesModal({ orderId: o.id, texto: o.anotacoes || "" }); }}
+                    title={o.anotacoes ? "Ver/editar anotações" : "Adicionar anotação"}
+                    style={{
+                      position: "relative",
+                      background: o.anotacoes ? "#F59E0B20" : "transparent",
+                      border: `1px solid ${o.anotacoes ? "#F59E0B60" : COLORS.border}`,
+                      color: o.anotacoes ? "#F59E0B" : COLORS.textMuted,
+                      padding: "5px 9px",
+                      borderRadius: 7,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      lineHeight: 1,
+                    }}
+                  >
+                    📝
+                    {o.anotacoes && (
+                      <span style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: "#F59E0B", border: `1.5px solid ${COLORS.card}` }} />
+                    )}
+                  </button>
+          );
+          const seletorEtapa = (
+                  <select value={o.status || "Aguardando Retorno"} onClick={e => e.stopPropagation()} onChange={e => updateStatus(o.id, e.target.value)} style={{ background: (sc[o.status] || "#888") + "20", color: sc[o.status] || "#888", border: `1px solid ${(sc[o.status] || "#888")}40`, padding: "4px 8px", borderRadius: 16, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none", appearance: "auto", ...(isMobile ? { width: "100%" } : {}) }}>
+                    {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+          );
+          const valorOrcamento = (
+                  <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: o.total === 0 ? COLORS.textDim : COLORS.orange, ...(isMobile ? { whiteSpace: "nowrap", flexShrink: 0 } : {}) }}>{o.total === 0 ? "Sob consulta" : fmt(o.total)}</span>
+          );
           return (
             <div key={o.id} style={{ background: COLORS.card, border: `1px solid ${isOpen ? COLORS.orange + "40" : COLORS.border}`, borderRadius: 12, overflow: "hidden", transition: "all .2s" }}>
-              {/* Header */}
-              <div onClick={() => setExpanded(isOpen ? null : o.id)} style={{ padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {/* Header — no celular: nome e valor em cima; termômetro e anotação embaixo; etapa na última linha */}
+              <div onClick={() => setExpanded(isOpen ? null : o.id)} style={{ padding: isMobile ? "12px 14px" : "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center", ...(isMobile ? { flexWrap: "wrap", rowGap: 10, columnGap: 10 } : {}) }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, ...(isMobile ? { flex: "1 1 0", minWidth: 0 } : {}) }}>
                   <span style={{ color: COLORS.textDim, fontSize: 18, transition: "transform .2s", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
                   <div>
                     <span style={{ fontSize: 14, color: COLORS.white, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{o.client?.empresa || o.client?.responsavel || "Sem cliente"}</span>
@@ -4967,33 +4998,26 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                     )}
                   </div>
                 </div>
-                <TermometroLead value={o.temperatura} onChange={(v) => updateTemperatura(o.id, v)} canEdit={true} />
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setAnotacoesModal({ orderId: o.id, texto: o.anotacoes || "" }); }}
-                    title={o.anotacoes ? "Ver/editar anotações" : "Adicionar anotação"}
-                    style={{
-                      position: "relative",
-                      background: o.anotacoes ? "#F59E0B20" : "transparent",
-                      border: `1px solid ${o.anotacoes ? "#F59E0B60" : COLORS.border}`,
-                      color: o.anotacoes ? "#F59E0B" : COLORS.textMuted,
-                      padding: "5px 9px",
-                      borderRadius: 7,
-                      cursor: "pointer",
-                      fontSize: 13,
-                      lineHeight: 1,
-                    }}
-                  >
-                    📝
-                    {o.anotacoes && (
-                      <span style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: "#F59E0B", border: `1.5px solid ${COLORS.card}` }} />
-                    )}
-                  </button>
-                  <select value={o.status || "Aguardando Retorno"} onClick={e => e.stopPropagation()} onChange={e => updateStatus(o.id, e.target.value)} style={{ background: (sc[o.status] || "#888") + "20", color: sc[o.status] || "#888", border: `1px solid ${(sc[o.status] || "#888")}40`, padding: "4px 8px", borderRadius: 16, fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", outline: "none", appearance: "auto" }}>
-                    {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: o.total === 0 ? COLORS.textDim : COLORS.orange }}>{o.total === 0 ? "Sob consulta" : fmt(o.total)}</span>
-                </div>
+                {isMobile ? (
+                  <>
+                    {valorOrcamento}
+                    <div style={{ flexBasis: "100%", display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                      <TermometroLead value={o.temperatura} onChange={(v) => updateTemperatura(o.id, v)} canEdit={true} />
+                      {botaoAnotacoes}
+                    </div>
+                    {/* Etapa em linha própria: com a letra de 16 px do celular, "Aguardando Retorno" não cabe ao lado do termômetro */}
+                    <div style={{ flexBasis: "100%", minWidth: 0 }}>{seletorEtapa}</div>
+                  </>
+                ) : (
+                  <>
+                    <TermometroLead value={o.temperatura} onChange={(v) => updateTemperatura(o.id, v)} canEdit={true} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {botaoAnotacoes}
+                      {seletorEtapa}
+                      {valorOrcamento}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Expanded */}
@@ -5598,7 +5622,7 @@ function LogisticaPage({ user }) {
         {!podeEditar && <span style={{ color: COLORS.textDim, fontStyle: "italic" }}> · somente leitura</span>}
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>{/* 150 px: 2 por linha no celular */}
         {statCard("Entregas no Período", totalEntregas, COLORS.orange)}
         {statCard("Atrasadas", atrasadas, atrasadas > 0 ? "#F87171" : COLORS.textMuted)}
         {statCard("Próxima Entrega", proxima ? fmtData(proxima.dataEntrega) : "—", "#3B82F6", true)}
@@ -6269,6 +6293,7 @@ function AgendaPage({ user, setPage }) {
   // troca a lista de grupos por só as tarefas daquele dia. Botão × volta ao normal.
   const [mesAtual, setMesAtual] = useState(agendaHojeStr().slice(0, 7)); // 'YYYY-MM'
   const [diaFocado, setDiaFocado] = useState(null); // 'YYYY-MM-DD' ou null
+  const isMobile = useIsMobile(); // no celular o "Adicionar" vem antes do calendário
 
   const C = COLORS;
 
@@ -6481,7 +6506,9 @@ function AgendaPage({ user, setPage }) {
   // Contagem de tarefas pendentes por dia (só pra pintar as bolinhas)
   const porDia = new Map();
   pend.forEach(t => porDia.set(t.data, (porDia.get(t.data) || 0) + 1));
-  const nomeMes = primeiroDoMes.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  // "novembro de 2026" → "Novembro de 2026" (o capitalize do CSS deixava "De" maiúsculo)
+  const nomeMesBruto = primeiroDoMes.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const nomeMes = nomeMesBruto.charAt(0).toUpperCase() + nomeMesBruto.slice(1);
   const mudarMes = (delta) => {
     const d = new Date(anoMes, mesNum - 1 + delta, 1);
     setMesAtual(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
@@ -6533,13 +6560,13 @@ function AgendaPage({ user, setPage }) {
 
   const calendario = (
     <aside style={{
-      flex: "0 0 300px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-      padding: 14, alignSelf: "flex-start", position: "sticky", top: 76,
+      flex: isMobile ? "1 1 100%" : "0 0 300px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+      padding: 14, alignSelf: "flex-start", position: isMobile ? "static" : "sticky", top: 76,
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <button onClick={() => mudarMes(-1)} title="Mês anterior"
           style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 20, padding: "0 8px" }}>‹</button>
-        <div style={{ color: C.white, fontSize: 14, fontWeight: 700, textTransform: "capitalize", fontFamily: "'DM Sans', sans-serif" }}>{nomeMes}</div>
+        <div style={{ color: C.white, fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>{nomeMes}</div>
         <button onClick={() => mudarMes(1)} title="Próximo mês"
           style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 20, padding: "0 8px" }}>›</button>
       </div>
@@ -6561,23 +6588,7 @@ function AgendaPage({ user, setPage }) {
     </aside>
   );
 
-  return (
-    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 20px 60px" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 28, margin: 0 }}>Minha Agenda</h1>
-        <div style={{ color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
-          {feitosHojeN > 0 ? <><b style={{ color: C.success }}>{feitosHojeN}</b> feita{feitosHojeN > 1 ? "s" : ""} hoje · </> : null}
-          <b style={{ color: C.text }}>{total}</b> pendente{total !== 1 ? "s" : ""}
-        </div>
-      </div>
-      <p style={{ color: C.textMuted, fontSize: 13, marginTop: 4, marginBottom: 22, fontFamily: "'DM Sans', sans-serif" }}>
-        Só você vê essa lista. Escreva e aperte Enter (data padrão: hoje). <b style={{ color: C.text }}>Clica em cima da tarefa pra riscar como feita</b>; duplo-clique pra editar o texto. Clica um dia do calendário pra ver só ele; ★ importante fica em cima.
-      </p>
-
-      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
-        {calendario}
-        <div style={{ flex: "1 1 480px", minWidth: 0 }}>
-          {/* Barra de criação */}
+  const barraCriacao = (
           <form onSubmit={criar} style={{ display: "flex", gap: 8, marginBottom: 22, flexWrap: "wrap", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 }}>
             <input
               placeholder="O que precisa ser feito?"
@@ -6604,6 +6615,27 @@ function AgendaPage({ user, setPage }) {
               style={{ background: C.orange, color: "#000", border: "none", borderRadius: 8, padding: "10px 22px", fontSize: 13, fontWeight: 700, cursor: texto.trim() ? "pointer" : "not-allowed", opacity: texto.trim() ? 1 : 0.5, fontFamily: "'DM Sans', sans-serif" }}
             >{salvando ? "..." : "Adicionar"}</button>
           </form>
+  );
+
+  return (
+    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 20px 60px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 10 }}>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", color: C.white, fontSize: 28, margin: 0 }}>Minha Agenda</h1>
+        <div style={{ color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+          {feitosHojeN > 0 ? <><b style={{ color: C.success }}>{feitosHojeN}</b> feita{feitosHojeN > 1 ? "s" : ""} hoje · </> : null}
+          <b style={{ color: C.text }}>{total}</b> pendente{total !== 1 ? "s" : ""}
+        </div>
+      </div>
+      <p style={{ color: C.textMuted, fontSize: 13, marginTop: 4, marginBottom: 22, fontFamily: "'DM Sans', sans-serif" }}>
+        Só você vê essa lista. Escreva e aperte Enter (data padrão: hoje). <b style={{ color: C.text }}>Clica em cima da tarefa pra riscar como feita</b>; duplo-clique pra editar o texto. Clica um dia do calendário pra ver só ele; ★ importante fica em cima.
+      </p>
+
+      {/* Barra de criação: no celular fica antes do calendário */}
+      {isMobile && barraCriacao}
+      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {calendario}
+        <div style={{ flex: "1 1 480px", minWidth: 0 }}>
+          {!isMobile && barraCriacao}
 
           {loading && <div style={{ color: C.textMuted, fontSize: 13 }}>Carregando…</div>}
           {erro && <div style={{ color: C.danger, background: C.danger + "18", padding: "8px 12px", borderRadius: 8, fontSize: 13, marginBottom: 16 }}>Erro: {erro}</div>}
@@ -7517,7 +7549,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
                       }
                     }}
                     title={emRetorno ? "Abre o WhatsApp com uma mensagem pronta pra cobrar o retorno (dá pra editar antes de enviar)" : undefined}
-                    style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#fff", textDecoration: "none" }}
+                    style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#25D366", color: "#04140A", textDecoration: "none" }}
                   >{emRetorno ? "Cobrar retorno no WhatsApp" : "Chamar no WhatsApp"} · {l.telefone}</a>
                 )}
                 <button onClick={() => setNotaEdit({ id: l.id, texto: l.observacao_vendedor || "" })} style={{ padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.border}` }}>📝 {l.observacao_vendedor ? "Editar anotação" : "Anotar"}</button>
@@ -8128,11 +8160,11 @@ function AdminPage({ user }) {
           <div style={{ color: COLORS.orange, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalGeral)}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 16 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Aguardando Retorno</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Aguardando Retorno <span style={{ color: COLORS.textDim }}>· desde o início</span></div>
           <div style={{ color: "#3B82F6", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{allOrders.filter(o => o.status === "Aguardando Retorno").length}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 16 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Concluídos</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Concluídos <span style={{ color: COLORS.textDim }}>· desde o início</span></div>
           <div style={{ color: "#10B981", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{allOrders.filter(o => o.status === "Concluído").length}</div>
         </div>
       </div>
@@ -9509,11 +9541,13 @@ function GaugeChart({ value, max, name, color }) {
         {/* Active arc */}
         {angle > 0 && <path d={arcPath(0, Math.min(angle, 180), r)} fill="none" stroke={color} strokeWidth="18" strokeLinecap="round" />}
         {/* Zone labels */}
-        <text x={cx + r * Math.cos(rad(0)) - 5} y={cy + r * Math.sin(rad(0)) + 14} fill={COLORS.textDim} fontSize="7" fontFamily="DM Sans" textAnchor="end">R$0</text>
-        <text x={cx + r * Math.cos(rad(45))} y={cy + r * Math.sin(rad(45)) - 4} fill={COLORS.textDim} fontSize="6" fontFamily="DM Sans" textAnchor="middle">25%</text>
-        <text x={cx + r * Math.cos(rad(90))} y={cy + r * Math.sin(rad(90)) - 6} fill={COLORS.textDim} fontSize="6" fontFamily="DM Sans" textAnchor="middle">50%</text>
-        <text x={cx + r * Math.cos(rad(135))} y={cy + r * Math.sin(rad(135)) - 4} fill={COLORS.textDim} fontSize="6" fontFamily="DM Sans" textAnchor="middle">75%</text>
-        <text x={cx + r * Math.cos(rad(180)) + 5} y={cy + r * Math.sin(rad(180)) + 14} fill={COLORS.textDim} fontSize="7" fontFamily="DM Sans" textAnchor="start">100%</text>
+        {/* Escala: R$0 e 100% embaixo das pontas; 25/50/75% por dentro do arco (antes ficavam em cima da faixa colorida,
+            com 6-7 px, e o "R$0" e o "100%" eram cortados pela borda do desenho) */}
+        <text x={cx - r} y={cy + 18} fill={COLORS.textMuted} fontSize="9" fontFamily="DM Sans" textAnchor="middle">R$0</text>
+        <text x={cx + (r - 24) * Math.cos(rad(45))} y={cy + (r - 24) * Math.sin(rad(45)) + 3} fill={COLORS.textMuted} fontSize="9" fontFamily="DM Sans" textAnchor="middle">25%</text>
+        <text x={cx + (r - 24) * Math.cos(rad(90))} y={cy + (r - 24) * Math.sin(rad(90)) + 3} fill={COLORS.textMuted} fontSize="9" fontFamily="DM Sans" textAnchor="middle">50%</text>
+        <text x={cx + (r - 24) * Math.cos(rad(135))} y={cy + (r - 24) * Math.sin(rad(135)) + 3} fill={COLORS.textMuted} fontSize="9" fontFamily="DM Sans" textAnchor="middle">75%</text>
+        <text x={cx + r - 3} y={cy + 18} fill={COLORS.textMuted} fontSize="9" fontFamily="DM Sans" textAnchor="middle">100%</text>
         {/* Needle */}
         <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
         <circle cx={cx} cy={cy} r="5" fill={color} />
@@ -10099,7 +10133,7 @@ function FinanceiroPage({ user }) {
             return (
               <tr key={d.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                 <td style={{ padding: "6px 8px" }}>
-                  <input disabled={somenteLeitura} value={d.nome} onChange={e => atualizarDespesa(d.id, "nome", e.target.value)} style={{ ...inp, width: "100%", padding: "4px 6px", fontSize: 11, fontWeight: 500, color: COLORS.text, border: "1px solid transparent" }} onFocus={e => e.target.style.borderColor = COLORS.border} onBlur={e => e.target.style.borderColor = "transparent"} />
+                  <input disabled={somenteLeitura} value={d.nome} onChange={e => atualizarDespesa(d.id, "nome", e.target.value)} style={{ ...inp, width: "100%", minWidth: 140, padding: "4px 6px", fontSize: 11, fontWeight: 500, color: COLORS.text, border: "1px solid transparent" }} onFocus={e => e.target.style.borderColor = COLORS.border} onBlur={e => e.target.style.borderColor = "transparent"} />
                 </td>
                 <td style={{ padding: "4px 4px", textAlign: "center" }}>
                   <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
@@ -10180,8 +10214,8 @@ function FinanceiroPage({ user }) {
         </div>
       )}
 
-      {/* Cards resumo */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
+      {/* Cards resumo — 4 lado a lado no computador, 2 por linha no celular (antes o "Aberto" saía da tela) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 16 }}>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 8, padding: 12 }}>
           <div style={{ color: COLORS.textMuted, fontSize: 9, fontFamily: "'DM Sans', sans-serif" }}>Total Geral</div>
           <div style={{ color: COLORS.orange, fontSize: 16, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalMes)}</div>
@@ -12474,7 +12508,7 @@ function ConciliacaoPage({ user }) {
 
         {/* Filtro banco + mês + upload */}
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, padding: 18, marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 4, background: COLORS.bg, padding: 3, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, background: COLORS.bg, padding: 3, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
             {BANCOS.map(b => (
               <button
                 key={b.k}
@@ -12543,8 +12577,8 @@ function ConciliacaoPage({ user }) {
           </div>
         )}
 
-        {/* Totais */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+        {/* Totais — no celular quebram em 2 + 1 (antes o "Saldo do mês" saía da tela) */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
           <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 14 }}>
             <div style={{ color: COLORS.textDim, fontSize: 10, textTransform: "uppercase" }}>Entradas</div>
             <div style={{ color: "#10B981", fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalEntradas)}</div>

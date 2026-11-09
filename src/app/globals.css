@@ -24,10 +24,12 @@ nav > div:first-child > div:nth-child(2)::-webkit-scrollbar { display: none; }
   input, select, textarea, button { font-size: 14px; }
 }
 
-/* Inputs no iOS não devem dar zoom quando focados — exige fonte >= 16px nos inputs */
+/* Inputs no iOS não devem dar zoom quando focados — exige fonte >= 16px nos inputs.
+   input:not([type]) cobre os campos sem tipo (a tela Cliente inteira e boa parte do Financeiro). */
 @media (max-width: 640px) {
   input[type="text"], input[type="email"], input[type="tel"],
   input[type="number"], input[type="password"], input[type="date"],
+  input[type="search"], input[type="url"], input:not([type]),
   textarea, select {
     font-size: 16px !important;
   }
