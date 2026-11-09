@@ -97,7 +97,8 @@ function Projeto({ dados }) {
   const toque = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
   // Os textos vêm do banco: tipo errado vira vazio em vez de derrubar a página.
   const t = dados.textos && typeof dados.textos === "object" ? dados.textos : {};
-  const titulo = texto(t.titulo), nota = texto(t.nota), consultor = texto(dados.consultor);
+  // O nome do consultor continua salvo no link (dados.consultor), mas não aparece para o cliente (pedido do Ale, 8-nov-2026).
+  const titulo = texto(t.titulo), nota = texto(t.nota);
   const extras = Array.isArray(t.extras) ? t.extras.filter(e => typeof e === "string") : [];
 
   useEffect(() => {
@@ -144,7 +145,7 @@ function Projeto({ dados }) {
             Veja como vai ficar o <span style={{ backgroundImage: `linear-gradient(transparent 62%, rgba(242,178,0,.45) 62%)` }}>seu projeto</span>
           </h1>
           <p style={{ color: APAGADO, fontSize: larga ? 17 : 15, lineHeight: 1.5, margin: 0, maxWidth: 640 }}>
-            {consultor ? `Preparado especialmente para você por ${consultor}, da Gôndolas Suprema.` : "Preparado especialmente para você pela Gôndolas Suprema."}
+            Preparado especialmente para você pelo nosso consultor da Gôndolas Suprema.
             {/* No celular a dica já aparece em cima do 3D; aqui ela só empurraria o 3D para baixo. */}
             {!toque && " Arraste para girar, use a rodinha para aproximar e veja de todos os ângulos."}
           </p>
