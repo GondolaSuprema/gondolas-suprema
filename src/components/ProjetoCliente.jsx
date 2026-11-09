@@ -6,6 +6,7 @@
 // aleatória que guardou antes de chamar e o banco devolve o projeto de novo (até 1 hora depois).
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { usePasseio3D, estiloPasseio, CamadaPasseio, IconeAndar, IconeTelaCheia } from "./Passeio3D";
 
 const AZUL = "#123a66";
 const AMARELO = "#f2b200";
@@ -95,6 +96,10 @@ function Projeto({ dados }) {
   // Começar em true fazia o celular piscar o título grande do computador antes de encolher.
   const [larga, setLarga] = useState(() => typeof window === "undefined" || window.innerWidth >= 860);
   const toque = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
+  // Andar pelo projeto e tela cheia (iguais aos da aba Projeto)
+  const caixaRef = useRef(null), molduraRef = useRef(null), andarRef = useRef(null);
+  const { andando, cheia, aoMudarModo, alternarCheia } = usePasseio3D({ motor, caixaRef, molduraRef });
+  const [deitado, setDeitado] = useState(false); // celular deitado: na tela cheia, vistas e botões numa linha só
   // Os textos vêm do banco: tipo errado vira vazio em vez de derrubar a página.
   const t = dados.textos && typeof dados.textos === "object" ? dados.textos : {};
   // O nome do consultor continua salvo no link (dados.consultor), mas não aparece para o cliente (pedido do Ale, 8-nov-2026).
@@ -102,10 +107,12 @@ function Projeto({ dados }) {
   const extras = Array.isArray(t.extras) ? t.extras.filter(e => typeof e === "string") : [];
 
   useEffect(() => {
-    const ver = () => setLarga(window.innerWidth >= 860);
+    const baixa = window.matchMedia("(orientation: landscape) and (max-height: 500px)");
+    const ver = () => { setLarga(window.innerWidth >= 860); setDeitado(baixa.matches); };
     ver();
     window.addEventListener("resize", ver);
-    return () => window.removeEventListener("resize", ver);
+    baixa.addEventListener("change", ver);
+    return () => { window.removeEventListener("resize", ver); baixa.removeEventListener("change", ver); };
   }, []);
 
   useEffect(() => {
@@ -119,6 +126,7 @@ function Projeto({ dados }) {
         semMovimento: semMovimento(),
         config: { ...dados.config, vista: dados.config.vista || "ponta" },
         aoMudarVista: setVista,
+        aoMudarModo,
         aoInteragir: () => setMexeu(true),
         aoFalhar: () => { timer = setTimeout(() => setEstado3d("erro"), 2500); },
         aoVoltar: () => { clearTimeout(timer); setEstado3d("ok"); },
@@ -152,10 +160,15 @@ function Projeto({ dados }) {
         </section>
 
         {/* O 3D, com a marca d'água da Suprema por cima (não atrapalha girar: pointer-events none) */}
-        <section style={{ ...cartao, padding: 8, marginBottom: 12 }}>
-          <div style={{ position: "relative", height: larga ? "min(620px, 64vh)" : "min(470px, 52vh)", borderRadius: 14, overflow: "hidden", background: "#0b0f17" }}>
+        {/* Tela cheia: este cartão cobre a tela, com as vistas e os botões embaixo (deitado, numa linha só) */}
+        <section ref={molduraRef} style={cheia
+          ? { ...cartao, position: "fixed", inset: 0, zIndex: 900, margin: 0, border: 0, borderRadius: 0, boxShadow: "none", background: FUNDO, overscrollBehavior: "contain", padding: "max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))", ...(deitado ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gridTemplateRows: "minmax(0, 1fr) auto", columnGap: 8 } : { display: "flex", flexDirection: "column" }) }
+          : { ...cartao, padding: 8, marginBottom: 12 }}>
+          <div ref={caixaRef} style={andando ? estiloPasseio(FUNDO)
+            : { position: "relative", ...(cheia ? { flex: 1, minHeight: 0, gridColumn: "1 / -1" } : { height: larga ? "min(620px, 64vh)" : "min(470px, 52vh)" }), borderRadius: 14, overflow: "hidden", background: "#0b0f17" }}>
             <canvas ref={canvasRef} role="img" aria-label={`Projeto em 3D: ${titulo || "gôndola"}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
-            <img src="/logo-suprema.png" alt="" aria-hidden="true" draggable={false} style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: larga ? "min(36%, 340px)" : "min(58%, 260px)", opacity: 0.15, pointerEvents: "none", userSelect: "none" }} />
+            {/* Marca d'água do meio some no passeio (pedido do Ale: atrapalhava a visão de quem anda); o selo do canto fica */}
+            {!andando && <img src="/logo-suprema.png" alt="" aria-hidden="true" draggable={false} style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: larga ? "min(36%, 340px)" : "min(58%, 260px)", opacity: 0.15, pointerEvents: "none", userSelect: "none" }} />}
             <div aria-hidden="true" style={{ position: "absolute", right: 12, bottom: 12, display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", backdropFilter: "blur(6px)", pointerEvents: "none" }}>
               <img src="/logo-suprema.png" alt="" style={{ width: 26, height: 26, objectFit: "contain" }} />
               <span style={{ color: AZUL, fontSize: 12, fontWeight: 700 }}>Gôndolas Suprema</span>
@@ -163,12 +176,23 @@ function Projeto({ dados }) {
             {estado3d === "carregando" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,.75)", fontSize: 14 }}>Montando o seu projeto…</div>}
             {estado3d === "erro" && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", color: "rgba(255,255,255,.85)", fontSize: 14, background: "#0b0f17" }}>Este aparelho não conseguiu abrir o 3D. As medidas do seu projeto estão logo abaixo.</div>}
             {/* No alto da cena: embaixo ela encostava no selo do canto nos celulares estreitos. */}
-            {estado3d === "ok" && !mexeu && <div style={{ position: "absolute", left: 0, right: 0, top: 12, margin: "0 auto", width: "fit-content", maxWidth: "calc(100% - 24px)", padding: "7px 14px", borderRadius: 999, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 12.5, textAlign: "center", pointerEvents: "none" }}>{toque ? "Arraste para girar · dois dedos aproximam" : "Arraste para girar"}</div>}
+            {estado3d === "ok" && !mexeu && !andando && <div style={{ position: "absolute", left: 0, right: 0, top: 12, margin: "0 auto", width: "fit-content", maxWidth: "calc(100% - 24px)", padding: "7px 14px", borderRadius: 999, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 12.5, textAlign: "center", pointerEvents: "none" }}>{toque ? "Arraste para girar · dois dedos aproximam" : "Arraste para girar"}</div>}
+            <CamadaPasseio andando={andando} toque={toque} motor={motor} focoAoSair={andarRef} />
           </div>
-          <div role="group" aria-label="Ver de" style={{ display: "grid", gridTemplateColumns: `repeat(${VISTAS.length}, 1fr)`, gap: 4, padding: 4, marginTop: 8, borderRadius: 12, background: FUNDO }}>
+          <div role="group" aria-label="Ver de" style={{ display: "grid", gridTemplateColumns: `repeat(${VISTAS.length}, 1fr)`, gap: 4, padding: 4, marginTop: 8, borderRadius: 12, background: cheia ? "#fff" : FUNDO, ...(cheia ? { border: `1px solid ${BORDA}` } : {}) }}>
             {VISTAS.map(([k, n]) => (
-              <button key={k} aria-pressed={vista === k} onClick={() => trocarVista(k)} style={{ height: toque ? 44 : 40, border: 0, borderRadius: 9, background: vista === k ? AZUL : "transparent", color: vista === k ? "#fff" : TEXTO, fontSize: 14, fontWeight: vista === k ? 700 : 500, fontFamily: FONTE, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>{n}</button>
+              <button key={k} aria-pressed={vista === k} onClick={() => trocarVista(k)} style={{ height: cheia && deitado ? 38 : toque ? 44 : 40, border: 0, borderRadius: 9, background: vista === k ? AZUL : "transparent", color: vista === k ? "#fff" : TEXTO, fontSize: 14, fontWeight: vista === k ? 700 : 500, fontFamily: FONTE, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>{n}</button>
             ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, marginTop: 8 }}>
+            <button ref={andarRef} type="button" disabled={estado3d !== "ok"} onClick={() => motor.current?.andar()} style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, border: 0, borderRadius: 12, background: AMARELO, color: TEXTO, fontSize: larga ? 15 : 14, fontWeight: 700, fontFamily: FONTE, cursor: estado3d === "ok" ? "pointer" : "default", opacity: estado3d === "ok" ? 1 : 0.5, WebkitTapHighlightColor: "transparent" }}>
+              <IconeAndar tamanho={22} />
+              Andar pelo projeto
+            </button>
+            <button type="button" disabled={estado3d !== "ok"} aria-pressed={cheia} aria-label={cheia ? "Fechar a tela cheia" : "Ver em tela cheia"} onClick={alternarCheia} style={{ height: 48, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "1px solid rgba(18,58,102,.18)", borderRadius: 12, background: "#fff", color: AZUL, fontSize: larga ? 15 : 14, fontWeight: 700, fontFamily: FONTE, whiteSpace: "nowrap", cursor: estado3d === "ok" ? "pointer" : "default", opacity: estado3d === "ok" ? 1 : 0.5, WebkitTapHighlightColor: "transparent" }}>
+              <IconeTelaCheia cheia={cheia} />
+              {cheia ? "Fechar" : "Tela cheia"}
+            </button>
           </div>
         </section>
 

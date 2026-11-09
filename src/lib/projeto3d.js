@@ -627,7 +627,7 @@ function modeloMPP(tipo) {
 }
 
 // ── Motor ────────────────────────────────────────────────────────────────────
-export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMovimento = false, config, aoMudarVista, aoInteragir, aoFalhar, aoVoltar }) {
+export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMovimento = false, config, aoMudarVista, aoMudarModo, aoInteragir, aoFalhar, aoVoltar }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
   const NITIDEZ_PARADO = Math.min(window.devicePixelRatio || 1, 2);
   let nitidezGirando = Math.min(window.devicePixelRatio || 1, compacto ? 1.25 : 1);
@@ -917,7 +917,10 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
       gondola.add(m);
       if (!fino) reflexo.add(instancia(g, k));
     }
-    const novo = { matriz, malhas, usados: 0 };
+    // Volume da peça (sem girar): no passeio vira o obstáculo de cada uma no piso
+    const caixa = new THREE.Box3();
+    for (const { g } of partes) { if (!g.boundingBox) g.computeBoundingBox(); caixa.union(g.boundingBox); }
+    const novo = { matriz, malhas, usados: 0, caixa };
     modelos.set(chave, novo);
     return novo;
   }
@@ -1122,6 +1125,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   }
 
   function voarPara(p, alvo, instantaneo) {
+    if (passeio.ativo) return; // no passeio a câmera é a pessoa andando
     if (instantaneo || semMovimento) {
       voo = null;
       camera.position.copy(p);
@@ -1147,6 +1151,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   }
 
   function irPara(vista, instantaneo) {
+    if (passeio.ativo) return;
     estado.vista = vista;
     controles.autoRotate = vista === "giro" && !semMovimento;
     const l = limites();
@@ -1282,6 +1287,11 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   };
   function atualizarRotulos() {
     rotulosNaTela = [];
+    // No passeio a pessoa está dentro da loja: número de módulo e "Vendo o lado…" não fazem sentido
+    if (passeio.ativo) {
+      [...rotulosModulo, ...rotulosMpp, ...Object.values(rotulosParede).flat(), tagLado].forEach((el) => { el.style.display = "none"; });
+      return;
+    }
     const l = limites();
     const foraDoCorredor = estado.vista !== "corredor";
     const verCentro = rotulosLigados.centro && foraDoCorredor && !!l.centro && !ehMPP();
@@ -1338,6 +1348,255 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   }
   function mostrarRotulos(v) { rotulosLigados = v; atualizarRotulos(); }
 
+  // ── Passeio: andar pelo projeto na altura dos olhos ──
+  // Quem anda é um cilindro de RAIO em volta dos olhos. Os obstáculos saem das próprias peças montadas
+  // (gôndola, ponta, parede, pilar, canto, mini porta palete), então valem para qualquer montagem.
+  const OLHO = 1.6, RAIO = 0.3, VELOCIDADE = 1.4; // m e m/s (passo normal)
+  const LENTE_ORBITA = compacto ? 42 : 34;
+  const lenteDoPasseio = () => (camera.aspect < 1 ? 74 : 58); // aberta para andar dentro (mais ainda com a tela em pé)
+  const passeio = { ativo: false, yaw: 0, pitch: 0, pos: new THREE.Vector3(), vel: new THREE.Vector2(), teclas: new Set(), joy: { x: 0, y: 0 }, destino: null, entrada: null, vistaAntes: "ponta" };
+  let obstaculos = []; // [x0, z0, x1, z1] no piso
+  function calcularObstaculos() {
+    const lista = [];
+    for (const u of unidades) {
+      const c = u.modelo.caixa;
+      if (!c || c.isEmpty()) continue;
+      const cos = Math.cos(u.rot), sin = Math.sin(u.rot);
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (const x of [c.min.x, c.max.x]) for (const z of [c.min.z, c.max.z]) {
+        const wx = u.xAlvo + cos * x + sin * z, wz = u.zAlvo - sin * x + cos * z; // o mesmo giro da matriz da peça
+        x0 = Math.min(x0, wx); x1 = Math.max(x1, wx); z0 = Math.min(z0, wz); z1 = Math.max(z1, wz);
+      }
+      lista.push([x0, z0, x1, z1]);
+    }
+    obstaculos = lista;
+  }
+  function livre(x, z) {
+    if (Math.abs(x) > SALA_X - RAIO || Math.abs(z) > SALA_Z - RAIO) return false;
+    for (const [x0, z0, x1, z1] of obstaculos) if (x > x0 - RAIO && x < x1 + RAIO && z > z0 - RAIO && z < z1 + RAIO) return false;
+    return true;
+  }
+  // Começa na entrada da loja (de onde a vista Frente olha), virado para o fundo; com gôndola de centro,
+  // no corredor ao lado dela (o mesmo da vista Corredor).
+  function inicioDoPasseio() {
+    const l = limites();
+    let z = (l.zMin + l.zMax) / 2;
+    if (l.centro) {
+      const meio = Math.floor((fileiras() - 2) / 2);
+      z = fileiras() > 1 ? (zDaFileira(meio) + zDaFileira(meio + 1)) / 2
+        : l.Le ? l.centro.z + (l.vaoInterno - l.centro.z) / 2
+        : (ehMPP() ? l.mpp.prof / 2 : FACE_Z + LINHAS[estado.linha].profBase) + 0.9;
+    }
+    const x = Math.min(l.xMax + 1.6, SALA_X - 1);
+    if (livre(x, z)) return { x, z };
+    // Não coube ali (loja enorme encostada na parede do salão): o ponto livre mais perto
+    for (let r = 0.25; r <= 12; r += 0.25) for (let a = 0; a < 16; a++) {
+      const px = x + r * Math.cos((a * Math.PI) / 8), pz = z + r * Math.sin((a * Math.PI) / 8);
+      if (livre(px, pz)) return { x: px, z: pz };
+    }
+    return { x, z };
+  }
+
+  const anelMat = (opacidade) => new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: opacidade, depthWrite: false, toneMapped: false });
+  const anelGeo = (r0, r1) => { const g = new THREE.RingGeometry(r0, r1, 48); g.rotateX(-Math.PI / 2); return g; };
+  const anel = new THREE.Mesh(anelGeo(0.2, 0.27), anelMat(0.9)); // para onde está indo
+  const cursorAnel = new THREE.Mesh(anelGeo(0.17, 0.21), anelMat(0.55)); // onde o clique levaria (só com mouse)
+  for (const a of [anel, cursorAnel]) { a.visible = false; a.renderOrder = 2; cena.add(a); }
+  const raio = new THREE.Raycaster(), ndc = new THREE.Vector2(), planoPiso = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), noPiso = new THREE.Vector3();
+  function pontoNoPiso(cx, cy) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+    raio.setFromCamera(ndc, camera);
+    if (!raio.ray.intersectPlane(planoPiso, noPiso)) return null;
+    if (noPiso.distanceTo(camera.position) > 30) return null;
+    return noPiso;
+  }
+
+  function ajustarLente() {
+    if (passeio.entrada) return; // na descida a lente abre aos poucos (atualizarPasseio)
+    camera.fov = passeio.ativo ? lenteDoPasseio() : LENTE_ORBITA;
+    camera.updateProjectionMatrix();
+  }
+
+  function andar() {
+    if (passeio.ativo) return;
+    // Termina na hora o que estiver animando: os obstáculos são as posições finais
+    for (const u of unidades) { u.xAtual = u.xAlvo; u.zAtual = u.zAlvo; u.yAtual = 0; }
+    escreverPosicoes();
+    calcularObstaculos();
+    passeio.vistaAntes = estado.vista || "ponta";
+    estado.vista = "";
+    voo = null;
+    controles.autoRotate = false;
+    controles.enabled = false;
+    passeio.ativo = true;
+    const ini = inicioDoPasseio();
+    passeio.pos.set(ini.x, OLHO, ini.z);
+    // Virado para o meio do projeto: com a tela em pé, olhar reto para o fundo deixava a gôndola fora da tela
+    const l = limites();
+    passeio.yaw = Math.atan2(ini.x - (l.xMin + l.xMax) / 2, ini.z - (l.zMin + l.zMax) / 2);
+    passeio.pitch = -0.05;
+    passeio.vel.set(0, 0);
+    passeio.destino = null;
+    // Desce da vista de fora até os olhos de quem entra na loja
+    const fim = new THREE.Quaternion().setFromEuler(new THREE.Euler(passeio.pitch, passeio.yaw, 0, "YXZ"));
+    passeio.entrada = null;
+    ajustarLente(); // sem animação, a lente já fica a do passeio
+    passeio.entrada = semMovimento ? null : { de: camera.position.clone(), qDe: camera.quaternion.clone(), qPara: fim, fovDe: LENTE_ORBITA, ini: performance.now(), dur: 1400 };
+    if (passeio.entrada) { camera.fov = passeio.entrada.fovDe; camera.updateProjectionMatrix(); }
+    canvas.style.touchAction = "none"; // no passeio, todo gesto em cima do 3D é para olhar
+    canvas.style.cursor = "grab";
+    atualizarRotulos();
+    renderer.shadowMap.needsUpdate = true;
+    aoMudarModo?.("andar");
+    pedirQuadro(3);
+  }
+
+  function sairAndar() {
+    if (!passeio.ativo) return;
+    passeio.ativo = false;
+    const noMeioDaEntrada = !!passeio.entrada; // Sair durante a descida: a câmera ainda não chegou aos olhos
+    passeio.entrada = null;
+    passeio.destino = null;
+    passeio.teclas.clear();
+    passeio.joy.x = passeio.joy.y = 0;
+    toques.clear();
+    anel.visible = cursorAnel.visible = false;
+    canvas.style.touchAction = "pan-y";
+    ajustarLente();
+    // A órbita assume com a mira 3 m à frente, na horizontal e um pouco abaixo dos olhos, e a câmera volta para a vista de antes.
+    // No meio da descida, a órbita parte de onde a câmera está (sem pulo até os olhos).
+    if (noMeioDaEntrada) controles.target.copy(camera.position).add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(3));
+    else {
+      camera.position.copy(passeio.pos);
+      controles.target.set(passeio.pos.x - Math.sin(passeio.yaw) * 3, OLHO - 0.3, passeio.pos.z - Math.cos(passeio.yaw) * 3);
+    }
+    controles.enabled = true;
+    controles.update();
+    irPara(passeio.vistaAntes);
+    aoMudarVista?.(passeio.vistaAntes);
+    atualizarRotulos();
+    aoMudarModo?.("orbita");
+  }
+
+  // Controle de andar do celular: x para o lado, y para frente (negativo) e para trás, de -1 a 1
+  function joystick(x, y) {
+    passeio.joy.x = THREE.MathUtils.clamp(x, -1, 1);
+    passeio.joy.y = THREE.MathUtils.clamp(y, -1, 1);
+    if (x || y) passeio.destino = null;
+    pedirQuadro(2);
+  }
+
+  function atualizarPasseio(agora, dt) {
+    const p = passeio, t = p.teclas;
+    if (p.entrada) {
+      const k = Math.min((agora - p.entrada.ini) / p.entrada.dur, 1);
+      const e = k * k * (3 - 2 * k);
+      camera.position.lerpVectors(p.entrada.de, p.pos, e);
+      camera.quaternion.slerpQuaternions(p.entrada.qDe, p.entrada.qPara, e);
+      camera.fov = p.entrada.fovDe + (lenteDoPasseio() - p.entrada.fovDe) * e;
+      camera.updateProjectionMatrix();
+      if (k >= 1) p.entrada = null;
+      pedirQuadro(2);
+      return;
+    }
+    const frente = (t.has("KeyW") || t.has("ArrowUp") ? 1 : 0) - (t.has("KeyS") || t.has("ArrowDown") ? 1 : 0) - p.joy.y;
+    const lado = (t.has("KeyD") ? 1 : 0) - (t.has("KeyA") ? 1 : 0) + p.joy.x;
+    const giro = (t.has("ArrowLeft") || t.has("KeyQ") ? 1 : 0) - (t.has("ArrowRight") || t.has("KeyE") ? 1 : 0);
+    const passo = VELOCIDADE * (t.has("ShiftLeft") || t.has("ShiftRight") ? 2 : 1);
+    p.yaw += giro * 1.7 * dt;
+    const sy = Math.sin(p.yaw), cy = Math.cos(p.yaw);
+    let vx = 0, vz = 0;
+    if (frente || lado) {
+      p.destino = null;
+      anel.visible = false;
+      const forca = Math.min(1, Math.hypot(frente, lado));
+      const dx = -sy * frente + cy * lado, dz = -cy * frente - sy * lado, n = Math.hypot(dx, dz) || 1;
+      vx = (dx / n) * forca * passo;
+      vz = (dz / n) * forca * passo;
+    } else if (p.destino) {
+      const dx = p.destino.x - p.pos.x, dz = p.destino.z - p.pos.z, d = Math.hypot(dx, dz);
+      if (d < 0.06) { p.destino = null; anel.visible = false; }
+      else {
+        const v = Math.min(passo * 1.3, d * 2.4); // freia ao chegar
+        vx = (dx / d) * v;
+        vz = (dz / d) * v;
+        // Vira aos poucos para onde está andando
+        const dif = Math.atan2(Math.sin(Math.atan2(-dx, -dz) - p.yaw), Math.cos(Math.atan2(-dx, -dz) - p.yaw));
+        if (d > 0.5) p.yaw += dif * Math.min(1, dt * 2.2);
+      }
+    }
+    p.vel.x = THREE.MathUtils.damp(p.vel.x, vx, 9, dt);
+    p.vel.y = THREE.MathUtils.damp(p.vel.y, vz, 9, dt);
+    if (!vx && Math.abs(p.vel.x) < 0.002) p.vel.x = 0;
+    if (!vz && Math.abs(p.vel.y) < 0.002) p.vel.y = 0;
+    // Anda um eixo de cada vez: encostou numa gôndola, desliza junto dela em vez de parar
+    const nx = p.pos.x + p.vel.x * dt, nz = p.pos.z + p.vel.y * dt;
+    let bateu = false;
+    if (nx !== p.pos.x) { if (livre(nx, p.pos.z)) p.pos.x = nx; else { p.vel.x = 0; bateu = true; } }
+    if (nz !== p.pos.z) { if (livre(p.pos.x, nz)) p.pos.z = nz; else { p.vel.y = 0; bateu = true; } }
+    if (bateu && p.destino && Math.hypot(p.vel.x, p.vel.y) < 0.05) { p.destino = null; anel.visible = false; }
+    camera.position.copy(p.pos);
+    camera.rotation.set(p.pitch, p.yaw, 0, "YXZ");
+    if (p.vel.x || p.vel.y || giro) pedirQuadro(2);
+  }
+
+  // Olhar em volta arrastando (mouse ou um dedo) e clique/toque no chão para ir até lá
+  const toques = new Map();
+  const aoBaixarPasseio = (e) => {
+    if (!passeio.ativo || (e.pointerType === "mouse" && e.button !== 0)) return; // botão direito ou do meio: nada
+    try { canvas.setPointerCapture(e.pointerId); } catch {}
+    toques.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
+    cursorAnel.visible = false;
+  };
+  const aoMoverPasseio = (e) => {
+    if (!passeio.ativo) return;
+    const t = toques.get(e.pointerId);
+    if (!t) {
+      if (e.pointerType !== "mouse" || passeio.entrada) return;
+      const ponto = pontoNoPiso(e.clientX, e.clientY);
+      const ver = !!ponto && livre(ponto.x, ponto.z);
+      if (ver) cursorAnel.position.set(ponto.x, 0.012, ponto.z);
+      if (ver || cursorAnel.visible) { cursorAnel.visible = ver; pedirQuadro(1); }
+      return;
+    }
+    const dx = e.clientX - t.x, dy = e.clientY - t.y;
+    t.x = e.clientX; t.y = e.clientY;
+    if (passeio.entrada || toques.keys().next().value !== e.pointerId) return; // com dois dedos, só o primeiro olha
+    const k = e.pointerType === "mouse" ? 0.0038 : 0.0055;
+    // O olhar acompanha o arraste: para a direita vira para a direita, para cima olha para cima
+    passeio.yaw -= dx * k;
+    passeio.pitch = THREE.MathUtils.clamp(passeio.pitch - dy * k, -1.25, 1.25);
+    pedirQuadro(2);
+  };
+  const aoSoltarPasseio = (e) => {
+    const t = toques.get(e.pointerId);
+    toques.delete(e.pointerId);
+    if (!passeio.ativo || !t || e.type === "pointercancel" || passeio.entrada) return;
+    if (Math.hypot(e.clientX - t.x0, e.clientY - t.y0) > 8 || performance.now() - t.t0 > 500) return;
+    const ponto = pontoNoPiso(e.clientX, e.clientY);
+    if (!ponto || !livre(ponto.x, ponto.z)) return; // em cima de gôndola ou rente a ela: não há onde ficar
+    passeio.destino = ponto.clone().setY(OLHO);
+    anel.position.set(ponto.x, 0.012, ponto.z);
+    anel.visible = true;
+    cursorAnel.visible = false;
+    pedirQuadro(2);
+  };
+  const aoSairPasseio = () => { if (cursorAnel.visible) { cursorAnel.visible = false; pedirQuadro(1); } };
+  const TECLAS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"]);
+  const aoTecla = (e) => {
+    if (!passeio.ativo) return;
+    if (e.code === "Escape" && e.type === "keydown") { sairAndar(); return; }
+    if (!TECLAS.has(e.code)) return;
+    if (e.type === "keyup") { passeio.teclas.delete(e.code); pedirQuadro(2); return; } // soltar sempre vale
+    // Cmd/Ctrl/Alt: é atalho do navegador; e no Mac o keyup das outras teclas nem chega, então para tudo
+    if (e.metaKey || e.ctrlKey || e.altKey) { passeio.teclas.clear(); return; }
+    e.preventDefault();
+    passeio.teclas.add(e.code);
+    pedirQuadro(2);
+  };
+  const aoPerderFoco = () => { passeio.teclas.clear(); };
+
   // ── Pós-processamento ──
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: compacto ? 2 : 4 }));
   composer.addPass(new RenderPass(cena, camera));
@@ -1382,8 +1641,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     W = novoW; H_TELA = novoH;
     definirNitidez(renderer.getPixelRatio());
     camera.aspect = W / H_TELA;
-    camera.updateProjectionMatrix();
-    if (estado.vista) irPara(estado.vista, !iniciado);
+    ajustarLente();
+    if (!passeio.ativo && estado.vista) irPara(estado.vista, !iniciado);
     pedirQuadro(4);
   }
 
@@ -1434,7 +1693,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     }
     if (mexeu) { escreverPosicoes(); pedirQuadro(2); renderer.shadowMap.needsUpdate = true; }
 
-    controles.update();
+    if (passeio.ativo) atualizarPasseio(agora, dt);
+    else controles.update();
     // Acima do forro ele some: dá para ver a loja inteira de cima.
     const acimaDoForro = camera.position.y > peDireito() - 0.05;
     if (teto[0].visible === acimaDoForro) teto.forEach((o) => { o.visible = !acimaDoForro; });
@@ -1474,11 +1734,11 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     // A folga é proporcional à distância: 1 px de tremida num clique já move a câmera alguns centímetros.
     if (baixo && aoTocar && aoTocar.pos.distanceTo(camera.position) > 0.01 * aoTocar.pos.distanceTo(aoTocar.alvo)) soltarVista();
   };
-  const aoRodar = () => { if (controles.enableZoom) soltarVista(); };
-  const aoBaixar = () => { baixo = true; controles.enableZoom = true; canvas.style.cursor = "grabbing"; };
+  const aoRodar = () => { if (controles.enableZoom && !passeio.ativo) soltarVista(); };
+  const aoBaixar = () => { if (passeio.ativo) return; baixo = true; controles.enableZoom = true; canvas.style.cursor = "grabbing"; };
   const aoSoltar = () => {
     canvas.style.cursor = "grab";
-    if (baixo) { aoInteragir?.(); estado.ladoCamera = camera.position.z >= controles.target.z ? 1 : -1; }
+    if (baixo && !passeio.ativo) { aoInteragir?.(); estado.ladoCamera = camera.position.z >= controles.target.z ? 1 : -1; }
     baixo = false;
     aoTocar = null;
   };
@@ -1486,7 +1746,7 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   // O navegador assumiu o gesto para rolar a página: nada disso foi giro, volta tudo como estava.
   const aoCancelar = () => {
     baixo = false;
-    if (!aoTocar) return;
+    if (!aoTocar || passeio.ativo) return;
     controles.enableDamping = false;
     controles.update();
     controles.enableDamping = !semMovimento;
@@ -1505,6 +1765,14 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
   canvas.addEventListener("pointerleave", aoSair);
   canvas.addEventListener("wheel", aoRodar, { passive: true });
   canvas.style.cursor = "grab";
+  canvas.addEventListener("pointerdown", aoBaixarPasseio);
+  canvas.addEventListener("pointermove", aoMoverPasseio);
+  canvas.addEventListener("pointerup", aoSoltarPasseio);
+  canvas.addEventListener("pointercancel", aoSoltarPasseio);
+  canvas.addEventListener("pointerleave", aoSairPasseio);
+  window.addEventListener("keydown", aoTecla);
+  window.addEventListener("keyup", aoTecla);
+  window.addEventListener("blur", aoPerderFoco);
 
   // O aparelho pode derrubar o WebGL (voltar de segundo plano, pouca memória); o preventDefault deixa a cena voltar.
   const aoPerderContexto = (ev) => { ev.preventDefault(); aoFalhar?.(); };
@@ -1549,7 +1817,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     aplicarCorMpp();
     montar();
     if (mudouParedes) acertarLado();
-    if (mudouTamanho) { if (estado.vista) irPara(estado.vista); else reenquadrar(); }
+    if (passeio.ativo) calcularObstaculos(); // a câmera fica com a pessoa; só os obstáculos mudam
+    else if (mudouTamanho) { if (estado.vista) irPara(estado.vista); else reenquadrar(); }
     atualizarRotulos();
   }
 
@@ -1622,6 +1891,8 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
 
   function destruir() {
     vivo = false;
+    // Motor recriado ("Tentar de novo") ou desmontado no meio do passeio: a tela não pode ficar presa no modo passeio
+    if (passeio.ativo) { passeio.ativo = false; aoMudarModo?.("orbita"); }
     if (idLaco) cancelAnimationFrame(idLaco);
     obsTamanho.disconnect();
     obsVisivel.disconnect();
@@ -1632,6 +1903,14 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     canvas.removeEventListener("pointercancel", aoCancelar);
     canvas.removeEventListener("pointerleave", aoSair);
     canvas.removeEventListener("wheel", aoRodar);
+    canvas.removeEventListener("pointerdown", aoBaixarPasseio);
+    canvas.removeEventListener("pointermove", aoMoverPasseio);
+    canvas.removeEventListener("pointerup", aoSoltarPasseio);
+    canvas.removeEventListener("pointercancel", aoSoltarPasseio);
+    canvas.removeEventListener("pointerleave", aoSairPasseio);
+    window.removeEventListener("keydown", aoTecla);
+    window.removeEventListener("keyup", aoTecla);
+    window.removeEventListener("blur", aoPerderFoco);
     canvas.removeEventListener("webglcontextlost", aoPerderContexto);
     canvas.removeEventListener("webglcontextrestored", aoRecuperarContexto);
     controles.dispose();
@@ -1656,5 +1935,5 @@ export function criarProjeto3D({ canvas, camadaRotulos, compacto = false, semMov
     renderer.forceContextLoss?.();
   }
 
-  return { configurar, irPara, verLado, verParede, mostrarRotulos, gerarImagem, destruir };
+  return { configurar, irPara, verLado, verParede, mostrarRotulos, gerarImagem, andar, sairAndar, joystick, destruir };
 }

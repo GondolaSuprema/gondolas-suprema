@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { sharePDFWhatsApp, generatePDF } from "../lib/pdf";
 import { supabase } from "../lib/supabase";
+import { usePasseio3D, estiloPasseio, CamadaPasseio, IconeAndar, IconeTelaCheia } from "./Passeio3D";
 import { LINHAS, ALTURAS, ALTURAS_PAREDE, TIPOS_FACE, LADOS_PAREDE, MAX_MODULOS, MAX_MODULOS_PAREDE, MAX_PAREDES_LADO, MAX_MODULOS_LADO, MAX_FILAS, MAX_CORREDORES_FILA, CORES_GONDOLA, CORES_ETIQUETA, medidasDe, nomeModuloParede, MPP_LINHAS, MPP_CORES, ajustarMPP, mppValido, MIN_NIVEIS_MPP, MAX_NIVEIS_MPP, MAX_MODULOS_MPP, MAX_FILAS_MPP, MAX_MODULOS_PAREDE_MPP, MAX_MODULOS_LADO_MPP, MPP_MONTAGENS, paredesMppValidas, medidasMPP } from "../lib/projetoMedidas";
 
 // Chamadas às rotas /api protegidas (NF-e, NFS-e, conciliação): envia o token
@@ -12840,6 +12841,9 @@ function ProjetoPage({ user }) {
   const canvasRef = useRef(null);
   const rotulosRef = useRef(null);
   const motor = useRef(null);
+  // Andar pelo projeto e tela cheia (iguais aos do link do cliente)
+  const caixa3dRef = useRef(null), coluna3dRef = useRef(null), andarRef = useRef(null);
+  const { andando, cheia, aoMudarModo, alternarCheia } = usePasseio3D({ motor, caixaRef: caixa3dRef, molduraRef: coluna3dRef });
   const [inicial] = useState(projetoGuardado);
   const [estado, setEstado] = useState("carregando"); // carregando | ok | erro
   const [tentativa, setTentativa] = useState(0);
@@ -12914,6 +12918,7 @@ function ProjetoPage({ user }) {
         semMovimento: p3dSemMovimento(),
         config: atual.current,
         aoMudarVista: setVista,
+        aoMudarModo,
         aoInteragir: () => setMexeu(true),
         // O iPhone derruba e devolve o WebGL ao voltar de segundo plano: só avisa se ele não voltar logo.
         aoFalhar: () => { timerFalha.current = setTimeout(() => setEstado("erro"), 2500); },
@@ -13419,8 +13424,12 @@ function ProjetoPage({ user }) {
       {!deitado && seletorProduto}
       {/* O painel rola por dentro e o 3D fica parado à vista: quem troca uma opção vê a mudança na hora. */}
       <div style={umaColuna ? undefined : { display: "grid", gridTemplateColumns: `minmax(0, 1fr) ${deitado ? 340 : 380}px`, gap: deitado ? 10 : 14, alignItems: "start" }}>
-        <div style={{ minWidth: 0, marginBottom: umaColuna ? 10 : 0 }}>
-          <div style={{ position: "relative", height: umaColuna ? altura3D : `calc(${alturaColunas} - 58px)`, borderRadius: 14, overflow: "hidden", background: "#000", border: `1px solid ${COLORS.border}` }}>
+        {/* Tela cheia: o 3D com as vistas cobre a tela. Passeio: só o 3D, por cima de tudo. */}
+        <div ref={coluna3dRef} style={cheia
+          ? { position: "fixed", inset: 0, zIndex: 900, display: "flex", flexDirection: "column", background: COLORS.bg, overscrollBehavior: "contain", padding: "max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))" }
+          : { minWidth: 0, marginBottom: umaColuna ? 10 : 0 }}>
+          <div ref={caixa3dRef} style={andando ? estiloPasseio(COLORS.bg)
+            : { position: "relative", ...(cheia ? { flex: 1, minHeight: 0 } : { height: umaColuna ? altura3D : `calc(${alturaColunas} - 58px)` }), borderRadius: 14, overflow: "hidden", background: "#000", border: `1px solid ${COLORS.border}` }}>
             {/* key: "Tentar de novo" precisa de canvas novo; o contexto WebGL do antigo já foi derrubado. */}
             <canvas key={tentativa} ref={canvasRef} role="img" aria-label={produto === "mpp" ? `Projeto em 3D: mini porta palete${mpp.linha === "preta" ? "" : ` ${MPP_CORES[mpp.cor].toLowerCase()}`}${comCentroMpp ? `, ${mpp.filas} ${mpp.filas === 1 ? "fila" : "filas"} com ${medidasM.modulos.toLowerCase()} de ${mpp.niveis} níveis, ${linhaMpp.pesos[mpp.peso]} por nível, comprimento ${medidasM.comprimento}, ${medidasM.rotuloLargura.toLowerCase()} ${medidasM.largura}, altura ${medidasM.altura}` : ` de parede, ${mpp.niveis} níveis, ${linhaMpp.pesos[mpp.peso]} por nível, altura ${medidasM.altura}`}${algumaParedeMpp ? `; parede esquerda ${somaLadoMpp("esq")}, direita ${somaLadoMpp("dir")} e fundo ${somaLadoMpp("fundo")} módulos, espaço ocupado ${medidasM.ocupado}` : ""}` : `Projeto em 3D: ${comCentro ? `${filas.length} ${filas.length === 1 ? "fila" : "filas"} com ${medidas.corredores} ${medidas.corredores === 1 ? "corredor" : "corredores"} de ${modulos} módulos e ${pontas} pontas, comprimento ${medidas.comprimentoTotal || medidas.comprimento}, largura ${medidas.largura}, altura ${medidas.altura}` : "sem gôndola de centro"}${algumaParede ? `; parede esquerda ${paredes.esq.join(" e ") || 0}, direita ${paredes.dir.join(" e ") || 0} e fundo ${paredes.fundo.join(" e ") || 0} módulos, altura ${medidas.alturaParede}` : ""}; com ${nomesDe(emUso)}; cor ${CORES_GONDOLA[cor].toLowerCase()} e porta-etiqueta ${CORES_ETIQUETA[etiqueta].toLowerCase()}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} />
             <div ref={rotulosRef} aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }} />
@@ -13431,7 +13440,21 @@ function ProjetoPage({ user }) {
                 <button onClick={tentarDeNovo} style={{ height: 42, padding: "0 18px", border: 0, borderRadius: 10, background: COLORS.orange, color: "#000", fontSize: 13, fontWeight: 700, fontFamily: fonte, cursor: "pointer" }}>Tentar de novo</button>
               </div>
             )}
-            {estado === "ok" && !mexeu && <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, margin: "0 auto", width: "fit-content", maxWidth: "92%", textAlign: "center", padding: "6px 12px", borderRadius: 20, background: "rgba(0,0,0,.66)", color: COLORS.text, fontSize: 11.5, fontFamily: fonte, pointerEvents: "none" }}>{toque ? "Arraste de lado para girar · dois dedos: zoom" : "Arraste para girar · clique e use a rodinha para aproximar"}</div>}
+            {estado === "ok" && !mexeu && !andando && <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, margin: "0 auto", width: "fit-content", maxWidth: "92%", textAlign: "center", padding: "6px 12px", borderRadius: 20, background: "rgba(0,0,0,.66)", color: COLORS.text, fontSize: 11.5, fontFamily: fonte, pointerEvents: "none" }}>{toque ? "Arraste de lado para girar · dois dedos: zoom" : "Arraste para girar · clique e use a rodinha para aproximar"}</div>}
+            {/* Andar pelo projeto e tela cheia: no canto de cima, sem mudar a altura do 3D na tela */}
+            {estado === "ok" && !andando && (
+              <div style={{ position: "absolute", top: 10, right: 10, zIndex: 2, display: "flex", gap: 6 }}>
+                <button ref={andarRef} type="button" onClick={() => motor.current?.andar()} style={{ height: tocavel ? 38 : 34, padding: "0 13px 0 10px", display: "flex", alignItems: "center", gap: 6, border: 0, borderRadius: 999, background: COLORS.orange, color: "#000", fontSize: 12.5, fontWeight: 700, fontFamily: fonte, boxShadow: "0 2px 10px rgba(0,0,0,.45)", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+                  <IconeAndar tamanho={18} />
+                  {isMobile ? "Andar" : "Andar pelo projeto"}
+                </button>
+                <button type="button" aria-pressed={cheia} aria-label={cheia ? "Fechar a tela cheia" : "Ver em tela cheia"} title={cheia ? "Fechar a tela cheia" : "Ver em tela cheia"} onClick={alternarCheia} style={{ height: tocavel ? 38 : 34, minWidth: tocavel ? 38 : 34, padding: isMobile ? 0 : "0 12px 0 10px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, border: "1px solid rgba(255,255,255,.22)", borderRadius: 999, background: "rgba(0,0,0,.66)", color: "#fff", fontSize: 12.5, fontWeight: 700, fontFamily: fonte, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+                  <IconeTelaCheia cheia={cheia} tamanho={18} />
+                  {!isMobile && (cheia ? "Fechar" : "Tela cheia")}
+                </button>
+              </div>
+            )}
+            <CamadaPasseio andando={andando} toque={toque} motor={motor} focoAoSair={andarRef} />
           </div>
           <div role="group" aria-label="Ver de" style={{ ...caixaOpcoes, gridAutoColumns: "auto", marginTop: 8, background: COLORS.surface }}>
             {PROJETO_VISTAS.map(v => <button key={v.key} aria-pressed={vista === v.key} onClick={() => trocarVista(v.key)} style={{ ...opcao(vista === v.key), height: 38, fontSize: isMobile ? 12.5 : 13 }}>{v.nome}</button>)}
