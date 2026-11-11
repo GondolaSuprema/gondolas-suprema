@@ -3735,11 +3735,16 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
       };
     });
 
+    // Só limpa o carrinho e sai da tela se o banco confirmou a gravação.
+    // Antes, se falhava, os itens sumiam e parecia salvo.
+    let gravou = false;
+    let motivoFalha = "";
     try {
       if (editingOrderId) {
         // Fetch existing order, append items
-        const { data: existing } = await supabase.from("orcamentos").select("*").eq("id", editingOrderId).single();
-        if (existing) {
+        const { data: existing, error: erroLer } = await supabase.from("orcamentos").select("*").eq("id", editingOrderId).single();
+        if (erroLer || !existing) throw new Error("não achei o orçamento salvo");
+        {
           const updatedItems = [...(existing.items || []), ...newItems];
           const descAtual = Number(existing.desconto) || 0;
           // Recupera markup% original: pct = comissao / (subtotalAntigo - desconto)
@@ -3752,19 +3757,21 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           const novaComissao = novaBase * pctMarkup;
           const novoFrete = (Number(existing.frete) || 0) + (Number(frete) || 0);
           const updatedTotal = novaBase + novaComissao + novoFrete;
-          await supabase.from("orcamentos").update({
+          const { data: atualizou, error: erroAtualizar } = await supabase.from("orcamentos").update({
             items: updatedItems,
             total: updatedTotal,
             frete: novoFrete,
             comissao: novaComissao,
             data: new Date().toISOString(),
             notes: notes ? (existing.notes ? existing.notes + "\n" + notes : notes) : existing.notes,
-          }).eq("id", editingOrderId);
+          }).eq("id", editingOrderId).select("id");
+          if (erroAtualizar) throw erroAtualizar;
+          if (!atualizou || atualizou.length === 0) throw new Error("o banco não confirmou a gravação");
         }
         setEditingOrderId(null);
       } else {
         const novoId = genId();
-        await supabase.from("orcamentos").insert({
+        const { error: erroInserir } = await supabase.from("orcamentos").insert({
           id: novoId,
           vendedor_id: user.id,
           vendedor_nome: user.name,
@@ -3788,6 +3795,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           notes,
           status: "Aguardando Retorno",
         });
+        if (erroInserir) throw erroInserir;
 
         // Ponte CAPI (Fase 1 - coleta): manda o Lead pro Meta assim que o orcamento nasce.
         // So o telefone -- e o unico dado 100% real nessa fase (email/nome so
@@ -3806,8 +3814,13 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
           }).catch(() => {});
         } catch (e) {}
       }
-    } catch (e) { console.error("Erro ao salvar:", e); }
+      gravou = true;
+    } catch (e) { console.error("Erro ao salvar:", e); motivoFalha = e?.message || ""; }
     setSaving(false);
+    if (!gravou) {
+      notify("Não consegui salvar o orçamento" + (motivoFalha ? " (" + motivoFalha + ")" : "") + ". Os itens continuam aqui: confira a internet e tente de novo.", "erro");
+      return;
+    }
     setItems([]);
     setMarkup(0);
     setFrete(0);
@@ -4313,23 +4326,39 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     if (!anotacoesModal) return;
     setSavingAnotacoes(true);
     const { orderId, texto } = anotacoesModal;
-    await supabase.from("orcamentos").update({ anotacoes: texto || null }).eq("id", orderId);
+    const { data: gravou, error } = await supabase.from("orcamentos").update({ anotacoes: texto || null }).eq("id", orderId).select("id");
+    if (error || !gravou || gravou.length === 0) {
+      setSavingAnotacoes(false);
+      notify("Não consegui salvar a anotação. O texto continua aberto: tente de novo.", "erro");
+      return;
+    }
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, anotacoes: texto || "" } : o));
     setSavingAnotacoes(false);
     setAnotacoesModal(null);
   };
 
   const deleteOrder = async (orderId) => {
-    await supabase.from("orcamentos").delete().eq("id", orderId);
+    const { data: apagou, error } = await supabase.from("orcamentos").delete().eq("id", orderId).select("id");
+    if (error || !apagou || apagou.length === 0) {
+      setConfirmDel(null);
+      notify("Não consegui excluir o orçamento. Ele continua salvo.", "erro");
+      return;
+    }
     setOrders(orders.filter(o => o.id !== orderId));
     if (expanded === orderId) setExpanded(null);
     setConfirmDel(null);
   };
 
   const updateTemperatura = async (orderId, temp) => {
-    // atualização otimista
+    // atualização otimista; se o banco não gravar, volta ao valor anterior
+    const anterior = orders.find(o => o.id === orderId)?.temperatura ?? null;
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, temperatura: temp } : o));
-    await supabase.from("orcamentos").update({ temperatura: temp }).eq("id", orderId);
+    const { data: gravou, error } = await supabase.from("orcamentos").update({ temperatura: temp }).eq("id", orderId).select("id");
+    if (error || !gravou || gravou.length === 0) {
+      // só desfaz se ninguém trocou de novo enquanto gravava
+      setOrders(prev => prev.map(o => o.id === orderId && o.temperatura === temp ? { ...o, temperatura: anterior } : o));
+      notify("Não consegui salvar a temperatura do orçamento.", "erro");
+    }
   };
 
   // oAtual: orcamento recem-salvo pelo editor (o state `orders` ainda nao reflete o setOrders).
@@ -4431,7 +4460,11 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       return;
     }
     // "Fazer Pedido" = cliente fechou → carimba quando (mês da venda na aba Leads › Vendas)
-    await supabase.from("orcamentos").update(newStatus === "Fazer Pedido" ? { status: newStatus, fechado_em: new Date().toISOString() } : { status: newStatus }).eq("id", orderId);
+    const { data: gravou, error } = await supabase.from("orcamentos").update(newStatus === "Fazer Pedido" ? { status: newStatus, fechado_em: new Date().toISOString() } : { status: newStatus }).eq("id", orderId).select("id");
+    if (error || !gravou || gravou.length === 0) {
+      notify("Não consegui mudar a etapa do orçamento. Tente de novo.", "erro");
+      return;
+    }
     setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
   };
 
@@ -5606,8 +5639,16 @@ function LogisticaPage({ user }) {
     .sort((a, b) => a.dataEntrega.localeCompare(b.dataEntrega))[0];
   const valorTotal = filtered.reduce((s, o) => s + (o.total || 0), 0);
 
+  // As 3 gravações abaixo só mudam a tela se o banco confirmou (antes, se falhava, parecia salvo).
+  const gravouEntrega = async (id, campos) => {
+    const { data, error } = await supabase.from("orcamentos").update(campos).eq("id", id).select("id");
+    return !error && !!data && data.length > 0;
+  };
   const updateStatus = async (id, novoStatus) => {
-    await supabase.from("orcamentos").update({ status_entrega: novoStatus }).eq("id", id);
+    if (!(await gravouEntrega(id, { status_entrega: novoStatus }))) {
+      notify("Não consegui mudar o status da entrega. Tente de novo.", "erro");
+      return;
+    }
     setAllEntregas(prev => prev.map(o => o.id === id ? { ...o, statusEntrega: novoStatus } : o));
   };
   const updateData = async (id, novaData) => {
@@ -5617,7 +5658,10 @@ function LogisticaPage({ user }) {
       notify("Data de entrega inválida — confira o ano (deve ser entre 2020 e 2035).", "erro");
       return;
     }
-    await supabase.from("orcamentos").update({ data_entrega: novaData || null }).eq("id", id);
+    if (!(await gravouEntrega(id, { data_entrega: novaData || null }))) {
+      notify("Não consegui mudar a data da entrega. Tente de novo.", "erro");
+      return;
+    }
     setAllEntregas(prev => prev.map(o => o.id === id ? { ...o, dataEntrega: novaData } : o));
   };
   // Remove a entrega APENAS da Logística — não apaga o orçamento.
@@ -5626,10 +5670,11 @@ function LogisticaPage({ user }) {
   // por "data_entrega IS NOT NULL", então setar null é o suficiente pra
   // sumir daqui.
   const excluirOrcamentoLog = async (id) => {
-    await supabase.from("orcamentos").update({
-      data_entrega: null,
-      status_entrega: null,
-    }).eq("id", id);
+    if (!(await gravouEntrega(id, { data_entrega: null, status_entrega: null }))) {
+      setConfirmDelLog(null);
+      notify("Não consegui tirar a entrega da lista. Ela continua aqui.", "erro");
+      return;
+    }
     setAllEntregas(prev => prev.filter(o => o.id !== id));
     setConfirmDelLog(null);
   };
