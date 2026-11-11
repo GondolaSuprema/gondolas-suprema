@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 
 import crypto from "crypto";
+import { requireUser, naoAutorizado } from "../../../lib/requireUser";
 
 // Ponte CAPI - Fase 1 (coleta)
 // Dispara eventos pro Meta: Lead quando um orcamento e criado, Purchase quando vira "Concluido".
@@ -46,6 +47,10 @@ function normalizarCnpj(cnpj) {
 }
 
 export async function POST(request) {
+  // Só o sistema (logado) manda eventos: sem isso qualquer um na internet podia
+  // mandar "compras" falsas para o pixel e bagunçar o aprendizado do Meta.
+  const usuario = await requireUser(request);
+  if (!usuario) return naoAutorizado();
   try {
     const body = await request.json();
     const { id, telefone, valor, email, nome, cidade, estado, cep, cnpj, evento: eventoNome } = body;

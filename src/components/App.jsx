@@ -14,6 +14,23 @@ async function apiFetch(url, opts = {}) {
   return fetch(url, { ...opts, headers });
 }
 
+// O Supabase devolve no máximo 1000 linhas por consulta e corta o resto EM SILÊNCIO.
+// Esta função busca em blocos de 1000 até acabar, para nenhuma tela perder linhas quando
+// a tabela crescer. `montar` devolve a consulta já com filtros e ordem (sempre com um
+// desempate único, ex.: .order("id"), para os blocos não repetirem nem pularem linhas);
+// aqui só entra o .range(). Erro em qualquer bloco → { data: null, error }, igual a uma
+// consulta comum, então quem chama continua tratando do mesmo jeito.
+async function buscarTodasLinhas(montar) {
+  const tudo = [];
+  for (let i = 0; i < 200; i++) {
+    const { data, error } = await montar().range(i * 1000, i * 1000 + 999);
+    if (error) return { data: null, error };
+    tudo.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return { data: tudo, error: null };
+}
+
 
 const COLORS = {
   bg: "#000000",
@@ -2057,6 +2074,14 @@ function agendaHojeStr() {
   const off = d.getTimezoneOffset() * 60000;
   return new Date(d.getTime() - off).toISOString().slice(0, 10);
 }
+// Dia local (YYYY-MM-DD) de um instante gravado em UTC (ex.: feita_em). Sem isso, tarefa
+// concluída depois das 21h (horário de Brasília) contava como de amanhã.
+function agendaDiaLocal(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 10);
+}
 function agendaAddDias(iso, n) {
   const d = new Date(iso + "T12:00:00");
   d.setDate(d.getDate() + n);
@@ -2245,11 +2270,11 @@ function ClientPage({ user, clientData, setClientData, setPage }) {
   const [inputsReady, setInputsReady] = useState(false);
   // Leads da Mariana p/ conferir o celular: o orçamento só aparece ligado ao lead (aba Leads)
   // se os últimos 8 dígitos baterem — vale com ou sem o botão "Fazer orçamento".
-  // Só p/ quem tem a aba Leads (João, p.ex., faz orçamento mas não vê leads).
+  // Só p/ quem tem a aba Leads.
   const [leadsFone, setLeadsFone] = useState([]);
   useEffect(() => {
     if (!canAccess(user, "leads")) return;
-    supabase.from("mariana_leads").select("id, nome, telefone, consultor, criado_em").order("criado_em", { ascending: false })
+    buscarTodasLinhas(() => supabase.from("mariana_leads").select("id, nome, telefone, consultor, criado_em").order("criado_em", { ascending: false }).order("id"))
       .then(({ data }) => setLeadsFone(data || []));
   }, []);
 
@@ -2547,7 +2572,6 @@ const VENDEDORES = [
   { id: "v1", name: "Alessandro Thonsen",   email: "ale.thonsen@gmail.com",            isAdmin: true  },
   { id: "v2", name: "Adelmo Martinello",    email: "adelmo_ade@yahoo.com.br",          isAdmin: false },
   { id: "v3", name: "Willian Zanella",      email: "comercial@gondolasuprema.com",     isAdmin: true  },
-  { id: "v4", name: "João Marcos Martins",  email: "joaomarcosmartinsmot@gmail.com",   isAdmin: false },
 ];
 
 // ─── PERMISSOES POR ROLE ───
@@ -2565,8 +2589,7 @@ const ROLE_PERMISSIONS = {
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
   vendedor:        ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "fotos"],
-  // vendedor_basico (Joao) so o operacional + suas proprias comissoes + logistica
-  // (Joao tambem é montador/motorista, precisa ver a agenda de entregas)
+  // vendedor_basico (sem usuário hoje) so o operacional + suas proprias comissoes + logistica
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes", "fotos"],
   // contabilidade (Nexx) — Financeiro (leitura, via somenteLeitura), NF (visualiza;
   // emitir/cancelar segue restrito a admin/gestor via podeEmitir) + Conciliação
@@ -2618,7 +2641,7 @@ function getRegiao(cidade, uf) {
 }
 
 // canEditLogistica(user) => admin (Ale), gestor (Zanella) e vendedor_basico
-// (Joao — motorista/montador) podem editar entregas. Vendedor (Adelmo)
+// podem editar entregas. Vendedor (Adelmo)
 // continua só com leitura.
 function canEditLogistica(user) {
   if (!user) return false;
@@ -3771,7 +3794,7 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
         // ficam validados depois do orcamento virar "Concluido").
         // Fire-and-forget: nunca trava nem quebra o fluxo de salvar o orcamento.
         try {
-          fetch("/api/meta-capi", {
+          apiFetch("/api/meta-capi", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -4272,7 +4295,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
 
   useEffect(() => {
     const loadOrders = async () => {
-      const { data } = await supabase.from("orcamentos").select("*").eq("vendedor_id", user.id).order("data", { ascending: false });
+      const { data } = await buscarTodasLinhas(() => supabase.from("orcamentos").select("*").eq("vendedor_id", user.id).order("data", { ascending: false }).order("id"));
       if (data) {
         setOrders(data.map(o => ({
           id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, anotacoes: o.anotacoes || "", status: o.status, items: o.items, vendedor: o.vendedor_nome,
@@ -4395,6 +4418,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   const sc = { "Aguardando Retorno": "#3B82F6", "Fazer Pedido": "#8B5CF6", "Não Responde": "#9CA3AF", "Desistiu": "#F87171", "Fechou Concorrência": "#34D399", "Concluído": "#10B981" };
   const statusOptions = ["Aguardando Retorno", "Fazer Pedido", "Não Responde", "Desistiu", "Fechou Concorrência", "Concluído"];
   const [concluidoId, setConcluidoId] = useState(null);
+  const [salvandoConcluido, setSalvandoConcluido] = useState(false); // trava o botão enquanto grava
   const [concluidoData, setConcluidoData] = useState({ cnpj: "", data_entrega: "", numero_pedido: "", pag1: "", pag1_parcelas: "", pag1_valor: "", pag2: "", pag2_parcelas: "", pag2_valor: "", venda_empresa_recebedora: "", venda_banco_recebedor: "", valor_recebido: "" });
 
   const updateStatus = async (orderId, newStatus) => {
@@ -4412,7 +4436,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   };
 
   const saveConcluido = async () => {
-    if (!concluidoId) return;
+    if (!concluidoId || salvandoConcluido) return;
     const cd = concluidoData;
     let pagStr = cd.pag1;
     if (cd.pag1_parcelas) pagStr += " " + cd.pag1_parcelas + "x";
@@ -4432,7 +4456,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     // - demais casos → total da venda
     // Venda nasce "a receber": valor_recebido = 0 até ser marcada "Pago" no ADM
     // (cliente só paga após a montagem). O método de pagamento fica nas notes.
-    await supabase.from("orcamentos").update({
+    setSalvandoConcluido(true);
+    const { data: gravou, error: erroGravar } = await supabase.from("orcamentos").update({
       status: "Concluído",
       notes: existingNotes + info,
       // CNPJ obrigatorio na conclusao — atualiza no orcamento (caso nao tinha)
@@ -4446,14 +4471,21 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       // Contábil: default Gôndolas Suprema. Receita entra só quando marcar "Pago".
       venda_empresa_recebedora: "gondolas_suprema",
       valor_recebido: 0,
-    }).eq("id", concluidoId);
+    }).eq("id", concluidoId).select("id");
+    // Não gravou (erro, sessão caída ou RLS devolvendo 0 linhas sem erro): avisa e NÃO segue —
+    // a tela não marca Concluído e o Meta não recebe uma compra que não existe.
+    if (erroGravar || !gravou?.length) {
+      setSalvandoConcluido(false);
+      notify("Não consegui marcar como Concluído" + (erroGravar?.message ? ": " + erroGravar.message : ". Confira a internet e tente de novo."), "erro");
+      return;
+    }
 
     // Ponte CAPI (Fase 1 - coleta): manda a verdade da venda pro Meta aprender.
     // Fire-and-forget: nunca trava nem quebra o fluxo do "Concluído".
     try {
       const ord = orders.find(o => o.id === concluidoId);
       if (ord) {
-        fetch("/api/meta-capi", {
+        apiFetch("/api/meta-capi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -4475,6 +4507,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       ? { ...o, status: "Concluído", notes: (o.notes || "") + info, client: { ...(o.client || {}), cnpj: cd.cnpj || "" } }
       : o
     ));
+    setSalvandoConcluido(false);
     setConcluidoId(null);
   };
 
@@ -4918,7 +4951,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
 
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
                 <button onClick={() => setConcluidoId(null)} style={{ flex: 1, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, color: COLORS.textMuted, padding: "11px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
-                <button onClick={saveConcluido} disabled={!canSave} style={{ flex: 1, background: !canSave ? COLORS.textDim : "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !canSave ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Concluir</button>
+                <button onClick={saveConcluido} disabled={!canSave || salvandoConcluido} style={{ flex: 1, background: !canSave || salvandoConcluido ? COLORS.textDim : "#10B981", color: "#fff", border: "none", padding: "11px", borderRadius: 9, fontWeight: 700, cursor: !canSave || salvandoConcluido ? "not-allowed" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{salvandoConcluido ? "Salvando..." : "Concluir"}</button>
               </div>
             </div>
           </div>
@@ -5396,10 +5429,9 @@ function LogisticaPage({ user }) {
   useEffect(() => {
     const load = async () => {
       // Todos os usuarios veem TODAS as entregas (Logistica é visao consolidada
-      // de equipe — Ale, Zanella, Adelmo e Joao precisam ver a mesma agenda).
+      // de equipe — todos precisam ver a mesma agenda).
       // Apenas a edicao continua restrita (canEditLogistica).
-      const q = supabase.from("orcamentos").select("*").not("data_entrega", "is", null);
-      const { data } = await q.order("data_entrega", { ascending: true });
+      const { data } = await buscarTodasLinhas(() => supabase.from("orcamentos").select("*").not("data_entrega", "is", null).order("data_entrega", { ascending: true }).order("id"));
       if (data) {
         // Orcamentos RS-ocultos do Ale ficam fora da Logistica consolidada
         const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
@@ -5432,7 +5464,7 @@ function LogisticaPage({ user }) {
   // Carrega produtos UniPlus para resolver nomes de peças no desmembramento
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("produtos_uniplus").select("id, nome").eq("ativo", true);
+      const { data } = await buscarTodasLinhas(() => supabase.from("produtos_uniplus").select("id, nome").eq("ativo", true).order("id"));
       if (data) setUniplusProducts(data);
     };
     load();
@@ -5843,7 +5875,7 @@ function LogisticaPage({ user }) {
 }
 
 // ─── COMISSOES ───
-// Cada vendedor (Adelmo, Joao) ve suas proprias comissoes de vendas concluidas.
+// Cada vendedor (Adelmo) ve suas proprias comissoes de vendas concluidas.
 // Admin (Ale) ve consolidado de todos. Zanella (gestor) NAO tem acesso.
 // Comissao = valor gravado em orcamentos.comissao (markup que o vendedor aplicou).
 // Comissao do vendedor = 20% da comissao da Suprema (markup).
@@ -5868,12 +5900,15 @@ function ComissoesPage({ user }) {
     const load = async () => {
       // Por padrao filtra comissoes excluidas (so vendas vivas).
       // Admin pode mostrar excluidas com botao no topo.
-      let q = supabase.from("orcamentos").select("*").eq("status", "Concluído").eq("comissao_excluida", false);
-      // Vendedor (Adelmo, Joao) ve so as proprias vendas
-      if (!isAdmin) q = q.eq("vendedor_id", user.id);
-      const { data } = await q.order("data", { ascending: false });
+      const montar = () => {
+        let q = supabase.from("orcamentos").select("*").eq("status", "Concluído").eq("comissao_excluida", false);
+        // Vendedor ve so as proprias vendas
+        if (!isAdmin) q = q.eq("vendedor_id", user.id);
+        return q.order("data", { ascending: false }).order("id");
+      };
+      const { data } = await buscarTodasLinhas(montar);
       if (data) {
-        // Comissão é só pra Adelmo (v2) e João (v4). Alessandro (v1) e
+        // Comissão é só pra Adelmo (v2). Alessandro (v1) e
         // Zanella (v3) são sócios e não entram no cálculo de comissão —
         // suas vendas ficam fora desta aba mesmo quando concluídas.
         const VENDEDORES_COM_COMISSAO = ["v2"];
@@ -6141,7 +6176,7 @@ function ComissoesPage({ user }) {
               </div>
             </div>
             <div style={{ color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginBottom: 16, lineHeight: 1.5 }}>
-              Essa comissão vai sair da listagem (Ale, Adelmo, João não verão mais).
+              Essa comissão vai sair da listagem (Ale e Adelmo não verão mais).
               <br/><span style={{ color: COLORS.textDim, fontSize: 11 }}>O orçamento original continua intacto na aba <strong>Orçamentos</strong> e no <strong>ADM</strong>.</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -6341,6 +6376,10 @@ function AgendaPage({ user, setPage }) {
     return (a.criado_em || "") < (b.criado_em || "") ? -1 : 1;
   }
 
+  // Clique marca/desmarca, duplo clique edita: o clique simples espera um instante para não
+  // marcar e desmarcar a tarefa (2 gravações) antes de abrir a edição.
+  const cliqueTimer = useRef(null);
+  useEffect(() => () => clearTimeout(cliqueTimer.current), []);
   async function toggleFeita(t) {
     const feita_em = t.feita_em ? null : new Date().toISOString();
     setTarefas(prev => prev.map(x => x.id === t.id ? { ...x, feita_em } : x));
@@ -6391,7 +6430,7 @@ function AgendaPage({ user, setPage }) {
   const deAmanha  = pend.filter(t => t.data === amanha);
   const daSemana  = pend.filter(t => t.data > amanha && t.data <= em7);
   const depois    = pend.filter(t => t.data > em7);
-  const feitasHoje = tarefas.filter(t => t.feita_em && t.feita_em.slice(0, 10) === hoje);
+  const feitasHoje = tarefas.filter(t => t.feita_em && agendaDiaLocal(t.feita_em) === hoje);
 
   // ── UI helpers ──
   const chipStyle = (cor) => ({ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: cor + "22", color: cor, border: `1px solid ${cor}44`, fontFamily: "'DM Sans', sans-serif" });
@@ -6424,8 +6463,8 @@ function AgendaPage({ user, setPage }) {
             />
           ) : (
             <div
-              onClick={() => toggleFeita(t)}
-              onDoubleClick={() => { setEditandoId(t.id); setEditandoTxt(t.texto); }}
+              onClick={() => { clearTimeout(cliqueTimer.current); cliqueTimer.current = setTimeout(() => toggleFeita(t), 260); }}
+              onDoubleClick={() => { clearTimeout(cliqueTimer.current); setEditandoId(t.id); setEditandoTxt(t.texto); }}
               title={feita ? "Clique pra desmarcar · duplo-clique pra editar" : "Clique pra marcar como feito · duplo-clique pra editar"}
               style={{ color: feita ? C.textMuted : C.text, fontSize: 14, cursor: "pointer", textDecoration: feita ? "line-through" : "none", fontFamily: "'DM Sans', sans-serif", wordBreak: "break-word", userSelect: "none" }}>
               {t.texto}
@@ -6699,7 +6738,7 @@ function AgendaPage({ user, setPage }) {
   );
 }
 
-function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
+function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmAndamento, iniciarOrcamentoNovo }) {
   const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
   const ehGestao = user?.role === "admin" || user?.role === "gestor";
   const CONSULTORES = ["Willian", "Alessandro", "Adelmo"];
@@ -6778,8 +6817,11 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
 
   const fone8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
 
-  const carregar = async () => {
-    setLoading(true); setErro("");
+  const ultimaCarga = useRef(0);
+  // silencioso = atualização automática: não pisca "carregando" e, se falhar, mantém a lista que está na tela.
+  const carregar = async ({ silencioso = false } = {}) => {
+    ultimaCarga.current = Date.now();
+    if (!silencioso) { setLoading(true); setErro(""); }
     syncConvertidos.current = false;
     // Busca em blocos de 1000 (limite do Supabase por consulta) — senão, passando de 1000 orçamentos,
     // parte deles sumiria em silêncio e o lead voltaria pra "Não Atendido".
@@ -6797,6 +6839,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
       buscarTudo((de, ate) => supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }).order("id").range(de, ate)),
       buscarTudo((de, ate) => supabase.from("orcamentos").select("id, cliente_telefone, cliente_empresa, cliente_responsavel, cliente_estado, vendedor_id, status, total, data, data_entrega, fechado_em").order("id").range(de, ate)),
     ]);
+    if (silencioso && (m.error || o.error)) return;
     if (m.error) setErro(m.error.message); else setMariana(m.data || []);
     // Sem os orçamentos, todo lead pareceria "Não Atendido" — avisa em vez de mostrar errado
     if (o.error) setErro("Não consegui carregar os orçamentos (as abas podem estar incompletas): " + o.error.message);
@@ -6823,6 +6866,19 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     setLoading(false);
   };
   useEffect(() => { carregar(); }, []);
+  // Lead novo aparece sem ninguém clicar em Atualizar: ao voltar para a aba/app e a cada 3 min
+  // com a tela aberta. No máximo 1 vez por minuto.
+  useEffect(() => {
+    const atualizar = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - ultimaCarga.current < 60000) return;
+      carregar({ silencioso: true });
+    };
+    const t = setInterval(atualizar, 180000);
+    window.addEventListener("focus", atualizar);
+    document.addEventListener("visibilitychange", atualizar);
+    return () => { clearInterval(t); window.removeEventListener("focus", atualizar); document.removeEventListener("visibilitychange", atualizar); };
+  }, []);
 
   // Abre o form de criar tarefa a partir do lead: sugere "Retornar com [nome]"
   // pra AMANHÃ (é o caso de uso mais comum — retorno de acompanhamento).
@@ -6975,7 +7031,15 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
   };
 
   // "Fazer orçamento": leva os dados coletados pela Mariana pra aba Cliente e abre ela
-  const fazerOrcamento = (l) => {
+  // Antes de preencher o cliente com o lead, confere se há orçamento sendo montado (itens no
+  // carrinho ou acrescentando a um orçamento salvo). Sem isso, os itens do cliente anterior iam
+  // junto — e no modo "acrescentar", os itens do lead novo caíam no orçamento antigo.
+  const [confirmarOrc, setConfirmarOrc] = useState(null); // lead aguardando a escolha
+  const fazerOrcamento = (l, escolha) => {
+    const emAndamento = orcamentoEmAndamento && (orcamentoEmAndamento.itens > 0 || orcamentoEmAndamento.editando);
+    if (!escolha && emAndamento) { setConfirmarOrc(l); return; }
+    setConfirmarOrc(null);
+    if (escolha !== "manter" && iniciarOrcamentoNovo) iniciarOrcamentoNovo();
     // Telefone do lead vem do WhatsApp com DDI (55 + DDD + número = 12/13 díg).
     // Remove o "55" pra bater com a validação (DDD + número = 10/11 díg) e formata.
     const raw = String(l.telefone || "").replace(/\D/g, "");
@@ -7206,8 +7270,30 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto }) {
     <button onClick={onClick} style={{ padding: "8px 13px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", background: on ? cor : COLORS.surface, color: on ? "#000" : COLORS.text, border: `1px solid ${on ? cor : COLORS.border}` }}>{label}</button>
   );
 
+  const btnModal = (cor, fundo) => ({ padding: "11px 14px", borderRadius: 9, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: cor, background: fundo, border: `1px solid ${COLORS.border}` });
   return (
     <div style={{ maxWidth: 940, margin: "0 auto", padding: "24px 16px 96px" }}>
+      {confirmarOrc && (
+        <div role="dialog" aria-modal="true" aria-label="Orçamento em andamento" onClick={() => setConfirmarOrc(null)} style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,.65)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 20, maxWidth: 440, width: "100%", fontFamily: "'DM Sans', sans-serif" }}>
+            <h3 style={{ margin: "0 0 8px", color: COLORS.text, fontSize: 17 }}>Orçamento em andamento</h3>
+            {orcamentoEmAndamento?.editando ? (
+              <p style={{ margin: "0 0 16px", color: COLORS.textMuted, fontSize: 14, lineHeight: 1.5 }}>
+                Você estava acrescentando itens ao orçamento <strong style={{ color: COLORS.text }}>#{orcamentoEmAndamento.editando}</strong>. Para fazer o orçamento de <strong style={{ color: COLORS.text }}>{confirmarOrc.nome || "este lead"}</strong>, esse acréscimo é cancelado (ainda não foi gravado).
+              </p>
+            ) : (
+              <p style={{ margin: "0 0 16px", color: COLORS.textMuted, fontSize: 14, lineHeight: 1.5 }}>
+                Tem <strong style={{ color: COLORS.text }}>{orcamentoEmAndamento?.itens} {orcamentoEmAndamento?.itens === 1 ? "item" : "itens"}</strong> no carrinho, de um orçamento ainda não salvo. O que fazer no orçamento de <strong style={{ color: COLORS.text }}>{confirmarOrc.nome || "este lead"}</strong>?
+              </p>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={() => fazerOrcamento(confirmarOrc, "zerar")} style={btnModal("#000", COLORS.orange)}>{orcamentoEmAndamento?.editando ? "Fazer orçamento novo" : "Começar do zero (descarta os itens)"}</button>
+              {!orcamentoEmAndamento?.editando && <button onClick={() => fazerOrcamento(confirmarOrc, "manter")} style={btnModal(COLORS.text, COLORS.bg)}>Usar esses itens neste orçamento</button>}
+              <button onClick={() => setConfirmarOrc(null)} style={btnModal(COLORS.textMuted, "transparent")}>Voltar</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: COLORS.text, margin: 0 }}>Leads</h1>
         <button onClick={carregar} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: COLORS.card, color: COLORS.textMuted, border: `1px solid ${COLORS.border}` }}>Atualizar</button>
@@ -7796,7 +7882,7 @@ function AdminPage({ user }) {
 
   useEffect(() => {
     const loadAll = async () => {
-      const { data } = await supabase.from("orcamentos").select("*").order("data", { ascending: false });
+      const { data } = await buscarTodasLinhas(() => supabase.from("orcamentos").select("*").order("data", { ascending: false }).order("id"));
       if (data) {
         // Orcamentos RS-ocultos do Ale ficam fora da visao consolidada da ADM,
         // mesmo se o proprio Ale estiver na ADM (ele ve esses na aba Orcamentos).
@@ -7922,7 +8008,7 @@ function AdminPage({ user }) {
     // (RLS bloqueando devolve 0 linhas SEM erro — por isso confere o retorno).
     try {
       if (ordAdm && !erroConcluir && gravouConcluir?.length > 0) {
-        fetch("/api/meta-capi", {
+        apiFetch("/api/meta-capi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -8198,7 +8284,7 @@ function AdminPage({ user }) {
             </thead>
             <tbody>
               {/* Mostra TODOS os vendedores cadastrados sempre (Ale, Adelmo,
-                  Zanella, João), mesmo sem orçamentos no período — o Ale
+                  Zanella), mesmo sem orçamentos no período — o Ale
                   pediu pra ver todos. Orçamentos RS-particulares do Ale
                   continuam fora (filtrados antes em loadAll).
                   Aplica o filtro de mês selecionado no header do Relatório. */}
@@ -9249,7 +9335,8 @@ function PainelPage({ user }) {
         return { linhas, erro: false };
       };
       const [c, l, o] = await Promise.all([
-        buscarTudo((de, ate) => supabase.from("orcamentos").select("*").eq("status", "Concluído").order("id").range(de, ate)),
+        // Só as colunas usadas (antes vinha "*", com a lista de itens de todas as vendas).
+        buscarTudo((de, ate) => supabase.from("orcamentos").select("data_entrega, data, total, vendedor_id, cliente_estado").eq("status", "Concluído").order("id").range(de, ate)),
         buscarTudo((de, ate) => supabase.from("mariana_leads").select("id, telefone, criado_em, status_atendimento, consultor").order("id").range(de, ate)),
         buscarTudo((de, ate) => supabase.from("orcamentos").select("cliente_telefone, status, data").order("id").range(de, ate)),
       ]);
@@ -9302,10 +9389,21 @@ function PainelPage({ user }) {
   }));
 
   const noMes = (l) => { const d = new Date(l.criado_em); return d.getFullYear() === ano && d.getMonth() === mes; };
+  // Mesma regra da aba Leads (fimJanela): cada orçamento pertence a UM lead — da chegada dele
+  // (−1 dia) até a chegada do PRÓXIMO lead do mesmo telefone (−1 dia). Sem o fim da janela, o
+  // cliente que voltou contava o mesmo orçamento nos 2 leads e o funil daqui não batia com o de lá.
+  const fimJanela = (() => {
+    const porFone = new Map();
+    leads.forEach(l => { const f = fone8(l.telefone); if (f.length !== 8) return; const t = Date.parse(l.criado_em); if (Number.isNaN(t)) return; (porFone.get(f) || porFone.set(f, []).get(f)).push({ id: l.id, t }); });
+    const fim = new Map();
+    porFone.forEach(lista => { lista.sort((a, b) => a.t - b.t); lista.forEach((x, i) => { if (lista[i + 1]) fim.set(x.id, lista[i + 1].t - 86400000); }); });
+    return fim;
+  })();
   const converteu = (l, tipo) => {
     const e = orcMap.get(fone8(l.telefone)); if (!e) return false;
     const corte = Date.parse(l.criado_em) - 86400000;
-    return (tipo === "venda" ? e.venda : e.orc).some(ts => ts >= corte);
+    const fim = fimJanela.get(l.id);
+    return (tipo === "venda" ? e.venda : e.orc).some(ts => ts >= corte && (fim == null || ts < fim));
   };
   const leadsMes = leads.filter(noMes);
   const fTotal = leadsMes.length;
@@ -9573,16 +9671,19 @@ function GraficosPage({ user }) {
   const META = 100000;
 
   // Admin, gestor e vendedor (Adelmo) veem todos; só vendedor_basico
-  // (João) vê apenas os próprios.
+  // vê apenas os próprios.
   const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
   const isVendedorComum = role === "vendedor_basico";
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      let q = supabase.from("orcamentos").select("*").eq("status", "Concluído");
-      if (isVendedorComum) q = q.eq("vendedor_id", user.id);
-      const { data } = await q.order("data_conclusao", { ascending: false, nullsFirst: false });
+      const montar = () => {
+        let q = supabase.from("orcamentos").select("*").eq("status", "Concluído");
+        if (isVendedorComum) q = q.eq("vendedor_id", user.id);
+        return q.order("data_conclusao", { ascending: false, nullsFirst: false }).order("id");
+      };
+      const { data } = await buscarTodasLinhas(montar);
       if (data) {
         // Remove orcamentos RS-ocultos do ranking/graficos consolidados
         const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
@@ -9714,7 +9815,7 @@ function GraficosPage({ user }) {
 
 // ─── FINANCEIRO ───
 const DESPESAS_FIXAS = [
-  "Salário João", "Salário Gaúcho", "S.A", "Internet Fixa", "Seguro HR",
+  "Salário Gaúcho", "S.A", "Internet Fixa", "Seguro HR",
   "Sistema", "Aluguel Barracão", "Carro HR", "Contabilidade", "INSS", "SIMPLES", "FGTS"
 ];
 
@@ -9786,7 +9887,7 @@ function FinanceiroPage({ user }) {
 
   // Carrega boletos (todos — pra mostrar atrasados de qualquer mês)
   const carregarBoletos = async () => {
-    const { data } = await supabase.from("boletos_a_pagar").select("*").order("vencimento", { ascending: true });
+    const { data } = await buscarTodasLinhas(() => supabase.from("boletos_a_pagar").select("*").order("vencimento", { ascending: true }).order("id"));
     if (data) setBoletos(data);
   };
 
@@ -10638,14 +10739,14 @@ function DrePage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: orcData } = await supabase.from("orcamentos").select("*").eq("status", "Concluído");
+      const { data: orcData } = await buscarTodasLinhas(() => supabase.from("orcamentos").select("*").eq("status", "Concluído").order("id"));
       if (orcData) setVendas(orcData);
-      const { data: despData } = await supabase.from("despesas").select("*");
+      const { data: despData } = await buscarTodasLinhas(() => supabase.from("despesas").select("*").order("id"));
       if (despData) setDespesas(despData);
-      const { data: bolData } = await supabase.from("boletos_a_pagar").select("*").eq("status", "pendente");
+      const { data: bolData } = await buscarTodasLinhas(() => supabase.from("boletos_a_pagar").select("*").eq("status", "pendente").order("id"));
       if (bolData) setBoletosAbertos(bolData);
       // Receita do DRE = entradas reais dos extratos (regime de caixa — decisão do Ale 02-ago).
-      const { data: lancData } = await supabase.from("lancamentos_bancarios").select("*").eq("tipo", "entrada");
+      const { data: lancData } = await buscarTodasLinhas(() => supabase.from("lancamentos_bancarios").select("*").eq("tipo", "entrada").order("id"));
       if (lancData) setLancamentos(lancData);
     };
     load();
@@ -11226,8 +11327,8 @@ function NFPage({ user }) {
   const carregarTudo = async () => {
     setLoading(true);
     const [v, n] = await Promise.all([
-      supabase.from("orcamentos").select("*").eq("status", "Concluído").order("data", { ascending: false }),
-      supabase.from("notas_fiscais").select("*").order("data_emissao", { ascending: false }),
+      buscarTodasLinhas(() => supabase.from("orcamentos").select("*").eq("status", "Concluído").order("data", { ascending: false }).order("id")),
+      buscarTodasLinhas(() => supabase.from("notas_fiscais").select("*").order("data_emissao", { ascending: false }).order("id")),
     ]);
     if (v.data) {
       const visiveis = v.data.filter(o => !isOrcamentoRsOculto(o));
@@ -14161,6 +14262,10 @@ function Toaster() {
 export default function App() {
   const [page, setPage] = useState("login");
   const [user, setUser] = useState(null);
+  // Orçamento em andamento (carrinho com itens ou acrescentando a um orçamento): a recarga
+  // automática por versão nova esperaria, senão o carrinho (só na memória) se perdia.
+  const trabalhoEmAndamentoRef = useRef(false);
+  const [novaVersao, setNovaVersao] = useState(false);
 
   // Auto-reload: a cada 2 min compara a versao do bundle (APP_VERSION) com
   // a versao retornada pelo servidor (/api/version). Se diferentes, o
@@ -14175,7 +14280,10 @@ export default function App() {
         if (!r.ok) return;
         const { version } = await r.json();
         if (!cancelado && version && APP_VERSION !== "dev" && version !== APP_VERSION) {
-          window.location.reload();
+          // Com orçamento em andamento, só avisa; quando o carrinho esvaziar (salvou ou
+          // cancelou), a próxima checagem (foco ou 2 min) recarrega sozinha.
+          if (trabalhoEmAndamentoRef.current) setNovaVersao(true);
+          else window.location.reload();
         }
       } catch {}
     };
@@ -14201,6 +14309,7 @@ export default function App() {
   const [leadContexto, setLeadContexto] = useState(null); // conversa do lead p/ o modal na aba Produtos
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [editingOrderInfo, setEditingOrderInfo] = useState(null); // { num, empresa, qtdItens, totalAtual } — mostrado no banner do Resumo
+  useEffect(() => { trabalhoEmAndamentoRef.current = cart.length > 0 || !!editingOrderId; }, [cart, editingOrderId]);
   const [ordersRefreshKey, setOrdersRefreshKey] = useState(0); // incrementado apos salvar pra forcar reload da lista
   const [markup, setMarkup] = useState(0);
   const [frete, setFrete] = useState(0);
@@ -14434,6 +14543,12 @@ export default function App() {
       <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, pointerEvents: "none", backgroundImage: "url(/watermark3.png)", backgroundRepeat: "no-repeat", backgroundPosition: "center", backgroundSize: "min(680px, 80vw)", opacity: 0.06 }} />
       <Nav page={page} setPage={setPage} user={user} onLogout={logout} cartCount={cart.length} />
       <Toaster />
+      {novaVersao && (
+        <div role="status" style={{ position: "fixed", left: 12, right: 12, bottom: "calc(12px + env(safe-area-inset-bottom, 0px))", zIndex: 9999, maxWidth: 560, margin: "0 auto", background: COLORS.card, border: `1px solid ${COLORS.orange}`, borderRadius: 12, padding: "12px 14px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", boxShadow: "0 8px 24px rgba(0,0,0,.5)", fontFamily: "'DM Sans', sans-serif" }}>
+          <span style={{ flex: "1 1 220px", color: COLORS.text, fontSize: 14 }}>Tem versão nova do sistema. Termine e salve o orçamento: depois a tela atualiza sozinha.</span>
+          <button onClick={() => { if (!trabalhoEmAndamentoRef.current || window.confirm("O orçamento que está sendo montado será perdido. Atualizar mesmo assim?")) window.location.reload(); }} style={{ background: COLORS.orange, color: "#000", border: "none", borderRadius: 8, padding: "10px 14px", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Atualizar agora</button>
+        </div>
+      )}
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} user={user} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
@@ -14446,7 +14561,9 @@ export default function App() {
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} setClientData={setClientData} setPage={setPage} setLeadContexto={setLeadContexto} />}
+      {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} setClientData={setClientData} setPage={setPage} setLeadContexto={setLeadContexto}
+        orcamentoEmAndamento={{ itens: cart.length, editando: editingOrderId ? (editingOrderInfo?.num || String(editingOrderId).slice(0, 6).toUpperCase()) : null }}
+        iniciarOrcamentoNovo={() => { setCart([]); setEditingOrderId(null); setEditingOrderInfo(null); setMarkup(0); setFrete(0); setDesconto(0); }} />}
       {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}

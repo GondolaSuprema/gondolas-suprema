@@ -37,12 +37,10 @@ Rodar local: `npm run dev`. Build: `npm run build`.
 | v1  | Alessandro Thonsen  | admin (dono)      | sim   |
 | v2  | Adelmo Martinello   | vendedor          | não   |
 | v3  | Willian Zanella     | gestor (sócio)    | sim   |
-| v4  | João Marcos Martins | vendedor_basico   | não   |
 | —   | Nexx                | contabilidade     | —     |
 | —   | Mariana             | bot de leads (marcenaria) | — |
 
 - Login aceita usuário sem `@` (ex.: `Nexx` vira `Nexx@gondolasuprema.com`).
-- João também é montador/motorista → precisa ver Logística/Agenda de entregas.
 - Zanella é sócio (não vende) → fica fora de rankings/agregações de venda.
 
 ## Permissões — REGRA CENTRAL
@@ -59,7 +57,7 @@ espalhe `if` de papel pelo código.** `canAccess(user, aba)` é a única porta.
   (emite/cancela/CC-e via `podeEmitir`).
 - **vendedor (Adelmo)**: Gráficos + Logística **só leitura** (`canEditLogistica`)
   + próprias comissões + ADM **só leitura** (`canEditAdm`).
-- **vendedor_basico (João)**: só operacional + próprias comissões + Logística.
+- **vendedor_basico (sem usuário hoje)**: só operacional + próprias comissões + Logística.
 - **contabilidade (Nexx)**: Financeiro + NF + **Conciliação bancária/extratos**
   + **DRE** — tudo em **leitura** (NF visualiza, não emite; Conciliação tem
   `somenteLeitura` que esconde importar/reconciliar/ações). Landing = Financeiro.
