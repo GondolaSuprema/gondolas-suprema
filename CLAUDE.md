@@ -142,6 +142,11 @@ silêncio.
   (`FOCUS_NFE_TOKEN_HOMOLOGACAO` / `_PRODUCAO`). **NUNCA** usar prefixo
   `NEXT_PUBLIC_` neles. Rotacionar no painel Focus em caso de vazamento.
 - **Meta CAPI** (`/api/meta-capi`), **consulta CNPJ**, **cálculo de frete**.
+- **Frete** (`/api/calcular-frete`): km rodados ida e volta × **R$ 1,50** (regra do
+  Ale, 11-nov-2026; sem mínimo). A cidade é conferida na lista oficial do IBGE
+  (`municipios.json`, 5.571 municípios): nome errado volta 422 com sugestões e não
+  calcula. Mapa: Nominatim (só aceita resultado na cidade e UF certas) + rota OSRM
+  (bate com o Google Maps em ±1% nas rotas normais; não sabe de interdição).
 - **Conciliação bancária**: importa extrato, reconcilia lançamentos; contas
   mapeadas incluem Mercado Pago (normaliza `mercadopago_gondolas` → `mp_gondolas`).
 

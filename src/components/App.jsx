@@ -3630,42 +3630,81 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
   );
 }
 
+// ─── FRETE POR DISTÂNCIA (rota /api/calcular-frete) ───
+// Regra do Ale (11-nov-2026): km rodados ida e volta × R$ 1,50, sem mínimo. A rota confere a
+// cidade na lista oficial do IBGE: nome errado volta com sugestões, nunca calcula pro lugar errado.
+const fmtFreteKm = n => (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fmtFreteBRL = n => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+async function consultarFrete(cd) {
+  const qs = new URLSearchParams({
+    cidade: (cd?.cidade || "").trim(),
+    uf: (cd?.estado || "").trim(),
+    endereco: (cd?.endereco || "").trim(),
+    numero: (cd?.numero || "").trim(),
+    bairro: (cd?.bairro || "").trim(),
+  }).toString();
+  try {
+    const resp = await fetch(`/api/calcular-frete?${qs}`, { cache: "no-store" });
+    const d = await resp.json().catch(() => ({}));
+    const valor = Number(d?.frete);
+    if (!resp.ok || d?.success !== true || !Number.isFinite(valor) || valor < 0) {
+      return { loading: false, tipo: "erro", texto: d?.mensagem || "Não foi possível calcular o frete.", sugestoes: Array.isArray(d?.sugestoes) ? d.sugestoes : [] };
+    }
+    const onde = d.precisao === "endereço" ? "endereço exato" : (d.aviso_endereco ? "centro da cidade; o endereço não foi achado no mapa" : "centro da cidade");
+    return {
+      loading: false, tipo: "ok", frete: valor, link: d.link_mapa || "",
+      texto: `${fmtFreteKm(d.distancia_km)} km até ${d.destino} (${onde}) · ida e volta ${fmtFreteKm(d.km_cobrados)} km × ${fmtFreteBRL(d.valor_por_km ?? d.custo_por_km)}/km = ${fmtFreteBRL(valor)}`,
+    };
+  } catch (e) {
+    return { loading: false, tipo: "erro", texto: "Falha de rede ao calcular o frete.", sugestoes: [] };
+  }
+}
+
+// Linha de resultado do "Calcular frete": conta, link do mapa e botões de cidade sugerida.
+function FreteCalcInfo({ calc, onUsarSugestao }) {
+  if (!calc?.texto) return null;
+  const cor = calc.tipo === "erro" ? COLORS.danger : calc.tipo === "ok" ? COLORS.success : COLORS.textMuted;
+  return (
+    <div style={{ width: "100%", fontSize: 11, fontFamily: "'DM Sans', sans-serif", color: cor }}>
+      {calc.tipo === "ok" ? "✓ " : calc.tipo === "erro" ? "⚠ " : ""}{calc.prefixo || ""}{calc.texto}
+      {calc.tipo === "ok" && calc.link && (
+        <> · <a href={calc.link} target="_blank" rel="noopener noreferrer" style={{ color: COLORS.orange }}>conferir a rota no Google Maps</a></>
+      )}
+      {calc.tipo === "erro" && Array.isArray(calc.sugestoes) && calc.sugestoes.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+          {calc.sugestoes.map(s => (
+            <button key={`${s.cidade}/${s.uf}`} type="button" onClick={() => onUsarSugestao(s)}
+              style={{ background: "transparent", color: COLORS.orange, border: `1px solid ${COLORS.orange}`, padding: "5px 10px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+              Usar {s.cidade}/{s.uf}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── RESUMO ───
-function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditingOrderId, editingOrderInfo, setEditingOrderInfo, setItems, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap, bumpOrdersRefresh }) {
+function ResumoPage({ items, user, setPage, clientData, setClientData, editingOrderId, setEditingOrderId, editingOrderInfo, setEditingOrderInfo, setItems, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap, bumpOrdersRefresh }) {
   const [notes, setNotes] = useState("");
   // Cálculo automático de frete por distância (Palhoça → cidade do cliente)
   const [freteCalc, setFreteCalc] = useState({ loading: false, tipo: "", texto: "" });
-  const calcularFrete = async () => {
-    const cd = clientData || {};
-    const cidade = (cd.cidade || "").trim();
-    const uf = (cd.estado || "").trim();
-    if (!cidade) {
+  const calcularFrete = async (cdCorrigido) => {
+    const cd = cdCorrigido || clientData || {};
+    if (!(cd.cidade || "").trim()) {
       setFreteCalc({ loading: false, tipo: "erro", texto: "Cadastre a cidade do cliente primeiro (aba Cliente)." });
       return;
     }
     setFreteCalc({ loading: true, tipo: "", texto: "Calculando distância…" });
-    try {
-      const qs = new URLSearchParams({
-        cidade, uf,
-        endereco: (cd.endereco || "").trim(),
-        numero: (cd.numero || "").trim(),
-        bairro: (cd.bairro || "").trim(),
-      }).toString();
-      const resp = await fetch(`/api/calcular-frete?${qs}`, { cache: "no-store" });
-      const d = await resp.json().catch(() => ({}));
-      if (!resp.ok || d?.success === false) {
-        setFreteCalc({ loading: false, tipo: "erro", texto: d?.mensagem || "Não foi possível calcular o frete." });
-        return;
-      }
-      setFrete(d.frete);
-      setFreteCalc({
-        loading: false,
-        tipo: "ok",
-        texto: `${d.distancia_km} km até ${d.destino} (${d.precisao === "endereço" ? "endereço exato" : "centro da cidade"}) · ida e volta ${d.km_cobrados} km × R$ ${d.custo_por_km.toFixed(3)}/km → ${d.frete.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
-      });
-    } catch (e) {
-      setFreteCalc({ loading: false, tipo: "erro", texto: "Falha de rede ao calcular o frete." });
-    }
+    const r = await consultarFrete(cd);
+    if (r.tipo === "ok") setFrete(r.frete);
+    setFreteCalc(cdCorrigido && r.tipo === "ok" ? { ...r, prefixo: `Cidade do cliente corrigida para ${cd.cidade}/${cd.estado}. ` } : r);
+  };
+  // Botão "Usar Fraiburgo/SC": corrige a cidade do cliente (vai junto ao salvar) e recalcula.
+  const usarSugestaoFrete = (s) => {
+    const corrigido = { ...(clientData || {}), cidade: s.cidade, estado: s.uf };
+    if (setClientData) setClientData(corrigido);
+    calcularFrete(corrigido);
   };
 
   const itemPrice = it => computeProductPrice(it.product, it.selVariants, it.selOpts, uniplusPriceMap);
@@ -3933,18 +3972,14 @@ function ResumoPage({ items, user, setPage, clientData, editingOrderId, setEditi
             <input type="number" min="0" value={frete || ""} onChange={e => setFrete(Number(e.target.value) || 0)} placeholder="0,00" style={{ width: 120, padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.orange, fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", outline: "none", textAlign: "center" }} />
             <button
               type="button"
-              onClick={calcularFrete}
+              onClick={() => calcularFrete()}
               disabled={freteCalc.loading}
               style={{ background: freteCalc.loading ? COLORS.textDim : COLORS.orange, color: "#000", border: "none", padding: "9px 16px", borderRadius: 7, fontWeight: 700, fontSize: 13, cursor: freteCalc.loading ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif" }}
             >
               {freteCalc.loading ? "Calculando…" : "📍 Calcular frete"}
             </button>
             <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{frete > 0 ? "Frete incluso no total" : "Sem frete"}</span>
-            {freteCalc.texto && (
-              <div style={{ width: "100%", fontSize: 11, fontFamily: "'DM Sans', sans-serif", color: freteCalc.tipo === "erro" ? COLORS.danger : freteCalc.tipo === "ok" ? COLORS.success : COLORS.textMuted }}>
-                {freteCalc.tipo === "ok" ? "✓ " : freteCalc.tipo === "erro" ? "⚠ " : ""}{freteCalc.texto}
-              </div>
-            )}
+            <FreteCalcInfo calc={freteCalc} onUsarSugestao={usarSugestaoFrete} />
           </div>
         </>
       )}
@@ -4015,37 +4050,22 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   const [editDesconto, setEditDesconto] = useState(0);
   // Cálculo de frete por distância no modo edição (só ao clicar no botão)
   const [freteCalcEdit, setFreteCalcEdit] = useState({ loading: false, tipo: "", texto: "" });
-  const calcularFreteEdit = async (o) => {
-    const cd = o?.client || {};
-    const cidade = (cd.cidade || "").trim();
-    const uf = (cd.estado || "").trim();
-    if (!cidade) {
+  // Usa os dados do cliente que estão na tela de edição (se a cidade foi corrigida ali, vale a nova).
+  const calcularFreteEdit = async (o, cdCorrigido) => {
+    const cd = cdCorrigido || (editingId === o?.id ? editClient : null) || o?.client || {};
+    if (!(cd.cidade || "").trim()) {
       setFreteCalcEdit({ loading: false, tipo: "erro", texto: "Orçamento sem cidade do cliente cadastrada." });
       return;
     }
     setFreteCalcEdit({ loading: true, tipo: "", texto: "Calculando distância…" });
-    try {
-      const qs = new URLSearchParams({
-        cidade, uf,
-        endereco: (cd.endereco || "").trim(),
-        numero: (cd.numero || "").trim(),
-        bairro: (cd.bairro || "").trim(),
-      }).toString();
-      const resp = await fetch(`/api/calcular-frete?${qs}`, { cache: "no-store" });
-      const d = await resp.json().catch(() => ({}));
-      if (!resp.ok || d?.success === false) {
-        setFreteCalcEdit({ loading: false, tipo: "erro", texto: d?.mensagem || "Não foi possível calcular o frete." });
-        return;
-      }
-      setEditFrete(d.frete);
-      setFreteCalcEdit({
-        loading: false,
-        tipo: "ok",
-        texto: `${d.distancia_km} km até ${d.destino} (${d.precisao === "endereço" ? "endereço exato" : "centro da cidade"}) · ida e volta ${d.km_cobrados} km × R$ ${d.custo_por_km.toFixed(3)}/km → ${d.frete.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
-      });
-    } catch (e) {
-      setFreteCalcEdit({ loading: false, tipo: "erro", texto: "Falha de rede ao calcular o frete." });
-    }
+    const r = await consultarFrete(cd);
+    if (r.tipo === "ok") setEditFrete(r.frete);
+    setFreteCalcEdit(cdCorrigido && r.tipo === "ok" ? { ...r, prefixo: `Cidade corrigida para ${cd.cidade}/${cd.estado} (vale ao salvar). ` } : r);
+  };
+  const usarSugestaoFreteEdit = (o, s) => {
+    const corrigido = { ...editClient, cidade: s.cidade, estado: s.uf };
+    setEditClient(corrigido);
+    calcularFreteEdit(o, corrigido);
   };
   const [editMarkup, setEditMarkup] = useState(0);
   const [editNotes, setEditNotes] = useState("");
@@ -4217,6 +4237,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     const itensCusto = (o.items || []).map(it => ({ ...it, total: getItemCusto(it, o) }));
     setEditItems(itensCusto);
     setEditFrete(o.frete || 0);
+    setFreteCalcEdit({ loading: false, tipo: "", texto: "" }); // não mostrar o cálculo de outro orçamento
     setEditDesconto(o.desconto || 0);
     setEditNotes(o.notes || "");
     // Reseta o cache de CNPJ consultado (cada orcamento tem seu CNPJ; nao bloquear nova consulta)
@@ -5381,11 +5402,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                     >
                       {freteCalcEdit.loading ? "Calculando…" : "📍 Calcular frete"}
                     </button>
-                    {freteCalcEdit.texto && (
-                      <div style={{ width: "100%", fontSize: 11, fontFamily: "'DM Sans', sans-serif", color: freteCalcEdit.tipo === "erro" ? COLORS.danger : freteCalcEdit.tipo === "ok" ? COLORS.success : COLORS.textMuted }}>
-                        {freteCalcEdit.tipo === "ok" ? "✓ " : freteCalcEdit.tipo === "erro" ? "⚠ " : ""}{freteCalcEdit.texto}
-                      </div>
-                    )}
+                    <FreteCalcInfo calc={freteCalcEdit} onUsarSugestao={s => usarSugestaoFreteEdit(o, s)} />
                   </div>
 
                   {/* Edit Notes */}
@@ -14602,7 +14619,7 @@ export default function App() {
       {page === "catalog" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
       {page === "quote" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} setEditingOrderInfo={setEditingOrderInfo} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} bumpOrdersRefresh={() => setOrdersRefreshKey(k => k + 1)} />}
+      {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} setClientData={setClientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} setEditingOrderInfo={setEditingOrderInfo} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} bumpOrdersRefresh={() => setOrdersRefreshKey(k => k + 1)} />}
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
