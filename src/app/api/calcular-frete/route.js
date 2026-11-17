@@ -4,10 +4,10 @@ export const dynamic = "force-dynamic";
 import MUNICIPIOS from "./municipios.json";
 
 // ─── Cálculo de frete por distância ───
-// Regra do Ale (11-nov-2026): frete = km rodados (IDA E VOLTA) × R$ 1,50.
-// Ex.: 300 km ida e volta × R$ 1,50 = R$ 450,00. Sem frete mínimo.
+// Regra do Ale (17-nov-2026; antes R$ 1,50 desde 11-nov): frete = km rodados (IDA E VOLTA) × R$ 1,00.
+// Ex.: 300 km ida e volta × R$ 1,00 = R$ 300,00. Sem frete mínimo.
 // Para mudar no futuro, mude só VALOR_POR_KM / IDA_E_VOLTA.
-const VALOR_POR_KM = 1.50;     // R$ por km rodado
+const VALOR_POR_KM = 1.00;     // R$ por km rodado
 const IDA_E_VOLTA = true;      // multiplica a distância por 2 (vai e volta)
 
 // Origem fixa: barracão da Gôndolas Suprema

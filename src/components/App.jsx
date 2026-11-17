@@ -3631,7 +3631,7 @@ function Quote({ items, setItems, user, setPage, clientData, editingOrderId, set
 }
 
 // ─── FRETE POR DISTÂNCIA (rota /api/calcular-frete) ───
-// Regra do Ale (11-nov-2026): km rodados ida e volta × R$ 1,50, sem mínimo. A rota confere a
+// Regra do Ale (17-nov-2026): km rodados ida e volta × R$ 1,00, sem mínimo. A rota confere a
 // cidade na lista oficial do IBGE: nome errado volta com sugestões, nunca calcula pro lugar errado.
 const fmtFreteKm = n => (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const fmtFreteBRL = n => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -6802,7 +6802,9 @@ function AgendaPage({ user, setPage }) {
 
 function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmAndamento, iniciarOrcamentoNovo }) {
   const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
-  const ehGestao = user?.role === "admin" || user?.role === "gestor";
+  // Nesta aba o vendedor (Adelmo) tem a mesma visão do admin e do gestor: todos os leads,
+  // filtro de consultor, troca de consultor e painel de desempenho (pedido do Ale, 17-nov).
+  const ehGestao = user?.role === "admin" || user?.role === "gestor" || user?.role === "vendedor";
   const CONSULTORES = ["Willian", "Alessandro", "Adelmo"];
   const souConsultor = CONSULTORES.includes(meuConsultor);
 
@@ -6899,7 +6901,11 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
     };
     const [m, o] = await Promise.all([
       buscarTudo((de, ate) => supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }).order("id").range(de, ate)),
-      buscarTudo((de, ate) => supabase.from("orcamentos").select("id, cliente_telefone, cliente_empresa, cliente_responsavel, cliente_estado, vendedor_id, status, total, data, data_entrega, fechado_em").order("id").range(de, ate)),
+      // O vendedor só lê os próprios orçamentos (RLS). Para casar os leads dos outros
+      // consultores, ele usa a função leads_orcamentos_resumo (só as colunas desta aba).
+      user?.role === "vendedor"
+        ? buscarTudo((de, ate) => supabase.rpc("leads_orcamentos_resumo").order("id").range(de, ate))
+        : buscarTudo((de, ate) => supabase.from("orcamentos").select("id, cliente_telefone, cliente_empresa, cliente_responsavel, cliente_estado, vendedor_id, status, total, data, data_entrega, fechado_em").order("id").range(de, ate)),
     ]);
     if (silencioso && (m.error || o.error)) return;
     if (m.error) setErro(m.error.message); else setMariana(m.data || []);
