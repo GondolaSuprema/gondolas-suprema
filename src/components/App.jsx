@@ -1848,6 +1848,31 @@ const catLabel = (key) => CATEGORIES.find(c => c.key === key)?.label || EXTRA_CA
 // Itens novos têm opts_label pronto; antigos caem no join dos opts crus.
 const itemOptsLabel = (it) => it?.opts_label || (Array.isArray(it?.opts) && it.opts.length ? it.opts.join(" · ") : "");
 
+// Carrinho → itens do orçamento (formato gravado em orcamentos.items, total = CUSTO puro).
+// Usado pelo Resumo (orçamento novo/acrescentar) e pela edição (Adicionar item volta direto pro orçamento).
+function cartParaItens(cart, uniplusPriceMap) {
+  return (cart || []).map(i => {
+    const optsFromOptions = (i.selOpts || []).map(oi => (i.product.options || [])[oi]?.label).filter(Boolean);
+    // Variantes SEMPRE na ordem canônica do produto (largura, níveis, cor...).
+    const variants = i.product.variants || [];
+    const optsFromVariants = i.selVariants
+      ? (variants.length ? variants.map(v => i.selVariants[v.key]).filter(Boolean) : Object.values(i.selVariants))
+      : [];
+    const optsLabel = i.selVariants && variants.length
+      ? variants.map(v => i.selVariants[v.key] ? `${v.label} ${i.selVariants[v.key]}` : null).filter(Boolean).join(" · ")
+      : "";
+    return {
+      product_id: i.product.id,
+      name: i.product.name,
+      cat: catLabel(i.product.category),
+      qty: i.qty,
+      opts: [...optsFromVariants, ...optsFromOptions],
+      opts_label: optsLabel || undefined,
+      total: computeProductPrice(i.product, i.selVariants, i.selOpts, uniplusPriceMap) * i.qty,
+    };
+  });
+}
+
 function getItemCusto(item, order) {
   const itemTotal = Number(item.total) || 0;
   const orderTotal = Number(order.total) || 0;
@@ -3753,31 +3778,7 @@ function ResumoPage({ items, user, setPage, clientData, setClientData, editingOr
     }
     setErroDados("");
     setSaving(true);
-    const newItems = items.map(i => {
-      const optsFromOptions = (i.selOpts || []).map(oi => (i.product.options || [])[oi]?.label).filter(Boolean);
-      // Variantes SEMPRE na ordem canônica do produto (largura, níveis, cor...) —
-      // Object.entries dependia da ordem de clique do vendedor, o que gerava
-      // opts fora de ordem no PDF e dificultava conferir o orçamento.
-      const variants = i.product.variants || [];
-      const optsFromVariants = i.selVariants
-        ? (variants.length
-            ? variants.map(v => i.selVariants[v.key]).filter(Boolean)
-            : Object.values(i.selVariants))
-        : [];
-      // Label legível pro PDF: "Largura 1200mm · Níveis 5 · Cor C+L"
-      const optsLabel = i.selVariants && variants.length
-        ? variants.map(v => i.selVariants[v.key] ? `${v.label} ${i.selVariants[v.key]}` : null).filter(Boolean).join(" · ")
-        : "";
-      return {
-        product_id: i.product.id,
-        name: i.product.name,
-        cat: catLabel(i.product.category),
-        qty: i.qty,
-        opts: [...optsFromVariants, ...optsFromOptions],
-        opts_label: optsLabel || undefined,
-        total: itemBase(i),
-      };
-    });
+    const newItems = cartParaItens(items, uniplusPriceMap);
 
     // Só limpa o carrinho e sai da tela se o banco confirmou a gravação.
     // Antes, se falhava, os itens sumiam e parecia salvo.
@@ -4054,7 +4055,7 @@ function ResumoPage({ items, user, setPage, clientData, setClientData, editingOr
 }
 
 // ─── ORDERS ───
-function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEditingOrderInfo, refreshKey = 0, uniplusProducts = [] }) {
+function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEditingOrderInfo, refreshKey = 0, uniplusProducts = [], editDraft = null, setEditDraft }) {
   const [orders, setOrders] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
@@ -4256,6 +4257,26 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       setEditBuscandoCnpj(false);
     }
   };
+
+  // Volta de Produtos ("+ Adicionar item"): reabre a edição como estava, com os itens escolhidos já dentro.
+  // Nada foi gravado no banco ainda; só grava no "Salvar Alterações".
+  useEffect(() => {
+    if (!editDraft || !setEditDraft) return;
+    const d = editDraft;
+    setExpanded(d.orderId);
+    setEditingId(d.orderId);
+    setEditItems(d.items || []);
+    setEditFrete(d.frete || 0);
+    setFreteCalcEdit({ loading: false, tipo: "", texto: "" });
+    setEditDesconto(d.desconto || 0);
+    setEditMarkup(d.markup || 0);
+    setEditNotes(d.notes || "");
+    setEditClient(d.client);
+    ultimoCnpjConsultadoRef.current = d.cnpjConsultado || "";
+    setEditCnpjMsg({ tipo: "", texto: "" });
+    setEditDraft(null);
+    if (d.novos > 0) notify(d.novos === 1 ? "Item colocado no orçamento. Confira e clique em Salvar Alterações." : `${d.novos} itens colocados no orçamento. Confira e clique em Salvar Alterações.`, "ok");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startEdit = (o) => {
     setEditingId(o.id);
@@ -5360,11 +5381,17 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                       {/* Salva o que foi editado (itens excluidos, qtd, cliente) ANTES de ir ao catalogo.
                           Antes descartava a edicao e o save do Resumo relia os itens antigos do banco —
                           item excluido voltava pro orcamento. */}
-                      <button disabled={saving} onClick={async () => {
-                        // Sem itens a margem/desconto viram 0 ao salvar e os itens novos entrariam sem margem.
-                        if (editItems.length === 0) { notify("O orçamento ficou sem itens. Cancele a edição, adicione o item novo primeiro e depois exclua o antigo.", "erro"); return; }
-                        const atualizado = await saveEdit(o.id);
-                        if (atualizado) { notify("Edição salva — agora escolha os novos itens.", "ok"); addMoreItems(o.id, atualizado); }
+                      <button disabled={saving} onClick={() => {
+                        // Ale (18-nov): pode apagar todos os itens e recomeçar. O item escolhido em Produtos
+                        // entra direto nesta edição (com a margem/frete/desconto daqui) e volta para esta tela.
+                        // Nada vai pro banco até o "Salvar Alterações".
+                        if (!setEditDraft) { addMoreItems(o.id); return; }
+                        setEditDraft({ orderId: o.id, num: o.id.slice(0, 6).toUpperCase(), empresa: editClient.empresa || "",
+                          items: editItems, frete: editFrete, desconto: editDesconto, markup: editMarkup, notes: editNotes,
+                          client: editClient, cnpjConsultado: ultimoCnpjConsultadoRef.current, novos: 0 });
+                        setEditingOrderId(null); setEditingOrderInfo(null);
+                        setCart([]);
+                        setPage("catalog");
                       }} style={{ background: "transparent", border: "none", color: COLORS.orange, fontSize: 11, cursor: saving ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>+ Adicionar item</button>
                     </div>
                     {editItems.map((it, i) => {
@@ -14499,7 +14526,9 @@ export default function App() {
   const [leadOrigem, setLeadOrigem] = useState(null); // { id, fone8, nome1 }: lead de onde veio o orçamento em montagem
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [editingOrderInfo, setEditingOrderInfo] = useState(null); // { num, empresa, qtdItens, totalAtual } — mostrado no banner do Resumo
-  useEffect(() => { trabalhoEmAndamentoRef.current = cart.length > 0 || !!editingOrderId; }, [cart, editingOrderId]);
+  // Edição de orçamento salvo que foi a Produtos buscar item ("+ Adicionar item"): { orderId, items, frete, ... }
+  const [editDraft, setEditDraft] = useState(null);
+  useEffect(() => { trabalhoEmAndamentoRef.current = cart.length > 0 || !!editingOrderId || !!editDraft; }, [cart, editingOrderId, editDraft]);
   const [ordersRefreshKey, setOrdersRefreshKey] = useState(0); // incrementado apos salvar pra forcar reload da lista
   const [markup, setMarkup] = useState(0);
   const [frete, setFrete] = useState(0);
@@ -14614,11 +14643,24 @@ export default function App() {
   }, []);
 
   const login = u => { setUser(u); };
+  useEffect(() => {
+    if (!editDraft) return;
+    // Saiu do caminho Produtos → Orçamentos (foi para Cliente, Leads...): a edição é descartada, como já era.
+    if (!["catalog", "quote", "orders"].includes(page)) { setEditDraft(null); return; }
+    if (page !== "quote" || mdfModal || contGondolaModal) return;
+    if (!cart.length) { setPage("orders"); return; } // abriu o carrinho vazio: volta para a edição
+    const novos = cartParaItens(cart, uniplusPriceMap);
+    setEditDraft(d => d ? { ...d, items: [...(d.items || []), ...novos], novos: (d.novos || 0) + novos.length } : d);
+    setCart([]);
+    setPage("orders");
+  }, [editDraft, page, mdfModal, contGondolaModal, cart, uniplusPriceMap]);
+
   const logout = async () => {
     await supabase.auth.signOut();
     if (typeof window !== "undefined") localStorage.removeItem("gs_client_data");
     setClientData(EMPTY_CLIENT);
     setLeadOrigem(null);
+    setEditDraft(null);
     setCart([]);
     setMarkup(0);
     setFrete(0);
@@ -14743,18 +14785,27 @@ export default function App() {
       {page === "login" && <Login onLogin={login} setPage={setPage} />}
       {page === "client" && user && <ClientPage key={`client-${user.id}`} user={user} clientData={clientData} setClientData={setClientData} setPage={setPage} />}
       {page === "client" && !user && <Login onLogin={login} setPage={setPage} />}
+      {page === "catalog" && user && editDraft && (
+        <div style={{ maxWidth: 1100, margin: "12px auto 0", padding: "0 16px" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.orange}`, borderRadius: 10, padding: "10px 14px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontFamily: "'DM Sans', sans-serif" }}>
+            <span style={{ flex: "1 1 240px", color: COLORS.text, fontSize: 13 }}>Escolha o produto para o orçamento <b>#{editDraft.num}</b>{editDraft.empresa ? ` — ${editDraft.empresa}` : ""}. Ele entra direto no orçamento e volta para a edição.</span>
+            <button onClick={() => { setCart([]); setPage("orders"); }} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, borderRadius: 8, padding: "8px 12px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Voltar sem adicionar</button>
+          </div>
+        </div>
+      )}
       {page === "catalog" && user && <Catalog onAdd={addToQuote} onAddMedidas={adicionarPorMedidas} uniplusProducts={uniplusProducts} mppChinaProducts={mppChinaProducts} uniplusPriceMap={uniplusPriceMap} />}
       {page === "catalog" && user && leadContexto && <LeadContextoModal lead={leadContexto} onClose={() => setLeadContexto(null)} />}
       {page === "catalog" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
+      {page === "quote" && user && editDraft && <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>Colocando no orçamento #{editDraft.num}…</div>}
+      {page === "quote" && user && !editDraft && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
       {page === "quote" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} setClientData={setClientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} setEditingOrderInfo={setEditingOrderInfo} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} bumpOrdersRefresh={() => setOrdersRefreshKey(k => k + 1)} leadOrigem={leadOrigem} setLeadOrigem={setLeadOrigem} />}
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
+      {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} editDraft={editDraft} setEditDraft={setEditDraft} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} setClientData={setClientData} setPage={setPage} setLeadContexto={setLeadContexto}
         orcamentoEmAndamento={{ itens: cart.length, editando: editingOrderId ? (editingOrderInfo?.num || String(editingOrderId).slice(0, 6).toUpperCase()) : null }}
-        iniciarOrcamentoNovo={() => { setCart([]); setEditingOrderId(null); setEditingOrderInfo(null); setMarkup(0); setFrete(0); setDesconto(0); setLeadOrigem(null); }} setLeadOrigem={setLeadOrigem} />}
+        iniciarOrcamentoNovo={() => { setCart([]); setEditDraft(null); setEditingOrderId(null); setEditingOrderInfo(null); setMarkup(0); setFrete(0); setDesconto(0); setLeadOrigem(null); }} setLeadOrigem={setLeadOrigem} />}
       {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
