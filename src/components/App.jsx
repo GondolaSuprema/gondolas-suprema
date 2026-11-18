@@ -4216,10 +4216,11 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     return { lista, naoExpandidos };
   };
 
-  const buscarCnpjEdit = async (cnpjBruto) => {
+  // forcar = botão "Consultar": busca mesmo que o CNPJ já estivesse salvo no orçamento.
+  const buscarCnpjEdit = async (cnpjBruto, forcar = false) => {
     const cnpjLimpo = (cnpjBruto || "").replace(/\D/g, "");
-    if (cnpjLimpo.length !== 14) return;
-    if (cnpjLimpo === ultimoCnpjConsultadoRef.current) return; // ja consultou esse mesmo CNPJ
+    if (cnpjLimpo.length !== 14) { if (forcar) setEditCnpjMsg({ tipo: "erro", texto: "A consulta só funciona com CNPJ completo (14 números)." }); return; }
+    if (!forcar && cnpjLimpo === ultimoCnpjConsultadoRef.current) return; // ja consultou esse mesmo CNPJ
     setEditCnpjMsg({ tipo: "", texto: "" });
     setEditBuscandoCnpj(true);
     try {
@@ -4239,7 +4240,8 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         // Telefone NUNCA é trocado pelo da Receita (Ale, 18-nov): o celular que veio do lead (Meta/WhatsApp)
         // é o que liga o orçamento ao lead e é por onde o cliente é atendido. Receita só preenche se estiver vazio.
         telefone: String(prev.telefone || "").trim() || (d.telefone ? formatarCelular(d.telefone) : ""),
-        endereco: d.logradouro || prev.endereco,
+        // A edição só tem "Rua, número": junta o número da Receita na rua.
+        endereco: d.logradouro ? `${d.logradouro}${d.numero && !/^s\/?n$/i.test(String(d.numero).trim()) ? ", " + d.numero : ""}` : prev.endereco,
         bairro:   d.bairro     || prev.bairro,
         cep:      d.cep        || prev.cep,
         cidade:   d.municipio  || prev.cidade,
@@ -5319,14 +5321,22 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                           <span style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>CNPJ ou CPF</span>
                           {editBuscandoCnpj && <span style={{ color: COLORS.orange, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>🔍 buscando...</span>}
                         </div>
-                        <input
-                          value={editClient.cnpj}
-                          onChange={e => setEditClient({ ...editClient, cnpj: formatarCnpjOuCpf(e.target.value) })}
-                          onBlur={e => buscarCnpjEdit(e.target.value)}
-                          maxLength={18}
-                          placeholder="00.000.000/0001-00 ou 000.000.000-00"
-                          style={{ width: "100%", padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}
-                        />
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <input
+                            value={editClient.cnpj}
+                            onChange={e => setEditClient({ ...editClient, cnpj: formatarCnpjOuCpf(e.target.value) })}
+                            onBlur={e => buscarCnpjEdit(e.target.value)}
+                            maxLength={18}
+                            placeholder="00.000.000/0001-00 ou 000.000.000-00"
+                            style={{ flex: 1, minWidth: 0, padding: "7px 10px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}
+                          />
+                          {/* Puxa razão social, endereço, cidade, e-mail da Receita. O celular do cliente NÃO muda (liga ao lead). */}
+                          <button type="button" disabled={editBuscandoCnpj} onMouseDown={e => e.preventDefault()} onClick={() => buscarCnpjEdit(editClient.cnpj, true)}
+                            title="Buscar os dados da empresa na Receita pelo CNPJ (o celular fica como está)"
+                            style={{ flexShrink: 0, background: COLORS.orange, color: "#000", border: "none", borderRadius: 6, padding: "0 12px", fontSize: 12, fontWeight: 700, cursor: editBuscandoCnpj ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>
+                            {editBuscandoCnpj ? "Buscando…" : "🔍 Consultar"}
+                          </button>
+                        </div>
                         {editCnpjMsg.texto && (
                           <div style={{ marginTop: 4, fontSize: 10, fontFamily: "'DM Sans', sans-serif", color: editCnpjMsg.tipo === "erro" ? COLORS.danger : COLORS.success }}>
                             {editCnpjMsg.tipo === "erro" ? "⚠️ " : "✓ "}{editCnpjMsg.texto}
