@@ -8573,12 +8573,13 @@ function AdminPage({ user }) {
           <div style={{ color: COLORS.orange, fontSize: 20, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{fmt(totalGeral)}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 16 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Aguardando Retorno <span style={{ color: COLORS.textDim }}>· desde o início</span></div>
-          <div style={{ color: "#3B82F6", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{allOrders.filter(o => o.status === "Aguardando Retorno").length}</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Aguardando Retorno <span style={{ color: COLORS.textDim }}>· {appliedMes === "all" ? "todos os meses" : "no mês"}</span></div>
+          {/* Ale, 18-nov: os 4 cartões seguem os mesmos filtros (mês etc.); "todos os meses" conta tudo. */}
+          <div style={{ color: "#3B82F6", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{filtered.filter(o => o.status === "Aguardando Retorno").length}</div>
         </div>
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: 16 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Concluídos <span style={{ color: COLORS.textDim }}>· desde o início</span></div>
-          <div style={{ color: "#10B981", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{allOrders.filter(o => o.status === "Concluído").length}</div>
+          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Concluídos <span style={{ color: COLORS.textDim }}>· {appliedMes === "all" ? "todos os meses" : "no mês"}</span></div>
+          <div style={{ color: "#10B981", fontSize: 24, fontWeight: 800, fontFamily: "'Playfair Display', serif" }}>{filtered.filter(o => o.status === "Concluído").length}</div>
         </div>
       </div>
 
