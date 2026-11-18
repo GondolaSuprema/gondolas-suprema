@@ -8312,6 +8312,61 @@ function AdminPage({ user }) {
     await supabase.from("orcamentos").update({ temperatura: temp }).eq("id", orderId);
   };
 
+  // ─── Dados do cliente para a NF (Ale, 18-nov) ───
+  // Na "Vendas Concluídas": corrige empresa, CNPJ, endereço, IE... SEM tirar de Pago e sem mexer
+  // em status, pagamento, valores ou itens. O celular só muda se for digitado (a Receita não troca).
+  const [clienteNF, setClienteNF] = useState(null); // { id, empresa, cnpj, ... }
+  const [clienteNFMsg, setClienteNFMsg] = useState({ tipo: "", texto: "" });
+  const [clienteNFBusy, setClienteNFBusy] = useState("");
+  const abrirClienteNF = (o) => {
+    const c = o.client || {};
+    setClienteNFMsg({ tipo: "", texto: "" });
+    setClienteNF({ id: o.id, num: String(o.id).slice(0, 6).toUpperCase(),
+      empresa: c.empresa || "", cnpj: c.cnpj ? formatarCnpjOuCpf(c.cnpj) : "", responsavel: c.responsavel || "", telefone: c.telefone ? formatarCelular(c.telefone) : "",
+      email: c.email || "", endereco: c.endereco || "", numero: c.numero || "", bairro: c.bairro || "", cep: c.cep || "",
+      cidade: c.cidade || "", estado: c.estado || "", ie: c.ie || "" });
+  };
+  const consultarCnpjNF = async () => {
+    const dig = String(clienteNF?.cnpj || "").replace(/\D/g, "");
+    if (dig.length !== 14) { setClienteNFMsg({ tipo: "erro", texto: "A consulta só funciona com CNPJ completo (14 números)." }); return; }
+    setClienteNFBusy("cnpj"); setClienteNFMsg({ tipo: "", texto: "" });
+    try {
+      const resp = await fetch(`/api/consultar-cnpj/${dig}`, { cache: "no-store" });
+      const d = await resp.json().catch(() => ({}));
+      if (!resp.ok || d?.success === false) { setClienteNFMsg({ tipo: "erro", texto: resp.status === 404 ? "CNPJ não encontrado na Receita." : (d?.mensagem || "Falha ao consultar CNPJ.") }); return; }
+      setClienteNF(prev => ({ ...prev,
+        empresa: d.razao_social || d.nome_fantasia || prev.empresa,
+        email: d.email || prev.email,
+        // Celular do lead nunca é trocado pelo da Receita: só preenche se estiver vazio.
+        telefone: String(prev.telefone || "").trim() || (d.telefone ? formatarCelular(d.telefone) : ""),
+        endereco: d.logradouro || prev.endereco, numero: d.numero || prev.numero, bairro: d.bairro || prev.bairro,
+        cep: d.cep || prev.cep, cidade: d.municipio || prev.cidade, estado: d.uf || prev.estado }));
+      setClienteNFMsg({ tipo: "ok", texto: "Dados puxados da Receita. Confira e salve. (IE: use o SINTEGRA)" });
+    } catch { setClienteNFMsg({ tipo: "erro", texto: "Falha de rede ao consultar o CNPJ." }); }
+    finally { setClienteNFBusy(""); }
+  };
+  const salvarClienteNF = async () => {
+    const c = clienteNF; if (!c) return;
+    const cnpjDig = String(c.cnpj || "").replace(/\D/g, "");
+    if (cnpjDig && cnpjDig.length !== 14 && cnpjDig.length !== 11) { setClienteNFMsg({ tipo: "erro", texto: "CNPJ deve ter 14 números ou CPF 11." }); return; }
+    setClienteNFBusy("salvar");
+    const dados = {
+      cliente_empresa: c.empresa.trim() || null, cliente_cnpj: cnpjDig || null, cliente_responsavel: c.responsavel.trim() || null,
+      cliente_telefone: String(c.telefone || "").replace(/\D/g, "") || null, cliente_email: c.email.trim() || null,
+      cliente_endereco: c.endereco.trim() || null, cliente_numero: String(c.numero || "").trim() || null, cliente_bairro: c.bairro.trim() || null,
+      cliente_cep: String(c.cep || "").replace(/\D/g, "") || null, cliente_cidade: c.cidade.trim() || null,
+      cliente_estado: c.estado.trim().toUpperCase() || null, cliente_ie: String(c.ie || "").trim() || null,
+    };
+    const { data: gravou, error } = await supabase.from("orcamentos").update(dados).eq("id", c.id).select("id");
+    setClienteNFBusy("");
+    if (error || !gravou || gravou.length === 0) { setClienteNFMsg({ tipo: "erro", texto: "Não consegui salvar. Nada foi alterado." }); return; }
+    setAllOrders(prev => prev.map(x => x.id === c.id ? { ...x, client: { ...(x.client || {}),
+      empresa: dados.cliente_empresa, cnpj: dados.cliente_cnpj, responsavel: dados.cliente_responsavel, telefone: dados.cliente_telefone, email: dados.cliente_email,
+      endereco: dados.cliente_endereco, numero: dados.cliente_numero, bairro: dados.cliente_bairro, cep: dados.cliente_cep,
+      cidade: dados.cliente_cidade, estado: dados.cliente_estado, ie: dados.cliente_ie } } : x));
+    setClienteNF(null);
+  };
+
   // ─── Edicao inline (Ale/Zanella) ───
   // Edita frete, markup% e notes preservando a estrutura de itens.
   // Os items vem do banco com total ja com markup aplicado, entao precisamos
@@ -8989,8 +9044,11 @@ function AdminPage({ user }) {
                       const vs = getVendaStatus(o);
                       return (
                         <tr key={o.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                          <td onClick={() => showPdfAdm(o)} title="Clique para ver o orçamento em PDF" style={{ padding: "8px 6px", color: COLORS.accent, fontWeight: 500, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", maxWidth: 160 }}>{o.client?.empresa || "-"} 📄</td>
-                          <td style={{ padding: "8px 6px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{o.client?.cnpj || "-"}</td>
+                          <td style={{ padding: "8px 6px", maxWidth: 190 }}>
+                            <span onClick={() => showPdfAdm(o)} title="Clique para ver o orçamento em PDF" style={{ color: COLORS.accent, fontWeight: 500, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}>{o.client?.empresa || "-"} 📄</span>
+                            {canEditAdm && <button onClick={() => abrirClienteNF(o)} title="Editar os dados do cliente para a NF (não muda o status nem o pagamento)" style={{ marginLeft: 6, background: "#3B82F615", border: "1px solid #3B82F640", color: "#3B82F6", padding: "1px 6px", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", verticalAlign: "middle" }}>✏️ Cliente</button>}
+                          </td>
+                          <td style={{ padding: "8px 6px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{o.client?.cnpj ? formatarCnpjOuCpf(o.client.cnpj) : "-"}</td>
                           <td style={{ padding: "8px 6px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{o.client?.cidade || "-"}{o.client?.estado ? "/" + o.client.estado : ""}</td>
                           <td style={{ padding: "8px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.total || 0)}</td>
                           <td style={{ padding: "8px 6px", textAlign: "right", color: "#10B981", fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.comissao || 0)}</td>
@@ -9284,6 +9342,53 @@ function AdminPage({ user }) {
       )}
 
       {/* Modal de Conclusão — abre quando Ale/Zanella escolhem "Concluído" no status */}
+      {clienteNF && (() => {
+        const c = clienteNF;
+        const inp = { width: "100%", padding: "9px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+        const lbl = { color: COLORS.textMuted, fontSize: 10.5, fontFamily: "'DM Sans', sans-serif", marginBottom: 4, display: "block", textTransform: "uppercase", letterSpacing: 0.5 };
+        const campo = (k, rotulo, extra = {}) => (
+          <div style={{ gridColumn: extra.cheio ? "1 / -1" : undefined, minWidth: 0 }}>
+            <label style={lbl}>{rotulo}</label>
+            <input value={c[k]} onChange={e => setClienteNF({ ...c, [k]: extra.fmt ? extra.fmt(e.target.value) : e.target.value })} maxLength={extra.max} placeholder={extra.ph} style={inp} />
+          </div>
+        );
+        return (
+          <div onClick={() => clienteNFBusy || setClienteNF(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div onClick={e => e.stopPropagation()} role="dialog" aria-label="Dados do cliente para a NF" style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 22, width: 560, maxWidth: "100%", maxHeight: "90vh", overflowY: "auto", fontFamily: "'DM Sans', sans-serif" }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: "#3B82F6", fontSize: 19, margin: "0 0 4px" }}>Dados do cliente para a NF</h2>
+              <p style={{ color: COLORS.textMuted, fontSize: 12, margin: "0 0 16px" }}>Orçamento #{c.num}. Muda só os dados do cliente: status, pagamento e valores ficam como estão.</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                {campo("empresa", "Empresa / razão social", { cheio: true })}
+                <div style={{ gridColumn: "1 / -1", minWidth: 0 }}>
+                  <label style={lbl}>CNPJ ou CPF</label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input value={c.cnpj} onChange={e => setClienteNF({ ...c, cnpj: formatarCnpjOuCpf(e.target.value) })} maxLength={18} placeholder="00.000.000/0001-00" style={{ ...inp, flex: 1, minWidth: 0 }} />
+                    <button type="button" onClick={consultarCnpjNF} disabled={!!clienteNFBusy} style={{ flexShrink: 0, background: COLORS.orange, color: "#000", border: "none", borderRadius: 8, padding: "0 14px", fontSize: 12, fontWeight: 700, cursor: clienteNFBusy ? "wait" : "pointer", whiteSpace: "nowrap", fontFamily: "'DM Sans', sans-serif" }}>{clienteNFBusy === "cnpj" ? "Buscando…" : "🔍 Consultar"}</button>
+                  </div>
+                </div>
+                {campo("responsavel", "Responsável")}
+                {campo("telefone", "Celular (do lead)", { fmt: formatarCelular, max: 14 })}
+                {campo("email", "E-mail", { cheio: true })}
+                {campo("endereco", "Rua")}
+                {campo("numero", "Número")}
+                {campo("bairro", "Bairro")}
+                {campo("cep", "CEP")}
+                {campo("cidade", "Cidade")}
+                {campo("estado", "UF", { max: 2 })}
+                <div style={{ gridColumn: "1 / -1", minWidth: 0 }}>
+                  <label style={lbl}>Inscrição Estadual <a href={`https://www.sintegra.gov.br/`} target="_blank" rel="noopener noreferrer" style={{ color: COLORS.orange, textTransform: "none", marginLeft: 6 }}>consultar SINTEGRA ↗</a></label>
+                  <input value={c.ie} onChange={e => setClienteNF({ ...c, ie: e.target.value })} placeholder='Só números, ou "ISENTO"' style={inp} />
+                </div>
+              </div>
+              {clienteNFMsg.texto && <div style={{ marginTop: 12, fontSize: 12, color: clienteNFMsg.tipo === "erro" ? COLORS.danger : COLORS.success }}>{clienteNFMsg.tipo === "erro" ? "⚠️ " : "✓ "}{clienteNFMsg.texto}</div>}
+              <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
+                <button onClick={() => setClienteNF(null)} disabled={!!clienteNFBusy} style={{ flex: 1, minWidth: 120, background: "transparent", border: `1px solid ${COLORS.border}`, color: COLORS.textMuted, padding: "11px", borderRadius: 8, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                <button onClick={salvarClienteNF} disabled={!!clienteNFBusy} style={{ flex: 2, minWidth: 160, background: "#3B82F6", border: "none", color: "#fff", padding: "11px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: clienteNFBusy ? "wait" : "pointer", fontFamily: "'DM Sans', sans-serif" }}>{clienteNFBusy === "salvar" ? "Salvando…" : "Salvar dados do cliente"}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {concluidoIdAdm && (() => {
         const cd = concluidoDataAdm;
         const selStyle = { width: "100%", padding: "10px 14px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
