@@ -9592,9 +9592,9 @@ function PainelPage({ user }) {
       const [c, l, o] = await Promise.all([
         // Só as colunas usadas (antes vinha "*", com a lista de itens de todas as vendas).
         // Vendas: todos os papéis leem pela função, que já traz o R$ por linha de produto (sem custo).
-        buscarTudo((de, ate) => supabase.rpc("painel_orcamentos_resumo").select("data_entrega, data, total, vendedor_id, cliente_estado, v_gondola, v_mpp, v_outros").eq("status", "Concluído").order("id").range(de, ate)),
+        buscarTudo((de, ate) => supabase.rpc("painel_orcamentos_resumo").select("id, data_entrega, data, total, vendedor_id, cliente_estado, v_gondola, v_mpp, v_outros").eq("status", "Concluído").order("id").range(de, ate)),
         buscarTudo((de, ate) => supabase.from("mariana_leads").select("id, telefone, criado_em, status_atendimento, consultor").order("id").range(de, ate)),
-        buscarTudo((de, ate) => fonteOrc("cliente_telefone, status, data, lead_id").order("id").range(de, ate)),
+        buscarTudo((de, ate) => fonteOrc("id, cliente_telefone, status, data, lead_id").order("id").range(de, ate)),
       ]);
       if (!vivo) return;
       const conc = c.linhas.filter(x => !isOrcamentoRsOculto(x)).map(x => ({
