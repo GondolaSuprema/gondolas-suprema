@@ -1833,6 +1833,11 @@ const mesBRT = (dataStr) => {
   return brt.toISOString().slice(0, 7);
 };
 const genId = () => Math.random().toString(36).substr(2, 9);
+// Casamento venda↔lead pelo telefone (aba Leads e Painel). 48 99130-8888 é o celular do Ale:
+// ele usa para testar a Mariana e coloca no orçamento quando o cliente não tem número.
+// Esse número nunca liga orçamento a lead pelo telefone (o vínculo pelo botão Vincular continua valendo).
+const FONES_TESTE = new Set(["91308888"]);
+const fone8Casa = (t) => { const f = String(t || "").replace(/\D/g, "").slice(-8); return FONES_TESTE.has(f) ? "" : f; };
 // Rótulos de categorias que NÃO estão no menu de abas mas ainda precisam de nome
 // legível no orçamento/PDF do cliente. "ponta-gondola" saiu do menu (virou seção
 // dentro de Gôndolas de Centro), mas seus produtos seguem com essa category.
@@ -4231,7 +4236,9 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         ...prev,
         empresa:  d.razao_social || d.nome_fantasia || prev.empresa,
         email:    d.email      || prev.email,
-        telefone: d.telefone ? formatarCelular(d.telefone) : prev.telefone,
+        // Telefone NUNCA é trocado pelo da Receita (Ale, 18-nov): o celular que veio do lead (Meta/WhatsApp)
+        // é o que liga o orçamento ao lead e é por onde o cliente é atendido. Receita só preenche se estiver vazio.
+        telefone: String(prev.telefone || "").trim() || (d.telefone ? formatarCelular(d.telefone) : ""),
         endereco: d.logradouro || prev.endereco,
         bairro:   d.bairro     || prev.bairro,
         cep:      d.cep        || prev.cep,
@@ -6906,7 +6913,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, setLeadOrige
     return s || t; // fallback: se não deu pra montar nada, mostra o que houver
   };
 
-  const fone8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
+  const fone8 = fone8Casa;
 
   const ultimaCarga = useRef(0);
   // silencioso = atualização automática: não pisca "carregando" e, se falhar, mantém a lista que está na tela.
@@ -9527,7 +9534,7 @@ function PainelPage({ user }) {
       o.linhas.forEach(r => {
         const ts = Date.parse(r.data); if (Number.isNaN(ts)) return;
         // Orçamento ligado a um lead (lead_id) conta só para ele; os outros casam pelo telefone (mesma regra da aba Leads)
-        const f = r.lead_id != null ? "lead:" + Number(r.lead_id) : String(r.cliente_telefone || "").replace(/\D/g, "").slice(-8);
+        const f = r.lead_id != null ? "lead:" + Number(r.lead_id) : fone8Casa(r.cliente_telefone);
         if (r.lead_id == null && f.length !== 8) return;
         const e = map.get(f) || { orc: [], venda: [] };
         e.orc.push(ts); if (String(r.status) === "Concluído" || String(r.status) === "Fazer Pedido") e.venda.push(ts); // mesma regra da aba Leads
@@ -9539,7 +9546,7 @@ function PainelPage({ user }) {
     return () => { vivo = false; };
   }, [user?.id]);
 
-  const fone8 = (t) => String(t || "").replace(/\D/g, "").slice(-8);
+  const fone8 = fone8Casa;
   const mesStr = (a, m) => a + "-" + String(m + 1).padStart(2, "0");
   const prev = mes === 0 ? { a: ano - 1, m: 11 } : { a: ano, m: mes - 1 };
   const pctBR = (n) => (Number(n) || 0).toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 });
