@@ -9031,7 +9031,8 @@ function AdminPage({ user }) {
                       <th style={{ padding: "8px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>CNPJ</th>
                       <th style={{ padding: "8px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Cidade</th>
                       <th style={{ padding: "8px 6px", textAlign: "right", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Valor</th>
-                      <th style={{ padding: "8px 6px", textAlign: "right", color: "#10B981", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Lucro</th>
+                      {/* Ale, 18-nov: coluna LUCRO (markup da venda) só para admin e gestor; vendedor não vê. */}
+                      {canEditAdm && <th style={{ padding: "8px 6px", textAlign: "right", color: "#10B981", fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Lucro</th>}
                       <th style={{ padding: "8px 6px", textAlign: "left", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Vendedor</th>
                       <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }} title="Data da entrega — usada pra emitir a NF">Entrega (NF)</th>
                       <th style={{ padding: "8px 6px", textAlign: "center", color: COLORS.textMuted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.3 }}>Status</th>
@@ -9052,7 +9053,7 @@ function AdminPage({ user }) {
                           <td style={{ padding: "8px 6px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{o.client?.cnpj ? formatarCnpjOuCpf(o.client.cnpj) : "-"}</td>
                           <td style={{ padding: "8px 6px", color: COLORS.textMuted, whiteSpace: "nowrap" }}>{o.client?.cidade || "-"}{o.client?.estado ? "/" + o.client.estado : ""}</td>
                           <td style={{ padding: "8px 6px", textAlign: "right", color: COLORS.orange, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.total || 0)}</td>
-                          <td style={{ padding: "8px 6px", textAlign: "right", color: "#10B981", fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.comissao || 0)}</td>
+                          {canEditAdm && <td style={{ padding: "8px 6px", textAlign: "right", color: "#10B981", fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.comissao || 0)}</td>}
                           <td style={{ padding: "8px 6px", color: COLORS.accent, fontWeight: 500, whiteSpace: "nowrap" }}>{o.vendedor || "-"}</td>
                           {/* Data da entrega (editável) — o dia certo pra emitir a NF */}
                           <td style={{ padding: "8px 6px", textAlign: "center" }}>
@@ -9269,14 +9270,15 @@ function AdminPage({ user }) {
                           <div style={lblDim}>Valor da Venda</div>
                           {editando("total") ? cellEdit("total", COLORS.orange) : cellView("total", COLORS.orange)}
                         </div>
-                        <div>
+                        {/* Ale, 18-nov: comissão (markup) e custo só para admin e gestor. */}
+                        {canEditAdm && <div>
                           <div style={lblDim}>Comissão</div>
                           {editando("comissao") ? cellEdit("comissao", COLORS.success) : cellView("comissao", COLORS.success)}
-                        </div>
-                        <div>
+                        </div>}
+                        {canEditAdm && <div>
                           <div style={lblDim}>Custo</div>
                           <div style={roStyle}>{fmt(custo)}</div>
-                        </div>
+                        </div>}
                         <div>
                           <div style={lblDim}>Frete</div>
                           <div style={roStyle}>{fmt(o.frete || 0)}</div>
