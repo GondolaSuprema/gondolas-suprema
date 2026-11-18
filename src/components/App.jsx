@@ -7120,6 +7120,18 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
 
   const fmt = (iso) => { try { return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return iso; } };
   const wppLink = (tel) => { const d = String(tel || "").replace(/\D/g, ""); if (d.length < 10) return null; return `https://wa.me/${d.length <= 11 ? "55" + d : d}`; };
+  // Só para o Alessandro (admin), no computador: abre direto no WhatsApp Web, sempre na MESMA aba
+  // (sem a tela "Abrir app / Continuar para o WhatsApp Web"). Willian, Adelmo e o celular seguem
+  // pelo wa.me, como antes (pedido do Ale, 18-nov-2026).
+  const webDireto = !isMobile && user?.role === "admin";
+  const wppHref = (tel, texto) => {
+    const d = String(tel || "").replace(/\D/g, ""); if (d.length < 10) return null;
+    const fone = d.length <= 11 ? "55" + d : d;
+    const t = texto ? encodeURIComponent(texto) : "";
+    return !webDireto
+      ? `https://wa.me/${fone}${t ? `?text=${t}` : ""}`
+      : `https://web.whatsapp.com/send?phone=${fone}${t ? `&text=${t}` : ""}`;
+  };
   const chip = (txt, cor) => <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: cor + "1A", color: cor, border: `1px solid ${cor}44` }}>{txt}</span>;
   const corTemp = (t) => { const s = String(t || "").toLowerCase(); if (s.includes("quente")) return COLORS.danger; if (s.includes("morno")) return COLORS.accent; if (s.includes("frio")) return "#3B82F6"; return COLORS.textMuted; };
   const AZUL = "#3B82F6";
@@ -7689,9 +7701,9 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14, alignItems: "center" }}>
                 {wpp && (
                   <a
-                    href={emRetorno ? `${wpp}?text=${encodeURIComponent(msgRetorno(l))}` : wpp}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={wppHref(l.telefone, emRetorno ? msgRetorno(l) : "")}
+                    target={webDireto ? "whatsapp_web" : "_blank"}
+                    rel={webDireto ? undefined : "noopener noreferrer"}
                     onClick={() => {
                       // setTimeout: deixa o navegador abrir o link ANTES do card mudar de aba (o link pode sumir no meio do clique)
                       if (cur === "pendente") {
