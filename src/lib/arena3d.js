@@ -1,5 +1,5 @@
 // ─── Arena 3D do Painel (WebGL com Three.js) ─────────────────────────────────
-// Cena única com 4 vistas (consultores, 12 meses, funil e vendedores). O usuário gira
+// Cena única com 5 vistas (Gôndolas × MPP, consultores, 12 meses, funil e vendedores). O usuário gira
 // para qualquer lado, aproxima e toca num bloco para focar nele. Este arquivo só é
 // carregado quando o Painel abre (import dinâmico), então não pesa nas outras abas.
 // Só desenha: os números chegam prontos do PainelPage e todos os blocos de uma vista
@@ -99,7 +99,37 @@ function vistaVendedores({ vendedores }, compacto) {
   return { itens, rotulos, raioX: ((vendedores.length - 1) / 2) * sep + w + 0.3, raioY: ALT_MAX / 2 + 1.1, alvoY: 2.1, az: -0.32, pol: 1.25 };
 }
 
-const VISTAS = { consultores: vistaConsultores, meses: vistaMeses, funil: vistaFunil, vendedores: vistaVendedores };
+// Gôndolas × Mini Porta Palete: 2 blocos por mês (mesma escala), em arco como a vista de 12 meses.
+function vistaProdutos({ produtos, linhas }, compacto) {
+  const meses = compacto ? produtos.slice(-6) : produtos;
+  const max = Math.max(1, ...meses.flatMap(m => linhas.map(l => m[l.key] || 0)));
+  const R = compacto ? 7.5 : 11;
+  const passo = compacto ? 0.2 : 0.15;
+  const w = compacto ? 0.5 : 0.58, gap = 0.07;
+  const itens = [], rotulos = [];
+  meses.forEach((m, i) => {
+    const t = (i - (meses.length - 1) / 2) * passo;
+    const cx = Math.sin(t) * R, cz = -(R - Math.cos(t) * R);
+    const ultimo = i === meses.length - 1;
+    const grupoL = linhas.length * w + (linhas.length - 1) * gap;
+    itens.push({ id: `p:${m.a}-${m.lab}:base`, tipo: "caixa", x: cx, y: 0, z: cz, w: grupoL + 0.22, d: w + 0.3, h: 0.05, rotY: -t, cor: ultimo ? "#3A2E18" : "#26262C", cresce: "xz", semEscolha: true, atraso: i * 50 });
+    linhas.forEach((l, li) => {
+      const s = -grupoL / 2 + li * (w + gap) + w / 2; // deslocamento ao longo do arco
+      const v = m[l.key] || 0;
+      const total = linhas.reduce((acc, x) => acc + (m[x.key] || 0), 0);
+      itens.push({
+        id: `p:${m.a}-${m.lab}:${l.key}`, tipo: "caixa", x: cx + s * Math.cos(t), y: 0.05, z: cz - s * Math.sin(t), w, d: w, rotY: -t,
+        h: Math.max(MIN_ALT, (v / max) * ALT_MAX), cor: l.cor, valor: v, fmt: (n) => (n < 0.5 ? "" : milhar(n)),
+        detalhe: `${m.lab}/${m.a} · ${l.nome}: ${moeda(v)}${total ? ` (${pct(v / total)} dos dois)` : ""}`, atraso: 80 + i * 60 + li * 70,
+      });
+    });
+    rotulos.push({ id: `p:${m.a}-${m.lab}:n`, x: cx, y: 0.02, z: cz + w / 2 + 0.5, texto: m.lab, forte: ultimo, discreto: !ultimo });
+  });
+  const meio = ((meses.length - 1) / 2) * passo;
+  return { itens, rotulos, raioX: Math.sin(meio) * R + (compacto ? 0.6 : 1), raioY: ALT_MAX / 2 + 0.9, alvoY: 1.9, az: compacto ? -0.12 : -0.24, pol: 1.28 };
+}
+
+const VISTAS = { produtos: vistaProdutos, consultores: vistaConsultores, meses: vistaMeses, funil: vistaFunil, vendedores: vistaVendedores };
 
 const suaveVolta = (t) => { const c = 1.15; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
 const suave = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);

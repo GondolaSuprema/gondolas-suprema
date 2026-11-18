@@ -9381,14 +9381,16 @@ function Contador({ valor, formato }) {
   return formato ? formato(v) : Math.round(v).toLocaleString("pt-BR");
 }
 
-const ARENA_TITULOS = { consultores: "Leads por consultor", meses: "Faturamento nos últimos 12 meses", funil: "Funil de leads", vendedores: "Faturamento por vendedor" };
+const ARENA_TITULOS = { produtos: "Gôndolas × Mini Porta Palete", consultores: "Leads por consultor", meses: "Faturamento nos últimos 12 meses", funil: "Funil de leads", vendedores: "Faturamento por vendedor" };
 const ARENA_LEGENDA = {
+  produtos: (m, a, compacto) => `R$ vendido por linha de produto, mês da entrega · ${compacto ? "últimos 6 meses" : "últimos 12 meses"} até ${m}/${a}`,
   consultores: (m, a) => `Leads que chegaram em ${m}/${a}, o que cada um recebeu e no que eles viraram`,
   meses: (m, a) => `Vendas concluídas por mês da entrega · até ${m}/${a}`,
   funil: (m, a) => `Leads que chegaram em ${m}/${a}`,
   vendedores: () => "Bloco cheio = realizado no mês · vidro = meta",
 };
 const ARENA_VISTAS = [
+  { key: "produtos", nome: "Gôndolas × MPP" },
   { key: "consultores", nome: "Consultores" },
   { key: "meses", nome: "12 meses" },
   { key: "funil", nome: "Funil" },
@@ -9525,6 +9527,27 @@ function CartaoTilt({ children, estilo, atraso = 0 }) {
   );
 }
 
+// Gôndolas × Mini Porta Palete: a regra que separa as linhas fica SÓ no banco
+// (public.painel_linha_item, usada por painel_orcamentos_resumo). A função entrega o valor
+// vendido já repartido (v_gondola, v_mpp, v_outros) e nunca o custo dos itens, para ninguém
+// conseguir calcular a margem pelo Painel.
+
+// Mini gráfico de linha dos últimos meses (só desenho; o número exato está no cartão).
+function MiniLinha({ valores, cor, alto = 34 }) {
+  const n = valores.length; if (n < 2) return null;
+  const max = Math.max(1, ...valores);
+  const pts = valores.map((v, i) => [(i / (n - 1)) * 100, alto - 3 - (v / max) * (alto - 8)]);
+  const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const idg = "ml" + cor.replace(/[^a-z0-9]/gi, "");
+  return (
+    <svg viewBox={`0 0 100 ${alto}`} preserveAspectRatio="none" aria-hidden="true" style={{ width: "100%", height: alto, display: "block", overflow: "visible" }}>
+      <defs><linearGradient id={idg} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={cor} stopOpacity=".35" /><stop offset="100%" stopColor={cor} stopOpacity="0" /></linearGradient></defs>
+      <path d={`${d} L100,${alto} L0,${alto} Z`} fill={`url(#${idg})`} />
+      <path d={d} fill="none" stroke={cor} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ─── PAINEL (dashboard) — 1ª aba do sistema ───
 // Só LEITURA, dados reais. Faturamento = orçamentos Concluídos agrupados pelo mês
 // da ENTREGA (igual ADM/Gráficos). Funil = mariana_leads casado com orçamentos por
@@ -9541,7 +9564,7 @@ function PainelPage({ user }) {
   const [orcMap, setOrcMap] = useState(new Map());
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(false);
-  const [vista3D, setVista3D] = useState("consultores");
+  const [vista3D, setVista3D] = useState("produtos");
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -9568,13 +9591,15 @@ function PainelPage({ user }) {
         : supabase.from("orcamentos").select(cols);
       const [c, l, o] = await Promise.all([
         // Só as colunas usadas (antes vinha "*", com a lista de itens de todas as vendas).
-        buscarTudo((de, ate) => fonteOrc("data_entrega, data, total, vendedor_id, cliente_estado").eq("status", "Concluído").order("id").range(de, ate)),
+        // Vendas: todos os papéis leem pela função, que já traz o R$ por linha de produto (sem custo).
+        buscarTudo((de, ate) => supabase.rpc("painel_orcamentos_resumo").select("data_entrega, data, total, vendedor_id, cliente_estado, v_gondola, v_mpp, v_outros").eq("status", "Concluído").order("id").range(de, ate)),
         buscarTudo((de, ate) => supabase.from("mariana_leads").select("id, telefone, criado_em, status_atendimento, consultor").order("id").range(de, ate)),
         buscarTudo((de, ate) => fonteOrc("cliente_telefone, status, data, lead_id").order("id").range(de, ate)),
       ]);
       if (!vivo) return;
       const conc = c.linhas.filter(x => !isOrcamentoRsOculto(x)).map(x => ({
         date: x.data_entrega || x.data, total: Number(x.total) || 0, vendedorId: x.vendedor_id,
+        gondola: Number(x.v_gondola) || 0, mpp: Number(x.v_mpp) || 0, outros: Number(x.v_outros) || 0,
       }));
       const map = new Map();
       o.linhas.forEach(r => {
@@ -9600,7 +9625,8 @@ function PainelPage({ user }) {
   const fatDeMes = (a, m) => {
     const ms = mesStr(a, m);
     const v = orcs.filter(o => String(o.date || "").slice(0, 7) === ms);
-    return { fat: v.reduce((s, o) => s + o.total, 0), pedidos: v.length };
+    const soma = (k) => v.reduce((s, o) => s + (o[k] || 0), 0);
+    return { fat: soma("total"), pedidos: v.length, gondola: soma("gondola"), mpp: soma("mpp"), outros: soma("outros") };
   };
   const cur = fatDeMes(ano, mes);
   const ant = fatDeMes(prev.a, prev.m);
@@ -9610,7 +9636,7 @@ function PainelPage({ user }) {
   const serie12 = (() => {
     let a = ano, m = mes; const seq = [];
     for (let i = 0; i < 12; i++) { seq.unshift({ a, m }); const p = m === 0 ? { a: a - 1, m: 11 } : { a, m: m - 1 }; a = p.a; m = p.m; }
-    return seq.map(({ a, m }) => ({ lab: MES_CURTO[m], a, y: fatDeMes(a, m).fat }));
+    return seq.map(({ a, m }) => { const f = fatDeMes(a, m); return { lab: MES_CURTO[m], a, y: f.fat, gondola: f.gondola, mpp: f.mpp, pedidos: f.pedidos }; });
   })();
 
   const SELLERS = VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
@@ -9678,10 +9704,14 @@ function PainelPage({ user }) {
     return <span style={{ fontSize: 12, fontWeight: 700, color: cor, fontVariantNumeric: "tabular-nums" }}>{flat ? "•" : (up ? "▲" : "▼")} {pctBR(Math.abs(d))} <span style={{ color: COLORS.textDim, fontWeight: 500 }}>vs mês anterior</span></span>;
   };
   const kpis = [
-    { lab: "Faturamento", num: cur.fat, formato: fmtMoney, a: cur.fat, b: ant.fat },
-    { lab: "Nº de pedidos", num: cur.pedidos, a: cur.pedidos, b: ant.pedidos },
-    { lab: "Ticket médio", num: ticket, formato: fmtMoney, a: ticket, b: ticketAnt },
+    { lab: "Total vendido", num: cur.fat, formato: fmtMoney, a: cur.fat, b: ant.fat, serie: serie12.map(s => s.y), cor: "#F5A623" },
+    { lab: "Nº de pedidos", num: cur.pedidos, a: cur.pedidos, b: ant.pedidos, serie: serie12.map(s => s.pedidos), cor: "#A78BFA" },
+    { lab: "Ticket médio", num: ticket, formato: fmtMoney, a: ticket, b: ticketAnt, serie: serie12.map(s => (s.pedidos ? s.y / s.pedidos : 0)), cor: "#14B8A6" },
   ];
+  // Duelo do mês: Gôndolas × Mini Porta Palete (só R$ vendido; o Painel não mostra lucro nem margem).
+  const duelo = cur.gondola + cur.mpp;
+  const pG = duelo ? cur.gondola / duelo : 0.5;
+  const lider = !duelo ? null : (cur.gondola >= cur.mpp ? "Gôndolas" : "Mini Porta Palete");
   const funil = [
     { nm: "Leads recebidos", v: fTotal, c: "#3B82F6" },
     { nm: "Atendidos", v: fAtend, c: "#F472B6" },
@@ -9690,7 +9720,13 @@ function PainelPage({ user }) {
   ];
   const anos = (() => { const y = _hoje.getFullYear(); return [y - 2, y - 1, y, y + 1]; })();
 
+  const LINHAS_PROD = [
+    { key: "gondola", nome: "Gôndolas", cor: "#3B82F6" },
+    { key: "mpp", nome: "Mini Porta Palete", cor: "#F5A623" },
+  ];
   const dados3D = {
+    produtos: serie12.map(s => ({ lab: s.lab, a: s.a, gondola: s.gondola, mpp: s.mpp })),
+    linhas: LINHAS_PROD,
     consultores: porConsultor,
     series: SERIES_LEAD,
     meses: serie12,
@@ -9698,6 +9734,7 @@ function PainelPage({ user }) {
     vendedores: porVendedor.map(v => ({ nome: v.nome, cor: v.cor, meta: v.meta, valor: v.valor })),
   };
   const aria3D = "Gráfico 3D interativo. " + ({
+    produtos: "Gôndolas e Mini Porta Palete por mês: " + serie12.map(s => `${s.lab} gôndolas ${fmtMoney(s.gondola)}, MPP ${fmtMoney(s.mpp)}`).join("; "),
     consultores: `Leads por consultor em ${MES_NOMES[mes]} de ${ano}: ` + porConsultor.map(c => `${c.nome}, ${c.recebidos} recebidos, ${c.orcamentos} viraram orçamento, ${c.vendas} viraram venda`).join("; "),
     meses: "Faturamento nos últimos 12 meses: " + serie12.map(s => `${s.lab} ${fmtMoney(s.y)}`).join(", "),
     funil: "Funil de leads: " + funil.map(f => `${f.nm} ${f.v}`).join(", "),
@@ -9726,7 +9763,7 @@ function PainelPage({ user }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 26, margin: "0 0 3px" }}>Painel</h1>
-          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Faturamento, vendedores e leads — {MES_NOMES[mes]} de {ano}</p>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Vendas, Gôndolas × MPP, vendedores e leads — {MES_NOMES[mes]} de {ano}</p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <select value={mes} onChange={e => setMes(+e.target.value)} style={sel}>{MES_NOMES.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
@@ -9746,24 +9783,84 @@ function PainelPage({ user }) {
                 <div style={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".05em", fontFamily: "'DM Sans', sans-serif" }}>{k.lab}</div>
                 <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 27, color: COLORS.white, margin: "7px 0 6px", fontVariantNumeric: "tabular-nums" }}><Contador valor={k.num} formato={k.formato} /></div>
                 {delta(k.a, k.b)}
+                <div style={{ marginTop: 10 }}><MiniLinha valores={k.serie} cor={k.cor} /></div>
+                <div style={{ color: COLORS.textDim, fontSize: 10.5, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>últimos 12 meses</div>
               </CartaoTilt>
             ))}
           </div>
+
+          <CartaoTilt atraso={200} estilo={{ ...cardPalco, marginBottom: 16, padding: isMobile ? "16px 14px" : "18px 22px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+              <div>
+                <h2 style={{ ...h2, fontSize: 15 }}>Gôndolas × Mini Porta Palete</h2>
+                <p style={{ ...capS, margin: 0 }}>R$ vendido em {MES_NOMES[mes]}/{ano}, pela data da entrega</p>
+              </div>
+              {lider && <span style={{ fontSize: 12, fontWeight: 700, color: "#000", background: pG >= 0.5 ? "#3B82F6" : "#F5A623", padding: "4px 10px", borderRadius: 20, fontFamily: "'DM Sans', sans-serif" }}>{lider} na frente</span>}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? 10 : 18 }}>
+              {[{ k: "gondola", nome: "Gôndolas", cor: "#3B82F6", v: cur.gondola, b: ant.gondola, al: "left" }, { k: "mpp", nome: "Mini Porta Palete", cor: "#F5A623", v: cur.mpp, b: ant.mpp, al: "right" }].map(l => (
+                <div key={l.k} style={{ textAlign: l.al, fontFamily: "'DM Sans', sans-serif" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 7, color: COLORS.textMuted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 3, background: l.cor, boxShadow: `0 0 10px ${l.cor}` }} />{l.nome}
+                  </div>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: isMobile ? 21 : 30, color: COLORS.white, margin: "6px 0 4px", fontVariantNumeric: "tabular-nums", textShadow: `0 0 24px ${l.cor}55` }}><Contador valor={l.v} formato={fmtMoney} /></div>
+                  {delta(l.v, l.b)}
+                </div>
+              ))}
+            </div>
+            <div style={{ position: "relative", height: 16, borderRadius: 10, overflow: "hidden", margin: "16px 0 6px", background: COLORS.bg, boxShadow: "inset 0 2px 6px rgba(0,0,0,.6)" }} role="img" aria-label={`Gôndolas ${pctBR(duelo ? pG : 0)}, Mini Porta Palete ${pctBR(duelo ? 1 - pG : 0)}`}>
+              {duelo > 0 && <>
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pG * 100}%`, background: "linear-gradient(180deg, #6EA8FF, #3B82F6 55%, #2459B8)", transition: "width 1s cubic-bezier(.2,.8,.25,1)" }} />
+                <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: `${(1 - pG) * 100}%`, background: "linear-gradient(180deg, #FFD27A, #F5A623 55%, #B9791A)", transition: "width 1s cubic-bezier(.2,.8,.25,1)" }} />
+                <div style={{ position: "absolute", top: 0, bottom: 0, left: `calc(${pG * 100}% - 1px)`, width: 2, background: COLORS.card }} />
+              </>}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums" }}>
+              <span style={{ color: "#6EA8FF" }}>{duelo ? pctBR(pG) : "—"}</span>
+              <span style={{ color: COLORS.textDim, fontWeight: 500 }}>{cur.outros > 0.5 ? `Outros produtos: ${fmtMoney(cur.outros)}` : duelo ? "" : "Nenhuma entrega de gôndola ou MPP neste mês"}</span>
+              <span style={{ color: "#FFD27A" }}>{duelo ? pctBR(1 - pG) : "—"}</span>
+            </div>
+          </CartaoTilt>
 
           <div className="p3d-entrar" style={{ ...cardPalco, animationDelay: "120ms" }}>
             <Arena3D vista={vista3D} aoTrocarVista={setVista3D} dados={dados3D} aria={aria3D} isMobile={isMobile} cabecalho={(
               <div style={{ margin: "4px 0 10px" }}>
                 <h2 style={h2}>{ARENA_TITULOS[vista3D]}</h2>
-                <p style={{ ...capS, margin: "0 0 8px" }}>{ARENA_LEGENDA[vista3D](MES_NOMES[mes], ano)}</p>
+                <p style={{ ...capS, margin: "0 0 8px" }}>{ARENA_LEGENDA[vista3D](MES_NOMES[mes], ano, isMobile)}</p>
                 {vista3D === "consultores" && legenda(SERIES_LEAD)}
+                {vista3D === "produtos" && legenda(LINHAS_PROD)}
               </div>
             )} legendaCheia={(
               <div style={{ margin: "2px 0 8px" }}>
-                {vista3D === "consultores" ? legenda(SERIES_LEAD) : <p style={{ ...capS, margin: 0 }}>{ARENA_LEGENDA[vista3D](MES_NOMES[mes], ano)}</p>}
+                {vista3D === "consultores" ? legenda(SERIES_LEAD) : vista3D === "produtos" ? legenda(LINHAS_PROD) : <p style={{ ...capS, margin: 0 }}>{ARENA_LEGENDA[vista3D](MES_NOMES[mes], ano, isMobile)}</p>}
               </div>
             )} />
 
             <div style={{ marginTop: 14 }}>
+              {vista3D === "produtos" && (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))", gap: 8 }}>
+                    {serie12.map((s, i) => {
+                      const ultimo = i === serie12.length - 1;
+                      const tot = s.gondola + s.mpp;
+                      return (
+                        <div key={`${s.a}-${s.lab}`} style={{ background: COLORS.bg, border: `1px solid ${ultimo ? COLORS.orange : COLORS.border}`, borderRadius: 10, padding: "8px 10px", fontFamily: "'DM Sans', sans-serif" }}>
+                          <div style={{ color: ultimo ? COLORS.orange : COLORS.textMuted, fontSize: 11.5, fontWeight: 600, marginBottom: 3 }}>{s.lab}/{String(s.a).slice(2)}</div>
+                          {LINHAS_PROD.map(l => (
+                            <div key={l.key} title={`${l.nome}: ${fmtMoney(s[l.key])}`} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: COLORS.white, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                              <span style={{ width: 8, height: 8, borderRadius: 2, background: l.cor, flexShrink: 0 }} /><Contador valor={s[l.key]} formato={milhar} />
+                            </div>
+                          ))}
+                          <div style={{ height: 4, borderRadius: 2, overflow: "hidden", marginTop: 5, display: "flex", background: COLORS.border }}>
+                            {tot > 0 && <><span style={{ width: `${(s.gondola / tot) * 100}%`, background: "#3B82F6" }} /><span style={{ flex: 1, background: "#F5A623" }} /></>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p style={{ ...capS, margin: "12px 0 0" }}>Valor vendido (sem frete) repartido entre os itens do pedido. Gôndolas = linhas de gôndola e peças Fit; MPP = mini porta palete, Slim e o MDF do deck. Porta palete grande, porta etiqueta e móveis ficam em "outros".</p>
+                </>
+              )}
               {vista3D === "consultores" && (
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 240 : 220}px, 1fr))`, gap: 12 }}>
