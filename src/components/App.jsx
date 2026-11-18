@@ -9399,11 +9399,17 @@ function PainelPage({ user }) {
         }
         return { linhas, erro: false };
       };
+      // Painel igual para todos (Ale, 18-nov). O vendedor só lê os próprios orçamentos (RLS), então
+      // usa a função painel_orcamentos_resumo, que traz só as colunas daqui (sem nome de cliente).
+      const doVendedor = user?.role === "vendedor";
+      const fonteOrc = (cols) => doVendedor
+        ? supabase.rpc("painel_orcamentos_resumo").select(cols)
+        : supabase.from("orcamentos").select(cols);
       const [c, l, o] = await Promise.all([
         // Só as colunas usadas (antes vinha "*", com a lista de itens de todas as vendas).
-        buscarTudo((de, ate) => supabase.from("orcamentos").select("data_entrega, data, total, vendedor_id, cliente_estado").eq("status", "Concluído").order("id").range(de, ate)),
+        buscarTudo((de, ate) => fonteOrc("data_entrega, data, total, vendedor_id, cliente_estado").eq("status", "Concluído").order("id").range(de, ate)),
         buscarTudo((de, ate) => supabase.from("mariana_leads").select("id, telefone, criado_em, status_atendimento, consultor").order("id").range(de, ate)),
-        buscarTudo((de, ate) => supabase.from("orcamentos").select("cliente_telefone, status, data").order("id").range(de, ate)),
+        buscarTudo((de, ate) => fonteOrc("cliente_telefone, status, data").order("id").range(de, ate)),
       ]);
       if (!vivo) return;
       const conc = c.linhas.filter(x => !isOrcamentoRsOculto(x)).map(x => ({
@@ -9478,9 +9484,9 @@ function PainelPage({ user }) {
   const conv = fTotal ? fVenda / fTotal : 0;
 
   // Leads por consultor. O consultor é quem recebeu o lead, não quem fez o orçamento.
-  // O vendedor só enxerga os orçamentos dele (RLS), então vê apenas a própria linha:
-  // os números dos outros sairiam errados para ele.
-  const ehGestao = user?.role === "admin" || user?.role === "gestor";
+  // Painel igual para todos (Ale, 18-nov): o vendedor também vê a linha de cada consultor,
+  // com os orçamentos de todos vindos de painel_orcamentos_resumo.
+  const ehGestao = user?.role === "admin" || user?.role === "gestor" || user?.role === "vendedor";
   const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
   const CONSULTORES = ["Willian", "Alessandro", "Adelmo"];
   const nomeConsultor = (l) => String(l.consultor || "").trim() || "Sem consultor";
