@@ -4258,6 +4258,15 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     }
   };
 
+  // Depois de voltar de Produtos, rola até os itens da edição (a lista carrega depois do mount).
+  const rolarParaItensRef = useRef(null);
+  useEffect(() => {
+    const id = rolarParaItensRef.current;
+    if (!id || editingId !== id || !orders.some(o => o.id === id)) return;
+    rolarParaItensRef.current = null;
+    requestAnimationFrame(() => document.getElementById(`orc-itens-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }, [orders, editingId]);
+
   // Volta de Produtos ("+ Adicionar item"): reabre a edição como estava, com os itens escolhidos já dentro.
   // Nada foi gravado no banco ainda; só grava no "Salvar Alterações".
   useEffect(() => {
@@ -4275,6 +4284,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     ultimoCnpjConsultadoRef.current = d.cnpjConsultado || "";
     setEditCnpjMsg({ tipo: "", texto: "" });
     setEditDraft(null);
+    rolarParaItensRef.current = d.orderId;
     if (d.novos > 0) notify(d.novos === 1 ? "Item colocado no orçamento. Confira e clique em Salvar Alterações." : `${d.novos} itens colocados no orçamento. Confira e clique em Salvar Alterações.`, "ok");
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -5375,7 +5385,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   </div>
 
                   {/* Edit Items */}
-                  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+                  <div id={`orc-itens-${o.id}`} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
                     <div style={{ padding: "10px 14px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Itens ({editItems.length})</span>
                       {/* Salva o que foi editado (itens excluidos, qtd, cliente) ANTES de ir ao catalogo.
