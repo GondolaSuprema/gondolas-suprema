@@ -2192,7 +2192,6 @@ function Nav({ page, setPage, user, onLogout, cartCount }) {
     { k: "catalog", l: "Produtos" },
     { k: "projeto", l: "Projeto" },
     { k: "orders", l: "Orçamentos" },
-    { k: "graficos", l: "Gráficos" },
     { k: "logistica", l: "Logística" },
     { k: "comissoes", l: "Comissões" },
     { k: "adm", l: "ADM" },
@@ -2610,15 +2609,15 @@ const VENDEDORES = [
 // Mudar permissao = editar este objeto. Nao espalhe ifs pelo codigo.
 const ROLE_PERMISSIONS = {
   // admin (Ale) ve todas, incluindo Comissoes consolidado de todos vendedores
-  admin:           ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao", "fotos"],
+  admin:           ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "logistica", "comissoes", "adm", "financeiro", "dre", "nf", "conciliacao", "fotos"],
   // gestor (Zanella) — SEM comissoes (regra do Ale). TEM financeiro mas SOMENTE
   // LEITURA (escrita bloqueada via somenteLeitura no FinanceiroPage). TEM nf
   // com acesso COMPLETO (pode emitir/cancelar/CC-e via podeEmitir=gestor).
-  gestor:          ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "graficos", "logistica", "adm", "financeiro", "nf", "fotos"],
+  gestor:          ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "logistica", "adm", "financeiro", "nf", "fotos"],
   // vendedor (Adelmo) ve graficos + logistica (somente leitura, controlado
   // por canEditLogistica) + suas proprias comissoes + ADM SOMENTE LEITURA
   // (acoes de escrita escondidas via canEditAdm)
-  vendedor:        ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "graficos", "logistica", "comissoes", "adm", "fotos"],
+  vendedor:        ["painel", "agenda", "client", "catalog", "projeto", "resumo", "orders", "leads", "logistica", "comissoes", "adm", "fotos"],
   // vendedor_basico (sem usuário hoje) so o operacional + suas proprias comissoes + logistica
   vendedor_basico: ["client", "catalog", "resumo", "orders", "logistica", "comissoes", "fotos"],
   // contabilidade (Nexx) — Financeiro (leitura, via somenteLeitura), NF (visualiza;
@@ -9605,7 +9604,7 @@ function PainelPage({ user }) {
   })();
 
   const SELLERS = VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
-  const META_VEND = 100000; // meta mensal individual — MESMO valor da aba Gráficos (não divergir)
+  const META_VEND = 100000; // meta mensal individual por vendedor (a aba Gráficos foi excluída em 18-nov)
   const cores = ["#F5A623", "#3B82F6", "#10B981"];
   const porVendedor = SELLERS.map((v, i) => ({
     nome: v.name, cor: cores[i] || COLORS.orange, meta: META_VEND,
@@ -9886,154 +9885,6 @@ function GaugeChart({ value, max, name, color }) {
       <div style={{ fontFamily: "'DM Sans', sans-serif", color: COLORS.textDim, fontSize: 10, marginTop: 2 }}>Meta: {fmt(max)} · {pctLabel}% atingido</div>
       <div style={{ marginTop: 8, height: 4, background: COLORS.border, borderRadius: 2, overflow: "hidden" }}>
         <div style={{ width: pctLabel + "%", height: "100%", background: color, borderRadius: 2, transition: "width 0.5s" }} />
-      </div>
-    </div>
-  );
-}
-
-function GraficosPage({ user }) {
-  const [allOrders, setAllOrders] = useState([]);
-  const [mesSel, setMesSel] = useState("");
-  const META = 100000;
-
-  // Admin, gestor e vendedor (Adelmo) veem todos; só vendedor_basico
-  // vê apenas os próprios.
-  const role = user?.role || (user?.isAdmin ? "admin" : "vendedor");
-  const isVendedorComum = role === "vendedor_basico";
-
-  useEffect(() => {
-    if (!user) return;
-    const load = async () => {
-      const montar = () => {
-        let q = supabase.from("orcamentos").select("*").eq("status", "Concluído");
-        if (isVendedorComum) q = q.eq("vendedor_id", user.id);
-        return q.order("data_conclusao", { ascending: false, nullsFirst: false }).order("id");
-      };
-      const { data } = await buscarTodasLinhas(montar);
-      if (data) {
-        // Remove orcamentos RS-ocultos do ranking/graficos consolidados
-        const visiveis = data.filter(o => !isOrcamentoRsOculto(o));
-        setAllOrders(visiveis.map(o => ({
-          id: o.id,
-          // Base do agrupamento por mês: a data da ENTREGA (mês da NF), IGUAL à
-          // aba ADM/Vendas Concluídas — pra o gráfico bater com ela. MESMO fallback
-          // da ADM (data de criação do orçamento) quando não há data_entrega. O mês
-          // é lido por slice "YYYY-MM" (nunca new Date), senão o dia 01 caía no mês
-          // anterior por fuso.
-          date: o.data_entrega || o.data,
-          total: o.total || 0, vendedor: o.vendedor_nome, vendedorId: o.vendedor_id
-        })));
-      }
-    };
-    load();
-  }, [user?.id, isVendedorComum]);
-
-  // Mês atual no formato YYYY-MM — sempre presente no dropdown e usado
-  // como default ao abrir a aba (mesmo que ainda não tenha vendas no mês)
-  const _hojeGraf = new Date();
-  const _mesAtualGraf = _hojeGraf.getFullYear() + "-" + String(_hojeGraf.getMonth() + 1).padStart(2, "0");
-  const _mesesSet = new Set(allOrders.map(o => String(o.date || "").slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)));
-  _mesesSet.add(_mesAtualGraf);
-  const meses = [..._mesesSet].sort().reverse();
-  const mesNomes = { "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril", "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto", "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro" };
-  const activeMes = mesSel || _mesAtualGraf;
-  const cores = { v1: "#F5A623", v2: "#3B82F6", v3: "#10B981" };
-
-  // Admin/gestor: ranking entre os 3 vendedores
-  // Vendedor: so aparece o proprio (a query ja vem filtrada)
-  const SELLERS = isVendedorComum
-    ? VENDEDORES.filter(v => v.id === user.id)
-    : VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
-
-  const vendedoresData = SELLERS.map(v => {
-    const vendasMes = allOrders.filter(o => o.vendedorId === v.id && String(o.date || "").slice(0, 7) === activeMes);
-    return { ...v, totalMes: vendasMes.reduce((s, o) => s + o.total, 0), qtdVendas: vendasMes.length };
-  });
-
-  const totalEquipe = vendedoresData.reduce((s, v) => s + v.totalMes, 0);
-
-  // Total de vendas concluídas no mês ativo (para o contador do filtro)
-  const qtdVendasMes = vendedoresData.reduce((s, v) => s + v.qtdVendas, 0);
-
-  return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px" }}>
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 24, margin: "0 0 4px" }}>Gráficos de Vendas</h1>
-        <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
-          Acompanhamento de metas por vendedor
-          <span style={{ color: COLORS.textDim, fontStyle: "italic" }}> · somente vendas concluídas</span>
-        </p>
-      </div>
-
-      {/* Filtro por mês — disponível pra todos os usuários */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 10, padding: "12px 16px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>📅 Filtrar por mês:</span>
-        <select
-          value={activeMes}
-          onChange={e => setMesSel(e.target.value)}
-          style={{ padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", minWidth: 180 }}
-        >
-          {meses.length === 0 && <option value="">Sem dados</option>}
-          {meses.map(m => <option key={m} value={m}>{mesNomes[m.split("-")[1]]} {m.split("-")[0]}</option>)}
-        </select>
-        <span style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif", marginLeft: "auto" }}>
-          {qtdVendasMes} {qtdVendasMes === 1 ? "venda concluída" : "vendas concluídas"}{activeMes && ` em ${mesNomes[activeMes.split("-")[1]]} ${activeMes.split("-")[0]}`}
-        </span>
-      </div>
-
-      {/* Meta da equipe */}
-      <div style={{ background: `linear-gradient(135deg, ${COLORS.orange}12, ${COLORS.orange}06)`, border: `1px solid ${COLORS.orange}30`, borderRadius: 14, padding: "20px 24px", marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
-        <div>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Total da Equipe</div>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 800, color: COLORS.orange }}>{fmt(totalEquipe)}</div>
-          <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Meta equipe: {fmt(META * SELLERS.length)} · {Math.round(totalEquipe / (META * SELLERS.length) * 100)}%</div>
-        </div>
-        <div style={{ width: 200 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ color: COLORS.textDim, fontSize: 10 }}>0%</span>
-            <span style={{ color: COLORS.textDim, fontSize: 10 }}>100%</span>
-          </div>
-          <div style={{ height: 10, background: COLORS.border, borderRadius: 5, overflow: "hidden" }}>
-            <div style={{ width: Math.min(totalEquipe / (META * SELLERS.length) * 100, 100) + "%", height: "100%", background: `linear-gradient(90deg, #F87171, #F59E0B, #10B981)`, borderRadius: 5, transition: "width 0.5s" }} />
-          </div>
-        </div>
-      </div>
-
-      {/* Velocímetro Geral - Gôndolas Suprema */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 18, margin: "0 0 14px", textAlign: "center" }}>Resultado Geral — Gôndolas Suprema</h2>
-        <div style={{ maxWidth: 320, margin: "0 auto" }}>
-          <GaugeChart name="Gôndolas Suprema" value={totalEquipe} max={META * SELLERS.length} color={COLORS.orange} />
-        </div>
-      </div>
-
-      {/* Velocímetros por vendedor */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-        {vendedoresData.map((v, i) => (
-          <GaugeChart key={v.id} name={v.name} value={v.totalMes} max={META} color={Object.values(cores)[i] || COLORS.orange} />
-        ))}
-      </div>
-
-      {/* Ranking */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: CARD_GLOW, borderRadius: 12, marginTop: 20, overflow: "hidden" }}>
-        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${COLORS.border}` }}>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 16, margin: 0 }}>Ranking do Mês</h2>
-        </div>
-        {[...vendedoresData].sort((a, b) => b.totalMes - a.totalMes).map((v, i) => (
-          <div key={v.id} style={{ padding: "12px 18px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 20 }}>{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>
-              <div>
-                <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{v.name}</div>
-                <div style={{ color: COLORS.textDim, fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{v.qtdVendas} venda(s) concluída(s)</div>
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: COLORS.orange }}>{fmt(v.totalMes)}</div>
-              <div style={{ color: COLORS.textDim, fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>{Math.round(v.totalMes / META * 100)}% da meta</div>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -14831,8 +14682,6 @@ export default function App() {
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
       {page === "painel" && canAccess(user, "painel") && <PainelPage user={user} />}
       {page === "painel" && !canAccess(user, "painel") && <Login onLogin={login} setPage={setPage} />}
-      {page === "graficos" && user && <GraficosPage user={user} />}
-      {page === "graficos" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
       {page === "logistica" && !canAccess(user, "logistica") && <Login onLogin={login} setPage={setPage} />}
       {page === "comissoes" && canAccess(user, "comissoes") && <ComissoesPage user={user} />}
