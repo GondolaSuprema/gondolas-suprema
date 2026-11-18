@@ -3685,7 +3685,7 @@ function FreteCalcInfo({ calc, onUsarSugestao }) {
 }
 
 // ─── RESUMO ───
-function ResumoPage({ items, user, setPage, clientData, setClientData, editingOrderId, setEditingOrderId, editingOrderInfo, setEditingOrderInfo, setItems, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap, bumpOrdersRefresh }) {
+function ResumoPage({ items, user, setPage, clientData, setClientData, editingOrderId, setEditingOrderId, editingOrderInfo, setEditingOrderInfo, setItems, markup, setMarkup, frete, setFrete, desconto, setDesconto, uniplusPriceMap, bumpOrdersRefresh, leadOrigem, setLeadOrigem }) {
   const [notes, setNotes] = useState("");
   // Cálculo automático de frete por distância (Palhoça → cidade do cliente)
   const [freteCalc, setFreteCalc] = useState({ loading: false, tipo: "", texto: "" });
@@ -3810,7 +3810,19 @@ function ResumoPage({ items, user, setPage, clientData, setClientData, editingOr
         setEditingOrderId(null);
       } else {
         const novoId = genId();
-        const { error: erroInserir } = await supabase.from("orcamentos").insert({
+        // Orçamento nascido de um lead ("Fazer orçamento"): fica ligado a ele. Confere que ainda é o
+        // mesmo cliente (mesmo telefone ou mesmo primeiro nome no responsável/empresa) — se a pessoa
+        // trocou de cliente no meio, não liga.
+        const leadIdOrigem = (() => {
+          if (!leadOrigem?.id) return null;
+          const f8 = String(cd.telefone || "").replace(/\D/g, "").slice(-8);
+          const n1 = leadOrigem.nome1 || "";
+          const nomes = [cd.responsavel, cd.empresa].map(t => String(t || "").trim().toLowerCase());
+          const mesmoNome = n1.length >= 3 && nomes.some(t => t.split(/\s+/).includes(n1)); // palavra inteira ("Ana" não casa com "Mariana")
+          return (f8.length === 8 && f8 === leadOrigem.fone8) || mesmoNome ? leadOrigem.id : null;
+        })();
+        const dadosOrc = {
+          ...(leadIdOrigem ? { lead_id: leadIdOrigem } : {}),
           id: novoId,
           vendedor_id: user.id,
           vendedor_nome: user.name,
@@ -3833,8 +3845,15 @@ function ResumoPage({ items, user, setPage, clientData, setClientData, editingOr
           desconto: descontoNum,
           notes,
           status: "Aguardando Retorno",
-        });
-        if (erroInserir) throw erroInserir;
+        };
+        const { error: erroInserir } = await supabase.from("orcamentos").insert(dadosOrc);
+        if (erroInserir && leadIdOrigem && erroInserir.code === "23503") {
+          // Lead apagado no meio do caminho: salva o orçamento mesmo assim, só sem o vínculo.
+          const { lead_id: _semLead, ...semVinculo } = dadosOrc;
+          const { error: erro2 } = await supabase.from("orcamentos").insert(semVinculo);
+          if (erro2) throw erro2;
+        } else if (erroInserir) throw erroInserir;
+        if (setLeadOrigem) setLeadOrigem(null); // vínculo usado; o próximo orçamento começa sem lead
 
         // Ponte CAPI (Fase 1 - coleta): manda o Lead pro Meta assim que o orcamento nasce.
         // So o telefone -- e o unico dado 100% real nessa fase (email/nome so
@@ -6800,7 +6819,7 @@ function AgendaPage({ user, setPage }) {
   );
 }
 
-function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmAndamento, iniciarOrcamentoNovo }) {
+function LeadsPage({ user, setClientData, setPage, setLeadContexto, setLeadOrigem, orcamentoEmAndamento, iniciarOrcamentoNovo }) {
   const meuConsultor = String(user?.name || "").trim().split(/\s+/)[0] || "";
   // Regra do Ale (18-nov-2026): só o admin (Alessandro) vê os leads de todos, filtra por consultor,
   // troca o consultor e vê o painel de desempenho. Gestor (Willian) e vendedor (Adelmo) veem só os leads deles.
@@ -6811,6 +6830,10 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
   const [mariana, setMariana] = useState([]);
   // fone8 → orçamentos daquele telefone, mais novo primeiro: [{ id, ts, status, total, vendedorId, cliente, oculto }]
   const [orcPorFone, setOrcPorFone] = useState(new Map());
+  // lead_id → orçamentos ligados a esse lead (vínculo gravado; vale mesmo com outro telefone)
+  const [orcPorLead, setOrcPorLead] = useState(new Map());
+  // Orçamentos visíveis p/ escolher no "Vincular orçamento" (sem os RS ocultos)
+  const [orcLista, setOrcLista] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [consultorSel, setConsultorSel] = useState(ehGestao && souConsultor ? meuConsultor : "todos");
@@ -6839,6 +6862,10 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
   const [desistindo, setDesistindo] = useState(null); // id do lead escolhendo o motivo da desistência
   // Tarefa a partir do lead: form inline, sugere "Retornar com [nome]" pra amanhã.
   const [agendando, setAgendando] = useState(null); // id do lead com form aberto
+  // 🔗 Vincular orçamento ao lead (venda cadastrada com outro telefone, ex.: fixo da empresa)
+  const [vinculando, setVinculando] = useState(null); // id do lead com o painel aberto
+  const [vincBusca, setVincBusca] = useState("");
+  const [vincSalvando, setVincSalvando] = useState(false);
   const [agendaTxt, setAgendaTxt] = useState("");
   const [agendaData, setAgendaData] = useState(agendaHojeStr());
   const [agendaSalv, setAgendaSalv] = useState(false);
@@ -6902,7 +6929,7 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
     const [m, o] = await Promise.all([
       buscarTudo((de, ate) => supabase.from("mariana_leads").select("*").order("criado_em", { ascending: false }).order("id").range(de, ate)),
       // Cada um lê os orçamentos que a RLS libera (o vendedor, só os dele).
-      buscarTudo((de, ate) => supabase.from("orcamentos").select("id, cliente_telefone, cliente_empresa, cliente_responsavel, cliente_estado, vendedor_id, status, total, data, data_entrega, fechado_em").order("id").range(de, ate)),
+      buscarTudo((de, ate) => supabase.from("orcamentos").select("id, cliente_telefone, cliente_empresa, cliente_responsavel, cliente_estado, vendedor_id, status, total, data, data_entrega, fechado_em, lead_id").order("id").range(de, ate)),
     ]);
     if (silencioso && (m.error || o.error)) return;
     if (m.error) setErro(m.error.message); else setMariana(m.data || []);
@@ -6911,22 +6938,30 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
     else {
       const verRs = podeVerOrcamentosRsOcultos(user);
       const map = new Map();
+      const porLead = new Map();
+      const lista0 = [];
       (o.data || []).forEach(r => {
-        const f = fone8(r.cliente_telefone); if (f.length !== 8) return;
+        const f = fone8(r.cliente_telefone);
         const ts = Date.parse(r.data); if (Number.isNaN(ts)) return;
+        const leadId = r.lead_id == null ? null : Number(r.lead_id);
         // RS do Ale é particular: casa com o lead, mas sem mostrar valor/cliente p/ os outros
         const oculto = isOrcamentoRsOculto(r) && !verRs;
         const cliente = oculto ? "" : String(r.cliente_empresa || r.cliente_responsavel || "").trim();
-        const lista = map.get(f) || [];
+        if (!oculto) lista0.push({ id: r.id, ts, status: String(r.status || ""), total: Number(r.total) || 0, cliente, responsavel: String(r.cliente_responsavel || "").trim(), telefone: r.cliente_telefone || "", leadId });
         // entrega/fechadoEm: só p/ saber em que MÊS a venda caiu (aba Vendas)
         const datas = { entrega: r.data_entrega || "", fechadoEm: r.fechado_em || "" };
-        lista.push(oculto
-          ? { id: "", ts, status: String(r.status || ""), total: 0, vendedorId: "", cliente: "", oculto, ...datas } // status fica só p/ saber se virou venda; não é exibido
-          : { id: r.id, ts, status: String(r.status || ""), total: Number(r.total) || 0, vendedorId: r.vendedor_id, cliente, oculto, ...datas });
-        map.set(f, lista);
+        const item = oculto
+          ? { id: "", ts, status: String(r.status || ""), total: 0, vendedorId: "", cliente: "", oculto, leadId, ...datas } // status fica só p/ saber se virou venda; não é exibido
+          : { id: r.id, ts, status: String(r.status || ""), total: Number(r.total) || 0, vendedorId: r.vendedor_id, cliente, oculto, leadId, ...datas };
+        // Ligado a um lead: conta SÓ para ele (não entra no casamento por telefone).
+        if (leadId != null) { (porLead.get(leadId) || porLead.set(leadId, []).get(leadId)).push(item); return; }
+        if (f.length !== 8) return;
+        (map.get(f) || map.set(f, []).get(f)).push(item);
       });
       map.forEach(l => l.sort((a, b) => b.ts - a.ts));
-      setOrcPorFone(map);
+      porLead.forEach(l => l.sort((a, b) => b.ts - a.ts));
+      lista0.sort((a, b) => b.ts - a.ts);
+      setOrcPorFone(map); setOrcPorLead(porLead); setOrcLista(lista0);
     }
     setLoading(false);
   };
@@ -7115,6 +7150,9 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
     });
     if (String(l.status_atendimento || "pendente") === "pendente") setStatus(l, "atendido");
     if (setLeadContexto) setLeadContexto(l); // guarda a conversa p/ o modal aparecer na aba Produtos
+    // Guarda de qual lead o orçamento nasceu: ao salvar, o orçamento fica ligado a ele (lead_id),
+    // mesmo que o telefone seja trocado pelo fixo da empresa.
+    if (setLeadOrigem) setLeadOrigem({ id: Number(l.id), fone8: fone8(l.telefone), nome1: String(l.nome || "").trim().split(/\s+/)[0].toLowerCase() });
     setPage("client");
   };
 
@@ -7153,7 +7191,25 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
     porFone.forEach(lista => { lista.sort((a, b) => a.t - b.t); lista.forEach((x, i) => { if (lista[i + 1]) fim.set(x.id, lista[i + 1].t - 86400000); }); });
     return fim;
   })();
-  const orcsDoLead = (l) => { const fim = fimJanela.get(l.id); return (orcPorFone.get(fone8(l.telefone)) || []).filter(o => o.ts >= corteLead(l) && (fim == null || o.ts < fim)); }; // mais novo primeiro
+  // 🔗 Liga (ou desliga, leadId = null) um orçamento a um lead. A RLS só deixa mudar o que a pessoa pode editar.
+  const vincularOrc = async (orcId, leadId) => {
+    if (vincSalvando) return;
+    setVincSalvando(true);
+    const { data, error } = await supabase.from("orcamentos").update({ lead_id: leadId }).eq("id", orcId).select("id");
+    setVincSalvando(false);
+    if (error || !data || data.length === 0) { notify("Não consegui gravar o vínculo (o orçamento pode ser de outro vendedor). Tente de novo.", "erro"); return; }
+    notify(leadId ? "Orçamento vinculado ao lead" : "Vínculo removido", "ok");
+    if (leadId) { setVinculando(null); setVincBusca(""); }
+    await carregar({ silencioso: true });
+  };
+  // Orçamentos do lead: os ligados a ele (vínculo gravado, qualquer telefone/data) + os do mesmo
+  // telefone dentro da janela dele. Mais novo primeiro.
+  const orcsDoLead = (l) => {
+    const fim = fimJanela.get(l.id);
+    const porFone = (orcPorFone.get(fone8(l.telefone)) || []).filter(o => o.ts >= corteLead(l) && (fim == null || o.ts < fim));
+    const ligados = orcPorLead.get(Number(l.id)) || [];
+    return ligados.length ? [...ligados, ...porFone].sort((a, b) => b.ts - a.ts) : porFone;
+  };
   const orcAntes = (l) => (orcPorFone.get(fone8(l.telefone)) || []).some(o => o.ts < corteLead(l));
   const converteu = (l, tipo) => { const os = orcsDoLead(l); return tipo === "venda" ? os.some(o => ehVenda(o.status)) : os.length > 0; };
   const nomeVendedor = (id) => (VENDEDORES.find(v => v.id === id)?.name || "").split(" ")[0] || "—";
@@ -7770,9 +7826,48 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
                       {!emRetorno && (cur === "atendido" || cur === "aguardando") && acaoBtn("Aguardando cliente", AZUL, cur === "aguardando", () => setStatus(l, "aguardando"))}
                       {!emRetorno && acaoBtn("Fazer orçamento", COLORS.accent, false, () => fazerOrcamento(l))}
                       {acaoBtn("📅 Agendar tarefa", COLORS.orange, false, () => abrirAgendaLead(l))}
+                      {acaoBtn("🔗 Vincular orçamento", AZUL, vinculando === l.id, () => { setVincBusca(""); setVinculando(vinculando === l.id ? null : l.id); })}
                       {acaoBtn(emRetorno ? "✖ Desistiu" : "Desistir", COLORS.danger, false, () => { setFechando(null); setDesistindo(l.id); })}
                     </div>
                   )}
+                  {/* 🔗 Vincular orçamento: para venda cadastrada com outro telefone (ex.: fixo da empresa) */}
+                  {vinculando === l.id && (() => {
+                    const norm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                    const nome1 = norm(String(l.nome || "").trim().split(/\s+/)[0]);
+                    const q = norm(vincBusca.trim());
+                    const qDig = vincBusca.replace(/\D/g, "");
+                    const ligados = orcLista.filter(o => o.leadId === Number(l.id));
+                    const candidatos = orcLista.filter(o => o.leadId !== Number(l.id)).filter(o => {
+                      if (!q) return nome1.length >= 3 && [o.responsavel, o.cliente].some(t => norm(t).split(/[^a-z0-9]+/).includes(nome1));
+                      return norm(o.cliente).includes(q) || norm(o.responsavel).includes(q) || norm(o.id).startsWith(q) || (qDig.length >= 4 && String(o.telefone).replace(/\D/g, "").includes(qDig));
+                    }).slice(0, 8);
+                    const linha = (o, ligado) => (
+                      <div key={o.id} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 8, background: COLORS.surface, border: `1px solid ${COLORS.border}` }}>
+                        <span style={{ fontSize: 13, color: COLORS.text }}>
+                          <b>#{String(o.id).slice(0, 6).toUpperCase()}</b> · {o.cliente || "—"} · {fmtMoney(o.total)} · {new Date(o.ts).toLocaleDateString("pt-BR")} · <span style={{ color: ehVenda(o.status) ? COLORS.success : COLORS.textMuted, fontWeight: 600 }}>{o.status || "—"}</span>
+                          {!ligado && o.leadId != null && <span style={{ color: COLORS.textDim }}> · ligado a outro lead</span>}
+                        </span>
+                        <button disabled={vincSalvando} onClick={() => vincularOrc(o.id, ligado ? null : Number(l.id))}
+                          style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", background: ligado ? COLORS.surface : AZUL, color: ligado ? COLORS.textMuted : "#fff", opacity: vincSalvando ? 0.6 : 1, ...(ligado ? { border: `1px solid ${COLORS.border}` } : {}) }}>
+                          {ligado ? "Desvincular" : o.leadId != null ? "Mover para este lead" : "Vincular a este lead"}
+                        </button>
+                      </div>
+                    );
+                    return (
+                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8, background: AZUL + "10", border: `1px solid ${AZUL}55`, borderRadius: 8, padding: 10 }}>
+                        <span style={{ fontSize: 12.5, color: COLORS.textMuted }}>Use quando o orçamento deste cliente foi salvo com outro telefone (por exemplo, o fixo da empresa). O orçamento passa a contar só para este lead.</span>
+                        {ligados.length > 0 && <>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.text }}>Já vinculados</span>
+                          {ligados.map(o => linha(o, true))}
+                        </>}
+                        <input value={vincBusca} onChange={e => setVincBusca(e.target.value)} placeholder="Buscar orçamento: empresa, responsável, número ou telefone"
+                          style={{ width: "100%", boxSizing: "border-box", background: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontFamily: "inherit" }} />
+                        <span style={{ fontSize: 12, color: COLORS.textDim }}>{q ? "Resultados da busca" : `Sugestões pelo nome “${String(l.nome || "").trim().split(/\s+/)[0] || "—"}”`}</span>
+                        {candidatos.length ? candidatos.map(o => linha(o, false)) : <span style={{ fontSize: 12.5, color: COLORS.textDim }}>Nenhum orçamento encontrado{q ? "" : " pelo nome. Busque pela empresa ou pelo número"}.</span>}
+                        <button onClick={() => { setVinculando(null); setVincBusca(""); }} style={{ alignSelf: "flex-start", padding: "6px 10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: "none", color: COLORS.textMuted, border: "none" }}>Fechar</button>
+                      </div>
+                    );
+                  })()}
                   {/* Form inline pra criar tarefa vinculada ao lead — vira card na Agenda do usuário logado */}
                   {agendando === l.id && (
                     <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", background: COLORS.orange + "10", border: `1px solid ${COLORS.orange}55`, borderRadius: 8, padding: 10 }}>
@@ -9422,7 +9517,7 @@ function PainelPage({ user }) {
         // Só as colunas usadas (antes vinha "*", com a lista de itens de todas as vendas).
         buscarTudo((de, ate) => fonteOrc("data_entrega, data, total, vendedor_id, cliente_estado").eq("status", "Concluído").order("id").range(de, ate)),
         buscarTudo((de, ate) => supabase.from("mariana_leads").select("id, telefone, criado_em, status_atendimento, consultor").order("id").range(de, ate)),
-        buscarTudo((de, ate) => fonteOrc("cliente_telefone, status, data").order("id").range(de, ate)),
+        buscarTudo((de, ate) => fonteOrc("cliente_telefone, status, data, lead_id").order("id").range(de, ate)),
       ]);
       if (!vivo) return;
       const conc = c.linhas.filter(x => !isOrcamentoRsOculto(x)).map(x => ({
@@ -9430,9 +9525,10 @@ function PainelPage({ user }) {
       }));
       const map = new Map();
       o.linhas.forEach(r => {
-        const f = String(r.cliente_telefone || "").replace(/\D/g, "").slice(-8);
-        if (f.length !== 8) return;
         const ts = Date.parse(r.data); if (Number.isNaN(ts)) return;
+        // Orçamento ligado a um lead (lead_id) conta só para ele; os outros casam pelo telefone (mesma regra da aba Leads)
+        const f = r.lead_id != null ? "lead:" + Number(r.lead_id) : String(r.cliente_telefone || "").replace(/\D/g, "").slice(-8);
+        if (r.lead_id == null && f.length !== 8) return;
         const e = map.get(f) || { orc: [], venda: [] };
         e.orc.push(ts); if (String(r.status) === "Concluído" || String(r.status) === "Fazer Pedido") e.venda.push(ts); // mesma regra da aba Leads
         map.set(f, e);
@@ -9484,6 +9580,8 @@ function PainelPage({ user }) {
     return fim;
   })();
   const converteu = (l, tipo) => {
+    const lig = orcMap.get("lead:" + Number(l.id)); // vínculo gravado: vale sem olhar telefone nem data
+    if (lig && (tipo === "venda" ? lig.venda : lig.orc).length) return true;
     const e = orcMap.get(fone8(l.telefone)); if (!e) return false;
     const corte = Date.parse(l.criado_em) - 86400000;
     const fim = fimJanela.get(l.id);
@@ -14391,6 +14489,7 @@ export default function App() {
   const EMPTY_CLIENT = { empresa: "", cnpj: "", responsavel: "", telefone: "", email: "", endereco: "", numero: "", bairro: "", cidade: "", estado: "", cep: "" };
   const [clientData, setClientData] = useState(EMPTY_CLIENT);
   const [leadContexto, setLeadContexto] = useState(null); // conversa do lead p/ o modal na aba Produtos
+  const [leadOrigem, setLeadOrigem] = useState(null); // { id, fone8, nome1 }: lead de onde veio o orçamento em montagem
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [editingOrderInfo, setEditingOrderInfo] = useState(null); // { num, empresa, qtdItens, totalAtual } — mostrado no banner do Resumo
   useEffect(() => { trabalhoEmAndamentoRef.current = cart.length > 0 || !!editingOrderId; }, [cart, editingOrderId]);
@@ -14512,6 +14611,7 @@ export default function App() {
     await supabase.auth.signOut();
     if (typeof window !== "undefined") localStorage.removeItem("gs_client_data");
     setClientData(EMPTY_CLIENT);
+    setLeadOrigem(null);
     setCart([]);
     setMarkup(0);
     setFrete(0);
@@ -14641,13 +14741,13 @@ export default function App() {
       {page === "catalog" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "quote" && user && <Quote items={cart} setItems={setCart} user={user} setPage={setPage} clientData={clientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} />}
       {page === "quote" && !user && <Login onLogin={login} setPage={setPage} />}
-      {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} setClientData={setClientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} setEditingOrderInfo={setEditingOrderInfo} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} bumpOrdersRefresh={() => setOrdersRefreshKey(k => k + 1)} />}
+      {page === "resumo" && user && <ResumoPage items={cart} user={user} setPage={setPage} clientData={clientData} setClientData={setClientData} editingOrderId={editingOrderId} setEditingOrderId={setEditingOrderId} editingOrderInfo={editingOrderInfo} setEditingOrderInfo={setEditingOrderInfo} setItems={setCart} markup={markup} setMarkup={setMarkup} frete={frete} setFrete={setFrete} desconto={desconto} setDesconto={setDesconto} uniplusPriceMap={uniplusPriceMap} bumpOrdersRefresh={() => setOrdersRefreshKey(k => k + 1)} leadOrigem={leadOrigem} setLeadOrigem={setLeadOrigem} />}
       {page === "resumo" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "orders" && user && <Orders user={user} setPage={setPage} setCart={setCart} clientData={clientData} setEditingOrderId={setEditingOrderId} setEditingOrderInfo={setEditingOrderInfo} refreshKey={ordersRefreshKey} uniplusProducts={uniplusProducts} />}
       {page === "orders" && !user && <Login onLogin={login} setPage={setPage} />}
       {page === "leads" && canAccess(user, "leads") && <LeadsPage user={user} setClientData={setClientData} setPage={setPage} setLeadContexto={setLeadContexto}
         orcamentoEmAndamento={{ itens: cart.length, editando: editingOrderId ? (editingOrderInfo?.num || String(editingOrderId).slice(0, 6).toUpperCase()) : null }}
-        iniciarOrcamentoNovo={() => { setCart([]); setEditingOrderId(null); setEditingOrderInfo(null); setMarkup(0); setFrete(0); setDesconto(0); }} />}
+        iniciarOrcamentoNovo={() => { setCart([]); setEditingOrderId(null); setEditingOrderInfo(null); setMarkup(0); setFrete(0); setDesconto(0); setLeadOrigem(null); }} setLeadOrigem={setLeadOrigem} />}
       {page === "leads" && !canAccess(user, "leads") && <Login onLogin={login} setPage={setPage} />}
       {page === "adm" && canAccess(user, "adm") && <AdminPage user={user} />}
       {page === "adm" && !canAccess(user, "adm") && <Login onLogin={login} setPage={setPage} />}
