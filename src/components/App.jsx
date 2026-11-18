@@ -4063,6 +4063,25 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   const [filterMes, setFilterMes] = useState("all");
   // Filtro por status ("all" ou um dos status)
   const [filterStatus, setFilterStatus] = useState("all");
+  // Só o Alessandro (admin): vê os orçamentos dos outros vendedores pelo filtro e troca o vendedor
+  // de um orçamento (Ale, 18-nov). Padrão "v1" = os dele, como sempre foi.
+  const ehAdminOrc = user?.role === "admin";
+  const [filtroVend, setFiltroVend] = useState(user?.id || "all");
+  const [trocandoVend, setTrocandoVend] = useState(null); // id do orçamento sendo trocado
+  const trocarVendedor = async (o, novoId) => {
+    const novo = VENDEDORES.find(v => v.id === novoId);
+    if (!ehAdminOrc || !novo || novoId === o.vendedorId) return;
+    if (o.comissaoPaga) { notify("A comissão deste orçamento já foi paga. Troque o vendedor só depois de acertar a comissão.", "erro"); return; }
+    // RS é particular só quando é do Ale (v1): trocar o vendedor de um orçamento RS faria ele aparecer
+    // (ou sumir) em ADM, Logística, DRE e Comissões. Fica bloqueado.
+    if (String(o.client?.estado || "").trim().toUpperCase() === "RS") { notify("Orçamento do RS não troca de vendedor (é a regra do RS particular).", "erro"); return; }
+    setTrocandoVend(o.id);
+    const { data: gravou, error } = await supabase.from("orcamentos").update({ vendedor_id: novo.id, vendedor_nome: novo.name }).eq("id", o.id).eq("comissao_paga", false).select("id");
+    setTrocandoVend(null);
+    if (error || !gravou || gravou.length === 0) { notify("Não consegui trocar o vendedor. O orçamento continua como estava.", "erro"); return; }
+    setOrders(prev => prev.map(x => x.id === o.id ? { ...x, vendedorId: novo.id, vendedor: novo.name } : x));
+    notify(`Orçamento passado para ${novo.name}.`, "ok");
+  };
   // Busca livre por nome do cliente / nº do orçamento
   const [buscaNome, setBuscaNome] = useState("");
   // Modal de anotações internas — { orderId, texto }
@@ -4387,10 +4406,15 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
 
   useEffect(() => {
     const loadOrders = async () => {
-      const { data } = await buscarTodasLinhas(() => supabase.from("orcamentos").select("*").eq("vendedor_id", user.id).order("data", { ascending: false }).order("id"));
+      // Admin busca de todos (o filtro de vendedor decide o que aparece); os outros só os próprios.
+      const { data } = await buscarTodasLinhas(() => {
+        const q = supabase.from("orcamentos").select("*");
+        return (user.role === "admin" ? q : q.eq("vendedor_id", user.id)).order("data", { ascending: false }).order("id");
+      });
       if (data) {
         setOrders(data.map(o => ({
           id: o.id, date: o.data, total: o.total, frete: o.frete, comissao: o.comissao || 0, notes: o.notes, anotacoes: o.anotacoes || "", status: o.status, items: o.items, vendedor: o.vendedor_nome,
+          vendedorId: o.vendedor_id, comissaoPaga: !!o.comissao_paga,
           // Sem este campo o editor abria com desconto 0 e o "Salvar" apagava o desconto do orcamento.
           desconto: Number(o.desconto) || 0,
           temperatura: o.temperatura || null,
@@ -4399,7 +4423,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
       }
     };
     loadOrders();
-  }, [user.id, refreshKey]);
+  }, [user.id, user.role, refreshKey]);
 
   const salvarAnotacoes = async () => {
     if (!anotacoesModal) return;
@@ -4509,7 +4533,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
         frete: o.frete || 0,
         comissao: o.comissao || 0,
         // Telefone do header sai do vendedor que fez o orcamento (fallback: usuario logado)
-        user: { name: o.vendedor_nome || o.vendedor || user.name, email: user.email },
+        user: { name: o.vendedor_nome || o.vendedor || user.name, email: VENDEDORES.find(v => v.id === o.vendedorId)?.email || user.email },
         incluirParcelamento: !!parcelamentoOpts[o.id],
         incluirCartao: !!parcelamentoCartaoOpts[o.id],
       });
@@ -4662,6 +4686,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
     const set = new Set();
     orders.forEach(o => {
       if (!o.date) return;
+      if (ehAdminOrc && filtroVend !== "all" && o.vendedorId !== filtroVend) return;
       const d = new Date(o.date);
       if (isNaN(d.getTime())) return;
       set.add(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
@@ -4675,6 +4700,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
   };
   const buscaNorm = buscaNome.trim().toLowerCase();
   const ordersFiltrados = orders.filter(o => {
+    if (ehAdminOrc && filtroVend !== "all" && o.vendedorId !== filtroVend) return false;
     if (filterMes !== "all") {
       if (!o.date) return false;
       const d = new Date(o.date);
@@ -4712,6 +4738,15 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
           <option value="all">Todos os meses</option>
           {mesesDisponiveis.map(m => <option key={m} value={m}>{formatarMes(m)}</option>)}
         </select>
+        {ehAdminOrc && <>
+          <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>👤 Vendedor:</span>
+          <select value={filtroVend} onChange={e => setFiltroVend(e.target.value)}
+            style={{ padding: "8px 12px", background: COLORS.bg, border: `1px solid ${filtroVend !== user.id ? COLORS.orange : COLORS.border}`, borderRadius: 7, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", minWidth: 170 }}>
+            <option value={user.id}>Meus orçamentos</option>
+            <option value="all">Todos os vendedores</option>
+            {VENDEDORES.filter(v => v.id !== user.id).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+          </select>
+        </>}
         <span style={{ color: COLORS.textMuted, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🏷️ Status:</span>
         <select
           value={filterStatus}
@@ -5124,7 +5159,7 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                   <div>
                     <span style={{ fontSize: 14, color: COLORS.white, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{o.client?.empresa || o.client?.responsavel || "Sem cliente"}</span>
                     {/* Marcador "RS particular" — orcamentos RS do Ale ficam fora de ADM/DRE/Logistica/ranking */}
-                    {user.id === "v1" && String(o.client?.estado || "").trim().toUpperCase() === "RS" && (
+                    {user.id === "v1" && isOrcamentoRsOculto(o) && (
                       <span style={{ marginLeft: 8, background: "#8B5CF6" + "20", color: "#8B5CF6", padding: "2px 8px", borderRadius: 10, fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }} title="Orçamento particular RS — não aparece em ADM, DRE, Logística nem ranking">🔒 RS</span>
                     )}
                     <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
@@ -5285,6 +5320,16 @@ function Orders({ user, setPage, setCart, clientData, setEditingOrderId, setEdit
                     </div>
                   </div>
 
+                  {ehAdminOrc && (
+                    <div onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "9px 12px", marginBottom: 10, fontFamily: "'DM Sans', sans-serif" }}>
+                      <span style={{ color: COLORS.textMuted, fontSize: 12 }}>👤 Vendedor do orçamento:</span>
+                      <select value={o.vendedorId || ""} disabled={trocandoVend === o.id} onChange={e => trocarVendedor(o, e.target.value)}
+                        style={{ padding: "6px 10px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+                        {VENDEDORES.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                      </select>
+                      <span style={{ color: COLORS.textDim, fontSize: 10.5 }}>{trocandoVend === o.id ? "Salvando…" : o.comissaoPaga ? "Comissão já paga: troca bloqueada" : String(o.client?.estado || "").trim().toUpperCase() === "RS" ? "Orçamento do RS: troca bloqueada" : "Trocar aqui muda de quem é o orçamento e a comissão"}</span>
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button onClick={(e) => { e.stopPropagation(); showPdf(o); }} style={{ background: "#25D366", border: "none", color: "#fff", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 100 }}>📤 Compartilhar</button>
                     <button onClick={(e) => { e.stopPropagation(); startEdit(o); }} style={{ background: "#3B82F6" + "15", border: `1px solid #3B82F640`, color: "#3B82F6", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flex: 1, minWidth: 100 }}>✏️ Editar</button>
