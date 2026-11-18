@@ -7275,7 +7275,8 @@ function LeadsPage({ user, setClientData, setPage, setLeadContexto, orcamentoEmA
     const nomeOk = /^[A-Za-zÀ-ÿ]{2,12}$/.test(n) && !/^(nao|não|sem)$/i.test(n); // >12 letras costuma ser @usuário, não nome
     const ola = nomeOk ? `Olá, ${n.charAt(0).toUpperCase()}${n.slice(1).toLowerCase()}! Tudo bem?` : "Olá! Tudo bem?";
     const quem = meuConsultor ? ` Aqui é o ${meuConsultor}, da Gôndolas Suprema.` : " Aqui é da Gôndolas Suprema.";
-    return `${ola}${quem} Passando pra saber se você conseguiu ver o orçamento que te enviamos e se ficou alguma dúvida. Fico à disposição!`;
+    // Texto aprovado pelo Ale em 18-nov-2026 (três saídas fáceis: continuar, ajustar ou adiar).
+    return `${ola}${quem} Estou retomando o contato sobre o orçamento que te enviamos. Me conta como prefere seguir: damos continuidade ao pedido, ajustamos alguma coisa ou o projeto ficou para mais adiante?`;
   };
   // 📊 Desempenho: funil lead → orçamento → venda + tempo de resposta + motivos.
   const pct = (n, d) => d ? Math.round((n / d) * 100) : 0;
