@@ -550,6 +550,18 @@ export function criarArena({ canvas, camadaRotulos, semMovimento = false, compac
     });
   }
 
+  // Valores de barras vizinhas (ex.: gôndola e MPP do mesmo mês vistos de lado) não ficam um em cima do outro:
+  // quando dois se encostam na tela, cada um anda metade do que falta para o lado.
+  function afastarValores() {
+    const lim = compacto ? 30 : 36;
+    const vs = [...itens.values()].filter(it => it.el && !it.saindo && it.px != null && it.el.style.opacity !== "0" && it.el.textContent).sort((a, b) => a.px - b.px);
+    const mover = (it) => { it.el.style.transform = `translate3d(${it.px.toFixed(1)}px,${it.py.toFixed(1)}px,0) translate(-50%,-100%)`; };
+    for (let i = 1; i < vs.length; i++) {
+      const a = vs[i - 1], b = vs[i], dx = b.px - a.px;
+      if (dx < lim && Math.abs(a.py - b.py) < 16) { const off = (lim - dx) / 2; a.px -= off; b.px += off; mover(a); mover(b); }
+    }
+  }
+
   // Vistos de cima ou de baixo, os discos do funil ficam no mesmo ponto da tela: as etiquetas descem em coluna.
   function afastarPilulas() {
     let ultimo = -Infinity;
@@ -633,6 +645,7 @@ export function criarArena({ canvas, camadaRotulos, semMovimento = false, compac
       colocarTexto(t, t.def.x, t.def.y, t.def.z, !t.def.prefixo, t.def.sempreVisivel);
     });
     if (nQuadro % 6 === 0) esconderColisoes();
+    afastarValores();
     afastarPilulas();
 
     if (!semMovimento) {

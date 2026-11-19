@@ -9534,9 +9534,9 @@ function Contador({ valor, formato }) {
   return formato ? formato(v) : Math.round(v).toLocaleString("pt-BR");
 }
 
-const ARENA_TITULOS = { produtos: "Gôndolas × Mini Porta Palete", consultores: "Leads por consultor", meses: "Faturamento nos últimos 12 meses", funil: "Funil de leads", vendedores: "Faturamento por vendedor" };
+const ARENA_TITULOS = { produtos: "Gôndolas × Mini Porta Palete", consultores: "Leads por consultor", meses: "Faturamento mês a mês", funil: "Funil de leads", vendedores: "Faturamento por vendedor" };
 const ARENA_LEGENDA = {
-  produtos: (m, a, compacto) => `R$ vendido por linha de produto, mês da entrega · ${compacto ? "últimos 6 meses" : "últimos 12 meses"} até ${m}/${a}`,
+  produtos: (m, a, compacto) => `R$ vendido por linha de produto, mês da entrega · ${compacto ? "últimos 6 meses" : "mês a mês"} até ${m}/${a}`,
   consultores: (m, a) => `Leads que chegaram em ${m}/${a}, o que cada um recebeu e no que eles viraram`,
   meses: (m, a) => `Vendas concluídas por mês da entrega · até ${m}/${a}`,
   funil: (m, a) => `Leads que chegaram em ${m}/${a}`,
@@ -9545,7 +9545,7 @@ const ARENA_LEGENDA = {
 const ARENA_VISTAS = [
   { key: "produtos", nome: "Gôndolas × MPP" },
   { key: "consultores", nome: "Consultores" },
-  { key: "meses", nome: "12 meses" },
+  { key: "meses", nome: "Mês a mês" },
   { key: "funil", nome: "Funil" },
   { key: "vendedores", nome: "Vendedores" },
 ];
@@ -9701,12 +9701,32 @@ function MiniLinha({ valores, cor, alto = 34 }) {
   );
 }
 
+// Anel da meta do mês. `marca` (0–1) = onde o mês deveria estar hoje pelo calendário (só no mês aberto).
+function AnelMeta({ pct, marca, tam = 170 }) {
+  const v = useContagem(Math.max(0, pct || 0));
+  const r = 72, C = 2 * Math.PI * r, p = Math.min(1, v), bateu = pct >= 1;
+  return (
+    <div style={{ position: "relative", width: tam, height: tam, flexShrink: 0 }} role="img" aria-label={`${Math.round((pct || 0) * 100)}% da meta do mês`}>
+      <svg viewBox="0 0 170 170" width={tam} height={tam} aria-hidden="true">
+        <defs><linearGradient id="anelMetaG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={bateu ? "#6EE7B7" : "#FFD27A"} /><stop offset="1" stopColor={bateu ? "#059669" : "#B9791A"} /></linearGradient></defs>
+        <circle cx="85" cy="85" r={r} fill="none" stroke={COLORS.border} strokeWidth="14" />
+        {p > 0.002 && <circle cx="85" cy="85" r={r} fill="none" stroke="url(#anelMetaG)" strokeWidth="14" strokeLinecap="round" strokeDasharray={`${(p * C).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(-90 85 85)" style={{ filter: `drop-shadow(0 0 6px ${bateu ? "rgba(52,211,153,.5)" : "rgba(245,166,35,.45)"})` }} />}
+        {marca != null && <line x1="85" y1="4" x2="85" y2="24" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" opacity=".9" transform={`rotate(${(marca * 360).toFixed(1)} 85 85)`} />}
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: tam * 0.2, color: COLORS.white, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{Math.round(v * 100)}%</span>
+        <span style={{ fontSize: 11.5, color: COLORS.textDim, marginTop: 4 }}>da meta</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── PAINEL (dashboard) — 1ª aba do sistema ───
 // Só LEITURA, dados reais. Faturamento = orçamentos Concluídos agrupados pelo mês
 // da ENTREGA (igual ADM/Gráficos). Funil = mariana_leads casado com orçamentos por
 // telefone+data (mesma lógica do "Desempenho" da aba Leads). Seletor de mês + ano
 // com comparação vs mês anterior. NÃO altera nenhuma outra página.
-function PainelPage({ user }) {
+function PainelPage({ user, irPara }) {
   const MES_NOMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const MES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
   const _hoje = new Date();
@@ -9715,6 +9735,7 @@ function PainelPage({ user }) {
   const [orcs, setOrcs] = useState([]);
   const [leads, setLeads] = useState([]);
   const [orcMap, setOrcMap] = useState(new Map());
+  const [todosOrc, setTodosOrc] = useState([]); // todos os orçamentos (status, valor, datas) para "Dinheiro na mesa"
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(false);
   const [vista3D, setVista3D] = useState("produtos");
@@ -9745,17 +9766,27 @@ function PainelPage({ user }) {
       const [c, l, o] = await Promise.all([
         // Só as colunas usadas (antes vinha "*", com a lista de itens de todas as vendas).
         // Vendas: todos os papéis leem pela função, que já traz o R$ por linha de produto (sem custo).
-        buscarTudo((de, ate) => supabase.rpc("painel_orcamentos_resumo").select("id, data_entrega, data, total, vendedor_id, cliente_estado, v_gondola, v_mpp, v_outros").eq("status", "Concluído").order("id").range(de, ate)),
+        buscarTudo((de, ate) => supabase.rpc("painel_orcamentos_resumo").select("id, data_entrega, data, total, frete, vendedor_id, cliente_estado, v_gondola, v_mpp, v_outros").eq("status", "Concluído").order("id").range(de, ate)),
         buscarTudo((de, ate) => supabase.from("mariana_leads").select("id, telefone, criado_em, status_atendimento, consultor").order("id").range(de, ate)),
-        buscarTudo((de, ate) => fonteOrc("id, cliente_telefone, status, data, lead_id").order("id").range(de, ate)),
+        buscarTudo((de, ate) => fonteOrc("id, cliente_telefone, status, data, lead_id, total, data_entrega, vendedor_id, cliente_estado").order("id").range(de, ate)),
       ]);
       if (!vivo) return;
+      // timestamptz vem em UTC: orçamento das 21h de Brasília no último dia do mês caía no mês seguinte.
+      const dataLocal = (v) => {
+        const t = String(v || ""); if (!t || /^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+        const d = new Date(t); if (Number.isNaN(d.getTime())) return t;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      };
       const conc = c.linhas.filter(x => !isOrcamentoRsOculto(x)).map(x => ({
-        date: x.data_entrega || x.data, total: Number(x.total) || 0, vendedorId: x.vendedor_id,
-        gondola: Number(x.v_gondola) || 0, mpp: Number(x.v_mpp) || 0, outros: Number(x.v_outros) || 0,
+        date: x.data_entrega || dataLocal(x.data), total: Number(x.total) || 0, vendedorId: x.vendedor_id,
+        gondola: Number(x.v_gondola) || 0, mpp: Number(x.v_mpp) || 0, outros: Number(x.v_outros) || 0, frete: Number(x.frete) || 0,
+      }));
+      // Mesma regra das vendas: o orçamento RS do Ale fica fora para todos.
+      const todos = o.linhas.filter(x => !isOrcamentoRsOculto(x)).map(x => ({
+        status: String(x.status || ""), total: Number(x.total) || 0, ts: Date.parse(x.data), data: dataLocal(x.data),
       }));
       const map = new Map();
-      o.linhas.forEach(r => {
+      o.linhas.filter(r => !isOrcamentoRsOculto(r)).forEach(r => {
         const ts = Date.parse(r.data); if (Number.isNaN(ts)) return;
         // Orçamento ligado a um lead (lead_id) conta só para ele; os outros casam pelo telefone (mesma regra da aba Leads)
         const f = r.lead_id != null ? "lead:" + Number(r.lead_id) : fone8Casa(r.cliente_telefone);
@@ -9765,7 +9796,7 @@ function PainelPage({ user }) {
         map.set(f, e);
       });
       setErro(c.erro || l.erro || o.erro);
-      setOrcs(conc); setLeads(l.linhas); setOrcMap(map); setLoading(false);
+      setOrcs(conc); setLeads(l.linhas); setOrcMap(map); setTodosOrc(todos); setLoading(false);
     })();
     return () => { vivo = false; };
   }, [user?.id]);
@@ -9774,23 +9805,78 @@ function PainelPage({ user }) {
   const mesStr = (a, m) => a + "-" + String(m + 1).padStart(2, "0");
   const prev = mes === 0 ? { a: ano - 1, m: 11 } : { a: ano, m: mes - 1 };
   const pctBR = (n) => (Number(n) || 0).toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 });
+  const decimal = (v) => v.toFixed(1).replace(".", ",");
+  const plural = (n, um, varios) => `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
+  const mil = (v) => { const n = Number(v) || 0; const d = (x) => decimal(x).replace(/,0$/, ""); return n >= 999500 ? `R$ ${d(n / 1e6)} mi` : n >= 1000 ? `R$ ${d(n / 1000)} mil` : fmtMoney(n); };
 
-  const fatDeMes = (a, m) => {
+  // Mês aberto (o de hoje): a variação compara só os mesmos dias do mês anterior. Comparar 18 dias com
+  // um mês inteiro deixava tudo vermelho no começo de todo mês, mesmo com o mês indo bem.
+  const ehMesAtual = ano === _hoje.getFullYear() && mes === _hoje.getMonth();
+  const ehFuturo = ano > _hoje.getFullYear() || (ano === _hoje.getFullYear() && mes > _hoje.getMonth());
+  const diaHoje = _hoje.getDate();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const DIA = 86400000;
+  const diaStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const hojeStr = diaStr(_hoje);
+  const fatDeMes = (a, m, ateDia) => {
     const ms = mesStr(a, m);
-    const v = orcs.filter(o => String(o.date || "").slice(0, 7) === ms);
+    const v = orcs.filter(o => { const d = String(o.date || ""); return d.slice(0, 7) === ms && (!ateDia || Number(d.slice(8, 10)) <= ateDia); });
     const soma = (k) => v.reduce((s, o) => s + (o[k] || 0), 0);
-    return { fat: soma("total"), pedidos: v.length, gondola: soma("gondola"), mpp: soma("mpp"), outros: soma("outros") };
+    return { fat: soma("total"), pedidos: v.length, gondola: soma("gondola"), mpp: soma("mpp"), outros: soma("outros"), frete: soma("frete") };
   };
   const cur = fatDeMes(ano, mes);
   const ant = fatDeMes(prev.a, prev.m);
+  const corte = ehMesAtual ? diaHoje : 0; // 0 = mês fechado, compara mês inteiro com mês inteiro
+  const curCmp = corte ? fatDeMes(ano, mes, corte) : cur;
+  const antCmp = corte ? fatDeMes(prev.a, prev.m, corte) : ant;
+  const vsTxt = corte ? `vs 1 a ${corte} de ${MES_CURTO[prev.m]}` : "vs mês anterior";
   const ticket = cur.pedidos ? cur.fat / cur.pedidos : 0;
-  const ticketAnt = ant.pedidos ? ant.fat / ant.pedidos : 0;
+  const ticketCmp = curCmp.pedidos ? curCmp.fat / curCmp.pedidos : 0;
+  const ticketAntCmp = antCmp.pedidos ? antCmp.fat / antCmp.pedidos : 0;
+
+  // Orçamentos feitos (todos os status), pela data do orçamento.
+  const diaDe = (t) => Number(t.data.slice(8, 10));
+  const orcDoMesDe = (a, m) => todosOrc.filter(t => t.data.slice(0, 7) === mesStr(a, m));
+  const ehVendaOrc = (t) => t.status === "Concluído" || t.status === "Fazer Pedido"; // mesma regra da aba Leads
+  const orcDoMes = orcDoMesDe(ano, mes);
+  const orcDoMesVenda = orcDoMes.filter(ehVendaOrc).length;
+  const orcCmp = corte ? orcDoMes.filter(t => diaDe(t) <= corte).length : orcDoMes.length;
+  const orcAntCmp = orcDoMesDe(prev.a, prev.m).filter(t => !corte || diaDe(t) <= corte).length;
 
   const serie12 = (() => {
     let a = ano, m = mes; const seq = [];
     for (let i = 0; i < 12; i++) { seq.unshift({ a, m }); const p = m === 0 ? { a: a - 1, m: 11 } : { a, m: m - 1 }; a = p.a; m = p.m; }
-    return seq.map(({ a, m }) => { const f = fatDeMes(a, m); return { lab: MES_CURTO[m], a, y: f.fat, gondola: f.gondola, mpp: f.mpp, pedidos: f.pedidos }; });
+    return seq.map(({ a, m }) => { const f = fatDeMes(a, m); return { lab: MES_CURTO[m], a, y: f.fat, gondola: f.gondola, mpp: f.mpp, pedidos: f.pedidos, orcs: orcDoMesDe(a, m).length }; });
   })();
+  // A série começa no 1º mês com venda (no mínimo 3 meses): antes disso não havia vendas no sistema e os
+  // meses zerados só ocupavam espaço no gráfico e achatavam as linhas dos cartões.
+  const serie = (() => {
+    const ini = serie12.findIndex(s => s.pedidos > 0);
+    return ini < 0 ? serie12.slice(-6) : serie12.slice(Math.min(ini, serie12.length - 3));
+  })();
+  const desdeTxt = `desde ${serie[0].lab}/${String(serie[0].a).slice(2)}`;
+
+  // Dinheiro na mesa: retrato de AGORA (não depende do mês escolhido).
+  const agora = Date.now();
+  const somaOrc = (f) => { const l = todosOrc.filter(f); return { n: l.length, v: l.reduce((s, t) => s + t.total, 0) }; };
+  const mesa = {
+    pedido: somaOrc(t => t.status === "Fazer Pedido"),
+    d7: somaOrc(t => t.status === "Aguardando Retorno" && t.ts >= agora - 7 * DIA),
+    d30: somaOrc(t => t.status === "Aguardando Retorno" && t.ts >= agora - 30 * DIA),
+  };
+  const decididos90 = todosOrc.filter(t => t.ts >= agora - 90 * DIA && (ehVendaOrc(t) || ["Desistiu", "Fechou Concorrência", "Não Responde"].includes(t.status)));
+  const taxaFecha = decididos90.length ? decididos90.filter(ehVendaOrc).length / decididos90.length : null;
+  const perdaConc = somaOrc(t => t.status === "Fechou Concorrência" && t.ts >= agora - 90 * DIA);
+
+  // Entregas: agendadas no resto do mês aberto (já estão dentro do total) e as dos próximos 7 dias.
+  const agendado = ehMesAtual ? orcs.filter(o => { const d = String(o.date || "").slice(0, 10); return d.slice(0, 7) === mesStr(ano, mes) && d > hojeStr; }) : [];
+  const agendadoV = agendado.reduce((s, o) => s + o.total, 0);
+  const lim7Str = diaStr(new Date(_hoje.getFullYear(), _hoje.getMonth(), diaHoje + 7));
+  const em7 = orcs.filter(o => { const d = String(o.date || "").slice(0, 10); return d >= hojeStr && d <= lim7Str; });
+  const em7V = em7.reduce((s, o) => s + o.total, 0);
+  const verTodosLeads = user?.role === "admin"; // mesma regra da aba Leads: só o Alessandro vê os leads de todos
+  const primeiroNome = String(user?.name || "").trim().split(/\s+/)[0] || "";
+  const leadsPendentes = leads.filter(l => (l.status_atendimento || "pendente") === "pendente" && (verTodosLeads || String(l.consultor || "").trim() === primeiroNome)).length;
 
   const SELLERS = VENDEDORES.filter(v => v.id === "v1" || v.id === "v2" || v.id === "v3");
   const META_VEND = 100000; // meta mensal individual por vendedor (a aba Gráficos foi excluída em 18-nov)
@@ -9799,6 +9885,14 @@ function PainelPage({ user }) {
     nome: v.name, cor: cores[i] || COLORS.orange, meta: META_VEND,
     valor: orcs.filter(o => o.vendedorId === v.id && String(o.date || "").slice(0, 7) === mesStr(ano, mes)).reduce((s, o) => s + o.total, 0),
   }));
+  const META_EMPRESA = META_VEND * SELLERS.length; // 3 × R$ 100 mil = R$ 300 mil/mês (meta do Ale)
+  const pctMeta = cur.fat / META_EMPRESA;
+  const falta = Math.max(0, META_EMPRESA - cur.fat);
+  const diasRestam = ehMesAtual ? diasNoMes - diaHoje : 0;
+  const esperadoHoje = ehMesAtual ? META_EMPRESA * diaHoje / diasNoMes : null;
+  // Projeção simples: o que foi entregue até hoje, no mesmo ritmo até o fim do mês (nunca menos que o já vendido).
+  // Entregue até hoje + o maior entre o já agendado e o ritmo de hoje nos dias que faltam.
+  const projecao = ehMesAtual ? curCmp.fat + Math.max(agendadoV, (curCmp.fat / diaHoje) * (diasNoMes - diaHoje)) : cur.fat;
 
   const noMes = (l) => { const d = new Date(l.criado_em); return d.getFullYear() === ano && d.getMonth() === mes; };
   // Mesma regra da aba Leads (fimJanela): cada orçamento pertence a UM lead — da chegada dele
@@ -9821,7 +9915,6 @@ function PainelPage({ user }) {
   };
   const leadsMes = leads.filter(noMes);
   const fTotal = leadsMes.length;
-  const fAtend = leadsMes.filter(l => (l.status_atendimento || "pendente") !== "pendente").length;
   const fOrc = leadsMes.filter(l => converteu(l, "orc")).length;
   const fVenda = leadsMes.filter(l => converteu(l, "venda")).length;
   const conv = fTotal ? fVenda / fTotal : 0;
@@ -9849,17 +9942,20 @@ function PainelPage({ user }) {
   const sel = { padding: "9px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, color: COLORS.text, fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", outline: "none", cursor: "pointer" };
   const h2 = { fontFamily: "'DM Sans', sans-serif", color: COLORS.text, fontSize: 14, fontWeight: 600, margin: "0 0 2px" };
   const capS = { color: COLORS.textDim, fontSize: 11.5, margin: "0 0 14px", fontFamily: "'DM Sans', sans-serif" };
+  const rotuloCx = { color: COLORS.textMuted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em", fontFamily: "'DM Sans', sans-serif" };
+  const botaoIr = { background: "transparent", color: COLORS.orange, border: `1px solid ${COLORS.orange}66`, borderRadius: 20, padding: "6px 13px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" };
 
   const delta = (a, b) => {
     if (!b) return <span style={{ fontSize: 12, color: COLORS.textDim }}>—</span>;
     const d = (a - b) / b; const flat = Math.abs(d) < 0.001; const up = d >= 0;
     const cor = flat ? COLORS.textMuted : (up ? "#22C55E" : "#F87171");
-    return <span style={{ fontSize: 12, fontWeight: 700, color: cor, fontVariantNumeric: "tabular-nums" }}>{flat ? "•" : (up ? "▲" : "▼")} {pctBR(Math.abs(d))} <span style={{ color: COLORS.textDim, fontWeight: 500 }}>vs mês anterior</span></span>;
+    return <span style={{ fontSize: 12, fontWeight: 700, color: cor, fontVariantNumeric: "tabular-nums" }}>{flat ? "•" : (up ? "▲" : "▼")} {pctBR(Math.abs(d))} <span style={{ color: COLORS.textDim, fontWeight: 500 }}>{vsTxt}</span></span>;
   };
   const kpis = [
-    { lab: "Total vendido", num: cur.fat, formato: fmtMoney, a: cur.fat, b: ant.fat, serie: serie12.map(s => s.y), cor: "#F5A623" },
-    { lab: "Nº de pedidos", num: cur.pedidos, a: cur.pedidos, b: ant.pedidos, serie: serie12.map(s => s.pedidos), cor: "#A78BFA" },
-    { lab: "Ticket médio", num: ticket, formato: fmtMoney, a: ticket, b: ticketAnt, serie: serie12.map(s => (s.pedidos ? s.y / s.pedidos : 0)), cor: "#14B8A6" },
+    { lab: "Total vendido", num: cur.fat, formato: fmtMoney, a: curCmp.fat, b: antCmp.fat, serie: serie.map(s => s.y), cor: "#F5A623", nota: agendadoV > 0.5 ? `inclui ${mil(agendadoV)} já agendado` : "" },
+    { lab: "Nº de pedidos", num: cur.pedidos, a: curCmp.pedidos, b: antCmp.pedidos, serie: serie.map(s => s.pedidos), cor: "#A78BFA", nota: agendado.length ? `inclui ${plural(agendado.length, "agendado", "agendados")}` : "" },
+    { lab: "Ticket médio", num: ticket, formato: fmtMoney, a: ticketCmp, b: ticketAntCmp, serie: serie.map(s => (s.pedidos ? s.y / s.pedidos : 0)), cor: "#14B8A6" },
+    { lab: "Orçamentos feitos", num: orcDoMes.length, a: orcCmp, b: orcAntCmp, serie: serie.map(s => s.orcs), cor: "#60A5FA", nota: `${orcDoMesVenda} ${orcDoMesVenda === 1 ? "virou" : "viraram"} venda` },
   ];
   // Duelo do mês: Gôndolas × Mini Porta Palete (só R$ vendido; o Painel não mostra lucro nem margem).
   const duelo = cur.gondola + cur.mpp;
@@ -9867,7 +9963,6 @@ function PainelPage({ user }) {
   const lider = !duelo ? null : (cur.gondola >= cur.mpp ? "Gôndolas" : "Mini Porta Palete");
   const funil = [
     { nm: "Leads recebidos", v: fTotal, c: "#3B82F6" },
-    { nm: "Atendidos", v: fAtend, c: "#F472B6" },
     { nm: "Viraram orçamento", v: fOrc, c: "#FBBF24" },
     { nm: "Viraram venda", v: fVenda, c: "#14B8A6" },
   ];
@@ -9878,23 +9973,27 @@ function PainelPage({ user }) {
     { key: "mpp", nome: "Mini Porta Palete", cor: "#F5A623" },
   ];
   const dados3D = {
-    produtos: serie12.map(s => ({ lab: s.lab, a: s.a, gondola: s.gondola, mpp: s.mpp })),
+    produtos: serie.map(s => ({ lab: s.lab, a: s.a, gondola: s.gondola, mpp: s.mpp })),
     linhas: LINHAS_PROD,
     consultores: porConsultor,
     series: SERIES_LEAD,
-    meses: serie12,
+    meses: serie,
     funil,
     vendedores: porVendedor.map(v => ({ nome: v.nome, cor: v.cor, meta: v.meta, valor: v.valor })),
   };
   const aria3D = "Gráfico 3D interativo. " + ({
-    produtos: "Gôndolas e Mini Porta Palete por mês: " + serie12.map(s => `${s.lab} gôndolas ${fmtMoney(s.gondola)}, MPP ${fmtMoney(s.mpp)}`).join("; "),
+    produtos: "Gôndolas e Mini Porta Palete por mês: " + serie.map(s => `${s.lab} gôndolas ${fmtMoney(s.gondola)}, MPP ${fmtMoney(s.mpp)}`).join("; "),
     consultores: `Leads por consultor em ${MES_NOMES[mes]} de ${ano}: ` + porConsultor.map(c => `${c.nome}, ${c.recebidos} recebidos, ${c.orcamentos} viraram orçamento, ${c.vendas} viraram venda`).join("; "),
-    meses: "Faturamento nos últimos 12 meses: " + serie12.map(s => `${s.lab} ${fmtMoney(s.y)}`).join(", "),
+    meses: "Faturamento mês a mês: " + serie.map(s => `${s.lab} ${fmtMoney(s.y)}`).join(", "),
     funil: "Funil de leads: " + funil.map(f => `${f.nm} ${f.v}`).join(", "),
     vendedores: "Faturamento por vendedor: " + porVendedor.map(v => `${v.nome} ${fmtMoney(v.valor)} de ${fmtMoney(v.meta)} de meta`).join("; "),
   })[vista3D];
-  const decimal = (v) => v.toFixed(1).replace(".", ",");
   const milhar = (v) => v >= 999500 ? decimal(v / 1e6) + " mi" : v >= 9950 ? Math.round(v / 1000) + "k" : v >= 1000 ? decimal(v / 1000) + "k" : String(Math.round(v));
+  // Grade dos meses sem fileira pela metade: até 8 numa linha (3 no celular, últimos 6), senão 2 linhas iguais.
+  const gradeMeses = isMobile ? serie.slice(-6) : (serie.length > 8 && serie.length % 2 ? serie.slice(1) : serie);
+  const maxLinha = isMobile ? 3 : 8;
+  const colsGrade = gradeMeses.length <= maxLinha ? gradeMeses.length : Math.ceil(gradeMeses.length / 2);
+  const gradeEstilo = { display: "grid", gridTemplateColumns: `repeat(${colsGrade}, minmax(0, 1fr))`, gap: 8 };
 
   const legenda = (itens) => (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginBottom: 2 }}>
@@ -9912,11 +10011,18 @@ function PainelPage({ user }) {
         @keyframes p3dEntrar{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
         .p3d-entrar{animation:p3dEntrar .7s cubic-bezier(.2,.8,.25,1) backwards}
         @media (prefers-reduced-motion: reduce){.p3d-entrar{animation:none!important}}
+        .p-kpis{display:grid;gap:14px;grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px}
+        .p-dupla{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:16px}
+        .p-fatos{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px}
+        .p-mesa{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid ${COLORS.border};border-radius:12px;overflow:hidden;margin-top:14px}
+        .p-mesa>div+div{border-left:1px solid ${COLORS.border}}
+        @media (max-width:900px){.p-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (max-width:640px){.p-kpis,.p-dupla,.p-fatos,.p-mesa{grid-template-columns:1fr}.p-mesa>div+div{border-left:0;border-top:1px solid ${COLORS.border}}}
       `}</style>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
         <div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.white, fontSize: 26, margin: "0 0 3px" }}>Painel</h1>
-          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>Vendas, Gôndolas × MPP, vendedores e leads — {MES_NOMES[mes]} de {ano}</p>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>{ehMesAtual ? `${MES_NOMES[mes]} de ${ano} · hoje é dia ${diaHoje}, ${diasRestam ? `faltam ${plural(diasRestam, "dia", "dias")}` : "último dia do mês"}` : `Vendas, Gôndolas × MPP, vendedores e leads — ${MES_NOMES[mes]} de ${ano}`}</p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <select value={mes} onChange={e => setMes(+e.target.value)} style={sel}>{MES_NOMES.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
@@ -9930,14 +10036,86 @@ function PainelPage({ user }) {
         <div style={{ ...card, textAlign: "center", color: COLORS.danger, fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Não consegui carregar todos os dados. Recarregue a página para não ver números incompletos.</div>
       ) : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, marginBottom: 16 }}>
+          {/* Meta do mês: anel + manchete pronta + o que falta */}
+          <CartaoTilt atraso={0} estilo={{ ...cardPalco, marginBottom: 16, padding: isMobile ? "18px 16px" : "20px 24px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "170px 1fr", gap: isMobile ? 14 : 26, alignItems: "center", justifyItems: isMobile ? "center" : "stretch", textAlign: isMobile ? "center" : "left", fontFamily: "'DM Sans', sans-serif" }}>
+              <AnelMeta pct={pctMeta} marca={esperadoHoje != null ? diaHoje / diasNoMes : null} tam={isMobile ? 150 : 170} />
+              <div style={{ width: "100%", minWidth: 0 }}>
+                <div style={rotuloCx}>Meta do mês · {mil(META_EMPRESA)}</div>
+                <div style={{ fontSize: isMobile ? 19 : 22, fontWeight: 700, color: COLORS.white, margin: "6px 0 5px", lineHeight: 1.3, textWrap: "balance" }}>
+                  {ehFuturo ? <>{mil(cur.fat)} já agendados para {MES_NOMES[mes]}.</>
+                    : ehMesAtual ? (falta > 0
+                      ? <>{mil(cur.fat)} vendidos. Faltam <span style={{ color: COLORS.orange }}>{mil(falta)}</span>{diasRestam ? <> em {plural(diasRestam, "dia", "dias")}.</> : <> hoje.</>}</>
+                      : <>Meta batida: <span style={{ color: COLORS.success }}>{mil(cur.fat)}</span> vendidos.</>)
+                    : (falta > 0 ? <>{MES_NOMES[mes]} fechou em {mil(cur.fat)}, {pctBR(pctMeta)} da meta.</> : <>{MES_NOMES[mes]} fechou em <span style={{ color: COLORS.success }}>{mil(cur.fat)}</span>: meta batida.</>)}
+                </div>
+                <p style={{ color: COLORS.textMuted, fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>
+                  {ehFuturo ? "Entregas já marcadas para este mês."
+                    : ehMesAtual ? (pctMeta >= diaHoje / diasNoMes
+                      ? `À frente do calendário: no dia ${diaHoje} de ${diasNoMes} o esperado era ${mil(esperadoHoje)}. O traço branco no anel marca esse ponto.`
+                      : `Pelo calendário (dia ${diaHoje} de ${diasNoMes}) o esperado já seria ${mil(esperadoHoje)}, ${pctBR(diaHoje / diasNoMes)} da meta. O traço branco no anel marca esse ponto.`)
+                    : (falta > 0 ? `Ficaram faltando ${mil(falta)} para os ${mil(META_EMPRESA)}.` : `Passou a meta em ${mil(cur.fat - META_EMPRESA)}.`)}
+                </p>
+                {ehMesAtual && (
+                  <div className="p-fatos" style={{ textAlign: "left" }}>
+                    {[
+                      { l: falta > 0 ? (diasRestam ? "Precisa vender por dia" : "Falta vender hoje") : "Acima da meta", v: falta > 0 ? mil(diasRestam ? falta / diasRestam : falta) : mil(cur.fat - META_EMPRESA), cor: falta > 0 ? COLORS.white : COLORS.success },
+                      { l: `Já agendado até ${diasNoMes}/${MES_CURTO[mes]}`, v: agendado.length ? `${mil(agendadoV)} · ${plural(agendado.length, "entrega", "entregas")}` : "Nenhuma entrega", cor: COLORS.white },
+                      { l: "No ritmo de hoje, fecha em", v: `≈ ${mil(projecao)}`, cor: projecao >= META_EMPRESA ? COLORS.success : COLORS.orange },
+                    ].map(f => (
+                      <div key={f.l} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: "10px 12px" }}>
+                        <div style={{ color: COLORS.textDim, fontSize: 11.5 }}>{f.l}</div>
+                        <div style={{ color: f.cor, fontSize: 16, fontWeight: 800, marginTop: 3, fontVariantNumeric: "tabular-nums" }}>{f.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CartaoTilt>
+
+          {/* Dinheiro na mesa: orçamentos que ainda podem virar venda (retrato de agora) */}
+          <CartaoTilt atraso={90} estilo={{ ...card, marginBottom: 16, padding: isMobile ? "16px 14px" : "18px 22px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "6px 14px", flexWrap: "wrap", fontFamily: "'DM Sans', sans-serif" }}>
+              <div>
+                <h2 style={{ ...h2, fontSize: 15 }}>Dinheiro na mesa</h2>
+                <p style={{ ...capS, margin: 0 }}>Orçamentos que ainda podem virar venda, hoje (não muda com o mês escolhido)</p>
+              </div>
+              {taxaFecha != null && <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Fecha <b style={{ color: COLORS.success }}>{pctBR(taxaFecha)}</b> dos orçamentos decididos (últimos 90 dias)</span>}
+            </div>
+            <div className="p-mesa">
+              {(() => {
+                const etapas = [
+                  { lab: "Fazer Pedido", d: mesa.pedido, txt: "falta só o pedido", cor: COLORS.orange, barra: COLORS.orange },
+                  { lab: "Aguardando · últimos 7 dias", d: mesa.d7, txt: "cobrar retorno agora", cor: COLORS.textMuted, barra: "#FFD27A" },
+                  { lab: "Aguardando · últimos 30 dias", d: mesa.d30, txt: mesa.d30.v >= META_EMPRESA ? `${decimal(mesa.d30.v / META_EMPRESA)}× a meta do mês` : `${pctBR(mesa.d30.v / META_EMPRESA)} da meta do mês`, cor: COLORS.textMuted, barra: "linear-gradient(90deg, #B9791A, #F5A623)" },
+                ];
+                const maxV = Math.max(1, ...etapas.map(e => e.d.v));
+                return etapas.map(e => (
+                  <div key={e.lab} style={{ background: COLORS.bg, padding: "14px 16px", fontFamily: "'DM Sans', sans-serif", minWidth: 0 }}>
+                    <div style={{ ...rotuloCx, color: e.cor }}>{e.lab}</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: isMobile ? 23 : 26, color: COLORS.white, margin: "6px 0 2px", fontVariantNumeric: "tabular-nums" }}><Contador valor={e.d.v} formato={mil} /></div>
+                    <div style={{ color: COLORS.textDim, fontSize: 12 }}>{plural(e.d.n, "orçamento", "orçamentos")} · {e.txt}</div>
+                    <div style={{ height: 6, borderRadius: 3, background: COLORS.border, marginTop: 10, overflow: "hidden" }}><div style={{ height: "100%", width: `${(e.d.v / maxV) * 100}%`, background: e.barra, transition: "width 1s cubic-bezier(.2,.8,.25,1)" }} /></div>
+                  </div>
+                ));
+              })()}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 12, fontFamily: "'DM Sans', sans-serif" }}>
+              <span style={{ color: COLORS.textMuted, fontSize: 12 }}>Perdido para a concorrência (últimos 90 dias): <b style={{ color: perdaConc.n ? COLORS.danger : COLORS.textMuted }}>{perdaConc.n ? `${mil(perdaConc.v)} · ${plural(perdaConc.n, "orçamento", "orçamentos")}` : "nenhum"}</b></span>
+              {irPara && canAccess(user, "orders") && <button onClick={() => irPara("orders")} style={botaoIr}>Ver orçamentos →</button>}
+            </div>
+          </CartaoTilt>
+
+          <div className="p-kpis">
             {kpis.map((k, i) => (
-              <CartaoTilt key={i} estilo={card} atraso={i * 90}>
-                <div style={{ color: COLORS.textMuted, fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".05em", fontFamily: "'DM Sans', sans-serif" }}>{k.lab}</div>
+              <CartaoTilt key={i} estilo={card} atraso={150 + i * 90}>
+                <div style={rotuloCx}>{k.lab}</div>
                 <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 27, color: COLORS.white, margin: "7px 0 6px", fontVariantNumeric: "tabular-nums" }}><Contador valor={k.num} formato={k.formato} /></div>
                 {delta(k.a, k.b)}
-                <div style={{ marginTop: 10 }}><MiniLinha valores={k.serie} cor={k.cor} /></div>
-                <div style={{ color: COLORS.textDim, fontSize: 10.5, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>últimos 12 meses</div>
+                <div style={{ color: COLORS.textDim, fontSize: 11.5, marginTop: 3, minHeight: 15, fontFamily: "'DM Sans', sans-serif" }}>{k.nota || ""}</div>
+                <div style={{ marginTop: 8 }}><MiniLinha valores={k.serie} cor={k.cor} /></div>
+                <div style={{ color: COLORS.textDim, fontSize: 10.5, marginTop: 3, fontFamily: "'DM Sans', sans-serif" }}>{desdeTxt}</div>
               </CartaoTilt>
             ))}
           </div>
@@ -9946,18 +10124,18 @@ function PainelPage({ user }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
               <div>
                 <h2 style={{ ...h2, fontSize: 15 }}>Gôndolas × Mini Porta Palete</h2>
-                <p style={{ ...capS, margin: 0 }}>R$ vendido em {MES_NOMES[mes]}/{ano}, pela data da entrega</p>
+                <p style={{ ...capS, margin: 0 }}>R$ vendido em {MES_NOMES[mes]}/{ano} sem o frete, pela data da entrega</p>
               </div>
               {lider && <span style={{ fontSize: 12, fontWeight: 700, color: "#000", background: pG >= 0.5 ? "#3B82F6" : "#F5A623", padding: "4px 10px", borderRadius: 20, fontFamily: "'DM Sans', sans-serif" }}>{lider} na frente</span>}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? 10 : 18 }}>
-              {[{ k: "gondola", nome: "Gôndolas", cor: "#3B82F6", v: cur.gondola, b: ant.gondola, al: "left" }, { k: "mpp", nome: "Mini Porta Palete", cor: "#F5A623", v: cur.mpp, b: ant.mpp, al: "right" }].map(l => (
+              {[{ k: "gondola", nome: "Gôndolas", cor: "#3B82F6", v: cur.gondola, a: curCmp.gondola, b: antCmp.gondola, al: "left" }, { k: "mpp", nome: "Mini Porta Palete", cor: "#F5A623", v: cur.mpp, a: curCmp.mpp, b: antCmp.mpp, al: "right" }].map(l => (
                 <div key={l.k} style={{ textAlign: l.al, fontFamily: "'DM Sans', sans-serif" }}>
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 7, color: COLORS.textMuted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>
                     <span style={{ width: 10, height: 10, borderRadius: 3, background: l.cor, boxShadow: `0 0 10px ${l.cor}` }} />{l.nome}
                   </div>
                   <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: isMobile ? 21 : 30, color: COLORS.white, margin: "6px 0 4px", fontVariantNumeric: "tabular-nums", textShadow: `0 0 24px ${l.cor}55` }}><Contador valor={l.v} formato={fmtMoney} /></div>
-                  {delta(l.v, l.b)}
+                  {delta(l.a, l.b)}
                 </div>
               ))}
             </div>
@@ -9970,10 +10148,37 @@ function PainelPage({ user }) {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums" }}>
               <span style={{ color: "#6EA8FF" }}>{duelo ? pctBR(pG) : "—"}</span>
-              <span style={{ color: COLORS.textDim, fontWeight: 500 }}>{cur.outros > 0.5 ? `Outros produtos: ${fmtMoney(cur.outros)}` : duelo ? "" : "Nenhuma entrega de gôndola ou MPP neste mês"}</span>
+              <span style={{ color: COLORS.textDim, fontWeight: 500, textAlign: "center", padding: "0 8px" }}>{duelo || cur.outros > 0.5 ? [cur.outros > 0.5 ? `Outros produtos: ${fmtMoney(cur.outros)}` : "", cur.frete > 0.5 ? `Frete: ${fmtMoney(cur.frete)}` : ""].filter(Boolean).join(" · ") : "Nenhuma entrega de gôndola ou MPP neste mês"}</span>
               <span style={{ color: "#FFD27A" }}>{duelo ? pctBR(1 - pG) : "—"}</span>
             </div>
           </CartaoTilt>
+
+          <div className="p-dupla">
+            <CartaoTilt atraso={260} estilo={card}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={h2}>Próximas entregas</h2>
+                  <p style={{ ...capS, margin: 0 }}>Montagens marcadas de hoje até {lim7Str.slice(8, 10)}/{lim7Str.slice(5, 7)}</p>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ color: COLORS.white, fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{em7.length ? plural(em7.length, "entrega", "entregas") : "Nenhuma"}</div>
+                  {em7.length > 0 && <div style={{ color: COLORS.textMuted, fontSize: 12.5, fontVariantNumeric: "tabular-nums" }}>{mil(em7V)}</div>}
+                </div>
+              </div>
+            </CartaoTilt>
+            <CartaoTilt atraso={330} estilo={card}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={h2}>Leads pendentes</h2>
+                  <p style={{ ...capS, margin: 0 }}>{verTodosLeads ? "Sem o primeiro contato, agora" : "Seus leads sem o primeiro contato"}</p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, borderRadius: 20, padding: "4px 11px", fontVariantNumeric: "tabular-nums", color: leadsPendentes ? COLORS.danger : COLORS.success, background: leadsPendentes ? "rgba(248,113,113,.14)" : "rgba(52,211,153,.12)" }}>{leadsPendentes ? plural(leadsPendentes, "lead", "leads") : "Nenhum"}</span>
+                  {leadsPendentes > 0 && irPara && canAccess(user, "leads") && <button onClick={() => irPara("leads")} style={botaoIr}>Abrir →</button>}
+                </div>
+              </div>
+            </CartaoTilt>
+          </div>
 
           <div className="p3d-entrar" style={{ ...cardPalco, animationDelay: "120ms" }}>
             <Arena3D vista={vista3D} aoTrocarVista={setVista3D} dados={dados3D} aria={aria3D} isMobile={isMobile} cabecalho={(
@@ -9992,9 +10197,9 @@ function PainelPage({ user }) {
             <div style={{ marginTop: 14 }}>
               {vista3D === "produtos" && (
                 <>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))", gap: 8 }}>
-                    {serie12.map((s, i) => {
-                      const ultimo = i === serie12.length - 1;
+                  <div style={gradeEstilo}>
+                    {gradeMeses.map((s, i) => {
+                      const ultimo = i === gradeMeses.length - 1;
                       const tot = s.gondola + s.mpp;
                       return (
                         <div key={`${s.a}-${s.lab}`} style={{ background: COLORS.bg, border: `1px solid ${ultimo ? COLORS.orange : COLORS.border}`, borderRadius: 10, padding: "8px 10px", fontFamily: "'DM Sans', sans-serif" }}>
@@ -10038,9 +10243,9 @@ function PainelPage({ user }) {
                 </>
               )}
               {vista3D === "meses" && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))", gap: 8 }}>
-                  {serie12.map((s, i) => {
-                    const ultimo = i === serie12.length - 1;
+                <div style={gradeEstilo}>
+                  {gradeMeses.map((s, i) => {
+                    const ultimo = i === gradeMeses.length - 1;
                     return (
                       <div key={`${s.a}-${s.lab}`} title={fmtMoney(s.y)} style={{ background: COLORS.bg, border: `1px solid ${ultimo ? COLORS.orange : COLORS.border}`, borderRadius: 10, padding: "8px 10px", fontFamily: "'DM Sans', sans-serif" }}>
                         <div style={{ color: ultimo ? COLORS.orange : COLORS.textMuted, fontSize: 11.5, fontWeight: 600 }}>{s.lab}/{String(s.a).slice(2)}</div>
@@ -10062,7 +10267,7 @@ function PainelPage({ user }) {
                       </div>
                     ))}
                   </div>
-                  <p style={{ ...capS, margin: "10px 0 0" }}>Conversão: <b style={{ color: "#22C55E" }}>{pctBR(conv)}</b> dos leads viraram venda</p>
+                  <p style={{ ...capS, margin: "10px 0 0" }}>Conversão: <b style={{ color: "#22C55E" }}>{pctBR(conv)}</b> dos leads viraram venda · dos que viraram orçamento, <b style={{ color: "#22C55E" }}>{pctBR(fOrc ? fVenda / fOrc : 0)}</b> fecharam</p>
                 </>
               )}
               {vista3D === "vendedores" && (
@@ -14940,7 +15145,7 @@ export default function App() {
       {page === "financeiro" && !canAccess(user, "financeiro") && <Login onLogin={login} setPage={setPage} />}
       {page === "dre" && canAccess(user, "dre") && <DrePage />}
       {page === "dre" && !canAccess(user, "dre") && <Login onLogin={login} setPage={setPage} />}
-      {page === "painel" && canAccess(user, "painel") && <PainelPage user={user} />}
+      {page === "painel" && canAccess(user, "painel") && <PainelPage user={user} irPara={setPage} />}
       {page === "painel" && !canAccess(user, "painel") && <Login onLogin={login} setPage={setPage} />}
       {page === "logistica" && canAccess(user, "logistica") && <LogisticaPage user={user} />}
       {page === "logistica" && !canAccess(user, "logistica") && <Login onLogin={login} setPage={setPage} />}
